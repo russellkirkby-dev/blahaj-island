@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blåhaj Island — Cozy 3D Co-op Adventure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Floating 3D World Labels Container (NPC Names, Speech Bubbles, Landmarks) -->
+  <div id="world-labels"></div>
+
+  <!-- Over-The-Shoulder Crosshair / Reticle -->
+  <div id="reticle" title="Over-the-shoulder aim reticle">
+    <div class="reticle-dot"></div>
+  </div>
+
+  <!-- ==================== MMO HUD OVERLAY ==================== -->
+  <div id="hud">
+    <!-- TOP LEFT: Active Shark Unit Frame & Party Co-op Frame -->
+    <div class="hud-top-left">
+      <div class="unit-frame" id="player-unit-frame">
+        <div class="portrait-ring">
+          <img id="hud-shark-portrait" src="assets/gallery/Hermes.png" alt="Active Shark" />
+          <span class="shark-tier-badge" id="hud-shark-key">1</span>
+        </div>
+        <div class="unit-details">
+          <div class="unit-name-row">
+            <h2 id="hud-shark-name">Hermes</h2>
+            <span class="unit-title" id="hud-shark-title">The Weary Guide</span>
+          </div>
+          <div class="stat-bars">
+            <div class="stat-bar warmth-bar" title="Plush Stuffing Coherence (Reduced by Volcano Dungeon traps, restored by Tea & Laundry)">
+              <div class="stat-fill" id="bar-warmth" style="width: 100%;"></div>
+              <span class="stat-label" id="label-warmth">Stuffing Coherence · 100%</span>
+            </div>
+            <div class="stat-bar tea-bar" title="Sacred Tea Spirit & Comfort">
+              <div class="stat-fill" id="bar-tea" style="width: 88%;"></div>
+              <span class="stat-label" id="label-tea">Tea Comfort · Steaming (88%)</span>
+            </div>
+          </div>
+          <div class="unit-quote" id="hud-shark-quote">“I'm tired, sharkitty… but the road home is always worth the trip.”</div>
+        </div>
+      </div>
+
+      <!-- Co-op Partner Frame (NZ <-> LA Portal Link) -->
+      <div class="party-frame" id="coop-party-frame">
+        <div class="party-status-dot" id="coop-dot"></div>
+        <div class="party-info">
+          <div class="party-title" id="coop-status-title">Solo Island Instance</div>
+          <div class="party-sub" id="coop-status-sub">Press <strong>[P]</strong> to open a Portal between LA &amp; NZ</div>
+        </div>
+        <button class="hud-mini-btn" id="btn-open-portal-hud">Portal [P]</button>
+      </div>
+    </div>
+
+    <!-- TOP CENTER: MMO Compass, Current Zone & Volcano Harmony -->
+    <div class="hud-top-center">
+      <div class="zone-banner">
+        <span class="zone-sub">THE WATER THAT DOTH NOT WET</span>
+        <h1 id="hud-zone-name">Sacred Tea House Terrace</h1>
+      </div>
+      <div class="compass-strip" id="compass-strip">
+        <div class="compass-track" id="compass-track">
+          <span data-deg="0" class="c-cardinal">N · VOLCANO &amp; REAR WHARF</span>
+          <span data-deg="45">NE · OBSERVATORY &amp; NIMUE ISLE</span>
+          <span data-deg="90" class="c-cardinal">E · PORTAL GATE &amp; HERMES ATOLL</span>
+          <span data-deg="135">SE · ENDLESS PIER</span>
+          <span data-deg="180" class="c-cardinal">S · TEA DOCKS &amp; HARBOUR</span>
+          <span data-deg="225">SW · SPHERICAL FOODS &amp; SOLOMON CAY</span>
+          <span data-deg="270" class="c-cardinal">W · LAUNDRY SHRINE</span>
+          <span data-deg="315">NW · VOLCANO &amp; HIRAM ISLE</span>
+        </div>
+        <div class="compass-needle">▼</div>
+      </div>
+      <div class="island-meters">
+        <div class="meter-pill volcano-pill" title="Honor the Volcano with offerings at the Temple!">
+          <span class="pill-icon">🌋</span>
+          <span>Volcano: <strong id="val-volcano">72%</strong></span>
+        </div>
+        <div class="meter-pill carrot-pill" title="Bump Beach-Shorts Carrots off the high Volcano Temple Balcony!">
+          <span class="pill-icon">🥕</span>
+          <span>Carrots Knocked: <strong id="val-carrots">0</strong></span>
+        </div>
+        <div class="meter-pill birb-pill" title="Press [B] to toss warm Breb for the Birbs!">
+          <span class="pill-icon">🐦</span>
+          <span>Birbs Fed: <strong id="val-birbs">0</strong></span>
+        </div>
+        <div class="meter-pill trial-pill" id="pill-open-upgrades" title="Survive the Volcano Trial Dungeon or knock 5 Carrots to earn Trial Points! Click or press [U] to spend.">
+          <span class="pill-icon">⚔️</span>
+          <span>Trial Points: <strong id="val-trial-pts">0 Pts</strong> <u>[U]</u></span>
+        </div>
+        <div class="meter-pill seam-pill" title="Mend glowing rifts in the Great Seam!">
+          <span class="pill-icon">🪡</span>
+          <span>Seam: <strong id="val-seam">3 / 6</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP RIGHT: Modular Mode Switcher & Cozy Quest Tracker -->
+    <div class="hud-top-right">
+      <div class="module-tabs" title="Modular Game Architecture">
+        <button class="mod-tab active" data-mod="sandbox">Phase 1: Cozy &amp; Trials</button>
+        <button class="mod-tab" data-mod="emergencies">Phase 2: Emergencies</button>
+        <button class="mod-tab" data-mod="sharkweek">Phase 3: Shark Week</button>
+      </div>
+
+      <div class="quest-tracker" id="quest-tracker">
+        <div class="quest-header">
+          <span class="quest-icon">📜</span>
+          <div>
+            <h3 id="quest-module-title">Island Sandbox &amp; Trials</h3>
+            <p id="quest-module-sub">Explore Blåhaj Island, feed Birbs &amp; brave the Volcano</p>
+          </div>
+        </div>
+        <ul class="quest-list" id="quest-list"></ul>
+        <div class="controls-hint">
+          <div><kbd>WASD</kbd> Move · <kbd>Right-Click Drag</kbd> or <kbd>Mouse</kbd> Look · <kbd>Scroll</kbd> Zoom</div>
+          <div><kbd>3</kbd> + <kbd>C</kbd> Hiram Builder · <kbd>R</kbd> Rotate · <kbd>X</kbd> Remove · <kbd>B</kbd> Breb · <kbd>E</kbd> Interact/Place</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER INTERACTION PROMPT -->
+    <div id="interaction-prompt" class="hidden">
+      <span class="key-badge">E</span>
+      <span id="interaction-text">Interact</span>
+    </div>
+
+    <!-- TOAST NOTIFICATION BANNER -->
+    <div id="toast-banner" class="hidden">
+      <div class="toast-subtitle" id="toast-sub">RITUAL COMPLETE</div>
+      <div class="toast-title" id="toast-title">A Cup of Infinite Comfort</div>
+    </div>
+
+    <!-- BOTTOM LEFT: Quick Chat / Sharkitty Emote Log -->
+    <div class="hud-bottom-left">
+      <div class="chat-log" id="chat-log">
+        <div class="chat-msg system">✨ Welcome to the <strong>Blåhaj Archipelago</strong>! Switch to <strong>Hiram [3]</strong> and press <strong>[C]</strong> to open the <strong>Categorized Master Builder Toolbar</strong>—or sail/bridge out to the <strong>4 Outer Sanctuary Islands</strong>!</div>
+        <div class="chat-msg lore">🔧 <em>Hiram:</em> “With the Sacred Allen Key, we can bridge the ocean, build cozy cabins, or link Pocket Portals across every island!”</div>
+      </div>
+      <form id="chat-form" autocomplete="off">
+        <input type="text" id="chat-input" placeholder="Press Enter to say something (or 'Sharkitty?')..." maxlength="140" />
+        <button type="submit">Say</button>
+      </form>
+    </div>
+
+    <!-- BOTTOM CENTER: HIRAM'S CATEGORIZED MASTER BUILDER TOOLBAR + MMO ACTION BAR -->
+    <div class="hud-bottom-center">
+      <!-- HIRAM THE BUILDER: CATEGORIZED ARCHITECTURAL TOOLBAR (Toggled with [C] when playing Hiram!) -->
+      <div id="builder-panel" class="builder-panel hidden">
+        <div class="builder-header">
+          <div class="builder-title-wrap">
+            <span class="builder-badge">🔧 HIRAM MASTER BUILDER</span>
+            <span class="builder-currencies" id="builder-currency-summary">
+              🐦 <strong id="b-cur-birbs">0</strong> Birb · 🥕 <strong id="b-cur-carrots">0</strong> Carrot · ⚔️ <strong id="b-cur-trials">1</strong> Trial
+            </span>
+          </div>
+          <div class="builder-controls-row">
+            <button type="button" class="freebuild-toggle-btn" id="btn-toggle-freebuild" title="Toggle Sacred Allen Key Free-Build Mode [V]">
+              ✨ Free-Build: <strong id="freebuild-state-txt">OFF</strong> <kbd>V</kbd>
+            </button>
+            <span class="builder-keys-hint">
+              <kbd>E</kbd>/<kbd>Click</kbd> Build · <kbd>R</kbd> Rotate · <kbd>X</kbd> Remove · <kbd>C</kbd> Close
+            </span>
+          </div>
+        </div>
+
+        <div class="builder-cat-tabs" id="builder-cat-tabs"></div>
+        <div class="builder-items-row" id="builder-items-row"></div>
+      </div>
+
+      <div class="action-bar">
+        <!-- 4 Playable Blue Sharks -->
+        <button class="action-slot shark-slot active" data-shark="hermes" id="slot-1" title="[1] Play as Hermes (The Weary Guide) — Opens Portals & reveals Between paths">
+          <span class="slot-key">1</span>
+          <img src="assets/gallery/Hermes.png" alt="Hermes" />
+          <span class="slot-name">Hermes</span>
+          <span class="slot-power">Portal Guide</span>
+        </button>
+
+        <button class="action-slot shark-slot" data-shark="solomon" id="slot-2" title="[2] Play as Solomon (The Star Shark) — Summons Sacred Tea & Spherical Foods">
+          <span class="slot-key">2</span>
+          <img src="assets/gallery/Solomon.png" alt="Solomon" />
+          <span class="slot-name">Solomon</span>
+          <span class="slot-power">Star Chef</span>
+        </button>
+
+        <button class="action-slot shark-slot" data-shark="hiram" id="slot-3" title="[3] Play as Hiram (The Builder) — Unlocks Master Builder Mode [C] & Sacred Allen Key!">
+          <span class="slot-key">3</span>
+          <img src="assets/gallery/Hiram.png" alt="Hiram" />
+          <span class="slot-name">Hiram</span>
+          <span class="slot-power">Master Builder</span>
+        </button>
+
+        <button class="action-slot shark-slot" data-shark="nimue" id="slot-4" title="[4] Play as Nimue (An Angel) — Needle of Restoration & Lost Constellations">
+          <span class="slot-key">4</span>
+          <img src="assets/gallery/Nimue.png" alt="Nimue" />
+          <span class="slot-name">Nimue</span>
+          <span class="slot-power">Seam Weaver</span>
+        </button>
+
+        <div class="bar-divider"></div>
+
+        <!-- Signature Actions -->
+        <button class="action-slot ability-slot" id="slot-c" title="[C] Toggle Hiram's Master Builder Mode (Requires Hiram [3])">
+          <span class="slot-key">C</span>
+          <div class="slot-emoji">🔧🏗️</div>
+          <span class="slot-name">Build</span>
+          <span class="slot-power" id="slot-c-sub">Hiram [3]</span>
+        </button>
+
+        <button class="action-slot ability-slot" id="slot-q" title="[Q] Cast Active Shark's Signature Relic Power!">
+          <span class="slot-key">Q</span>
+          <div class="slot-emoji" id="ability-icon">🌀</div>
+          <span class="slot-name" id="ability-name">Open Portal</span>
+          <span class="slot-power">Relic Power</span>
+        </button>
+
+        <button class="action-slot ability-slot" id="slot-b" title="[B] Toss Warm Breb to feed the plump Birbs!">
+          <span class="slot-key">B</span>
+          <div class="slot-emoji">🥖🐦</div>
+          <span class="slot-name">Toss Breb</span>
+          <span class="slot-power">Feed Birbs</span>
+        </button>
+
+        <button class="action-slot ability-slot" id="slot-f" title="[F] Beep Noses with soft side fins!">
+          <span class="slot-key">F</span>
+          <div class="slot-emoji">🦈💕</div>
+          <span class="slot-name">Beep Nose</span>
+          <span class="slot-power">Be Nice</span>
+        </button>
+
+        <button class="action-slot ability-slot" id="slot-g" title="[G] Exclaim 'Shonk!' or 'Sharkitty?' with a plush hop">
+          <span class="slot-key">G</span>
+          <div class="slot-emoji">✨</div>
+          <span class="slot-name">“Shonk!”</span>
+          <span class="slot-power">Emote</span>
+        </button>
+
+        <div class="bar-divider"></div>
+
+        <button class="action-slot util-slot" id="slot-u" title="[U] Spend Volcano Trial Points to upgrade your Sharks!">
+          <span class="slot-key">U</span>
+          <div class="slot-emoji">⚔️</div>
+          <span class="slot-name">Upgrades</span>
+          <span class="slot-power" id="slot-u-sub">0 Trial Pts</span>
+        </button>
+
+        <button class="action-slot util-slot" id="slot-m" title="[M] Open Blåhaj Island Tapestry Gallery & Lore Codex">
+          <span class="slot-key">M</span>
+          <div class="slot-emoji">🖼️</div>
+          <span class="slot-name">Gallery</span>
+          <span class="slot-power">14 Paintings</span>
+        </button>
+
+        <button class="action-slot util-slot" id="slot-p" title="[P] Connect across the ocean (LA <-> NZ Co-op Portal)">
+          <span class="slot-key">P</span>
+          <div class="slot-emoji">🌌</div>
+          <span class="slot-name">Co-op</span>
+          <span class="slot-power">NZ ↔ LA</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. DIALOGUE / RITUAL / PIER NOTE MODAL -->
+  <div class="modal-backdrop hidden" id="dialogue-modal">
+    <div class="modal-card dialogue-card">
+      <div class="dialogue-portrait-wrap">
+        <img id="dlg-portrait" src="assets/gallery/Solomon.png" alt="Speaker" />
+      </div>
+      <div class="dialogue-body">
+        <div class="dialogue-speaker-tag" id="dlg-role">LOCKED CANON · BLÅHAJ ISLAND</div>
+        <h2 id="dlg-speaker">Solomon — The Star Shark</h2>
+        <p id="dlg-text">“Every meal is a performance. Every friend is the best kind of audience.”</p>
+        <div id="dlg-custom-area" class="hidden"></div>
+        <div class="dialogue-actions" id="dlg-actions">
+          <button class="btn-primary" id="dlg-close-btn">Thank you, Sharkitty [E]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. GREAT PORTAL GATE: NZ <-> LA ONLINE CO-OP MODAL -->
+  <div class="modal-backdrop hidden" id="portal-modal">
+    <div class="modal-card portal-card">
+      <button class="modal-close-x" id="close-portal-modal">✕</button>
+      <div class="portal-header">
+        <span class="portal-badge">THE GREAT PORTAL GATE · DIFFERENT SHORES, SAME OCEAN</span>
+        <h2>Cross-Ocean Portal Link (Los Angeles ↔ New Zealand)</h2>
+        <p>Send the live Portal URL below to Helen on Discord! As soon as you both have the game open, you are <strong>automatically linked</strong> in Room <code>SHONK-LOVE</code>.</p>
+      </div>
+      <div class="portal-box" style="margin-bottom: 14px; border-color: #3be88f;">
+        <h3>✨ Direct Invite Link for Helen (Auto-Connects on Open!)</h3>
+        <p>Copy this public HTTPS tunnel URL and paste it to Helen in Discord:</p>
+        <div class="input-row">
+          <input type="text" id="tunnel-share-url" value="Starting Cloudflare Tunnel..." readonly style="text-transform: none; color: #52f29c;" />
+          <button class="btn-primary" id="btn-copy-tunnel-url">Copy Link 📋</button>
+        </div>
+      </div>
+      <div class="portal-grid">
+        <div class="portal-box">
+          <h3>1. Host / Switch Portal Room</h3>
+          <p>Both players start in <code>SHONK-LOVE</code> automatically, or you can switch rooms:</p>
+          <div class="input-row">
+            <input type="text" id="host-room-code" value="SHONK-LOVE" maxlength="20" />
+            <button class="btn-primary" id="btn-host-portal">Set Room</button>
+          </div>
+          <div class="portal-hint">Suggested codes: <code>SHONK-LOVE</code>, <code>HELEN-RUSSELL</code>, <code>SACRED-TEA</code></div>
+        </div>
+
+        <div class="portal-box">
+          <h3>2. Join Partner's Room Code</h3>
+          <p>Enter the same Portal Code to link across the Great Seam:</p>
+          <div class="input-row">
+            <input type="text" id="join-room-code" value="SHONK-LOVE" maxlength="20" />
+            <button class="btn-accent" id="btn-join-portal">Step Through</button>
+          </div>
+          <div class="portal-hint">Synced via built-in Co-op Relay + WebRTC PeerJS.</div>
+        </div>
+      </div>
+      <div class="portal-status-bar" id="portal-modal-status">
+        Status: Portal Open in Room SHONK-LOVE — Waiting for partner to open the link!
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. SACRED TAPESTRY & ARTWORK GALLERY MODAL [M] -->
+  <div class="modal-backdrop hidden" id="gallery-modal">
+    <div class="modal-card gallery-card">
+      <button class="modal-close-x" id="close-gallery-modal">✕</button>
+      <div class="portal-header">
+        <span class="portal-badge">NIMUE'S QUIET LIBRARY &amp; ARCHIVE</span>
+        <h2>Sacred Tapestries of Blåhaj Island</h2>
+        <p>Click any tapestry to inspect the original canon artwork and lore from your vault.</p>
+      </div>
+      <div class="gallery-layout">
+        <div class="gallery-thumbnails" id="gallery-thumbnails"></div>
+        <div class="gallery-viewer">
+          <img id="gallery-main-img" src="assets/gallery/Shark-Week-sunset.png" alt="Tapestry" />
+          <div class="gallery-caption">
+            <h3 id="gallery-main-title">Shark Week Sunset Regatta</h3>
+            <p id="gallery-main-desc">Boats racing across The Water That Doth Not Wet as the Great Portal Gate shimmers in the harbour.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. VOLCANO TRIAL UPGRADES MODAL [U] -->
+  <div class="modal-backdrop hidden" id="upgrades-modal">
+    <div class="modal-card upgrades-card">
+      <button class="modal-close-x" id="close-upgrades-modal">✕</button>
+      <div class="portal-header">
+        <span class="portal-badge">THE TRIALS OF THE SACRED VOLCANO · SHARK ASCENSION</span>
+        <h2>Volcano Trial Blessings &amp; Plush Upgrades</h2>
+        <p>Earn <strong>Trial Points</strong> by surviving the <strong>Volcano Trial Dungeon</strong> (enter at the Rear North Wharf &amp; emerge on the Front Balcony), knocking <strong>5 Carrots</strong> off the Volcano Balcony, or feeding <strong>10 Birbs</strong> with Breb!</p>
+      </div>
+      <div class="upgrades-top-bar">
+        <div class="trial-pts-Readout">Available Trial Points: <strong id="modal-trial-pts">0</strong> ⚔️</div>
+        <button class="btn-secondary" id="btn-teleport-rear-wharf" title="Shortcut to test the Rear Volcano Wharf & Trial Dungeon right away!">⛵ Fast-Travel to Rear Volcano Wharf</button>
+      </div>
+      <div class="upgrades-grid" id="upgrades-grid"></div>
+    </div>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="js/lore.js"></script>
+  <script src="js/sharks3d.js"></script>
+  <script src="js/world3d.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
