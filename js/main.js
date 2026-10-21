@@ -1376,6 +1376,7 @@
           showVolcanoHUDNotice('gatehall');
           showToast('THE SACRED VOLCANO TRIAL', 'Traverse the 3 chambers to reach the Caldera Overlook!');
           addChatLog('🌋 Stepped inside <strong>The Obsidian Gatehall</strong> of the Sacred Volcano.', 'lore');
+          updateCoopPartnerVisibility();
 
           window.BlahajNetwork.send({
             type: 'zone_change',
@@ -1443,6 +1444,7 @@
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
+          updateCoopPartnerVisibility();
 
           window.BlahajNetwork.send({
             type: 'zone_change',
@@ -2495,21 +2497,33 @@
           navigator.clipboard?.writeText(inp.value);
           inp.select();
           CozyAudio.portalChime();
-          showToast('INVITE LINK COPIED!', 'Paste this link to Helen on Discord to play together!');
+          showToast('INVITE LINK COPIED! 📋', 'Send this link to Helen on Discord to auto-connect together!');
         }
+      });
+    }
+
+    const newRoomBtn = document.getElementById('btn-new-private-room');
+    if (newRoomBtn) {
+      newRoomBtn.addEventListener('click', () => {
+        const newCode = window.BlahajNetwork.generatePrivateRoom();
+        CozyAudio.portalChime();
+        showToast('PRIVATE ROOM CREATED! 🎲', `Switched to secret room ${newCode}! Click "Copy Link" to send to Helen.`);
+        addChatLog(`🎲 Switched to secret private room <strong>${newCode}</strong>.`, 'system');
       });
     }
 
     document.getElementById('btn-host-portal').addEventListener('click', () => {
       const code = document.getElementById('host-room-code').value;
       CozyAudio.portalChime();
-      window.BlahajNetwork.hostPortal(code);
+      window.BlahajNetwork.setRoom(code);
+      showToast('PORTAL ROOM SET 🌌', `Switched to Room ${code.trim().toUpperCase()}!`);
     });
 
     document.getElementById('btn-join-portal').addEventListener('click', () => {
       const code = document.getElementById('join-room-code').value;
       CozyAudio.portalChime();
-      window.BlahajNetwork.joinPortal(code);
+      window.BlahajNetwork.setRoom(code);
+      showToast('STEPPED THROUGH PORTAL 🌌', `Joined Room ${code.trim().toUpperCase()}!`);
     });
 
     window.BlahajNetwork.init({
@@ -2679,7 +2693,7 @@
       },
       onDisconnect() {
         if (coopPartner.mesh) {
-          scene.remove(coopPartner.mesh);
+          if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
           coopPartner.mesh = null;
         }
         if (coopPartner.labelEl) {
@@ -2702,6 +2716,9 @@
     coopPartner.mesh.visible = sameZone;
     if (coopPartner.labelEl) {
       coopPartner.labelEl.style.display = sameZone ? '' : 'none';
+      if (!sameZone) {
+        coopPartner.labelEl.style.opacity = '0';
+      }
     }
     const currentScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
     if (coopPartner.mesh.parent !== currentScene) {
@@ -3465,7 +3482,13 @@
       });
     }
     if (coopPartner.active && coopPartner.mesh && coopPartner.labelEl) {
-      projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35);
+      const sameZone = (coopPartner.zone || 'island') === currentZone;
+      if (sameZone && coopPartner.mesh.visible) {
+        projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35);
+      } else {
+        coopPartner.labelEl.style.opacity = '0';
+        coopPartner.labelEl.style.display = 'none';
+      }
     }
   }
 
@@ -3491,6 +3514,7 @@
 
   function updateCoopPartner(dt, elapsed) {
     if (!coopPartner.active || !coopPartner.mesh) return;
+    updateCoopPartnerVisibility();
     coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1, dt * 12));
     coopPartner.mesh.rotation.y = coopPartner.targetRotY;
     window.BlahajModels.animateShark(
