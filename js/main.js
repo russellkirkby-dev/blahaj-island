@@ -279,7 +279,7 @@
   };
 
   // --- Core 3D Scene & Post-Processing State ---
-  let scene, camera, renderer, composer, clock;
+  let scene, camera, renderer, composer, renderPass, clock;
   let worldApi = null;
 
   // Player state
@@ -449,7 +449,7 @@
     // Setup UnrealBloomPass Post-Processing for warm lantern, lava & portal glow
     if (typeof THREE.EffectComposer !== 'undefined' && typeof THREE.UnrealBloomPass !== 'undefined') {
       composer = new THREE.EffectComposer(renderer);
-      const renderPass = new THREE.RenderPass(scene, camera);
+      renderPass = new THREE.RenderPass(scene, camera);
       composer.addPass(renderPass);
 
       const bloomPass = new THREE.UnrealBloomPass(
@@ -1343,7 +1343,7 @@
           }
           player.velY = 0;
           player.isGrounded = true;
-          camState.yaw = Math.PI;
+          camState.yaw = 0;
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
@@ -1450,6 +1450,8 @@
   }
 
   function triggerInteract() {
+    if (isAnyModalOpen()) return;
+
     // If Hiram's Master Builder Mode is active and we aren't standing right on top of an NPC, [E] places the active blueprint!
     if (builderState.active && player.sharkId === 'hiram' && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       placeActiveBlueprint();
@@ -2563,16 +2565,20 @@
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
 
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
     if (currentZone === 'volcano' && window.BlahajVolcano) {
-      window.BlahajVolcano.update(dt, elapsed, player.pos, coopPartner.active ? coopPartner : null);
-      renderer.render(window.BlahajVolcano.getScene(), camera);
+      const activeActors = [player.pos];
+      if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
+      window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene);
-      if (composer) {
-        composer.render();
-      } else {
-        renderer.render(scene, camera);
-      }
+    }
+
+    if (composer) {
+      if (renderPass) renderPass.scene = activeScene;
+      composer.render();
+    } else {
+      renderer.render(activeScene, camera);
     }
 
     // Update real-time procedural ocean, wind, sailing audio and occasional birb calls
@@ -2641,9 +2647,11 @@
             z: player.pos.z + (dirZ / len) * speed * dt
           };
 
-          const resolved = window.BlahajVolcano.resolveMove(player.pos, rawNext, 0.72);
-          player.pos.x = resolved.x;
-          player.pos.z = resolved.z;
+          const resolved = window.BlahajVolcano.resolveMove(player.pos, rawNext, player.isGrounded);
+          if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
+            player.pos.x = resolved.x;
+            player.pos.z = resolved.z;
+          }
 
           const targetAngle = Math.atan2(dirX / len, dirZ / len);
           let diff = targetAngle - player.rotY;
@@ -2794,11 +2802,13 @@
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       const vCarrots = window.BlahajVolcano.getCarrots();
       vCarrots.forEach((c, idx) => {
-        if (c.state === 'home') {
-          const dx = c.pos.x - player.pos.x;
-          const dz = c.pos.z - player.pos.z;
+        if (c && c.state === 'home') {
+          const cPos = (c.mesh && c.mesh.position) || c.pos || c.home;
+          if (!cPos) return;
+          const dx = cPos.x - player.pos.x;
+          const dz = cPos.z - player.pos.z;
           const d = Math.hypot(dx, dz);
-          if (d < 2.35 && Math.abs(player.pos.y - c.pos.y) < 2.2) {
+          if (d < 2.35 && Math.abs(player.pos.y - cPos.y) < 2.2) {
             const pushDir = new THREE.Vector3(dx, 0, dz).normalize();
             if (pushDir.z > -0.25) pushDir.z = -0.75;
             const vx = pushDir.x * 12.0 * knockMult;
@@ -2806,7 +2816,7 @@
             const vz = pushDir.z * 14.5 * knockMult;
             if (window.BlahajVolcano.knockCarrot(idx, vx, vy, vz)) {
               CozyAudio.carrotBoop();
-              spawnFloatingBurst(c.pos, 0xff7b1c, 12);
+              spawnFloatingBurst(cPos, 0xff7b1c, 12);
               player.carrotsKnockedCount++;
               if (player.carrotsKnockedCount >= 5) completeQuest('q-carrots');
               if (player.carrotsKnockedCount % 5 === 0) {
@@ -2832,9 +2842,9 @@
     }
 
     // Auto-enter Volcano Trial when stepping through the Rear Wharf Sea Cave Portal Arch
-    if (currentZone === 'overworld' && !isTransitioningZone) {
-      const dCave = Math.hypot(player.pos.x - (-28), player.pos.z - (-185));
-      if (dCave < 4.2 && player.pos.y < 8) {
+    if (currentZone === 'island' && !isTransitioningZone) {
+      const dx = player.pos.x - (-28);
+      if (Math.abs(dx) < 4.8 && player.pos.z > -186 && player.pos.z < -173 && player.pos.y < 8) {
         enterVolcanoTrial();
         return;
       }
@@ -3219,6 +3229,14 @@
       composer.setSize(window.innerWidth, window.innerHeight);
     }
   }
+
+  window.__DEBUG__ = {
+    getPlayer: () => player,
+    getCamera: () => camera,
+    getZone: () => currentZone,
+    enterVolcanoTrial,
+    exitVolcanoTrial
+  };
 
   window.addEventListener('DOMContentLoaded', init);
 })();

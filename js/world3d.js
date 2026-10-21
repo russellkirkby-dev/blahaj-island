@@ -126,8 +126,8 @@ window.BlahajWorld = (function () {
   }
 
   function getTerrainHeight(x, z) {
-    // 1. Rear Volcano Wharf Dock Plank (North side of Volcano Peninsula: x = -28, z = -185..-218)
-    if (Math.abs(x - -28) < 4.8 && z <= -185 && z >= -218) {
+    // 1. Rear Volcano Wharf Dock Plank & Sea Cave Cavern (North side of Volcano Peninsula: x = -28, z = -172..-218)
+    if (Math.abs(x - -28) < 5.8 && z <= -172 && z >= -218) {
       return 1.4;
     }
 
@@ -348,10 +348,13 @@ window.BlahajWorld = (function () {
 
   // Terrain surface height purely for the outer mountain mesh (so the volcano mountain arches cleanly over the interior dungeon!)
   function getExteriorMountainHeight(x, z) {
+    if (Math.abs(x - -28) < 6.2 && z <= -172 && z >= -218) {
+      return 1.4;
+    }
     if (Math.abs(x - -28) < 12.5 && z < -184 && z >= -222) {
       return -2.5;
     }
-    if (Math.abs(x - -28) < 14.0 && z <= -110 && z >= -184) {
+    if (Math.abs(x - -28) < 14.0 && z <= -110 && z >= -172) {
       const vx = x - -28;
       const vz = z - -148;
       const dVolcano = Math.sqrt(vx * vx + vz * vz);
@@ -1084,10 +1087,10 @@ window.BlahajWorld = (function () {
     const basaltMat = new THREE.MeshStandardMaterial({ color: 0x241f2e, roughness: 0.85 });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.85 });
 
-    // 1. Rear Volcano Wharf at North End of Peninsula (x = -28, z = -188..-216)
+    // 1. Rear Volcano Wharf at North End of Peninsula (x = -28, z = -172..-216)
     const wharfGroup = new THREE.Group();
-    const dock = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.7, 28), woodMat);
-    dock.position.set(-28, 1.4, -202);
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.7, 44), woodMat);
+    dock.position.set(-28, 1.4, -194);
     dock.receiveShadow = true;
     wharfGroup.add(dock);
 
@@ -1117,6 +1120,35 @@ window.BlahajWorld = (function () {
     gateHeader.position.set(-28, 12.8, -185);
     wharfGroup.add(gateHeader);
 
+    // 3. Deep Atmospheric Sea-Cave Interior Tunnel (z = -185 to -172)
+    const leftCaveWall = new THREE.Mesh(new THREE.BoxGeometry(3.2, 13.0, 14.5), basaltMat);
+    leftCaveWall.position.set(-33.2, 7.5, -178);
+    wharfGroup.add(leftCaveWall);
+
+    const rightCaveWall = new THREE.Mesh(new THREE.BoxGeometry(3.2, 13.0, 14.5), basaltMat);
+    rightCaveWall.position.set(-22.8, 7.5, -178);
+    wharfGroup.add(rightCaveWall);
+
+    const caveCeiling = new THREE.Mesh(new THREE.BoxGeometry(13.6, 2.6, 14.5), basaltMat);
+    caveCeiling.position.set(-28, 13.5, -178);
+    wharfGroup.add(caveCeiling);
+
+    const caveBack = new THREE.Mesh(new THREE.BoxGeometry(13.6, 13.0, 2.2), basaltMat);
+    caveBack.position.set(-28, 7.5, -171.5);
+    wharfGroup.add(caveBack);
+
+    [-3.8, 3.8].forEach((px) => {
+      const innerPost = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 4.2, 10), basaltMat);
+      innerPost.position.set(-28 + px, 3.2, -177);
+      wharfGroup.add(innerPost);
+      const innerFlame = new THREE.Mesh(
+        new THREE.SphereGeometry(0.42, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff5514 })
+      );
+      innerFlame.position.set(-28 + px, 5.6, -177);
+      wharfGroup.add(innerFlame);
+    });
+
     // Ancient Shark Crest at top of the arch
     const archCrest = new THREE.Mesh(
       new THREE.OctahedronGeometry(1.2, 0),
@@ -1133,16 +1165,20 @@ window.BlahajWorld = (function () {
         color: 0xff5514,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.65
+        opacity: 0.72
       })
     );
-    portalVolume.position.set(-28, 5.8, -184.8);
+    portalVolume.position.set(-28, 5.8, -179);
     wharfGroup.add(portalVolume);
 
-    // Warm welcoming lantern light
-    const caveLight = new THREE.PointLight(0xff6a14, 3.2, 45);
-    caveLight.position.set(-28, 6.8, -186);
+    // Warm welcoming lantern lights
+    const caveLight = new THREE.PointLight(0xff6a14, 3.8, 55);
+    caveLight.position.set(-28, 6.8, -178);
     wharfGroup.add(caveLight);
+
+    const outerArchLight = new THREE.PointLight(0xff8833, 2.4, 35);
+    outerArchLight.position.set(-28, 7.2, -187);
+    wharfGroup.add(outerArchLight);
 
     scene.add(wharfGroup);
   }

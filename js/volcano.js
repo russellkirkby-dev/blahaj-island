@@ -184,8 +184,28 @@ window.BlahajVolcano = (function () {
   }
 
   // Applies cave walls + rails to a proposed horizontal move.
-  function resolveMove(px, pz, py, nx, nz, grounded) {
-    const lim = profileAt(nz).rx - 1.6;
+  // Supports both resolveMove(pos, next, grounded) and resolveMove(px, pz, py, nx, nz, grounded).
+  function resolveMove(a, b, c, d, e, f) {
+    let px, pz, py, nx, nz, grounded;
+    if (typeof a === 'object' && a !== null && typeof b === 'object' && b !== null) {
+      px = a.x;
+      py = a.y || 0;
+      pz = a.z;
+      nx = b.x;
+      nz = b.z;
+      grounded = typeof c === 'boolean' ? c : true;
+    } else {
+      px = a;
+      pz = b;
+      py = c || 0;
+      nx = d;
+      nz = e;
+      grounded = typeof f === 'boolean' ? f : true;
+    }
+
+    if (isNaN(nx) || isNaN(nz)) return { x: px || 0, z: pz || 0 };
+    const prof = profileAt(nz);
+    const lim = (prof && prof.rx ? prof.rx : 10) - 1.6;
     nx = Math.max(-lim, Math.min(lim, nx));
 
     if (grounded) {
@@ -1066,7 +1086,15 @@ window.BlahajVolcano = (function () {
       mesh.position.copy(home);
       mesh.rotation.y = Math.PI;
       scn.add(mesh);
-      carrots.push({ mesh, home, vel: new THREE.Vector3(), knocked: false, state: 'home', respawn: 0 });
+      carrots.push({
+        mesh,
+        home,
+        get pos() { return this.mesh.position; },
+        vel: new THREE.Vector3(),
+        knocked: false,
+        state: 'home',
+        respawn: 0
+      });
     });
   }
 
@@ -1198,9 +1226,10 @@ window.BlahajVolcano = (function () {
   // PUBLIC: PER-FRAME UPDATE
   // actors: [{ x, y, z }] for every player currently inside the instance
   // --------------------------------------------------------------------------
-  function update(dt, t, actors, camPos) {
+  function update(dt, t, actorsInput, camPos) {
     if (!built || !active) return;
     time = t;
+    const actors = Array.isArray(actorsInput) ? actorsInput : (actorsInput ? [actorsInput] : []);
 
     lavaMaterials.forEach((m) => {
       m.uniforms.uTime.value = t;
