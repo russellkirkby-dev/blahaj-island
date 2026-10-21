@@ -5,7 +5,7 @@
 window.BlahajModels = (function () {
   let plushBumpTex = null;
 
-  // High-resolution 512x512 tactile woven plush & fibre bump texture
+  // High-resolution 512x512 tactile woven plush & micro-fleece bump texture
   function getPlushTexture() {
     if (plushBumpTex) return plushBumpTex;
     const canvas = document.createElement('canvas');
@@ -15,18 +15,18 @@ window.BlahajModels = (function () {
     ctx.fillStyle = '#808080';
     ctx.fillRect(0, 0, 512, 512);
 
-    for (let i = 0; i < 26000; i++) {
+    for (let i = 0; i < 34000; i++) {
       const x = Math.random() * 512;
       const y = Math.random() * 512;
-      const v = 96 + Math.floor(Math.random() * 72);
+      const v = 90 + Math.floor(Math.random() * 84);
       ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect(x, y, 1.5, 4.0);
+      ctx.fillRect(x, y, 1.4, 4.5);
     }
 
     plushBumpTex = new THREE.CanvasTexture(canvas);
     plushBumpTex.wrapS = THREE.RepeatWrapping;
     plushBumpTex.wrapT = THREE.RepeatWrapping;
-    plushBumpTex.repeat.set(6, 6);
+    plushBumpTex.repeat.set(7, 7);
     return plushBumpTex;
   }
 
@@ -34,10 +34,10 @@ window.BlahajModels = (function () {
     const mat = new THREE.MeshStandardMaterial({
       color: useVertexColors ? 0xffffff : hexColor,
       vertexColors: useVertexColors,
-      roughness: 0.88,
-      metalness: 0.02,
+      roughness: 0.84,
+      metalness: 0.03,
       bumpMap: getPlushTexture(),
-      bumpScale: 0.032,
+      bumpScale: 0.038,
       side: THREE.DoubleSide
     });
 
@@ -46,8 +46,12 @@ window.BlahajModels = (function () {
         '#include <dithering_fragment>',
         `
         vec3 viewDir = normalize(vViewPosition);
-        float fresnel = pow(1.0 - abs(dot(normal, viewDir)), 2.8);
-        gl_FragColor.rgb += gl_FragColor.rgb * fresnel * 0.18 + vec3(0.95, 0.88, 0.76) * fresnel * 0.06;
+        float ndotv = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+        float plushRim = pow(1.0 - ndotv, 2.35);
+        float fuzzHalo = smoothstep(0.32, 0.96, 1.0 - ndotv);
+        vec3 warmSunRim = vec3(1.0, 0.86, 0.68) * plushRim * 0.16;
+        vec3 skySheen = vec3(0.68, 0.85, 1.0) * fuzzHalo * 0.08;
+        gl_FragColor.rgb += gl_FragColor.rgb * plushRim * 0.26 + warmSunRim + skySheen;
         #include <dithering_fragment>
         `
       );

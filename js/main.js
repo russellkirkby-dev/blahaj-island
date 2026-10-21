@@ -368,6 +368,13 @@
         isBlueShark: false
       });
     });
+
+    // Attach floating directional labels to all 6 High Island Crossroads Signposts
+    if (worldApi.getSignposts) {
+      worldApi.getSignposts().forEach((sp) => {
+        sp.labelEl = createWorldLabel(labelsRoot, sp.title, sp.directions);
+      });
+    }
   }
 
   function createWorldLabel(parent, name, tagText) {
@@ -2026,7 +2033,9 @@
         player.ridingWithPartner = false;
       }
 
-      const speedMult = player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0;
+      const onRoad = !player.inBoat && worldApi.isOnIslandRoad && worldApi.isOnIslandRoad(player.pos.x, player.pos.z);
+      const roadBoost = onRoad ? 1.18 : 1.0;
+      const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
 
@@ -2418,6 +2427,18 @@
       if (!act.mesh.visible) return;
       projectLabel(act.mesh.position, act.labelEl, 3.25);
     });
+    if (worldApi.getSignposts) {
+      worldApi.getSignposts().forEach((sp) => {
+        if (sp.labelEl) {
+          const d = sp.pos.distanceTo(player.pos);
+          if (d < 42) {
+            projectLabel(sp.pos, sp.labelEl, 0.35);
+          } else {
+            sp.labelEl.style.opacity = '0';
+          }
+        }
+      });
+    }
     if (coopPartner.active && coopPartner.mesh && coopPartner.labelEl) {
       projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35);
     }

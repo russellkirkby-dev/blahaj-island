@@ -12,6 +12,8 @@ window.BlahajWorld = (function () {
   const activeBrebLoaves = [];
   const dungeonTraps = [];
   const builtStructures = [];
+  const signposts = [];
+  const cloudClusters = [];
 
   let boatMesh = null;
   let partnerBoatMesh = null;
@@ -21,6 +23,50 @@ window.BlahajWorld = (function () {
   let grassUniforms = null;
   let emberSystem = null;
   let terrainBumpTex = null;
+
+  // Road spline segments radiating from Sacred Tea House Hub (0, 10) to all High Island landmarks
+  const ROAD_SEGMENTS = [
+    { x1: 0, z1: 48, x2: 0, z2: 10, w: 3.1 },      // South Harbour Road
+    { x1: 0, z1: 10, x2: 68, z2: -10, w: 2.7 },    // East Portal Way
+    { x1: 0, z1: 10, x2: 49, z2: -45, w: 2.6 },    // Northeast Library Trail
+    { x1: 0, z1: 10, x2: -48, z2: 32, w: 2.6 },    // Southwest Spherical Foods Boulevard
+    { x1: 0, z1: 10, x2: -60, z2: -14, w: 2.6 },   // West Laundry Lane
+    { x1: 0, z1: 10, x2: -14, z2: -36, w: 2.9 }    // North Volcano Approach
+  ];
+
+  function distToSegment(px, pz, x1, z1, x2, z2) {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const l2 = dx * dx + dz * dz;
+    if (l2 === 0) return Math.hypot(px - x1, pz - z1);
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (pz - z1) * dz) / l2));
+    return Math.hypot(px - (x1 + t * dx), pz - (z1 + t * dz));
+  }
+
+  function isOnIslandRoad(x, z) {
+    // Isthmus Causeway to Volcano
+    if (z < -34 && z > -104) {
+      const spineX = -14 - Math.sin(((-z - 32) / 73) * Math.PI * 0.65) * 10;
+      if (Math.abs(x - spineX) < 3.6) return true;
+    }
+    // Tea Plaza Ring
+    const dTea = Math.hypot(x, z - 10);
+    if (dTea > 6.5 && dTea < 11.2) return true;
+    // Main Hub Roads
+    for (let i = 0; i < ROAD_SEGMENTS.length; i++) {
+      const s = ROAD_SEGMENTS[i];
+      if (distToSegment(x, z, s.x1, s.z1, s.x2, s.z2) < s.w) return true;
+    }
+    return false;
+  }
+
+  // Analytical 3D Rolling Ocean Wave Height (matches GLSL vertex shader!)
+  function getWaveHeight(x, z, time) {
+    const w1 = Math.sin(x * 0.065 + time * 1.65) * Math.cos(z * 0.055 + time * 1.35) * 0.34;
+    const w2 = Math.sin((x * 0.8 + z * 0.6) * 0.12 - time * 2.15) * 0.16;
+    const w3 = Math.cos((x - z * 0.9) * 0.19 + time * 2.7) * 0.07;
+    return 0.22 + w1 + w2 + w3;
+  }
 
   // Definition of the 4 Outer Buildable Sanctuary Islands
   const OUTER_ISLANDS = [
@@ -355,8 +401,7 @@ window.BlahajWorld = (function () {
       const vAng = Math.atan2(vz - -148, vx - -28);
       const c = new THREE.Color();
 
-      const onCauseway = vz < -35 && vz > -103 && Math.abs(vx - (-14 - Math.sin(((-vz - 32) / 73) * Math.PI * 0.65) * 10)) < 3.6;
-      const dTeaPlaza = Math.sqrt(vx * vx + Math.pow(vz - 10, 2));
+      const onRoad = isOnIslandRoad(vx, vz);
 
       if (dVol < 10.5 && vy > 46) {
         c.setHex(0xff5e1a);
@@ -373,8 +418,9 @@ window.BlahajWorld = (function () {
         }
       } else if (vy < 0.95) {
         c.setHex(0xdec59b);
-      } else if (onCauseway || (dTeaPlaza < 9.5 && dTeaPlaza > 6.8)) {
-        c.setHex(0x7d7065);
+      } else if (onRoad) {
+        const cobbleNoise = Math.sin(vx * 1.4) * Math.cos(vz * 1.4) * 0.035;
+        c.setRGB(0.62 + cobbleNoise, 0.54 + cobbleNoise, 0.45 + cobbleNoise);
       } else if (vx > 28 && vz < -25 && vy > 5.5) {
         c.setHex(0x9e7446);
       } else {
@@ -401,8 +447,12 @@ window.BlahajWorld = (function () {
     // Build Swaying 3D Instanced Grass Blades across the Main Island & 4 Outer Sanctuary Islands!
     buildInstancedMeadowGrass(scene);
 
-    // Build Custom GLSL Water Shader
+    // Build Custom GLSL Rolling 3D Ocean Wave Shader
     buildShaderWater(scene);
+
+    // Build Volumetric Sunset Clouds, Wildflowers, Cobblestone Flagstones & Crossroads Signposts!
+    buildVolumetricCloudsAndWildflowers(scene);
+    buildRoadsAndSignposts(scene);
 
     // Build Landmarks, Volcano Peninsula, Rear Wharf, Dungeon & 4 Outer Sanctuary Islands
     buildVolcanoPeninsulaAndBalcony(scene);
@@ -427,6 +477,9 @@ window.BlahajWorld = (function () {
       getGroundAndStructureHeight,
       getStructureSurfaceHeight,
       isInsideVolcanoDungeon,
+      isOnIslandRoad,
+      getWaveHeight,
+      getSignposts: () => signposts,
       getBoatMesh: () => boatMesh,
       getPartnerBoatMesh: () => partnerBoatMesh,
       getSeamRifts: () => seamRifts,
@@ -488,7 +541,7 @@ window.BlahajWorld = (function () {
 
       const dTea = Math.sqrt(gx * gx + Math.pow(gz - 10, 2));
       const dVol = Math.sqrt(Math.pow(gx - -28, 2) + Math.pow(gz - -148, 2));
-      if (gy > 1.45 && gy < 10.5 && dTea > 12.5 && dVol > 68 && gz > -38) {
+      if (gy > 1.45 && gy < 10.5 && dTea > 12.5 && dVol > 68 && gz > -38 && !isOnIslandRoad(gx, gz)) {
         dummy.position.set(gx, gy - 0.05, gz);
         dummy.rotation.set(
           (Math.random() - 0.5) * 0.2,
@@ -541,10 +594,10 @@ window.BlahajWorld = (function () {
   }
 
   // ==========================================================================
-  // SHADER WATER & SKY DOME
+  // ROLLING 3D OCEAN WAVES, SURF FOAM, VOLUMETRIC CLOUDS, ROADS & SIGNPOSTS
   // ==========================================================================
   function buildShaderWater(scene) {
-    const waterGeo = new THREE.PlaneGeometry(820, 820, 170, 170);
+    const waterGeo = new THREE.PlaneGeometry(820, 820, 220, 220);
     waterGeo.rotateX(-Math.PI / 2);
 
     const pos = waterGeo.attributes.position;
@@ -566,14 +619,20 @@ window.BlahajWorld = (function () {
         attribute float aTerrainH;
         varying float vTerrainH;
         varying float vWave;
+        varying vec2 vWorldXZ;
 
         void main() {
           vTerrainH = aTerrainH;
           vec3 p = position;
-          float w1 = sin(p.x * 0.08 + uTime * 1.6) * cos(p.z * 0.07 + uTime * 1.3) * 0.18;
-          float w2 = sin((p.x + p.z) * 0.15 - uTime * 2.1) * 0.08;
-          p.y += w1 + w2;
-          vWave = w1 + w2;
+          vWorldXZ = p.xz;
+          // 3-Layer Rolling Ocean Swells (matches getWaveHeight in JS)
+          float w1 = sin(p.x * 0.065 + uTime * 1.65) * cos(p.z * 0.055 + uTime * 1.35) * 0.34;
+          float w2 = sin((p.x * 0.8 + p.z * 0.6) * 0.12 - uTime * 2.15) * 0.16;
+          float w3 = cos((p.x - p.z * 0.9) * 0.19 + uTime * 2.7) * 0.07;
+          p.x += cos(p.x * 0.065 + uTime * 1.65) * 0.14;
+          p.z += sin(p.z * 0.055 + uTime * 1.35) * 0.14;
+          p.y += w1 + w2 + w3;
+          vWave = w1 + w2 + w3;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }
       `,
@@ -581,21 +640,34 @@ window.BlahajWorld = (function () {
         uniform float uTime;
         varying float vTerrainH;
         varying float vWave;
+        varying vec2 vWorldXZ;
 
         void main() {
-          float shallow = smoothstep(-4.2, 0.35, vTerrainH);
-          vec3 deepCol = vec3(0.07, 0.22, 0.38);
-          vec3 shallowCol = vec3(0.16, 0.54, 0.66);
-          vec3 col = mix(deepCol, shallowCol, shallow);
+          float shallow = smoothstep(-4.4, 0.45, vTerrainH);
+          vec3 abyssCol = vec3(0.05, 0.17, 0.33);
+          vec3 reefCol = vec3(0.11, 0.56, 0.69);
+          vec3 lagoonCol = vec3(0.28, 0.78, 0.82);
+          vec3 col = mix(abyssCol, reefCol, shallow);
+          col = mix(col, lagoonCol, smoothstep(-1.4, 0.25, vTerrainH) * 0.65);
 
-          float crest = smoothstep(0.06, 0.24, vWave);
-          col += vec3(0.95, 0.68, 0.38) * crest * 0.22;
+          // Caustic shimmer in shallow lagoons
+          float caustics = sin(vWorldXZ.x * 0.45 + uTime * 2.2) * cos(vWorldXZ.y * 0.45 - uTime * 1.8);
+          col += vec3(0.18, 0.35, 0.38) * max(0.0, caustics) * shallow * 0.25;
 
-          float foamBand = smoothstep(-0.65, 0.25, vTerrainH) * (1.0 - smoothstep(0.25, 0.85, vTerrainH));
-          float foamRipple = 0.5 + 0.5 * sin(vTerrainH * 18.0 - uTime * 3.2);
-          col = mix(col, vec3(0.96, 0.92, 0.84), foamBand * foamRipple * 0.78);
+          // Golden sunset glint on rolling wave crests
+          float crest = smoothstep(0.10, 0.48, vWave);
+          float whitecap = smoothstep(0.36, 0.55, vWave);
+          col += vec3(1.0, 0.72, 0.42) * crest * 0.28;
+          col = mix(col, vec3(0.98, 0.96, 0.92), whitecap * 0.42);
 
-          gl_FragColor = vec4(col, 0.88);
+          // Dual-band animated surf foam washing onto every island's beach
+          float shoreZone = smoothstep(-1.25, 0.32, vTerrainH) * (1.0 - smoothstep(0.32, 0.95, vTerrainH));
+          float surfWave1 = smoothstep(0.35, 0.85, 0.5 + 0.5 * sin(vTerrainH * 15.0 - uTime * 3.4 + sin(vWorldXZ.x * 0.15) * 1.2));
+          float surfWave2 = smoothstep(0.55, 0.95, 0.5 + 0.5 * cos(vTerrainH * 24.0 - uTime * 2.6 + cos(vWorldXZ.y * 0.15) * 1.2));
+          float foamMask = clamp((surfWave1 * 0.75 + surfWave2 * 0.55) * shoreZone, 0.0, 1.0);
+          col = mix(col, vec3(0.98, 0.95, 0.90), foamMask * 0.88);
+
+          gl_FragColor = vec4(col, 0.90);
         }
       `
     });
@@ -603,6 +675,210 @@ window.BlahajWorld = (function () {
     waterMesh = new THREE.Mesh(waterGeo, waterMat);
     waterMesh.position.y = 0.22;
     scene.add(waterMesh);
+  }
+
+  function buildVolumetricCloudsAndWildflowers(scene) {
+    // 1. 18 Sculpted Volumetric Sunset Cloud Clusters drifting around High Island & Volcano Peak
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffe8d6,
+      emissive: 0x4a2538,
+      emissiveIntensity: 0.28,
+      roughness: 0.92,
+      metalness: 0.0
+    });
+
+    for (let i = 0; i < 18; i++) {
+      const cluster = new THREE.Group();
+      const angle = (i / 18) * Math.PI * 2;
+      const radius = 145 + (i % 3) * 48;
+      const height = 58 + (i % 4) * 12;
+      const puffCount = 5 + (i % 3);
+
+      for (let p = 0; p < puffCount; p++) {
+        const pr = 5.5 + ((i + p) % 3) * 2.4;
+        const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(pr, 1), cloudMat);
+        puff.position.set((p - puffCount * 0.5) * 5.2, Math.sin(p * 1.5) * 1.8, (p % 2 === 0 ? 1 : -1) * 2.4);
+        puff.scale.set(1.35, 0.68, 1.05);
+        cluster.add(puff);
+      }
+
+      cluster.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius - 25);
+      cluster.rotation.y = -angle + Math.PI * 0.5;
+      scene.add(cluster);
+      cloudClusters.push({ mesh: cluster, angle, radius, height, speed: 0.012 + (i % 4) * 0.004 });
+    }
+
+    // 2. 2,200 Instanced Meadow Wildflowers (Golden Buttercups, Lavender Asters & Coral Blossoms)
+    const flowerCount = 2200;
+    const flowerGeo = new THREE.OctahedronGeometry(0.18, 0);
+    flowerGeo.scale(1.2, 0.55, 1.2);
+    flowerGeo.translate(0, 0.52, 0);
+    const flowerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const flowerInst = new THREE.InstancedMesh(flowerGeo, flowerMat, flowerCount);
+    const dummy = new THREE.Object3D();
+    const fCol = new THREE.Color();
+    const palette = [0xffd166, 0xff7eb6, 0xc084fc, 0x7ce8ff, 0xfff3b0];
+    let fPlaced = 0;
+
+    for (let attempt = 0; attempt < 6500 && fPlaced < flowerCount; attempt++) {
+      const fx = (Math.random() - 0.5) * 155;
+      const fz = (Math.random() - 0.5) * 145 + 10;
+      const fy = getTerrainHeight(fx, fz);
+      if (fy > 1.65 && fy < 9.5 && fz > -35 && !isOnIslandRoad(fx, fz)) {
+        dummy.position.set(fx, fy, fz);
+        dummy.rotation.y = Math.random() * Math.PI * 2;
+        const s = 0.75 + Math.random() * 0.65;
+        dummy.scale.setScalar(s);
+        dummy.updateMatrix();
+        flowerInst.setMatrixAt(fPlaced, dummy.matrix);
+        fCol.setHex(palette[fPlaced % palette.length]);
+        flowerInst.setColorAt(fPlaced, fCol);
+        fPlaced++;
+      }
+    }
+    flowerInst.count = fPlaced;
+    flowerInst.instanceMatrix.needsUpdate = true;
+    if (flowerInst.instanceColor) flowerInst.instanceColor.needsUpdate = true;
+    scene.add(flowerInst);
+  }
+
+  function buildRoadsAndSignposts(scene) {
+    // 1. Raised Cobblestone Stepping Flagstones along all 6 High Island Roads
+    const stoneGeo = new THREE.CylinderGeometry(0.95, 1.05, 0.14, 7);
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x9c8c7a, roughness: 0.88 });
+    const stoneInst = new THREE.InstancedMesh(stoneGeo, stoneMat, 320);
+    const dummy = new THREE.Object3D();
+    let sCount = 0;
+
+    ROAD_SEGMENTS.forEach((seg, rIdx) => {
+      const dist = Math.hypot(seg.x2 - seg.x1, seg.z2 - seg.z1);
+      const steps = Math.floor(dist / 2.2);
+      for (let s = 1; s < steps && sCount < 320; s++) {
+        const t = s / steps;
+        const jitter = ((s % 2 === 0 ? 1 : -1) * 0.45);
+        const sx = seg.x1 + (seg.x2 - seg.x1) * t + jitter;
+        const sz = seg.z1 + (seg.z2 - seg.z1) * t - jitter * 0.5;
+        const sy = getTerrainHeight(sx, sz);
+        if (sy > 0.8) {
+          dummy.position.set(sx, sy + 0.02, sz);
+          dummy.rotation.set(0, (s * 1.1 + rIdx), 0);
+          dummy.scale.set(0.85 + (s % 3) * 0.2, 1, 0.8 + ((s + 1) % 3) * 0.2);
+          dummy.updateMatrix();
+          stoneInst.setMatrixAt(sCount++, dummy.matrix);
+        }
+      }
+    });
+    stoneInst.count = sCount;
+    stoneInst.instanceMatrix.needsUpdate = true;
+    stoneInst.receiveShadow = true;
+    scene.add(stoneInst);
+
+    // 2. Six Sculpted 3D Crossroads Signposts with Painted Arrow Boards & Hanging Lanterns
+    const postWoodMat = new THREE.MeshStandardMaterial({ color: 0x543822, roughness: 0.85 });
+    const boardWoodMat = new THREE.MeshStandardMaterial({ color: 0xc89d66, roughness: 0.78 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.7, roughness: 0.25 });
+    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe299 });
+
+    const signpostSpecs = [
+      {
+        id: 'sign-hub',
+        x: 5.5,
+        z: 18.5,
+        title: '🪧 Central Plaza Crossroads',
+        directions: '⬆️ Volcano Causeway | ➡️ Portal Gate & Library | ⬅️ Café & Laundry | ⬇️ Harbour Docks',
+        arrows: [0, Math.PI * 0.5, -Math.PI * 0.5, Math.PI]
+      },
+      {
+        id: 'sign-harbour',
+        x: 4.2,
+        z: 44.0,
+        title: '🪧 South Crescent Harbour',
+        directions: '⬆️ Sacred Tea House (35m) | ⛵ Regatta Sailboats & Endless Pier ➡️',
+        arrows: [Math.PI, -Math.PI * 0.5]
+      },
+      {
+        id: 'sign-volcano',
+        x: -11.5,
+        z: -33.0,
+        title: '🪧 Volcano Isthmus Pass',
+        directions: '⬆️ Volcano Balcony & Carrots (70m) | ⬇️ Tea House Village (45m)',
+        arrows: [Math.PI, 0]
+      },
+      {
+        id: 'sign-east',
+        x: 44.0,
+        z: -4.0,
+        title: '🪧 East Headland Fork',
+        directions: '➡️ Great Portal Gate (28m) | ↗️ Quiet Library Cliffs (42m) | ⬅️ Tea House',
+        arrows: [-Math.PI * 0.4, -Math.PI * 0.8, Math.PI * 0.5]
+      },
+      {
+        id: 'sign-west',
+        x: -36.0,
+        z: 12.0,
+        title: '🪧 Artisans & Café Junction',
+        directions: '↙️ Spherical Foods Café (26m) | ↖️ Spin-Dryer Laundry Ridge (34m) | ➡️ Tea House',
+        arrows: [Math.PI * 0.3, Math.PI * 0.75, -Math.PI * 0.5]
+      },
+      {
+        id: 'sign-balcony',
+        x: -16.5,
+        z: -98.0,
+        title: '🪧 Volcano Temple Overlook',
+        directions: '🥕 Dare-Carrot Ledge | 🌋 Trial Dungeon Exit | ⬇️ Return to High Island',
+        arrows: [Math.PI * 0.5, 0]
+      }
+    ];
+
+    signpostSpecs.forEach((sp) => {
+      const sy = getTerrainHeight(sp.x, sp.z);
+      const g = new THREE.Group();
+      g.position.set(sp.x, sy, sp.z);
+
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 3.6, 10), postWoodMat);
+      post.position.y = 1.8;
+      post.castShadow = true;
+      g.add(post);
+
+      const finial = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), brassMat);
+      finial.position.y = 3.7;
+      g.add(finial);
+
+      sp.arrows.forEach((ang, idx) => {
+        const arrowGroup = new THREE.Group();
+        arrowGroup.position.y = 3.25 - idx * 0.42;
+        arrowGroup.rotation.y = ang;
+
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.28, 0.10), boardWoodMat);
+        plank.position.x = 0.72;
+        plank.castShadow = true;
+        arrowGroup.add(plank);
+
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.35, 4), brassMat);
+        tip.rotation.z = -Math.PI / 2;
+        tip.position.x = 1.68;
+        arrowGroup.add(tip);
+
+        g.add(arrowGroup);
+      });
+
+      const lanternArm = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.1), brassMat);
+      lanternArm.position.set(-0.32, 3.4, 0);
+      g.add(lanternArm);
+
+      const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), lanternMat);
+      lantern.position.set(-0.62, 3.12, 0);
+      g.add(lantern);
+
+      scene.add(g);
+      signposts.push({
+        id: sp.id,
+        title: sp.title,
+        directions: sp.directions,
+        pos: new THREE.Vector3(sp.x, sy + 4.1, sp.z),
+        mesh: g
+      });
+    });
   }
 
   function buildSkyDomeAndSkySeam(scene) {
@@ -2219,7 +2495,7 @@ window.BlahajWorld = (function () {
       f.mesh.rotation.x = leapWave > 0.6 ? -Math.cos(time * 2.4 + f.jumpPhase) * 0.6 : 0;
     });
 
-    // 5. Update Bouncy Beach Balls on the Water & Beaches
+    // 5. Update Bouncy Beach Balls & Boats on the Rolling 3D Ocean Waves!
     beachBalls.forEach((bb) => {
       bb.mesh.position.x += bb.vel.x * dt;
       bb.mesh.position.z += bb.vel.z * dt;
@@ -2228,8 +2504,26 @@ window.BlahajWorld = (function () {
       bb.vel.multiplyScalar(0.96);
 
       const gy = getTerrainHeight(bb.mesh.position.x, bb.mesh.position.z);
-      const waterLevel = 0.55 + Math.sin(time * 2.2 + bb.mesh.position.x) * 0.12;
+      const waterLevel = getWaveHeight(bb.mesh.position.x, bb.mesh.position.z, time) + 0.42;
       bb.mesh.position.y = Math.max(gy + 0.8, waterLevel);
+    });
+
+    [boatMesh, partnerBoatMesh].forEach((bm) => {
+      if (bm && bm.visible) {
+        const wH = getWaveHeight(bm.position.x, bm.position.z, time);
+        bm.position.y = wH + 0.25;
+        bm.rotation.x = Math.sin(time * 1.9 + bm.position.x * 0.08) * 0.055;
+        bm.rotation.z = Math.cos(time * 1.6 + bm.position.z * 0.08) * 0.065;
+      }
+    });
+
+    // 6. Drift Volumetric Sunset Clouds around High Island
+    cloudClusters.forEach((cl) => {
+      cl.angle += cl.speed * dt;
+      cl.mesh.position.x = Math.cos(cl.angle) * cl.radius;
+      cl.mesh.position.z = Math.sin(cl.angle) * cl.radius - 25;
+      cl.mesh.position.y = cl.height + Math.sin(time * 0.6 + cl.angle * 3.0) * 1.1;
+      cl.mesh.rotation.y = -cl.angle + Math.PI * 0.5;
     });
 
     animatedObjects.forEach((item) => {
@@ -2250,6 +2544,8 @@ window.BlahajWorld = (function () {
     getTerrainHeight,
     getGroundAndStructureHeight,
     isInsideVolcanoDungeon,
+    isOnIslandRoad,
+    getWaveHeight,
     updateWorld
   };
 })();
