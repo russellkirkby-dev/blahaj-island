@@ -553,7 +553,8 @@ kbd {
   font-size: 14px;
   font-weight: 700;
   color: var(--parchment);
-  transition: all 0.25s ease;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
 }
 
 #interaction-prompt.sailing-corner {
