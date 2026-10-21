@@ -484,106 +484,8 @@ window.BlahajVolcano = (function () {
   }
 
   function makePlaque(x, base, z, rotY, title, body, customW, customH) {
-    const w = customW || 7.8;
-    const h = customH || 4.0;
-    const cvs = document.createElement('canvas');
-    cvs.width = 1024;
-    cvs.height = 550;
-    const g = cvs.getContext('2d');
-
-    // Rich dark volcanic stone tablet background
-    g.fillStyle = 'rgba(20, 14, 18, 0.96)';
-    g.fillRect(0, 0, cvs.width, cvs.height);
-
-    // Double gold ornamental border
-    g.strokeStyle = '#d8aa5b';
-    g.lineWidth = 10;
-    g.strokeRect(12, 12, cvs.width - 24, cvs.height - 24);
-    g.strokeStyle = 'rgba(216, 170, 91, 0.35)';
-    g.lineWidth = 2;
-    g.strokeRect(22, 22, cvs.width - 44, cvs.height - 44);
-
-    // Glowing title
-    g.fillStyle = '#ffb347';
-    g.font = 'bold 42px Georgia, serif';
-    g.textAlign = 'center';
-    g.shadowColor = 'rgba(255, 120, 30, 0.6)';
-    g.shadowBlur = 10;
-    g.fillText(title, cvs.width / 2, 72);
-    g.shadowBlur = 0;
-
-    // Elegant gold divider beneath the title
-    g.strokeStyle = '#d8aa5b';
-    g.lineWidth = 2.5;
-    g.beginPath();
-    g.moveTo(cvs.width / 2 - 160, 92);
-    g.lineTo(cvs.width / 2 + 160, 92);
-    g.stroke();
-
-    // Body word wrapping with automatic scaling down to guarantee ZERO text overflow
-    const words = body.split(' ');
-    let fontSize = 31;
-    let lineHeight = 42;
-    let lines = [];
-    const maxTextWidth = cvs.width - 110;
-    const maxContentHeight = cvs.height - 130;
-
-    while (fontSize >= 16) {
-      g.font = `${fontSize}px Georgia, serif`;
-      lines = [];
-      let curLine = '';
-      for (let i = 0; i < words.length; i++) {
-        const test = curLine ? (curLine + ' ' + words[i]) : words[i];
-        if (g.measureText(test).width > maxTextWidth && curLine) {
-          lines.push(curLine);
-          curLine = words[i];
-        } else {
-          curLine = test;
-        }
-      }
-      if (curLine) lines.push(curLine);
-
-      if (lines.length * lineHeight <= maxContentHeight) {
-        break;
-      }
-      fontSize -= 2;
-      lineHeight = Math.round(fontSize * 1.35);
-    }
-
-    g.fillStyle = '#f7eedd';
-    g.font = `${fontSize}px Georgia, serif`;
-    const totalTextH = lines.length * lineHeight;
-    let startY = 105 + (maxContentHeight - totalTextH) / 2 + fontSize * 0.8;
-
-    lines.forEach((l) => {
-      g.fillText(l, cvs.width / 2, startY);
-      startY += lineHeight;
-    });
-
-    const tex = new THREE.CanvasTexture(cvs);
-    const board = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ map: tex })
-    );
-    const group = new THREE.Group();
-    group.position.set(x, base + h / 2 + 0.6, z);
-    group.rotation.y = rotY;
-    board.position.y = 0;
-    group.add(board);
-
-    // Frame backing & stone posts
-    const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h + 0.3, 0.2), getMats().basalt);
-    back.position.set(0, 0, -0.11);
-    group.add(back);
-
-    [-w / 2 + 0.4, w / 2 - 0.4].forEach((px) => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, h + 1.2, 8), getMats().basalt);
-      post.position.set(px, -0.5, -0.15);
-      group.add(post);
-    });
-
-    scn.add(group);
-    return group;
+    // Billboard signs inside crater instance replaced by screen HUD notification cards
+    return null;
   }
 
   // --------------------------------------------------------------------------
@@ -857,9 +759,6 @@ window.BlahajVolcano = (function () {
     door.position.set(0, 0.2, 13.8);
     scn.add(door);
 
-    makePlaque(-6.5, 0, -5, 0.35, 'THE TRIALS OF THE SACRED VOLCANO',
-      'Mind the swinging obsidian axes and the lava geysers. Take your time, shonk. If the lava gets you, you start over from the gate.');
-
     // Three pendulums + two geysers.
     addPendulum(-22, 0, 2.3);
     addPendulum(-38, 1.4, 2.55);
@@ -882,8 +781,6 @@ window.BlahajVolcano = (function () {
     brazier(8, 0, -85);
 
     plates.a = makePlate(-10, -92, 0xffb347);
-    makePlaque(-9, 0, -98.5, 0.1, 'THE MOLTEN CAUSEWAY',
-      'Two paths cross the lava sea! Solo: Hop the stepping stones on the right, or press the Weight Plate and sprint across. Co-op: One shark holds the plate while the other crosses safely!');
 
     // Drawbridge: 5 segments of 11m from z=-100 to z=-155.
     // Grace timer increased to 5.5s so solo runners can easily sprint across!
@@ -942,8 +839,6 @@ window.BlahajVolcano = (function () {
     // Co-op bonus: two plates, one relic bridge.
     plates.twinL = makePlate(-9, -168, 0x58e3ff);
     plates.twinR = makePlate(9, -168, 0x58e3ff);
-    makePlaque(0, 0, -176, 0, 'TWO FRIENDS, TWO PLATES',
-      'Stand on both plates at once to raise the relic bridge. Optional bonus: the Ember Heart is worth 2 Trial Points!');
 
     plates.relicBridge = makeBridge({
       axis: 'x', dir: 1, x0: 14, z0: -170, segLen: 4, count: 3, width: 4, grace: 6, wave: 0.6
@@ -1241,10 +1136,6 @@ window.BlahajVolcano = (function () {
     });
 
     brazier(-4.5, top, -306);
-
-    // Tasteful carved stone wall tablet (4.0m x 2.4m) mounted flush on the left wall
-    makePlaque(-6.0, top, -313.5, Math.PI / 2, 'REST NOOK',
-      'A warm pot of tea and fresh buns wait here for weary sharks. The Crater Overlook is just ahead.', 4.0, 2.4);
   }
 
   function stepOverlook() {
@@ -1340,8 +1231,6 @@ window.BlahajVolcano = (function () {
     scn.add(portal);
     brazier(9, BALCONY.y, -349);
     brazier(-9, BALCONY.y, -349);
-    makePlaque(-9.5, BALCONY.y, -350.5, 0.5, 'THE VOLUNTEERS',
-      'Eight Dare-Carrots in beach shorts have volunteered for the volcano. They do not mind. Give them a gentle bump.');
 
     // Eight volunteer carrots along the front edge.
     const colors = [0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x3b82f6, 0xec4899, 0x14b8a6, 0xf97316];

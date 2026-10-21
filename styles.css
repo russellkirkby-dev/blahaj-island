@@ -583,6 +583,12 @@ kbd {
   text-align: center;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.65);
   animation: popIn 0.3s ease;
+  z-index: 110;
+  transition: top 0.25s ease;
+}
+
+body.has-volcano-notice #toast-banner {
+  top: 310px;
 }
 
 .toast-subtitle {
@@ -597,6 +603,206 @@ kbd {
   font-size: 18px;
   color: #fff;
   margin-top: 2px;
+}
+
+/* ==================== VOLCANO DUNGEON HUD POPUP NOTIFICATION ==================== */
+#volcano-hud-card {
+  position: absolute;
+  top: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 530px;
+  max-width: 92vw;
+  background: linear-gradient(135deg, rgba(18, 12, 16, 0.96) 0%, rgba(32, 16, 24, 0.96) 60%, rgba(46, 18, 22, 0.94) 100%);
+  border: 1.5px solid #d4a656;
+  border-radius: 14px;
+  padding: 16px 20px 14px;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.8), 0 0 24px rgba(232, 111, 56, 0.4), inset 0 0 16px rgba(212, 166, 86, 0.15);
+  backdrop-filter: blur(10px);
+  z-index: 120;
+  cursor: pointer;
+  animation: vhudSlideIn 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  user-select: none;
+}
+
+#volcano-hud-card.hidden {
+  display: none !important;
+}
+
+#volcano-hud-card.fading-out {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-12px) scale(0.97);
+  pointer-events: none;
+}
+
+@keyframes vhudSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-22px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes vhudTimerDrain {
+  0% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+
+/* Gilded corner brackets */
+.vhud-corner-tl, .vhud-corner-tr, .vhud-corner-bl, .vhud-corner-br {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: #f5cd79;
+  border-style: solid;
+  pointer-events: none;
+}
+.vhud-corner-tl { top: 3px; left: 3px; border-width: 2px 0 0 2px; }
+.vhud-corner-tr { top: 3px; right: 3px; border-width: 2px 2px 0 0; }
+.vhud-corner-bl { bottom: 3px; left: 3px; border-width: 0 0 2px 2px; }
+.vhud-corner-br { bottom: 3px; right: 3px; border-width: 0 2px 2px 0; }
+
+.vhud-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: rgba(245, 205, 121, 0.65);
+  font-size: 15px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.vhud-close-btn:hover {
+  color: #fff;
+  background: rgba(232, 111, 56, 0.3);
+}
+
+.vhud-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.vhud-icon-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 111, 56, 0.45) 0%, rgba(20, 14, 18, 0.8) 70%);
+  border: 1.5px solid #f5cd79;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 14px rgba(232, 111, 56, 0.55);
+}
+
+.vhud-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.vhud-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.vhud-tag {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #f5cd79;
+  text-transform: uppercase;
+}
+
+.vhud-title {
+  font-family: var(--font-display);
+  font-size: 17.5px;
+  color: #ffffff;
+  margin-top: 1px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+.vhud-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 166, 86, 0.7), rgba(232, 111, 56, 0.9), rgba(212, 166, 86, 0.7), transparent);
+  margin: 10px 0 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vhud-divider-spark {
+  position: absolute;
+  color: #f5cd79;
+  font-size: 9px;
+  background: #190f14;
+  padding: 0 4px;
+}
+
+.vhud-body {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #f5ebd6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.vhud-body strong {
+  color: #f5cd79;
+}
+
+.vhud-body em {
+  color: #ff9d6c;
+  font-style: normal;
+}
+
+.vhud-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #c8bca4;
+  border-top: 1px dashed rgba(212, 166, 86, 0.25);
+  padding-top: 7px;
+}
+
+.vhud-tip {
+  color: #ffb347;
+  font-style: italic;
+}
+
+.vhud-dismiss-hint {
+  font-size: 10px;
+  opacity: 0.65;
+  letter-spacing: 0.05em;
+}
+
+.vhud-timer-bar {
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.vhud-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #d4a656, #e86f38);
+  transform-origin: left;
 }
 
 /* BOTTOM LEFT: Chat Log */

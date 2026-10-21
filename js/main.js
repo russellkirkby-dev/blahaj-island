@@ -766,6 +766,10 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        const vhudCard = document.getElementById('volcano-hud-card');
+        if (vhudCard && !vhudCard.classList.contains('hidden')) {
+          hideVolcanoHUDCard();
+        }
       }
 
       const k = (e.key || '').toLowerCase();
@@ -1368,6 +1372,8 @@
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
+          shownVolcanoNotices.clear();
+          showVolcanoHUDNotice('gatehall');
           showToast('THE SACRED VOLCANO TRIAL', 'Traverse the 3 chambers to reach the Caldera Overlook!');
           addChatLog('🌋 Stepped inside <strong>The Obsidian Gatehall</strong> of the Sacred Volcano.', 'lore');
 
@@ -1404,6 +1410,7 @@
         clearInterval(interval);
         setTimeout(() => {
           currentZone = 'island';
+          hideVolcanoHUDCard();
           if (window.BlahajVolcano) {
             window.BlahajVolcano.setActive(false);
           }
@@ -2041,6 +2048,29 @@
     document.getElementById('close-gallery-modal').addEventListener('click', toggleGalleryModal);
     document.getElementById('close-upgrades-modal').addEventListener('click', toggleUpgradesModal);
 
+    const vhudCard = document.getElementById('volcano-hud-card');
+    if (vhudCard) {
+      vhudCard.addEventListener('click', () => hideVolcanoHUDCard());
+    }
+    const vhudClose = document.getElementById('vhud-close');
+    if (vhudClose) {
+      vhudClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideVolcanoHUDCard();
+      });
+    }
+    const zoneBanner = document.querySelector('.zone-banner');
+    if (zoneBanner) {
+      zoneBanner.style.cursor = 'pointer';
+      zoneBanner.title = 'Click to view area guide / lore';
+      zoneBanner.addEventListener('click', () => {
+        if (currentZone === 'volcano') {
+          const key = getVolcanoNoticeKeyForPos(player.pos);
+          if (key) showVolcanoHUDNotice(key, true);
+        }
+      });
+    }
+
     document.getElementById('btn-teleport-rear-wharf').addEventListener('click', () => {
       document.getElementById('upgrades-modal').classList.add('hidden');
       if (currentZone === 'volcano') {
@@ -2186,6 +2216,124 @@
     if (slotUSub) {
       slotUSub.textContent = `${player.trialPoints} Trial Pt${player.trialPoints === 1 ? '' : 's'}`;
     }
+  }
+
+  // ==========================================================================
+  // VOLCANO TRIAL DUNGEON HUD POPUP NOTIFICATIONS
+  // ==========================================================================
+  const VOLCANO_DUNGEON_NOTICES = {
+    gatehall: {
+      icon: '⚔️',
+      tag: 'THE SACRED VOLCANO · GATEHALL',
+      title: 'THE TRIALS OF THE SACRED VOLCANO',
+      body: 'Mind the swinging obsidian axes and the lava geysers. Take your time, shonk — if the lava gets you, you return to the gate.',
+      tip: 'Watch the swing timing and jump cleanly!',
+      plainText: 'Mind the swinging obsidian axes and the lava geysers. Take your time, shonk — if the lava gets you, you return to the gate.'
+    },
+    causeway: {
+      icon: '🌋',
+      tag: 'PUZZLE · WEIGHT PLATE & STEPPING STONES',
+      title: 'THE MOLTEN CAUSEWAY',
+      body: 'Two paths cross the lava sea! <strong>Solo:</strong> Hop the glowing stepping stones on the right, or press the <strong>Weight Plate</strong> and sprint across. <strong>Co-op:</strong> One shark holds the plate while the other crosses safely!',
+      tip: 'Solo sharks can use Double Jump [Space in air] to cross the stones!',
+      plainText: 'Two paths cross the lava sea! Solo: Hop the glowing stepping stones on the right, or press the Weight Plate and sprint across. Co-op: One shark holds the plate while the other crosses safely!'
+    },
+    twin_plates: {
+      icon: '🤝',
+      tag: 'CO-OP PUZZLE · EMBER RELIC',
+      title: 'TWO FRIENDS, TWO PLATES',
+      body: 'Stand on both plates at once to raise the Ember Relic Bridge! <em>Optional bonus:</em> the <strong>Ember Heart</strong> awards <strong>+2 Trial Points</strong>!',
+      tip: 'Two sharks required to weigh down both plates at once.',
+      plainText: 'Stand on both plates at once to raise the Ember Relic Bridge! Optional bonus: the Ember Heart awards +2 Trial Points!'
+    },
+    rest_nook: {
+      icon: '🍵',
+      tag: 'SANCTUARY · TEA & RECOVERY',
+      title: 'THE REST NOOK',
+      body: 'A warm pot of tea and fresh buns wait here for weary sharks. Take a sip to restore comfort! The <strong>Crater Overlook</strong> is just ahead.',
+      tip: 'Press [E] by the celadon teapot to enjoy fresh buns & tea!',
+      plainText: 'A warm pot of tea and fresh buns wait here for weary sharks. Take a sip to restore comfort! The Crater Overlook is just ahead.'
+    },
+    overlook: {
+      icon: '🥕',
+      tag: 'SUMMIT · THE CALDERA OVERLOOK',
+      title: 'THE VOLUNTEERS',
+      body: 'Eight <strong>Dare-Carrots</strong> in beach shorts have volunteered for the caldera. Give them a gentle bump into the crater, or step into the <strong>Return Portal</strong> home!',
+      tip: 'Knocking carrots awards Trial Points and volcano honor!',
+      plainText: 'Eight Dare-Carrots in beach shorts have volunteered for the caldera. Give them a gentle bump into the crater, or step into the Return Portal home!'
+    }
+  };
+
+  let currentVolcanoNoticeTimer = null;
+  let currentVolcanoNoticeKey = null;
+  const shownVolcanoNotices = new Set();
+
+  function showVolcanoHUDNotice(key, force = false) {
+    if (!force && shownVolcanoNotices.has(key)) return;
+    shownVolcanoNotices.add(key);
+    currentVolcanoNoticeKey = key;
+
+    const data = VOLCANO_DUNGEON_NOTICES[key];
+    if (!data) return;
+
+    const card = document.getElementById('volcano-hud-card');
+    if (!card) return;
+
+    const iconEl = document.getElementById('vhud-icon');
+    const tagEl = document.getElementById('vhud-tag');
+    const titleEl = document.getElementById('vhud-title');
+    const bodyEl = document.getElementById('vhud-body');
+    const tipEl = document.getElementById('vhud-tip');
+    const timerFill = document.getElementById('vhud-timer-fill');
+
+    if (iconEl) iconEl.textContent = data.icon;
+    if (tagEl) tagEl.textContent = data.tag;
+    if (titleEl) titleEl.textContent = data.title;
+    if (bodyEl) bodyEl.innerHTML = data.body;
+    if (tipEl) tipEl.innerHTML = `💡 ${data.tip}`;
+
+    card.classList.remove('hidden', 'fading-out');
+    document.body.classList.add('has-volcano-notice');
+
+    if (timerFill) {
+      timerFill.style.animation = 'none';
+      void timerFill.offsetWidth;
+      timerFill.style.animation = 'vhudTimerDrain 8.5s linear forwards';
+    }
+
+    if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) {
+      CozyAudio.portalChime();
+    }
+
+    addChatLog(`${data.icon} <strong>${data.title}:</strong> ${data.plainText}`, 'lore');
+
+    if (currentVolcanoNoticeTimer) clearTimeout(currentVolcanoNoticeTimer);
+    currentVolcanoNoticeTimer = setTimeout(() => {
+      hideVolcanoHUDCard();
+    }, 8500);
+  }
+
+  function hideVolcanoHUDCard() {
+    const card = document.getElementById('volcano-hud-card');
+    if (!card || card.classList.contains('hidden')) return;
+
+    card.classList.add('fading-out');
+    if (currentVolcanoNoticeTimer) clearTimeout(currentVolcanoNoticeTimer);
+    currentVolcanoNoticeTimer = setTimeout(() => {
+      card.classList.add('hidden');
+      card.classList.remove('fading-out');
+      document.body.classList.remove('has-volcano-notice');
+    }, 280);
+  }
+
+  function getVolcanoNoticeKeyForPos(pos) {
+    if (!pos) return null;
+    if (pos.z <= -347 && pos.y > 15) return 'overlook';
+    if (pos.z <= -304 && pos.z > -340 && pos.y > 15) return 'rest_nook';
+    if (pos.z <= -160 && pos.z > -265) return 'twin_plates';
+    if (pos.z <= -82 && pos.z > -154) return 'causeway';
+    if (pos.z <= -2 && pos.z > -78) return 'gatehall';
+    return null;
   }
 
   function showToast(sub, title) {
@@ -3107,6 +3255,12 @@
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       const roomTitle = window.BlahajVolcano.getRoomTitle(player.pos.z) || 'The Sacred Volcano Trial';
       document.getElementById('hud-zone-name').textContent = roomTitle;
+
+      // Chamber HUD guide popups as player traverses each zone
+      const noticeKey = getVolcanoNoticeKeyForPos(player.pos);
+      if (noticeKey && !shownVolcanoNotices.has(noticeKey)) {
+        showVolcanoHUDNotice(noticeKey);
+      }
 
       const vItems = window.BlahajVolcano.getInteractables(player.pos);
       if (vItems.length > 0) {
