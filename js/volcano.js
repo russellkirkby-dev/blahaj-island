@@ -469,37 +469,81 @@ window.BlahajVolcano = (function () {
   }
 
   function makePlaque(x, base, z, rotY, title, body) {
-    const w = 7;
-    const h = 3.4;
+    const w = 7.8;
+    const h = 4.0;
     const cvs = document.createElement('canvas');
-    cvs.width = 512;
-    cvs.height = Math.round((512 * h) / w);
+    cvs.width = 1024;
+    cvs.height = 550;
     const g = cvs.getContext('2d');
-    g.fillStyle = 'rgba(20,13,16,0.94)';
+
+    // Rich dark volcanic stone tablet background
+    g.fillStyle = 'rgba(20, 14, 18, 0.96)';
     g.fillRect(0, 0, cvs.width, cvs.height);
+
+    // Double gold ornamental border
     g.strokeStyle = '#d8aa5b';
-    g.lineWidth = 6;
-    g.strokeRect(6, 6, cvs.width - 12, cvs.height - 12);
-    g.fillStyle = '#f5cd79';
-    g.font = 'bold 30px Georgia, serif';
+    g.lineWidth = 10;
+    g.strokeRect(12, 12, cvs.width - 24, cvs.height - 24);
+    g.strokeStyle = 'rgba(216, 170, 91, 0.35)';
+    g.lineWidth = 2;
+    g.strokeRect(22, 22, cvs.width - 44, cvs.height - 44);
+
+    // Glowing title
+    g.fillStyle = '#ffb347';
+    g.font = 'bold 42px Georgia, serif';
     g.textAlign = 'center';
-    g.fillText(title, cvs.width / 2, 50);
-    g.fillStyle = '#f3e7d0';
-    g.font = '23px Georgia, serif';
+    g.shadowColor = 'rgba(255, 120, 30, 0.6)';
+    g.shadowBlur = 10;
+    g.fillText(title, cvs.width / 2, 72);
+    g.shadowBlur = 0;
+
+    // Elegant gold divider beneath the title
+    g.strokeStyle = '#d8aa5b';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.moveTo(cvs.width / 2 - 160, 92);
+    g.lineTo(cvs.width / 2 + 160, 92);
+    g.stroke();
+
+    // Body word wrapping with automatic scaling down to guarantee ZERO text overflow
     const words = body.split(' ');
-    let line = '';
-    let ly = 95;
-    words.forEach((word) => {
-      const test = line + word + ' ';
-      if (g.measureText(test).width > cvs.width - 56 && line) {
-        g.fillText(line, cvs.width / 2, ly);
-        line = word + ' ';
-        ly += 30;
-      } else {
-        line = test;
+    let fontSize = 31;
+    let lineHeight = 42;
+    let lines = [];
+    const maxTextWidth = cvs.width - 110;
+    const maxContentHeight = cvs.height - 130;
+
+    while (fontSize >= 16) {
+      g.font = `${fontSize}px Georgia, serif`;
+      lines = [];
+      let curLine = '';
+      for (let i = 0; i < words.length; i++) {
+        const test = curLine ? (curLine + ' ' + words[i]) : words[i];
+        if (g.measureText(test).width > maxTextWidth && curLine) {
+          lines.push(curLine);
+          curLine = words[i];
+        } else {
+          curLine = test;
+        }
       }
+      if (curLine) lines.push(curLine);
+
+      if (lines.length * lineHeight <= maxContentHeight) {
+        break;
+      }
+      fontSize -= 2;
+      lineHeight = Math.round(fontSize * 1.35);
+    }
+
+    g.fillStyle = '#f7eedd';
+    g.font = `${fontSize}px Georgia, serif`;
+    const totalTextH = lines.length * lineHeight;
+    let startY = 105 + (maxContentHeight - totalTextH) / 2 + fontSize * 0.8;
+
+    lines.forEach((l) => {
+      g.fillText(l, cvs.width / 2, startY);
+      startY += lineHeight;
     });
-    g.fillText(line, cvs.width / 2, ly);
 
     const tex = new THREE.CanvasTexture(cvs);
     const board = new THREE.Mesh(
@@ -509,13 +553,22 @@ window.BlahajVolcano = (function () {
     const group = new THREE.Group();
     group.position.set(x, base + 2.7, z);
     group.rotation.y = rotY;
+    board.position.y = 0;
     group.add(board);
-    [-w / 2 + 0.3, w / 2 - 0.3].forEach((px) => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 2.7 + h / 2, 8), getMats().basalt);
-      post.position.set(px, (h / 2 - 2.7) / 2, -0.1);
+
+    // Frame backing & stone posts
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h + 0.3, 0.2), getMats().basalt);
+    back.position.set(0, 0, -0.12);
+    group.add(back);
+
+    [-w / 2 + 0.4, w / 2 - 0.4].forEach((px) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 2.7 + h / 2, 8), getMats().basalt);
+      post.position.set(px, (h / 2 - 2.7) / 2, -0.15);
       group.add(post);
     });
+
     scn.add(group);
+    return group;
   }
 
   // --------------------------------------------------------------------------
@@ -809,17 +862,52 @@ window.BlahajVolcano = (function () {
     wallBlock(-16.3, -92, 0.6, 16, 1.1);
     wallBlock(9.7, -92, 0.6, 16, 1.1);
     wallBlock(-10, -100.3, 12, 0.6, 1.1);
-    wallBlock(6.6, -100.3, 6.6, 0.6, 1.1);
+    wallBlock(4.2, -100.3, 1.8, 0.6, 1.1);
     brazier(-14.5, 0, -85);
     brazier(8, 0, -85);
 
     plates.a = makePlate(-10, -92, 0xffb347);
-    makePlaque(-9, 0, -98.5, 0.1, 'WEIGHT PLATE',
-      'Stand here to raise the bridge. It folds away behind you, so sprint with Shift! A friend can hold it up for you.');
+    makePlaque(-9, 0, -98.5, 0.1, 'THE MOLTEN CAUSEWAY',
+      'Two paths cross the lava sea! Solo: Hop the stepping stones on the right, or press the Weight Plate and sprint across. Co-op: One shark holds the plate while the other crosses safely!');
 
     // Drawbridge: 5 segments of 11m from z=-100 to z=-155.
+    // Grace timer increased to 5.5s so solo runners can easily sprint across!
     plates.bridgeA = makeBridge({
-      axis: 'z', dir: -1, x0: 0, z0: -100, segLen: 11, count: 5, width: 6.4, grace: 0.6, wave: 0.85
+      axis: 'z', dir: -1, x0: 0, z0: -100, segLen: 11, count: 5, width: 6.4, grace: 5.5, wave: 1.1
+    });
+
+    // Solo Platformer Alternative: 6 stepping stones across the lava on the right flank
+    const causewaySoloSpots = [
+      [9.0, -108, 2.5, 0],
+      [12.2, -117, 2.5, 0.25],
+      [9.2, -126, 2.6, 0],
+      [12.5, -135, 2.6, 0.3],
+      [9.8, -144, 2.5, 0.15],
+      [8.5, -151.5, 2.5, 0]
+    ];
+
+    causewaySoloSpots.forEach(([x, z, r, y], i) => {
+      const group = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, 8.5, 20), m.floor);
+      body.position.y = -3.85;
+      group.add(body);
+
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.08, 0.12, 8, 36), m.glow);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = 0.42;
+      group.add(rim);
+
+      const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), m.brass);
+      crest.position.set(0, 0.46, 0);
+      group.add(crest);
+
+      group.position.set(x, y - 0.4, z);
+      scn.add(group);
+
+      const p = { x, z, r, y, phase: i * 1.05, group, baseY: y };
+      platforms.push(p);
+
+      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= r ? p.y : null), false);
     });
 
     // Central island.
@@ -829,7 +917,7 @@ window.BlahajVolcano = (function () {
     wallBlock(14.3, -178, 0.6, 14, 1.1);
     wallBlock(14.3, -158, 0.6, 6, 1.1);
     wallBlock(-8.6, -155.3, 10.8, 0.6, 1.1);
-    wallBlock(8.6, -155.3, 10.8, 0.6, 1.1);
+    wallBlock(4.2, -155.3, 1.8, 0.6, 1.1);
     brazier(-12.5, 0, -157);
     brazier(12.5, 0, -157);
     brazier(-12.5, 0, -183);
@@ -1260,7 +1348,8 @@ window.BlahajVolcano = (function () {
 
     // Bobbing stepping platforms.
     platforms.forEach((p) => {
-      p.y = 0.55 * Math.sin(t * 1.4 + p.phase);
+      const base = p.baseY || 0;
+      p.y = base + 0.45 * Math.sin(t * 1.4 + p.phase);
       p.group.position.set(p.x, p.y - 0.4, p.z);
     });
 
