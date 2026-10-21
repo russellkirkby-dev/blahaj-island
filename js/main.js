@@ -550,11 +550,15 @@
       if (k === 'm') toggleGalleryModal();
       if (k === 'p') togglePortalModal();
 
-      if ((e.key === ' ' || e.code === 'Space') && player.isGrounded && !player.inBoat && !isAnyModalOpen()) {
-        const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
-        player.velY = 8.8 * jumpBoost;
-        player.isGrounded = false;
-        CozyAudio.shonk();
+      if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
+        if (player.inBoat) {
+          disembarkBoatAtCurrentLocation();
+        } else if (player.isGrounded) {
+          const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
+          player.velY = 8.8 * jumpBoost;
+          player.isGrounded = false;
+          CozyAudio.shonk();
+        }
       }
     });
 
@@ -1182,6 +1186,54 @@
     }
   }
 
+  function disembarkBoatAtCurrentLocation() {
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+    const boat = worldApi.getBoatMesh();
+    const bx = boat ? boat.position.x : player.pos.x;
+    const bz = boat ? boat.position.z : player.pos.z;
+
+    // Look for nearest dry beach, dock, or player-built structure within 4m..11m of the boat's current spot
+    let landX = null;
+    let landZ = null;
+    let landY = -999;
+    let bestD = 999;
+
+    for (let r = 3.5; r <= 11.0; r += 1.5) {
+      for (let a = 0; a < 16; a++) {
+        const ang = (a / 16) * Math.PI * 2;
+        const tx = bx + Math.sin(ang) * r;
+        const tz = bz + Math.cos(ang) * r;
+        const ty = worldApi.getGroundAndStructureHeight(tx, tz, player.pos.y + 3.0);
+        if (ty >= 0.45 && r < bestD) {
+          bestD = r;
+          landX = tx;
+          landZ = tz;
+          landY = ty;
+        }
+      }
+      if (landX !== null) break;
+    }
+
+    if (landX !== null) {
+      player.pos.set(landX, landY + 0.1, landZ);
+      player.velY = 4.2;
+      player.isGrounded = false;
+      CozyAudio.shonk();
+      showToast('STEPPED ASHORE 🏝️', 'Hopped off the Regatta Sailboat onto the shore!');
+    } else {
+      // Hop right off the side of the boat at its current spot!
+      const sideX = bx + Math.cos(player.rotY) * 2.8;
+      const sideZ = bz - Math.sin(player.rotY) * 2.8;
+      const gy = Math.max(0.0, worldApi.getGroundAndStructureHeight(sideX, sideZ, player.pos.y + 2.0));
+      player.pos.set(sideX, Math.max(gy, 0.8), sideZ);
+      player.velY = 6.2;
+      player.isGrounded = false;
+      CozyAudio.shonk();
+      showToast('HOPPED OFF BOAT ⛵', 'Stepped off the Regatta Sailboat right here!');
+    }
+  }
+
   function handleLandmarkInteraction(lm) {
     if (lm.type === 'sanctuary_island') {
       const isl = (LORE.sanctuaryIslands || []).find((x) => x.id === lm.islandKey);
@@ -1313,15 +1365,17 @@
 
     if (lm.type === 'boat') {
       player.ridingWithPartner = false;
-      player.inBoat = !player.inBoat;
-      const boat = worldApi.getBoatMesh();
-      if (player.inBoat && boat) {
-        player.pos.set(boat.position.x, boat.position.y + 0.75, boat.position.z);
-        showToast('THE WATER THAT DOTH NOT WET', 'Sailing the Regatta Boat! Sail out to the 4 Outer Sanctuary Islands!');
+      if (!player.inBoat) {
+        player.inBoat = true;
+        const boat = worldApi.getBoatMesh();
+        if (boat) {
+          player.pos.set(boat.position.x, boat.position.y + 0.88, boat.position.z);
+        }
+        CozyAudio.shonk();
+        showToast('THE WATER THAT DOTH NOT WET ⛵', 'Sailing the Regatta Boat! Press [E] or [Space] anytime to hop off where you are!');
         completeQuest('q-boat');
       } else {
-        player.pos.set(0, worldApi.getTerrainHeight(0, 62), 62);
-        showToast('TEA DOCKS HARBOUR', 'Stepped ashore onto the Tea Docks.');
+        disembarkBoatAtCurrentLocation();
       }
       return;
     }
@@ -2136,7 +2190,7 @@
           boat.position.x = player.pos.x;
           boat.position.z = player.pos.z;
           boat.rotation.y = player.rotY;
-          player.pos.y = boat.position.y + 0.75;
+          player.pos.y = boat.position.y + 0.88;
         }
       } else {
         // Walk seamlessly across both natural terrain AND Hiram's player-built bridges, ramps, docks, and platforms!
@@ -2463,10 +2517,19 @@
     document.getElementById('hud-zone-name').textContent = currentZoneTitle;
 
     const promptEl = document.getElementById('interaction-prompt');
+    const isSailingNow = player.inBoat || player.ridingWithPartner;
+    promptEl.classList.toggle('sailing-corner', isSailingNow);
+
     if (builderState.active && player.sharkId === 'hiram' && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
       document.getElementById('interaction-text').textContent =
         `Build ${spec ? spec.name : 'Structure'} [E / Click] · Rotate [R] · Remove [X]`;
+      promptEl.classList.remove('hidden');
+    } else if (isSailingNow && !isAnyModalOpen()) {
+      const canTalkToDock = nearestInteractable && nearestInteractable.kind === 'landmark' && nearestInteractable.ref.type !== 'boat';
+      document.getElementById('interaction-text').textContent = canTalkToDock
+        ? `${nearestInteractable.prompt} · or Hop Off [Space]`
+        : '⛵ Sailing — Hop Off Here [E / Space]';
       promptEl.classList.remove('hidden');
     } else if (nearestInteractable && !isAnyModalOpen()) {
       document.getElementById('interaction-text').textContent = nearestInteractable.prompt;

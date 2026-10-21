@@ -1652,46 +1652,60 @@ window.BlahajWorld = (function () {
       roughness: 0.75,
       side: THREE.DoubleSide
     });
+    const hullMat = woodMat.clone();
+    hullMat.side = THREE.DoubleSide;
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0x8c6239, roughness: 0.8 });
     const bGroup = new THREE.Group();
 
-    const hullGeo = new THREE.CylinderGeometry(2.2, 1.4, 7.6, 20, 1, false, 0, Math.PI);
+    // Curved boat hull pointing DOWN into the water (so the top deck is flat and open!)
+    const hullGeo = new THREE.CylinderGeometry(2.2, 1.5, 7.8, 20, 1, false, Math.PI, Math.PI);
     hullGeo.rotateZ(Math.PI / 2);
     hullGeo.rotateY(Math.PI / 2);
-    const hull = new THREE.Mesh(hullGeo, woodMat);
-    hull.scale.set(1.1, 0.75, 1.0);
-    hull.position.y = 0.75;
+    const hull = new THREE.Mesh(hullGeo, hullMat);
+    hull.scale.set(1.12, 0.65, 1.0);
+    hull.position.y = 0.78;
     hull.castShadow = true;
     bGroup.add(hull);
 
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.25, 6.6), woodMat);
-    deck.position.y = 0.72;
+    // Wide flat planked wooden deck for sharks to stand proudly on top of!
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 7.0), deckMat);
+    deck.position.y = 0.76;
+    deck.receiveShadow = true;
     bGroup.add(deck);
 
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 7.4, 14), woodMat);
-    mast.position.set(0, 4.1, 0.4);
+    // Low wooden gunwale rails along left & right edges of the deck
+    [-1.82, 1.82].forEach((rx) => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 6.8), woodMat);
+      rail.position.set(rx, 0.98, 0);
+      bGroup.add(rail);
+    });
+
+    // Forward-mounted mast & raised sail so the center deck has a clear view and zero clipping
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.21, 7.8, 14), woodMat);
+    mast.position.set(0, 4.5, 1.65);
     bGroup.add(mast);
 
-    const sailGeo = new THREE.PlaneGeometry(4.2, 4.8, 12, 12);
+    const sailGeo = new THREE.PlaneGeometry(4.2, 4.6, 12, 12);
     const sPos = sailGeo.attributes.position;
     for (let i = 0; i < sPos.count; i++) {
       const sx = sPos.getX(i);
       const sy = sPos.getY(i);
-      const belly = Math.cos((sx / 2.1) * (Math.PI * 0.5)) * Math.cos((sy / 2.4) * (Math.PI * 0.5)) * 0.65;
+      const belly = Math.cos((sx / 2.1) * (Math.PI * 0.5)) * Math.cos((sy / 2.3) * (Math.PI * 0.5)) * 0.65;
       sPos.setZ(i, belly);
     }
     sailGeo.computeVertexNormals();
     const sail = new THREE.Mesh(sailGeo, sailMat);
-    sail.position.set(0, 4.4, 0.55);
+    sail.position.set(0, 5.2, 1.8);
     bGroup.add(sail);
 
     const prowLantern = new THREE.Mesh(
       new THREE.SphereGeometry(0.32, 14, 14),
       new THREE.MeshBasicMaterial({ color: lanternColorHex })
     );
-    prowLantern.position.set(0, 1.75, 3.6);
+    prowLantern.position.set(0, 1.65, 3.7);
     bGroup.add(prowLantern);
     const boatLight = new THREE.PointLight(lanternColorHex, 1.5, 22);
-    boatLight.position.set(0, 2.0, 3.6);
+    boatLight.position.set(0, 1.95, 3.7);
     bGroup.add(boatLight);
 
     return bGroup;

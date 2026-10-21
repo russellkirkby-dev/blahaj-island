@@ -536,12 +536,12 @@ kbd {
   font-weight: 700;
 }
 
-/* CENTER INTERACTION PROMPT */
+/* INTERACTION PROMPT (Positioned cleanly above bottom bar; docks in corner when sailing) */
 #interaction-prompt {
   position: absolute;
-  top: 57%;
+  bottom: 116px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -553,6 +553,18 @@ kbd {
   font-size: 14px;
   font-weight: 700;
   color: var(--parchment);
+  transition: all 0.25s ease;
+}
+
+#interaction-prompt.sailing-corner {
+  left: auto;
+  right: 22px;
+  bottom: 112px;
+  transform: none;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  background: rgba(15, 23, 38, 0.86);
+  border-color: rgba(212, 166, 86, 0.65);
 }
 
 .key-badge {
