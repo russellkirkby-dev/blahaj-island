@@ -84,8 +84,17 @@ window.BlahajVolcano = (function () {
     toast() {},
     complete() {},
     relic() {},
-    carrotLost() {}
+    carrotLost() {},
+    checkpoint() {},
+    lavaFall() {}
   };
+
+  function setHandlers(handlers) {
+    if (handlers && typeof handlers === 'object') {
+      Object.assign(on, handlers);
+    }
+    return on;
+  }
 
   // --------------------------------------------------------------------------
   // MATH & NOISE HELPERS
@@ -1141,12 +1150,13 @@ window.BlahajVolcano = (function () {
 
   async function build(onProgress) {
     if (built) return;
+    const report = typeof onProgress === 'function' ? onProgress : null;
     for (let i = 0; i < BUILD_STEPS.length; i++) {
-      if (onProgress) onProgress(i / BUILD_STEPS.length, BUILD_STEPS[i][0]);
+      if (report) report(i / BUILD_STEPS.length, BUILD_STEPS[i][0]);
       await new Promise((r) => setTimeout(r, 30));
       BUILD_STEPS[i][1]();
     }
-    if (onProgress) onProgress(1, 'Ready!');
+    if (report) report(1, 'Ready!');
     built = true;
   }
 
@@ -1250,7 +1260,7 @@ window.BlahajVolcano = (function () {
         if (!relicTaken && Math.hypot(a.x - relic.position.x, a.z - relic.position.z) < 2.6 && Math.abs(a.y) < 2.5) {
           relicTaken = true;
           relic.visible = false;
-          on.relic();
+          if (typeof on.relic === 'function') on.relic();
         }
       });
     }
@@ -1280,7 +1290,7 @@ window.BlahajVolcano = (function () {
           c.state = 'lost';
           c.mesh.visible = false;
           spawnSplash(p.x, p.z);
-          on.carrotLost(idx);
+          if (typeof on.carrotLost === 'function') on.carrotLost(idx);
         }
       }
       if (c.respawn <= 0) returnCarrotHome(c);
@@ -1325,11 +1335,12 @@ window.BlahajVolcano = (function () {
       const room = getRoom(me.z);
       if (room !== currentRoom) {
         currentRoom = room;
-        on.toast(ROOM_TITLES[room].toUpperCase(), roomSubtitle(room));
+        if (typeof on.toast === 'function') on.toast(ROOM_TITLES[room].toUpperCase(), roomSubtitle(room));
+        if (typeof on.checkpoint === 'function') on.checkpoint(room, { x: me.x, y: me.y, z: me.z });
       }
       if (!completed && me.z < -349 && me.y > 18) {
         completed = true;
-        on.complete();
+        if (typeof on.complete === 'function') on.complete();
       }
     }
   }
@@ -1396,7 +1407,7 @@ window.BlahajVolcano = (function () {
     setActive,
     getScene: () => scn,
     getStart: () => START,
-    on,
+    on: setHandlers,
     update,
     getFloorHeight,
     resolveMove,

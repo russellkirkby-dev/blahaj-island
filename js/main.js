@@ -468,26 +468,34 @@
 
     // 1b. Build Instanced Volcano Trial Dungeon Scene
     if (window.BlahajVolcano) {
-      window.BlahajVolcano.build(THREE, renderer);
-      window.BlahajVolcano.on({
-        checkpoint: (room, pt) => {
-          volcanoCheckpoint = { x: pt.x, y: pt.y, z: pt.z, rotY: pt.rotY || Math.PI };
-          showToast('CHECKPOINT REACHED! ⛩️', `Entered ${window.BlahajVolcano.getRoomTitle(pt.z)}!`);
-          CozyAudio.portalChime();
-        },
-        complete: () => {
-          player.trialPoints += 2;
-          updateMetersUI();
-          renderUpgradesGrid();
-          showToast('VOLCANO TRIAL CONQUERED! 🌋⚔️ (+2 TRIAL POINTS)', 'You reached the Sacred Caldera Overlook! Bump the Volunteer Carrots or step into the return portal!');
-          addChatLog('🌋⚔️ <strong>VOLCANO TRIAL CONQUERED!</strong> You made it to the Caldera Overlook and earned <strong>+2 Trial Points</strong>!', 'system');
-          CozyAudio.portalChime();
-          completeQuest('q-volcano');
-        },
-        lavaFall: () => {
-          handleVolcanoTrapHit('Molten Lava Sea');
+      try {
+        if (typeof window.BlahajVolcano.on === 'function') {
+          window.BlahajVolcano.on({
+            checkpoint: (room, pt) => {
+              volcanoCheckpoint = { x: pt.x, y: pt.y, z: pt.z, rotY: pt.rotY || Math.PI };
+              showToast('CHECKPOINT REACHED! ⛩️', `Entered ${window.BlahajVolcano.getRoomTitle(pt.z)}!`);
+              CozyAudio.portalChime();
+            },
+            complete: () => {
+              player.trialPoints += 2;
+              updateMetersUI();
+              renderUpgradesGrid();
+              showToast('VOLCANO TRIAL CONQUERED! 🌋⚔️ (+2 TRIAL POINTS)', 'You reached the Sacred Caldera Overlook! Bump the Volunteer Carrots or step into the return portal!');
+              addChatLog('🌋⚔️ <strong>VOLCANO TRIAL CONQUERED!</strong> You made it to the Caldera Overlook and earned <strong>+2 Trial Points</strong>!', 'system');
+              CozyAudio.portalChime();
+              completeQuest('q-volcano');
+            },
+            lavaFall: () => {
+              handleVolcanoTrapHit('Molten Lava Sea');
+            }
+          });
         }
-      });
+        window.BlahajVolcano.build().catch((err) => {
+          console.warn('Volcano background build warning:', err);
+        });
+      } catch (err) {
+        console.error('Failed to init BlahajVolcano:', err);
+      }
     }
 
     // 2. Spawn High-Polygon Player Shark & All Island Characters
