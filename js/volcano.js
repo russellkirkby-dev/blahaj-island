@@ -483,9 +483,9 @@ window.BlahajVolcano = (function () {
     flames.push({ mesh: flame, phase: Math.random() * 6, baseY: y + 1.85 });
   }
 
-  function makePlaque(x, base, z, rotY, title, body) {
-    const w = 7.8;
-    const h = 4.0;
+  function makePlaque(x, base, z, rotY, title, body, customW, customH) {
+    const w = customW || 7.8;
+    const h = customH || 4.0;
     const cvs = document.createElement('canvas');
     cvs.width = 1024;
     cvs.height = 550;
@@ -563,22 +563,22 @@ window.BlahajVolcano = (function () {
     const tex = new THREE.CanvasTexture(cvs);
     const board = new THREE.Mesh(
       new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+      new THREE.MeshBasicMaterial({ map: tex })
     );
     const group = new THREE.Group();
-    group.position.set(x, base + 2.7, z);
+    group.position.set(x, base + h / 2 + 0.6, z);
     group.rotation.y = rotY;
     board.position.y = 0;
     group.add(board);
 
     // Frame backing & stone posts
     const back = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, h + 0.3, 0.2), getMats().basalt);
-    back.position.set(0, 0, -0.12);
+    back.position.set(0, 0, -0.11);
     group.add(back);
 
     [-w / 2 + 0.4, w / 2 - 0.4].forEach((px) => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 2.7 + h / 2, 8), getMats().basalt);
-      post.position.set(px, (h / 2 - 2.7) / 2, -0.15);
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, h + 1.2, 8), getMats().basalt);
+      post.position.set(px, -0.5, -0.15);
       group.add(post);
     });
 
@@ -1037,6 +1037,10 @@ window.BlahajVolcano = (function () {
     d.rotation.order = 'YXZ';
     const tilt = Math.atan2(SPIRAL.rise, thetaMax * R);
     let lampIdx = 0;
+    let stepCount = 0;
+    let barsOutCount = 0;
+    let barsInCount = 0;
+
     for (let i = 0; i < N; i++) {
       const th = ((i + 0.5) / N) * thetaMax;
       const y = (th / thetaMax) * SPIRAL.rise;
@@ -1044,34 +1048,73 @@ window.BlahajVolcano = (function () {
       const px = SPIRAL.x + Math.sin(th) * R;
       const pz = SPIRAL.z + Math.cos(th) * R;
 
-      d.position.set(px, y - 0.45, pz);
-      d.rotation.set(-tilt, phi, 0);
-      d.scale.set(1, 1, 1);
-      d.updateMatrix();
-      steps.setMatrixAt(i, d.matrix);
+      // Only generate stair steps while outside the flat rest nook floor (y < 21.6)
+      if (y < 21.6) {
+        d.position.set(px, y - 0.45, pz);
+        d.rotation.set(-tilt, phi, 0);
+        d.scale.set(1, 1, 1);
+        d.updateMatrix();
+        steps.setMatrixAt(stepCount++, d.matrix);
+      }
 
-      const ox = SPIRAL.x + Math.sin(th) * (R + SPIRAL.halfWidth + 0.15);
-      const oz = SPIRAL.z + Math.cos(th) * (R + SPIRAL.halfWidth + 0.15);
-      d.position.set(ox, y + 1.0, oz);
-      d.updateMatrix();
-      barsOut.setMatrixAt(i, d.matrix);
+      // Outer rail terminates cleanly before reaching the Rest Nook wall (th <= 2.76 * Math.PI)
+      // This guarantees it NEVER cuts across the floor, through the tea table, or across the cushions!
+      if (th <= 2.76 * Math.PI) {
+        const ox = SPIRAL.x + Math.sin(th) * (R + SPIRAL.halfWidth + 0.15);
+        const oz = SPIRAL.z + Math.cos(th) * (R + SPIRAL.halfWidth + 0.15);
+        d.position.set(ox, y + 1.0, oz);
+        d.rotation.set(-tilt, phi, 0);
+        d.scale.set(1, 1, 1);
+        d.updateMatrix();
+        barsOut.setMatrixAt(barsOutCount++, d.matrix);
+      }
 
-      const ix = SPIRAL.x + Math.sin(th) * (R - SPIRAL.halfWidth - 0.15);
-      const iz = SPIRAL.z + Math.cos(th) * (R - SPIRAL.halfWidth - 0.15);
-      d.position.set(ix, y + 1.0, iz);
-      d.updateMatrix();
-      barsIn.setMatrixAt(i, d.matrix);
+      // Inner rail terminates early before the doorway threshold (th <= 2.66 * Math.PI)
+      // This completely ELIMINATES the beam across the entranceway so players simply walk straight into the room!
+      if (th <= 2.66 * Math.PI) {
+        const ix = SPIRAL.x + Math.sin(th) * (R - SPIRAL.halfWidth - 0.15);
+        const iz = SPIRAL.z + Math.cos(th) * (R - SPIRAL.halfWidth - 0.15);
+        d.position.set(ix, y + 1.0, iz);
+        d.rotation.set(-tilt, phi, 0);
+        d.scale.set(1, 1, 1);
+        d.updateMatrix();
+        barsIn.setMatrixAt(barsInCount++, d.matrix);
+      }
 
-      if (i % 6 === 0 && lampIdx < 26) {
+      if (i % 6 === 0 && lampIdx < 26 && th <= 2.72 * Math.PI) {
+        const ox = SPIRAL.x + Math.sin(th) * (R + SPIRAL.halfWidth + 0.15);
+        const oz = SPIRAL.z + Math.cos(th) * (R + SPIRAL.halfWidth + 0.15);
         d.position.set(ox, y + 1.45, oz);
         d.rotation.set(0, 0, 0);
+        d.scale.set(1, 1, 1);
         d.updateMatrix();
         lamps.setMatrixAt(lampIdx++, d.matrix);
-        d.rotation.set(-tilt, phi, 0);
       }
     }
+    steps.count = stepCount;
+    barsOut.count = barsOutCount;
+    barsIn.count = barsInCount;
     lamps.count = lampIdx;
     scn.add(steps, barsOut, barsIn, lamps);
+
+    // Elegant ornamental brass newel posts at the railing terminations
+    const thIn = 2.66 * Math.PI;
+    const yIn = (thIn / thetaMax) * SPIRAL.rise;
+    const postIn = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.5, 12), m.brass);
+    postIn.position.set(SPIRAL.x + Math.sin(thIn) * (R - SPIRAL.halfWidth - 0.15), yIn + 0.75, SPIRAL.z + Math.cos(thIn) * (R - SPIRAL.halfWidth - 0.15));
+    scn.add(postIn);
+    const postInCap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), m.glow);
+    postInCap.position.set(postIn.position.x, postIn.position.y + 0.85, postIn.position.z);
+    scn.add(postInCap);
+
+    const thOut = 2.76 * Math.PI;
+    const yOut = (thOut / thetaMax) * SPIRAL.rise;
+    const postOut = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.5, 12), m.brass);
+    postOut.position.set(SPIRAL.x + Math.sin(thOut) * (R + SPIRAL.halfWidth + 0.15), yOut + 0.75, SPIRAL.z + Math.cos(thOut) * (R + SPIRAL.halfWidth + 0.15));
+    scn.add(postOut);
+    const postOutCap = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), m.glow);
+    postOutCap.position.set(postOut.position.x, postOut.position.y + 0.85, postOut.position.z);
+    scn.add(postOutCap);
 
     // Molten column at the heart of the spiral.
     const column = new THREE.Mesh(new THREE.CylinderGeometry(5, 5.6, 78, 28, 1, true), makeLavaMaterial(true));
@@ -1093,25 +1136,37 @@ window.BlahajVolcano = (function () {
     rectSurface(0, -311.5, 6, 7.5, top);
     // Suppress front/back glowing trims on internal floor seams (connecting to spiral ramp and corridor)
     slab(0, -311.5, 6, 7.5, top, 1.4, { front: false, back: false, left: true, right: true });
-    [-6.3, 6.3].forEach((x) => wallBlock(x, -311.5, 0.6, 15, 1.1, top));
 
-    // Cozy circular stone dais for the tea service
+    // Smooth beveled threshold ramp joining the top of the stairs directly into the Rest Nook floor with ZERO vertical lip
+    rectSurface(2.5, -306.5, 3.5, 2.5, top);
+    const thresh = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.8, 3.5), m.floor);
+    thresh.position.set(2.5, top - 0.38, -306.5);
+    thresh.rotation.x = 0.08;
+    thresh.rotation.z = -0.06;
+    scn.add(thresh);
+
+    // Left wall along the full room length
+    wallBlock(-6.3, -311.5, 0.6, 15, 1.1, top);
+    // Right wall ONLY behind the entrance (z = -312 to -319), leaving the entrance from the stairs wide open!
+    wallBlock(6.3, -315.5, 0.6, 7.0, 1.1, top);
+
+    // Cozy circular stone dais for the tea service in the alcove
     const dais = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 0.1, 24), m.basalt);
-    dais.position.set(3.4, top + 0.05, -313.2);
+    dais.position.set(2.8, top + 0.05, -314.5);
     scn.add(dais);
 
     // Warm ceramic/wooden tea table
     const table = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.4, 0.85, 20), m.floor);
-    table.position.set(3.4, top + 0.45, -313.2);
+    table.position.set(2.8, top + 0.45, -314.5);
     scn.add(table);
     const tableRim = new THREE.Mesh(new THREE.TorusGeometry(1.26, 0.05, 8, 32), m.brass);
     tableRim.rotation.x = Math.PI / 2;
-    tableRim.position.set(3.4, top + 0.88, -313.2);
+    tableRim.position.set(2.8, top + 0.88, -314.5);
     scn.add(tableRim);
 
     // Adorable, clearly recognizable Celadon & Brass Teapot
     const teapotGroup = new THREE.Group();
-    teapotGroup.position.set(3.4, top + 1.25, -313.2);
+    teapotGroup.position.set(2.8, top + 1.25, -314.5);
 
     // Teapot body
     const potBody = new THREE.Mesh(new THREE.SphereGeometry(0.38, 20, 16), m.brass);
@@ -1144,7 +1199,7 @@ window.BlahajVolcano = (function () {
     const porcelainMat = new THREE.MeshStandardMaterial({ color: 0xf5f0ea, roughness: 0.2, metalness: 0.1 });
     const teaLiquidMat = new THREE.MeshStandardMaterial({ color: 0x8a3a14, roughness: 0.15 });
 
-    [[2.7, -313.8], [4.1, -313.8]].forEach(([cx, cz]) => {
+    [[2.1, -315.1], [3.5, -315.1]].forEach(([cx, cz]) => {
       const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.03, 14), porcelainMat);
       saucer.position.set(cx, top + 0.9, cz);
       scn.add(saucer);
@@ -1161,11 +1216,11 @@ window.BlahajVolcano = (function () {
 
     // Plate of warm spherical buns / brioche rolls
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 0.04, 16), porcelainMat);
-    plate.position.set(3.4, top + 0.9, -312.4);
+    plate.position.set(2.8, top + 0.9, -313.7);
     scn.add(plate);
 
     const bunMat = new THREE.MeshStandardMaterial({ color: 0xd4893b, roughness: 0.6 });
-    [[3.32, -312.48], [3.48, -312.48], [3.4, -312.32]].forEach(([bx, bz]) => {
+    [[2.72, -313.78], [2.88, -313.78], [2.8, -313.62]].forEach(([bx, bz]) => {
       const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), bunMat);
       bun.scale.set(1.1, 0.85, 1.1);
       bun.position.set(bx, top + 0.98, bz);
@@ -1173,7 +1228,7 @@ window.BlahajVolcano = (function () {
     });
 
     // Plump tufted seating cushions with buttons
-    [[2.3, -314.9], [4.5, -314.9]].forEach(([cx, cz], i) => {
+    [[1.7, -316.0], [3.9, -316.0]].forEach(([cx, cz], i) => {
       const cushionMat = new THREE.MeshStandardMaterial({ color: i ? 0x4a7eb8 : 0xd97b96, roughness: 0.85 });
       const cushion = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.74, 0.26, 16), cushionMat);
       cushion.position.set(cx, top + 0.13, cz);
@@ -1186,11 +1241,10 @@ window.BlahajVolcano = (function () {
     });
 
     brazier(-4.5, top, -306);
-    brazier(4.5, top, -306);
 
-    // Plaque placed flat on the side wall, leaving the central corridor to the overlook wide open!
-    makePlaque(-5.5, top, -312.5, Math.PI / 2, 'REST NOOK',
-      'A warm pot of tea and fresh buns wait here for weary sharks. The Crater Overlook is just ahead.');
+    // Tasteful carved stone wall tablet (4.0m x 2.4m) mounted flush on the left wall
+    makePlaque(-6.0, top, -313.5, Math.PI / 2, 'REST NOOK',
+      'A warm pot of tea and fresh buns wait here for weary sharks. The Crater Overlook is just ahead.', 4.0, 2.4);
   }
 
   function stepOverlook() {
@@ -1624,7 +1678,7 @@ window.BlahajVolcano = (function () {
       if (dPortal < 5.2) {
         out.push({ kind: 'v_portal', dist: dPortal, prompt: 'Step through the Return Portal · Great Portal Gate [E] 🌀' });
       }
-      const dTea = Math.hypot(p.x - 3.4, p.z + 313.2);
+      const dTea = Math.hypot(p.x - 2.8, p.z + 314.5);
       if (dTea < 4.8) {
         out.push({ kind: 'v_tea', dist: dTea, prompt: 'Sip Warm Rest-Nook Tea [E] 🍵' });
       }
