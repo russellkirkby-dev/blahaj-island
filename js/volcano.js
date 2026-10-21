@@ -205,8 +205,14 @@ window.BlahajVolcano = (function () {
     }
 
     if (isNaN(nx) || isNaN(nz)) return { x: px || 0, z: pz || 0 };
-    const prof = profileAt(nz);
-    const lim = (prof && prof.rx ? prof.rx : 10) - 1.6;
+    let lim;
+    if (nz <= -346) {
+      // Overlook Balcony: allow full width of balcony (from -14.8 to +14.8) so sharks can reach the portal and carrots
+      lim = BALCONY.hw - 1.2;
+    } else {
+      const prof = profileAt(nz);
+      lim = (prof && prof.rx ? prof.rx : 10) - 1.6;
+    }
     nx = Math.max(-lim, Math.min(lim, nx));
 
     if (grounded) {
@@ -433,15 +439,22 @@ window.BlahajVolcano = (function () {
     return mesh;
   }
 
-  function slab(cx, cz, hw, hd, y, thick = 1.4) {
+  function slab(cx, cz, hw, hd, y, thick = 1.4, trimSides = null) {
     const m = getMats();
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, thick, hd * 2), m.floor);
     mesh.position.set(cx, y - thick / 2, cz);
     scn.add(mesh);
 
-    // Molten edge trim so every ledge reads clearly against the dark rock.
+    // Molten edge trim so exposed ledges read clearly against the dark rock.
     const t = 0.12;
-    [[0, hd, hw, t / 2], [0, -hd, hw, t / 2], [hw, 0, t / 2, hd], [-hw, 0, t / 2, hd]].forEach(([ox, oz, ex, ez]) => {
+    const sides = [
+      { id: 'front', ox: 0, oz: hd, ex: hw, ez: t / 2 },
+      { id: 'back', ox: 0, oz: -hd, ex: hw, ez: t / 2 },
+      { id: 'right', ox: hw, oz: 0, ex: t / 2, ez: hd },
+      { id: 'left', ox: -hw, oz: 0, ex: t / 2, ez: hd }
+    ];
+    sides.forEach(({ id, ox, oz, ex, ez }) => {
+      if (trimSides && trimSides[id] === false) return;
       const trim = new THREE.Mesh(new THREE.BoxGeometry(ex * 2 + 0.02, 0.1, ez * 2 + 0.02), m.glow);
       trim.position.set(cx + ox, y + 0.02, cz + oz);
       scn.add(trim);
@@ -1078,27 +1091,106 @@ window.BlahajVolcano = (function () {
     // Rest landing at the top with a warm tea nook.
     const top = SPIRAL.rise;
     rectSurface(0, -311.5, 6, 7.5, top);
-    slab(0, -311.5, 6, 7.5, top);
+    // Suppress front/back glowing trims on internal floor seams (connecting to spiral ramp and corridor)
+    slab(0, -311.5, 6, 7.5, top, 1.4, { front: false, back: false, left: true, right: true });
     [-6.3, 6.3].forEach((x) => wallBlock(x, -311.5, 0.6, 15, 1.1, top));
 
-    const table = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.9, 16), m.basalt);
+    // Cozy circular stone dais for the tea service
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 0.1, 24), m.basalt);
+    dais.position.set(3.4, top + 0.05, -313.2);
+    scn.add(dais);
+
+    // Warm ceramic/wooden tea table
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.4, 0.85, 20), m.floor);
     table.position.set(3.4, top + 0.45, -313.2);
     scn.add(table);
-    const pot = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 12), m.brass);
-    pot.position.set(3.4, top + 1.25, -313.2);
-    scn.add(pot);
-    [[2.5, -314.8], [4.4, -314.9]].forEach(([cx, cz], i) => {
-      const cushion = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.6, 0.65, 0.25, 14),
-        new THREE.MeshStandardMaterial({ color: i ? 0x3b6998 : 0xd97b96, roughness: 0.9 })
-      );
-      cushion.position.set(cx, top + 0.12, cz);
-      scn.add(cushion);
+    const tableRim = new THREE.Mesh(new THREE.TorusGeometry(1.26, 0.05, 8, 32), m.brass);
+    tableRim.rotation.x = Math.PI / 2;
+    tableRim.position.set(3.4, top + 0.88, -313.2);
+    scn.add(tableRim);
+
+    // Adorable, clearly recognizable Celadon & Brass Teapot
+    const teapotGroup = new THREE.Group();
+    teapotGroup.position.set(3.4, top + 1.25, -313.2);
+
+    // Teapot body
+    const potBody = new THREE.Mesh(new THREE.SphereGeometry(0.38, 20, 16), m.brass);
+    potBody.scale.set(1.15, 0.9, 1.05);
+    teapotGroup.add(potBody);
+
+    // Teapot domed lid with golden ball finial
+    const potLid = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.1, 16), m.brass);
+    potLid.position.y = 0.38;
+    teapotGroup.add(potLid);
+    const potFinial = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), m.glow);
+    potFinial.position.y = 0.47;
+    teapotGroup.add(potFinial);
+
+    // Curved pouring spout
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.11, 0.38, 12), m.brass);
+    spout.position.set(-0.36, 0.12, 0);
+    spout.rotation.z = Math.PI * 0.36;
+    teapotGroup.add(spout);
+
+    // Arched teapot handle
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.045, 8, 20, Math.PI), m.brass);
+    handle.position.set(0.34, 0.06, 0);
+    handle.rotation.z = -Math.PI / 2;
+    teapotGroup.add(handle);
+
+    scn.add(teapotGroup);
+
+    // Two miniature porcelain teacups on saucers with warm amber tea
+    const porcelainMat = new THREE.MeshStandardMaterial({ color: 0xf5f0ea, roughness: 0.2, metalness: 0.1 });
+    const teaLiquidMat = new THREE.MeshStandardMaterial({ color: 0x8a3a14, roughness: 0.15 });
+
+    [[2.7, -313.8], [4.1, -313.8]].forEach(([cx, cz]) => {
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.03, 14), porcelainMat);
+      saucer.position.set(cx, top + 0.9, cz);
+      scn.add(saucer);
+
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.1, 0.16, 14), porcelainMat);
+      cup.position.set(cx, top + 0.98, cz);
+      scn.add(cup);
+
+      const teaLiquid = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), teaLiquidMat);
+      teaLiquid.rotation.x = -Math.PI / 2;
+      teaLiquid.position.set(cx, top + 1.05, cz);
+      scn.add(teaLiquid);
     });
+
+    // Plate of warm spherical buns / brioche rolls
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.3, 0.04, 16), porcelainMat);
+    plate.position.set(3.4, top + 0.9, -312.4);
+    scn.add(plate);
+
+    const bunMat = new THREE.MeshStandardMaterial({ color: 0xd4893b, roughness: 0.6 });
+    [[3.32, -312.48], [3.48, -312.48], [3.4, -312.32]].forEach(([bx, bz]) => {
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), bunMat);
+      bun.scale.set(1.1, 0.85, 1.1);
+      bun.position.set(bx, top + 0.98, bz);
+      scn.add(bun);
+    });
+
+    // Plump tufted seating cushions with buttons
+    [[2.3, -314.9], [4.5, -314.9]].forEach(([cx, cz], i) => {
+      const cushionMat = new THREE.MeshStandardMaterial({ color: i ? 0x4a7eb8 : 0xd97b96, roughness: 0.85 });
+      const cushion = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.74, 0.26, 16), cushionMat);
+      cushion.position.set(cx, top + 0.13, cz);
+      scn.add(cushion);
+
+      // Central button indentation
+      const button = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), m.brass);
+      button.position.set(cx, top + 0.25, cz);
+      scn.add(button);
+    });
+
     brazier(-4.5, top, -306);
     brazier(4.5, top, -306);
-    makePlaque(-3.2, top, -317.8, 0, 'REST NOOK',
-      'A warm pot of tea waits here for weary sharks. The Crater Overlook is just ahead.');
+
+    // Plaque placed flat on the side wall, leaving the central corridor to the overlook wide open!
+    makePlaque(-5.5, top, -312.5, Math.PI / 2, 'REST NOOK',
+      'A warm pot of tea and fresh buns wait here for weary sharks. The Crater Overlook is just ahead.');
   }
 
   function stepOverlook() {
@@ -1107,7 +1199,8 @@ window.BlahajVolcano = (function () {
 
     // Final corridor to the balcony.
     rectSurface(0, -332.5, 4.2, 14, top);
-    slab(0, -332.5, 4.2, 14, top);
+    // Suppress front/back glowing trims on internal floor seams
+    slab(0, -332.5, 4.2, 14, top, 1.4, { front: false, back: false, left: true, right: true });
     [-4.5, 4.5].forEach((x) => wallBlock(x, -332.5, 0.6, 28, 1.1, top));
     for (let z = -322; z > -346; z -= 11) {
       brazier(-3.4, top, z);
@@ -1143,6 +1236,23 @@ window.BlahajVolcano = (function () {
     const lintel = new THREE.Mesh(new THREE.BoxGeometry(13, 2.2, 2.6), m.basalt);
     lintel.position.set(0, BALCONY.y + 14.6, -346.5);
     scn.add(lintel);
+
+    // Caldera back cliff walls sealing the balcony completely (no open gaps into void behind dungeon)
+    [-11.2, 11.2].forEach((x) => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(11.6, 22, 2.4), m.basalt);
+      wall.position.set(x, BALCONY.y + 11, -346.5);
+      scn.add(wall);
+
+      // Decorative basalt buttresses along the cliff face
+      const buttress = new THREE.Mesh(new THREE.BoxGeometry(1.8, 18, 1.4), m.floor);
+      buttress.position.set(x, BALCONY.y + 9, -347.4);
+      scn.add(buttress);
+    });
+
+    // Rock pediment sealing the archway above the lintel
+    const topArch = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 2.4), m.basalt);
+    topArch.position.set(0, BALCONY.y + 19, -346.5);
+    scn.add(topArch);
 
     // Return portal home.
     const portal = new THREE.Group();

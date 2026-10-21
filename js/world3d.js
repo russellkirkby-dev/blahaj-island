@@ -1463,15 +1463,58 @@ window.BlahajWorld = (function () {
     table.position.y = 1.15;
     group.add(table);
 
-    const sphereColors = [0xa84224, 0xf2e8d5, 0xd9385a, 0xdba84b, 0x7a1c38, 0xe8b923, 0x4a7c36, 0xf5d77f, 0x3b2219];
-    sphereColors.forEach((sc, i) => {
-      const a = (i / sphereColors.length) * Math.PI * 2;
-      const dish = new THREE.Mesh(
-        new THREE.SphereGeometry(0.32, 20, 18),
-        new THREE.MeshStandardMaterial({ color: sc, roughness: 0.3 })
-      );
-      dish.position.set(Math.cos(a) * 1.85, 1.98, Math.sin(a) * 1.85);
-      group.add(dish);
+    // Upgraded Spherical Foods: Distinct culinary spherical treats served on fine porcelain saucers!
+    const plateMat = new THREE.MeshStandardMaterial({ color: 0xfaf6f0, roughness: 0.18, metalness: 0.08 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x34a853, roughness: 0.4 });
+    const garnishDark = new THREE.MeshStandardMaterial({ color: 0x24140e, roughness: 0.6 });
+
+    const sphericalRecipes = [
+      { name: 'Crispy Beetroot Arancini', color: 0xa83824, roughness: 0.85, top: 'leaf' },
+      { name: 'Steamed Bao Sphere', color: 0xfdfbf7, roughness: 0.5, top: 'pleat' },
+      { name: 'Strawberry Glazed Mochi', color: 0xec4899, roughness: 0.15, top: 'drizzle' },
+      { name: 'Golden Honey Brioche Ball', color: 0xf59e0b, roughness: 0.35, top: 'seed' },
+      { name: 'Dark Truffle Ganache', color: 0x3b1d11, roughness: 0.8, top: 'dust' },
+      { name: 'Sweet Melon Sphere', color: 0x10b981, roughness: 0.25, top: 'stem' },
+      { name: 'Glazed Takoyaki Ball', color: 0xd97706, roughness: 0.3, top: 'drizzle' },
+      { name: 'Vanilla Coconut Pearl', color: 0xffffff, roughness: 0.2, top: 'seed' },
+      { name: 'Savory Beet Caviar Sphere', color: 0x881337, roughness: 0.1, top: 'leaf' }
+    ];
+
+    sphericalRecipes.forEach((recipe, i) => {
+      const a = (i / sphericalRecipes.length) * Math.PI * 2;
+      const px = Math.cos(a) * 1.85;
+      const pz = Math.sin(a) * 1.85;
+
+      // Porcelain saucer
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.36, 0.05, 18), plateMat);
+      saucer.position.set(px, 1.77, pz);
+      group.add(saucer);
+
+      // Spherical culinary delicacy
+      const foodMat = new THREE.MeshStandardMaterial({ color: recipe.color, roughness: recipe.roughness });
+      const food = new THREE.Mesh(new THREE.SphereGeometry(0.32, 22, 18), foodMat);
+      food.position.set(px, 2.05, pz);
+      group.add(food);
+
+      // Distinct handcrafted garnish / culinary detailing
+      if (recipe.top === 'leaf' || recipe.top === 'stem') {
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.14, 8), leafMat);
+        stem.position.set(px, 2.38, pz);
+        group.add(stem);
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), leafMat);
+        leaf.scale.set(1.5, 0.4, 0.8);
+        leaf.position.set(px + 0.05, 2.42, pz);
+        group.add(leaf);
+      } else if (recipe.top === 'pleat') {
+        const pleat = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.08, 8), foodMat);
+        pleat.position.set(px, 2.37, pz);
+        group.add(pleat);
+      } else if (recipe.top === 'drizzle' || recipe.top === 'seed') {
+        const seed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), garnishDark);
+        seed.scale.set(1.2, 0.5, 1.2);
+        seed.position.set(px, 2.36, pz);
+        group.add(seed);
+      }
     });
 
     const orbGroup = new THREE.Group();
