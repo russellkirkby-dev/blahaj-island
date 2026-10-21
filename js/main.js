@@ -3060,15 +3060,32 @@
     const horizDist = camState.distance * Math.cos(camState.pitch);
     const vertDist = camState.distance * Math.sin(camState.pitch);
 
-    const camX = lookTarget.x + Math.sin(camState.yaw) * horizDist;
-    const camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist;
-    let camY;
+    let camX = lookTarget.x + Math.sin(camState.yaw) * horizDist;
+    let camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist;
+    let camY = lookTarget.y + vertDist;
+
     if (currentZone === 'volcano' && window.BlahajVolcano) {
+      // 1. Properly query ceiling at camera coordinates (passes camX, camZ)
       const ceilY = window.BlahajVolcano.getCeilingY(camX, camZ);
-      camY = Math.min(ceilY - 0.45, Math.max(player.pos.y + 0.65, lookTarget.y + vertDist));
+
+      // 2. Camera must NEVER dip below player's floor plane or floor directly beneath camera
+      const floorAtCam = window.BlahajVolcano.getFloorHeight(camX, camZ, player.pos.y);
+      const minCamY = Math.max(player.pos.y + 0.65, (floorAtCam > -500 ? floorAtCam + 0.5 : player.pos.y + 0.65));
+
+      // 3. Ceiling can cap the top, but can NEVER push camera below minCamY
+      const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
+      camY = Math.min(maxCamY, Math.max(minCamY, camY));
+
+      // 4. If the ceiling or wall behind would constrain the camera height, pull camera forward (zoom in)
+      // instead of clipping or getting forced into the floor
+      if (ceilY < lookTarget.y + vertDist + 0.5 && vertDist > 0) {
+        const pullFactor = Math.max(0.35, Math.min(1.0, (ceilY - lookTarget.y - 0.45) / vertDist));
+        camX = lookTarget.x + Math.sin(camState.yaw) * horizDist * pullFactor;
+        camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
+      }
     } else {
       const minGround = worldApi.getTerrainHeight(camX, camZ) + 0.95;
-      camY = Math.max(minGround, lookTarget.y + vertDist);
+      camY = Math.max(minGround, camY);
     }
 
     camera.position.set(camX, camY, camZ);
@@ -3348,6 +3365,7 @@
     getPlayer: () => player,
     getCamera: () => camera,
     getZone: () => currentZone,
+    updateCamera,
     enterVolcanoTrial,
     exitVolcanoTrial
   };

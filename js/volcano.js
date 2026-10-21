@@ -221,10 +221,11 @@ window.BlahajVolcano = (function () {
     return { x: nx, z: nz };
   }
 
-  function getCeilingY(z) {
+  function getCeilingY(a, b) {
+    const z = (b !== undefined) ? b : a;
     if (z < -346) return Infinity;
     const p = profileAt(z);
-    return p.cy + p.ry * 0.9;
+    return p ? (p.cy + p.ry * 0.9) : 40;
   }
 
   function getRoom(z) {
