@@ -1706,8 +1706,16 @@
         text: '“THE HIGH CALDERA IS SEALED FROM WITHOUT. The sheer mountain cliffs cannot be scaled. Only those who brave the subterranean Trials through the Sea Cave at the North Rear Wharf may stand upon the Caldera Overlook.”',
         actions: [
           {
-            label: 'Fast-Travel to Rear Wharf & Sea Cave ⛵',
+            label: 'Enter the Volcano Trial Dungeon! 🌋⚔️',
             className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              enterVolcanoTrial();
+            }
+          },
+          {
+            label: 'Fast-Travel to Rear Wharf & Sea Cave ⛵',
+            className: 'btn-accent',
             onClick: () => {
               closeDialogueModal();
               player.inBoat = false;
@@ -2821,6 +2829,15 @@
         }
       });
       return;
+    }
+
+    // Auto-enter Volcano Trial when stepping through the Rear Wharf Sea Cave Portal Arch
+    if (currentZone === 'overworld' && !isTransitioningZone) {
+      const dCave = Math.hypot(player.pos.x - (-28), player.pos.z - (-185));
+      if (dCave < 4.2 && player.pos.y < 8) {
+        enterVolcanoTrial();
+        return;
+      }
     }
 
     // 0. Check Hiram's Player-Built Plush Bounce Pads & Linked Pocket Portals!
