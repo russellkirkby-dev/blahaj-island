@@ -14,6 +14,7 @@ window.BlahajWorld = (function () {
   const builtStructures = [];
   const signposts = [];
   const cloudClusters = [];
+  const fleetBoats = [];
 
   let boatMesh = null;
   let partnerBoatMesh = null;
@@ -481,6 +482,10 @@ window.BlahajWorld = (function () {
       getWaveHeight,
       getSignposts: () => signposts,
       getBoatMesh: () => boatMesh,
+      getFleetBoats: () => fleetBoats,
+      setActiveBoat: (b) => {
+        if (b) boatMesh = b;
+      },
       getPartnerBoatMesh: () => partnerBoatMesh,
       getSeamRifts: () => seamRifts,
       getBalconyCarrots: () => balconyCarrots,
@@ -1719,11 +1724,25 @@ window.BlahajWorld = (function () {
     dock.receiveShadow = true;
     scene.add(dock);
 
-    boatMesh = createRegattaSailboatMesh(woodMat, 0xf7efe0, 0xffd27d);
-    boatMesh.position.set(0, 0.45, 73);
-    scene.add(boatMesh);
+    // Fleet of 4 Regatta Sailboats moored at the Island Wharfs!
+    const boatSpecs = [
+      { x: 0, z: 73, rotY: 0, sail: 0xf7efe0, lantern: 0xffd27d, name: 'Sunlit Cream Regatta Boat' },
+      { x: -6.8, z: 60, rotY: -0.25, sail: 0x38bdf8, lantern: 0x7ce8ff, name: 'Blåhaj Azure Regatta Boat' },
+      { x: 42.5, z: 66, rotY: 0.15, sail: 0xff8a75, lantern: 0xffbe6b, name: 'Endless Pier Coral Sailboat' },
+      { x: -21.5, z: -204, rotY: Math.PI, sail: 0xc084fc, lantern: 0xe9d5ff, name: 'Rear Volcano Wharf Sailboat' }
+    ];
 
-    // Second Regatta Boat for Co-op Partner when sailing side-by-side!
+    boatSpecs.forEach((bs, idx) => {
+      const b = createRegattaSailboatMesh(woodMat, bs.sail, bs.lantern);
+      b.position.set(bs.x, 0.45, bs.z);
+      b.rotation.y = bs.rotY;
+      b.userData.boatName = bs.name;
+      scene.add(b);
+      fleetBoats.push(b);
+      if (idx === 0) boatMesh = b;
+    });
+
+    // Dedicated Regatta Boat for Co-op Partner when sailing side-by-side!
     partnerBoatMesh = createRegattaSailboatMesh(woodMat, 0xe9d8fd, 0xc084fc);
     partnerBoatMesh.position.set(6.5, 0.45, 73);
     partnerBoatMesh.visible = false;
@@ -2522,7 +2541,7 @@ window.BlahajWorld = (function () {
       bb.mesh.position.y = Math.max(gy + 0.8, waterLevel);
     });
 
-    [boatMesh, partnerBoatMesh].forEach((bm) => {
+    [...fleetBoats, partnerBoatMesh].forEach((bm) => {
       if (bm && bm.visible) {
         const wH = getWaveHeight(bm.position.x, bm.position.z, time);
         bm.position.y = wH + 0.25;

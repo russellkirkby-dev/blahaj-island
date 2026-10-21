@@ -361,8 +361,8 @@
       } else if (npc.type === 'baby_shark') {
         mesh = window.BlahajModels.createPlushShark({
           id: 'paracelsus',
-          bodyColor: 0x4b7cab,
-          bellyColor: 0xfaf3e6,
+          bodyColor: 0x2e8cf0,
+          bellyColor: 0xfaf5eb,
           scarfColor: 0xf5b942,
           scale: 0.68,
           plumpness: 1.08
@@ -1366,6 +1366,9 @@
     if (lm.type === 'boat') {
       player.ridingWithPartner = false;
       if (!player.inBoat) {
+        if (lm.targetBoat && worldApi.setActiveBoat) {
+          worldApi.setActiveBoat(lm.targetBoat);
+        }
         player.inBoat = true;
         const boat = worldApi.getBoatMesh();
         if (boat) {
@@ -2492,6 +2495,25 @@
     });
 
     LORE.landmarks.forEach((lm) => {
+      if (lm.type === 'boat' && worldApi.getFleetBoats) {
+        worldApi.getFleetBoats().forEach((bMesh) => {
+          const d = Math.hypot(player.pos.x - bMesh.position.x, player.pos.z - bMesh.position.z);
+          if (d < lm.radius * 1.4) {
+            currentZoneTitle = lm.zoneTitle;
+          }
+          if (d < lm.radius && d < bestDist) {
+            bestDist = d;
+            nearestInteractable = {
+              kind: 'landmark',
+              ref: { ...lm, targetBoat: bMesh },
+              dist: d,
+              prompt: `Board ${bMesh.userData.boatName || 'Regatta Sailboat'} [E] ⛵`
+            };
+          }
+        });
+        return;
+      }
+
       const posXZ = lm.type === 'boat' && worldApi.getBoatMesh()
         ? worldApi.getBoatMesh().position
         : new THREE.Vector3(lm.pos.x, player.pos.y, lm.pos.z);

@@ -34,27 +34,53 @@ window.BlahajModels = (function () {
     const mat = new THREE.MeshStandardMaterial({
       color: useVertexColors ? 0xffffff : hexColor,
       vertexColors: useVertexColors,
-      roughness: 0.84,
-      metalness: 0.03,
+      roughness: 0.86,
+      metalness: 0.01,
       bumpMap: getPlushTexture(),
-      bumpScale: 0.038,
+      bumpScale: 0.055,
       side: THREE.DoubleSide
     });
 
     mat.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        `
-        vec3 viewDir = normalize(vViewPosition);
-        float ndotv = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
-        float plushRim = pow(1.0 - ndotv, 2.35);
-        float fuzzHalo = smoothstep(0.32, 0.96, 1.0 - ndotv);
-        vec3 warmSunRim = vec3(1.0, 0.86, 0.68) * plushRim * 0.16;
-        vec3 skySheen = vec3(0.68, 0.85, 1.0) * fuzzHalo * 0.08;
-        gl_FragColor.rgb += gl_FragColor.rgb * plushRim * 0.26 + warmSunRim + skySheen;
-        #include <dithering_fragment>
-        `
-      );
+      shader.vertexShader =
+        `varying vec3 vPlushObjPos;\n` +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `
+          #include <begin_vertex>
+          vPlushObjPos = position;
+          `
+        );
+
+      shader.fragmentShader =
+        `varying vec3 vPlushObjPos;\n` +
+        shader.fragmentShader.replace(
+          '#include <dithering_fragment>',
+          `
+          vec3 viewDir = normalize(vViewPosition);
+          float ndotv = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+
+          // High-frequency 3D plush micro-tuft fiber grain across the entire shark surface
+          float tuft1 = sin(vPlushObjPos.x * 125.0 + vPlushObjPos.y * 45.0) * cos(vPlushObjPos.y * 140.0 - vPlushObjPos.z * 55.0);
+          float tuft2 = sin(vPlushObjPos.z * 135.0 - vPlushObjPos.x * 60.0) * cos(vPlushObjPos.x * 110.0 + vPlushObjPos.y * 95.0);
+          float fiberNoise = (tuft1 + tuft2) * 0.5;
+
+          // Velvet grazing sheen + sparkly fuzzy silhouette rim (like real IKEA Blåhaj plush pile!)
+          float velvetSheen = pow(1.0 - ndotv, 1.85);
+          float sharpFuzzyRim = pow(1.0 - ndotv, 3.4);
+          float fuzzyEdgeTufts = 1.0 + fiberNoise * 0.38;
+
+          // Surface micro-fleece texture modulation
+          gl_FragColor.rgb *= (0.96 + fiberNoise * 0.075);
+
+          // Soft plush-colored velvet wrap + bright fuzzy rim halo catching the light
+          vec3 plushTint = normalize(gl_FragColor.rgb + vec3(0.18, 0.28, 0.38));
+          vec3 velvetColor = mix(gl_FragColor.rgb, vec3(0.84, 0.93, 1.0), 0.52);
+          gl_FragColor.rgb += velvetColor * velvetSheen * 0.42 * fuzzyEdgeTufts;
+          gl_FragColor.rgb += (plushTint * 0.5 + vec3(0.96, 0.94, 0.90) * 0.5) * sharpFuzzyRim * 0.58 * fuzzyEdgeTufts;
+          #include <dithering_fragment>
+          `
+        );
     };
     return mat;
   }
@@ -103,8 +129,8 @@ window.BlahajModels = (function () {
     const uvs = [];
     const indices = [];
 
-    const topCol = new THREE.Color(topColorHex || 0x3b638c);
-    const bellyCol = new THREE.Color(bellyColorHex || 0xe5dccb);
+    const topCol = new THREE.Color(topColorHex || 0x2278c4);
+    const bellyCol = new THREE.Color(bellyColorHex || 0xf4eee1);
     const mouthCol = new THREE.Color(0x9e2b3b); // Deep plush crimson mouth interior
     const mouthRimCol = new THREE.Color(0xdccfb8);
 
