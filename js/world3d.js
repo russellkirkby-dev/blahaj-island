@@ -329,6 +329,14 @@ window.BlahajWorld = (function () {
           const u = Math.max(0, Math.min(1, (lz + 3.0) / 6.0));
           surfY = st.y + u * 1.9;
         }
+      } else if (st.type === 'pocket_portal') {
+        if (lx * lx + lz * lz <= 7.3) {
+          surfY = st.y + 0.36;
+        }
+      } else if (st.type === 'cushion_circle') {
+        if (lx * lx + lz * lz <= 4.0) {
+          surfY = st.y + 0.65;
+        }
       }
 
       if (surfY > -900) {
@@ -340,10 +348,171 @@ window.BlahajWorld = (function () {
     return bestY;
   }
 
+  // Compute solid walkable surface height for all permanent Island Landmarks, Daises, Platforms & Decks!
+  function getLandmarkSurfaceHeight(x, z, refY = null) {
+    let bestY = -999;
+
+    // 1. The Great Portal Gate Dais on East Cape (x = 72, z = -10)
+    // Basalt/stone circular dais: CylinderGeometry(8.5, 9.8, 1.4, 28) placed at (72, y0 + 0.6, -10)
+    const dPortal = Math.hypot(x - 72, z - (-10));
+    if (dPortal <= 9.8) {
+      const y0 = getTerrainHeight(72, -10);
+      const topY = y0 + 1.30;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 2. The Sacred Tea House Village (x = 0, z = 10)
+    // Plaza: CylinderGeometry(12.2, 13.4, 0.6, 36) at y = y0 + 0.25 (top: y0 + 0.55, r <= 13.4)
+    // Timber Floor Deck: CylinderGeometry(9.4, 9.8, 0.55, 32) at y = y0 + 0.65 (top: y0 + 0.925, r <= 9.8)
+    // Central Tea Table: CylinderGeometry(3.2, 2.6, 1.25, 28) at y = y0 + 1.4 (top: y0 + 2.025, r <= 3.2)
+    // Cushions: 6 tufted cushions at r = 4.4 around table (top: y0 + 1.225)
+    const dTea = Math.hypot(x - 0, z - 10);
+    if (dTea <= 13.4) {
+      const y0 = getTerrainHeight(0, 10);
+      let teaSurfY = -999;
+      if (dTea <= 3.2) {
+        teaSurfY = y0 + 2.025; // On top of the tea table
+      } else if (dTea <= 9.8) {
+        // Check if player is on one of the 6 tufted cushions around the table
+        let onCushion = false;
+        for (let idx = 0; idx < 6; idx++) {
+          const ca = (idx / 6) * Math.PI * 2;
+          const cx = Math.cos(ca) * 4.4;
+          const cz = Math.sin(ca) * 4.4;
+          if (Math.hypot(x - cx, (z - 10) - cz) <= 0.92) {
+            onCushion = true;
+            break;
+          }
+        }
+        teaSurfY = onCushion ? (y0 + 1.225) : (y0 + 0.925); // On cushion or solid timber deck!
+      } else {
+        teaSurfY = y0 + 0.55;  // On stone plaza
+      }
+      if (refY === null || teaSurfY <= refY + 2.8) {
+        if (teaSurfY > bestY) bestY = teaSurfY;
+      }
+    }
+
+    // 3. The Quiet Library & Celestial Observatory Terrace (x = 52, z = -48)
+    // Purple stone terrace: CylinderGeometry(9.2, 10.2, 0.9, 32) at y = y0 + 0.45 (top: y0 + 0.90, r <= 10.2)
+    const dObs = Math.hypot(x - 52, z - (-48));
+    if (dObs <= 10.2) {
+      const y0 = getTerrainHeight(52, -48);
+      const topY = y0 + 0.90;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 4. The Ancient Volcano Sealed Shrine Dais (x = -22, z = -103)
+    // Basalt dais: CylinderGeometry(8.5, 9.2, 1.2, 24) at y = shrineY + 0.6 (top: shrineY + 1.20, r <= 9.2)
+    const dShrine = Math.hypot(x - (-22), z - (-103));
+    if (dShrine <= 9.2) {
+      const shrineY = getTerrainHeight(-22, -103);
+      const topY = shrineY + 1.20;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 5. The Spherical Foods Bluff (x = -52, z = 34)
+    // Dining Deck: CylinderGeometry(8.5, 9.2, 0.65, 32) at y = y0 + 0.3 (top: y0 + 0.625, r <= 9.2)
+    // Round Food Table: CylinderGeometry(3.1, 2.5, 1.2, 28) at y = y0 + 1.15 (top: y0 + 1.75, r <= 3.1)
+    const dSphere = Math.hypot(x - (-52), z - 34);
+    if (dSphere <= 9.2) {
+      const y0 = getTerrainHeight(-52, 34);
+      let sphereSurfY = -999;
+      if (dSphere <= 3.1) {
+        sphereSurfY = y0 + 1.75; // On top of the round food table
+      } else {
+        sphereSurfY = y0 + 0.625; // On dining deck
+      }
+      if (refY === null || sphereSurfY <= refY + 2.8) {
+        if (sphereSurfY > bestY) bestY = sphereSurfY;
+      }
+    }
+
+    // 6. The Laundry Shrine Ridge Plinth (x = -64, z = -14, rotY = 0.7)
+    // Brass Plinth: BoxGeometry(7.2, 0.8, 6.2) at y = y0 + 0.4 (top: y0 + 0.80)
+    const dxL = x - (-64);
+    const dzL = z - (-14);
+    const cosL = Math.cos(-0.7);
+    const sinL = Math.sin(-0.7);
+    const lxL = dxL * cosL - dzL * sinL;
+    const lzL = dxL * sinL + dzL * cosL;
+    if (Math.abs(lxL) <= 3.7 && Math.abs(lzL) <= 3.2) {
+      const y0 = getTerrainHeight(-64, -14);
+      const topY = y0 + 0.80;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 7. Rear Volcano Wharf Dock & Sea Cave (x = -28, z in [-216, -172])
+    // Dock: BoxGeometry(8.5, 0.7, 44) at y = 1.4 (top: 1.75)
+    if (Math.abs(x - (-28)) <= 4.4 && z >= -216 && z <= -172) {
+      const topY = 1.75;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 8. Tea Docks Wharf (x = 0, z in [44, 70])
+    // Dock: BoxGeometry(7.5, 0.65, 26) at y = 1.35 (top: 1.675)
+    if (Math.abs(x - 0) <= 3.9 && z >= 44 && z <= 70) {
+      const topY = 1.675;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 9. Endless Pier to Erf (x = 48, z in [45, 79])
+    // Pier: BoxGeometry(5.6, 0.6, 34) at y = 1.45 (top: 1.75)
+    if (Math.abs(x - 48) <= 2.9 && z >= 45 && z <= 79) {
+      const topY = 1.75;
+      if (refY === null || topY <= refY + 2.8) {
+        if (topY > bestY) bestY = topY;
+      }
+    }
+
+    // 10. Outer Sanctuary Islands Coastal Boat Docks (dockX, 1.4, dockZ)
+    for (let i = 0; i < OUTER_ISLANDS.length; i++) {
+      const isl = OUTER_ISLANDS[i];
+      if (Math.abs(x - isl.dockX) <= 4.35 && Math.abs(z - isl.dockZ) <= 4.35) {
+        const topY = 1.575;
+        if (refY === null || topY <= refY + 2.8) {
+          if (topY > bestY) bestY = topY;
+        }
+      }
+    }
+
+    // 11. Moored Regatta Sailboats Decks
+    const mooredBoats = [
+      { x: 0, z: 73 },
+      { x: -6.8, z: 60 },
+      { x: 42.5, z: 66 },
+      { x: -21.5, z: -204 }
+    ];
+    for (let i = 0; i < mooredBoats.length; i++) {
+      const mb = mooredBoats[i];
+      if (Math.hypot(x - mb.x, z - mb.z) <= 3.6) {
+        const topY = 1.32;
+        if (refY === null || topY <= refY + 2.8) {
+          if (topY > bestY) bestY = topY;
+        }
+      }
+    }
+
+    return bestY;
+  }
+
   function getGroundAndStructureHeight(x, z, refY = null) {
     const tY = getTerrainHeight(x, z);
     const sY = getStructureSurfaceHeight(x, z, refY);
-    return Math.max(tY, sY);
+    const lmY = getLandmarkSurfaceHeight(x, z, refY);
+    return Math.max(tY, sY, lmY);
   }
 
   // Terrain surface height purely for the outer mountain mesh (so the volcano mountain arches cleanly over the interior dungeon!)
@@ -486,6 +655,7 @@ window.BlahajWorld = (function () {
       getTerrainHeight,
       getGroundAndStructureHeight,
       getStructureSurfaceHeight,
+      getLandmarkSurfaceHeight,
       isInsideVolcanoDungeon,
       isOnIslandRoad,
       getWaveHeight,
@@ -1076,6 +1246,47 @@ window.BlahajWorld = (function () {
     animatedObjects.push({ mesh: eternalFlame, type: 'spin_bob', baseY: 2.4 });
 
     group.add(shrineGroup);
+
+    // Sunny the Beach Carrot's Scenic Safe Overlook Lounge (Umbrella, Beach Mat & Coconut Drink)
+    const sunnyLounge = new THREE.Group();
+    const sunnyY = getTerrainHeight(-13.5, -92.5);
+    sunnyLounge.position.set(-13.5, sunnyY, -92.5);
+
+    // Striped sunny beach towel / mat
+    const towel = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 0.04, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.85 })
+    );
+    towel.position.set(0.4, 0.02, 0.2);
+    towel.rotation.y = 0.3;
+    sunnyLounge.add(towel);
+
+    // Striped beach umbrella / parasol
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.07, 3.2, 10),
+      new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.6 })
+    );
+    pole.position.set(-1.1, 1.6, -0.6);
+    pole.rotation.z = -0.15;
+    sunnyLounge.add(pole);
+
+    const canopy = new THREE.Mesh(
+      new THREE.ConeGeometry(1.75, 0.8, 16),
+      new THREE.MeshStandardMaterial({ color: 0xf5cd79, roughness: 0.5, side: THREE.DoubleSide })
+    );
+    canopy.position.set(-1.35, 3.1, -0.6);
+    canopy.rotation.z = -0.15;
+    sunnyLounge.add(canopy);
+
+    // Chilled coconut drink with little straw
+    const coconut = new THREE.Mesh(
+      new THREE.SphereGeometry(0.2, 12, 10),
+      new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 })
+    );
+    coconut.position.set(0.9, 0.2, 0.8);
+    sunnyLounge.add(coconut);
+
+    group.add(sunnyLounge);
     scene.add(group);
   }
 
@@ -2569,6 +2780,7 @@ window.BlahajWorld = (function () {
     buildWorld,
     getTerrainHeight,
     getGroundAndStructureHeight,
+    getLandmarkSurfaceHeight,
     isInsideVolcanoDungeon,
     isOnIslandRoad,
     getWaveHeight,

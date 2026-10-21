@@ -161,15 +161,15 @@ window.BLAHAJ_LORE = {
     {
       id: 'carrot_leader',
       name: 'Sunny the Beach Carrot',
-      tag: 'VOLCANO BALCONY DARE-CARROT',
+      tag: 'VOLCANO OVERLOOK DARE-CARROT',
       type: 'carrot',
       shortsColor: 0x3b82f6,
-      pos: { x: -27, z: -99, rotY: 0.35 },
+      pos: { x: -13.5, z: -92.5, rotY: 2.2 },
       portrait: 'assets/gallery/Volcano-temple.png',
       lines: [
-        '“Respect the Depths, Honor the Fire! My eight carrot cousins lined up right along the edge of the Volcano Temple Balcony!”',
-        '“Go ahead—run into the Carrots on the balcony ledge to knock them flying down the mountain! We love the breeze and we always climb right back up!”',
-        '“Or if you want a real challenge, sail around to the Rear Volcano Wharf on the north shore and brave the Volcano Trial Dungeon from the back!”'
+        '“Respect the Depths, Honor the Fire! I found the safest, sunniest lounge right here on the ridge overlooking the volcano!”',
+        '“My eight carrot cousins lined up right along the high Volcano Temple Balcony! Go ahead—run into them to knock them flying down the mountain! We love the breeze and we always climb right back up!”',
+        '“Or if you want a real challenge, hike or sail around to the Rear Volcano Wharf on the north shore to brave the Volcano Trial Dungeon!”'
       ]
     }
   ],

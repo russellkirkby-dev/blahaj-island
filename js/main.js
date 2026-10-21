@@ -570,7 +570,7 @@
 
     Object.values(LORE.sharks).forEach((sCfg) => {
       const mesh = window.BlahajModels.createPlushShark(sCfg);
-      const hy = worldApi.getTerrainHeight(sCfg.homePos.x, sCfg.homePos.z);
+      const hy = worldApi.getGroundAndStructureHeight(sCfg.homePos.x, sCfg.homePos.z);
       mesh.position.set(sCfg.homePos.x, hy, sCfg.homePos.z);
       mesh.rotation.y = sCfg.homePos.rotY || 0;
       mesh.visible = sCfg.id !== player.sharkId;
@@ -619,7 +619,7 @@
         mesh = window.BlahajModels.createBeachCarrot(npc.shortsColor);
       }
 
-      const ny = npc.pos.y !== undefined ? npc.pos.y : worldApi.getTerrainHeight(npc.pos.x, npc.pos.z);
+      const ny = npc.pos.y !== undefined ? npc.pos.y : worldApi.getGroundAndStructureHeight(npc.pos.x, npc.pos.z);
       mesh.position.set(npc.pos.x, ny, npc.pos.z);
       mesh.rotation.y = npc.pos.rotY || 0;
       scene.add(mesh);
@@ -1421,11 +1421,13 @@
           }
 
           if (toMainPortal) {
-            const gy = worldApi.getTerrainHeight(72, -10);
-            player.pos.set(72, gy + 0.6, -10);
-            player.rotY = Math.PI * 0.5;
-            camState.yaw = Math.PI * 0.5;
-            showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged through the Great Portal Gate!');
+            const spawnX = 67.8;
+            const spawnZ = -8.35;
+            const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
+            player.pos.set(spawnX, sy, spawnZ);
+            player.rotY = -Math.PI * 0.38;
+            camState.yaw = -Math.PI * 0.38;
+            showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged onto the Great Portal Threshold on East Cape!');
           } else {
             player.pos.set(-28, 1.5, -196);
             player.rotY = 0;
@@ -1714,8 +1716,25 @@
               CozyAudio.portalChime();
               player.inBoat = false;
               player.ridingWithPartner = false;
-              player.pos.set(0, worldApi.getTerrainHeight(0, 24), 24);
+              player.pos.set(0, worldApi.getGroundAndStructureHeight(0, 24), 24);
               showToast('RETURNED TO MAIN ISLAND', 'Arrived at the Sacred Tea House Plaza!');
+            }
+          },
+          {
+            label: 'Portal to East Cape Great Portal Gate 🌌',
+            className: 'btn-secondary',
+            onClick: () => {
+              closeDialogueModal();
+              CozyAudio.portalChime();
+              player.inBoat = false;
+              player.ridingWithPartner = false;
+              const spawnX = 67.8;
+              const spawnZ = -8.35;
+              const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
+              player.pos.set(spawnX, sy, spawnZ);
+              player.rotY = -Math.PI * 0.38;
+              camState.yaw = -Math.PI * 0.38;
+              showToast('EAST CAPE PORTAL THRESHOLD', 'Arrived at the Great Outside Portal on East Cape!');
             }
           }
         ]
@@ -2009,7 +2028,7 @@
     CozyAudio.portalChime();
     player.inBoat = false;
     player.ridingWithPartner = false;
-    const py = worldApi.getTerrainHeight(isl.signX, isl.signZ);
+    const py = worldApi.getGroundAndStructureHeight(isl.signX, isl.signZ);
     player.pos.set(isl.signX, py, isl.signZ);
     completeQuest('q-outer-island');
     spawnFloatingBurst(player.pos, isl.themeColor || 0x9b6dff, 18);
@@ -3232,7 +3251,7 @@
         camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
       }
     } else {
-      const minGround = worldApi.getTerrainHeight(camX, camZ) + 0.95;
+      const minGround = worldApi.getGroundAndStructureHeight(camX, camZ) + 0.95;
       camY = Math.max(minGround, camY);
     }
 
