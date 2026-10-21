@@ -6,9 +6,22 @@
 (function () {
   const LORE = window.BLAHAJ_LORE;
 
-  // --- Audio Synthesizer (Cozy WebAudio Chimes, Boops, Tea Pours & Trap Rumble) ---
+  // --- Audio Synthesizer (Cozy WebAudio Chimes, Ambient Waves, Wind, Splashes & Footsteps) ---
   const CozyAudio = {
     ctx: null,
+    noiseBuffer: null,
+    surfNode: null,
+    surfGain: null,
+    surfFilter: null,
+    windNode: null,
+    windGain: null,
+    windFilter: null,
+    boatNode: null,
+    boatGain: null,
+    boatFilter: null,
+    lastFootstepTime: 0,
+    ambientInitialized: false,
+
     ensure() {
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -17,7 +30,117 @@
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume();
       }
+      if (this.ctx && !this.ambientInitialized) {
+        this.initAmbientAudio();
+      }
     },
+
+    getNoiseBuffer() {
+      if (this.noiseBuffer) return this.noiseBuffer;
+      const bufferSize = this.ctx.sampleRate * 2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // Pink noise filter approximation
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+        b6 = white * 0.115926;
+      }
+      this.noiseBuffer = buffer;
+      return buffer;
+    },
+
+    initAmbientAudio() {
+      if (!this.ctx) return;
+      this.ambientInitialized = true;
+      const noise = this.getNoiseBuffer();
+
+      // 1. Ocean Surf Ambience
+      const surfSrc = this.ctx.createBufferSource();
+      surfSrc.buffer = noise;
+      surfSrc.loop = true;
+      this.surfFilter = this.ctx.createBiquadFilter();
+      this.surfFilter.type = 'lowpass';
+      this.surfFilter.frequency.setValueAtTime(260, this.ctx.currentTime);
+      this.surfGain = this.ctx.createGain();
+      this.surfGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+      surfSrc.connect(this.surfFilter);
+      this.surfFilter.connect(this.surfGain);
+      this.surfGain.connect(this.ctx.destination);
+      surfSrc.start();
+
+      // 2. Wind Breeze Ambience
+      const windSrc = this.ctx.createBufferSource();
+      windSrc.buffer = noise;
+      windSrc.loop = true;
+      this.windFilter = this.ctx.createBiquadFilter();
+      this.windFilter.type = 'bandpass';
+      this.windFilter.frequency.setValueAtTime(450, this.ctx.currentTime);
+      this.windFilter.Q.setValueAtTime(2.2, this.ctx.currentTime);
+      this.windGain = this.ctx.createGain();
+      this.windGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+      windSrc.connect(this.windFilter);
+      this.windFilter.connect(this.windGain);
+      this.windGain.connect(this.ctx.destination);
+      windSrc.start();
+
+      // 3. Boat Hull & Wake Hiss
+      const boatSrc = this.ctx.createBufferSource();
+      boatSrc.buffer = noise;
+      boatSrc.loop = true;
+      this.boatFilter = this.ctx.createBiquadFilter();
+      this.boatFilter.type = 'bandpass';
+      this.boatFilter.frequency.setValueAtTime(650, this.ctx.currentTime);
+      this.boatFilter.Q.setValueAtTime(1.5, this.ctx.currentTime);
+      this.boatGain = this.ctx.createGain();
+      this.boatGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+      boatSrc.connect(this.boatFilter);
+      this.boatFilter.connect(this.boatGain);
+      this.boatGain.connect(this.ctx.destination);
+      boatSrc.start();
+    },
+
+    updateAmbient(elapsed, playerPos, inBoat, isMoving, camHeight) {
+      if (!this.ctx || !this.ambientInitialized) return;
+      const now = this.ctx.currentTime;
+
+      // Distance to nearest sea level / ocean
+      const distFromCenter = Math.hypot(playerPos.x, playerPos.z);
+      const isNearWater = playerPos.y < 2.5 || distFromCenter > 60 || inBoat;
+      const oceanTargetVol = inBoat ? 0.08 : (isNearWater ? 0.055 : 0.022);
+
+      // Surf rhythmic wave swelling
+      const swell = (Math.sin(elapsed * 1.6) * 0.5 + 0.5);
+      const targetCutoff = 220 + swell * 280;
+      this.surfGain.gain.setTargetAtTime(oceanTargetVol * (0.6 + swell * 0.6), now, 0.15);
+      this.surfFilter.frequency.setTargetAtTime(targetCutoff, now, 0.2);
+
+      // Wind intensity increases with altitude or sailing
+      const altitude = Math.max(0, playerPos.y);
+      const windTargetVol = 0.012 + Math.min(0.05, (altitude / 65) * 0.045) + (inBoat ? 0.02 : 0);
+      const windFrequency = 350 + Math.sin(elapsed * 0.8) * 120 + (altitude * 8);
+      this.windGain.gain.setTargetAtTime(windTargetVol, now, 0.25);
+      this.windFilter.frequency.setTargetAtTime(windFrequency, now, 0.3);
+
+      // Boat sailing wake sound
+      if (inBoat && isMoving) {
+        this.boatGain.gain.setTargetAtTime(0.045, now, 0.2);
+        this.boatFilter.frequency.setTargetAtTime(550 + Math.sin(elapsed * 4.0) * 180, now, 0.1);
+        if (Math.random() < 0.012) {
+          this.woodCreak();
+        }
+      } else {
+        this.boatGain.gain.setTargetAtTime(0.0001, now, 0.35);
+      }
+    },
+
     playTone(freq, dur, type = 'sine', gainVal = 0.12, slideFreq = null) {
       this.ensure();
       if (!this.ctx) return;
@@ -36,6 +159,73 @@
       osc.start(now);
       osc.stop(now + dur);
     },
+
+    footstep(isShallowWater, isOnRoad) {
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - this.lastFootstepTime < 0.28) return;
+      this.lastFootstepTime = now;
+
+      if (isShallowWater) {
+        // Water splash squelch footstep
+        this.waterSplash(0.05, 0.15);
+      } else if (isOnRoad) {
+        // Crisp stone flagstone click
+        this.playTone(420 + Math.random() * 80, 0.04, 'triangle', 0.04, 220);
+      } else {
+        // Soft felt/plush grass pat
+        this.playTone(160 + Math.random() * 40, 0.06, 'sine', 0.05, 90);
+      }
+    },
+
+    waterSplash(vol = 0.1, duration = 0.25) {
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const noise = this.getNoiseBuffer();
+      const src = this.ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(800 + Math.random() * 300, now);
+      filter.frequency.exponentialRampToValueAtTime(260, now + duration);
+      filter.Q.setValueAtTime(1.8, now);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      src.start(now);
+      src.stop(now + duration);
+
+      // Droplet plink
+      this.playTone(750 + Math.random() * 250, 0.08, 'sine', vol * 0.6, 400);
+    },
+
+    woodCreak() {
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      const f = 110 + Math.random() * 40;
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.linearRampToValueAtTime(f + 25, now + 0.18);
+      gain.gain.setValueAtTime(0.02, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320, now);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    },
+
     beepNose() {
       this.playTone(520, 0.14, 'sine', 0.14, 780);
       setTimeout(() => this.playTone(780, 0.18, 'triangle', 0.12, 1040), 90);
@@ -44,8 +234,9 @@
       this.playTone(380, 0.12, 'triangle', 0.14, 620);
     },
     birbChirp() {
-      this.playTone(980, 0.09, 'sine', 0.11, 1380);
-      setTimeout(() => this.playTone(1240, 0.11, 'sine', 0.11, 1620), 75);
+      const base = 960 + Math.random() * 120;
+      this.playTone(base, 0.08, 'sine', 0.1, base + 420);
+      setTimeout(() => this.playTone(base + 260, 0.09, 'sine', 0.09, base + 680), 65);
     },
     carrotBoop() {
       this.playTone(300, 0.18, 'triangle', 0.16, 680);
@@ -71,6 +262,19 @@
     },
     bounceBoing() {
       this.playTone(220, 0.36, 'sine', 0.18, 880);
+    }
+  };
+
+  // Bridge to allow world updates to trigger positional audio events
+  window.CozyAudioTrigger = {
+    fishSplash: (pos) => {
+      if (player && player.pos) {
+        const d = player.pos.distanceTo(pos);
+        if (d < 45) {
+          const vol = Math.max(0.01, 0.08 * (1.0 - d / 45));
+          CozyAudio.waterSplash(vol, 0.2);
+        }
+      }
     }
   };
 
@@ -1230,6 +1434,7 @@
       player.velY = 6.2;
       player.isGrounded = false;
       CozyAudio.shonk();
+      CozyAudio.waterSplash(0.12, 0.35);
       showToast('HOPPED OFF BOAT ⛵', 'Stepped off the Regatta Sailboat right here!');
     }
   }
@@ -2103,6 +2308,15 @@
     updateFloatingBursts(dt);
     window.BlahajWorld.updateWorld(elapsed, dt, scene);
 
+    // Update real-time procedural ocean, wind, sailing audio and occasional birb calls
+    CozyAudio.updateAmbient(elapsed, player.pos, player.inBoat, keys['w'] || keys['s'] || keys['a'] || keys['d'], camState.distance);
+    if (Math.random() < 0.003) {
+      const distToBirbs = Math.hypot(player.pos.x - 0, player.pos.z - 15);
+      if (distToBirbs < 60) {
+        CozyAudio.birbChirp();
+      }
+    }
+
     if (composer) {
       composer.render();
     } else {
@@ -2185,6 +2399,12 @@
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         player.rotY += diff * Math.min(1, dt * 12);
+
+        // Footstep sounds when walking on land
+        if (!player.inBoat && player.isGrounded) {
+          const isShallow = player.pos.y < 0.65;
+          CozyAudio.footstep(isShallow, onRoad);
+        }
       }
 
       if (player.inBoat) {

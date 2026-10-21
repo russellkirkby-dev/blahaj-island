@@ -2517,6 +2517,7 @@ window.BlahajWorld = (function () {
 
     // 4. Update Swimming & Leaping Tropical Fishes
     fishSchool.forEach((f) => {
+      const prevWave = Math.sin((time - dt) * 2.4 + f.jumpPhase);
       f.angle += f.speed * dt;
       const nx = f.centerX + Math.cos(f.angle) * f.radius;
       const nz = f.centerZ + Math.sin(f.angle) * f.radius;
@@ -2526,6 +2527,11 @@ window.BlahajWorld = (function () {
       f.mesh.position.set(nx, ny, nz);
       f.mesh.rotation.y = -f.angle;
       f.mesh.rotation.x = leapWave > 0.6 ? -Math.cos(time * 2.4 + f.jumpPhase) * 0.6 : 0;
+
+      // Splash sound effect on fish breaching surface
+      if (prevWave <= 0.6 && leapWave > 0.6 && window.CozyAudioTrigger) {
+        window.CozyAudioTrigger.fishSplash(f.mesh.position);
+      }
     });
 
     // 5. Update Bouncy Beach Balls & Boats on the Rolling 3D Ocean Waves!
