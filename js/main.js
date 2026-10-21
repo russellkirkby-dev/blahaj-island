@@ -157,8 +157,32 @@
     isPointerLocked: false
   };
 
-  // Input keys
+  // Input keys (tracked by both key and physical keyCode to prevent stuck keys)
   const keys = {};
+
+  function mapCodeToKey(code) {
+    switch (code) {
+      case 'KeyW': return 'w';
+      case 'KeyS': return 's';
+      case 'KeyA': return 'a';
+      case 'KeyD': return 'd';
+      case 'ArrowUp': return 'arrowup';
+      case 'ArrowDown': return 'arrowdown';
+      case 'ArrowLeft': return 'arrowleft';
+      case 'ArrowRight': return 'arrowright';
+      case 'ShiftLeft':
+      case 'ShiftRight': return 'shift';
+      case 'Space': return ' ';
+      default: return null;
+    }
+  }
+
+  function clearAllMovementKeys() {
+    Object.keys(keys).forEach((k) => {
+      keys[k] = false;
+    });
+    camState.isRightDragging = false;
+  }
 
   // World Character Registry
   const worldActors = [];
@@ -436,7 +460,16 @@
 
     document.addEventListener('pointerlockchange', () => {
       camState.isPointerLocked = document.pointerLockElement === canvas;
+      if (!camState.isPointerLocked) {
+        clearAllMovementKeys();
+      }
     });
+
+    window.addEventListener('blur', clearAllMovementKeys);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearAllMovementKeys();
+    });
+    window.addEventListener('focus', clearAllMovementKeys);
 
     let mouseDownPos = { x: 0, y: 0 };
 
@@ -459,7 +492,10 @@
       camState.isRightDragging = false;
     });
 
-    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      clearAllMovementKeys();
+    });
 
     window.addEventListener('mousemove', (e) => {
       if (isAnyModalOpen()) return;
@@ -476,12 +512,21 @@
 
     window.addEventListener('keydown', (e) => {
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        clearAllMovementKeys();
         if (e.key === 'Escape') document.activeElement.blur();
         return;
       }
 
-      const k = e.key.toLowerCase();
-      keys[k] = true;
+      if (e.key === 'Escape') {
+        clearAllMovementKeys();
+      }
+
+      const k = (e.key || '').toLowerCase();
+      const mapped = mapCodeToKey(e.code);
+      if (k) keys[k] = true;
+      if (mapped) keys[mapped] = true;
+
+      if (e.repeat) return;
 
       if (k === '1') spawnPlayerShark('hermes');
       if (k === '2') spawnPlayerShark('solomon');
@@ -505,7 +550,7 @@
       if (k === 'm') toggleGalleryModal();
       if (k === 'p') togglePortalModal();
 
-      if (e.key === ' ' && player.isGrounded && !player.inBoat && !isAnyModalOpen()) {
+      if ((e.key === ' ' || e.code === 'Space') && player.isGrounded && !player.inBoat && !isAnyModalOpen()) {
         const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
         player.velY = 8.8 * jumpBoost;
         player.isGrounded = false;
@@ -514,7 +559,10 @@
     });
 
     window.addEventListener('keyup', (e) => {
-      keys[e.key.toLowerCase()] = false;
+      const k = (e.key || '').toLowerCase();
+      const mapped = mapCodeToKey(e.code);
+      if (k) keys[k] = false;
+      if (mapped) keys[mapped] = false;
     });
   }
 
@@ -2008,6 +2056,10 @@
   function updatePlayerMovement(dt, elapsed) {
     let moveForward = 0;
     let moveRight = 0;
+
+    if (!document.hasFocus() || isAnyModalOpen()) {
+      clearAllMovementKeys();
+    }
 
     if (!isAnyModalOpen() && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
       if (keys['w'] || keys['arrowup']) moveForward += 1;
