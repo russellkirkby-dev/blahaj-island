@@ -1265,9 +1265,9 @@
   function completeVolcanoDungeonAscent() {
     CozyAudio.portalChime();
     player.inBoat = false;
-    player.pos.set(-22, 16.6, -103);
-    player.rotY = 0;
-    camState.yaw = Math.PI;
+    player.pos.set(-28, 38.6, -127);
+    player.rotY = Math.PI;
+    camState.yaw = 0;
     player.velY = 0;
     player.warmth = 100;
     player.volcanoHonour = 100;
@@ -1281,8 +1281,8 @@
     renderBuilderToolbar();
 
     spawnFloatingBurst(player.pos, 0xff9d3b, 22);
-    showToast('VOLCANO TRIAL SURVIVED! (+1 TRIAL POINT)', 'You emerged onto the Front Volcano Balcony! Bump the Carrots off the edge or press [U] to spend Trial Points!');
-    addChatLog('🌋⚔️ <strong>Trial Complete!</strong> You survived the Volcano Dungeon and emerged onto the high Front Volcano Balcony (+1 Trial Point)!', 'system');
+    showToast('VOLCANO TRIAL SURVIVED! (+1 TRIAL POINT)', 'You emerged onto the Caldera Rim Overlook! Toss the volunteer Carrots into the boiling lava or press [U] to spend Trial Points!');
+    addChatLog('🌋⚔️ <strong>Trial Complete!</strong> You survived the Volcano Dungeon and emerged onto the Caldera Rim Overlook (+1 Trial Point)!', 'system');
   }
 
   function triggerInteract() {
@@ -2497,7 +2497,7 @@
           c.knockedOff = true;
           c.respawnTimer = 9.5;
           const pushDir = c.mesh.position.clone().sub(player.pos).normalize();
-          if (!c.structureId && pushDir.z < 0.25) pushDir.z = 0.65;
+          if (!c.structureId && pushDir.z > -0.25) pushDir.z = -0.75;
           c.vel.set(pushDir.x * 13.5 * knockMult, 9.5 * knockMult, pushDir.z * 15.0 * knockMult);
 
           CozyAudio.carrotBoop();

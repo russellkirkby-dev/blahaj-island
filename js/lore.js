@@ -206,10 +206,10 @@ window.BLAHAJ_LORE = {
     {
       id: 'volcano_temple',
       name: 'Volcano Temple Balcony',
-      zoneTitle: 'Sacred Volcano Balcony · Carrot Knock-Off Ledge',
-      pos: { x: -22, z: -103 },
-      radius: 15,
-      prompt: 'Honor the Volcano [E] · Bump Balcony Carrots!',
+      zoneTitle: 'Sacred Volcano Caldera · Volunteer Carrot Overlook',
+      pos: { x: -28, z: -127 },
+      radius: 16,
+      prompt: 'Honor the Volcano [E] · Toss Volunteer Carrots into Caldera!',
       type: 'volcano'
     },
     {
@@ -225,9 +225,9 @@ window.BLAHAJ_LORE = {
       id: 'volcano_dungeon_core',
       name: 'Heart of the Volcano Trial',
       zoneTitle: 'Subterranean Volcano Trial Dungeon · Core Ascent',
-      pos: { x: -28, z: -115 },
+      pos: { x: -28, z: -126 },
       radius: 10,
-      prompt: 'Claim Trial Victory & Exit to Front Balcony [E]',
+      prompt: 'Claim Trial Victory & Exit to Caldera Overlook [E]',
       type: 'dungeon_exit'
     },
     {

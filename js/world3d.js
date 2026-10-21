@@ -122,7 +122,7 @@ window.BlahajWorld = (function () {
   // HEIGHTMAP: MAIN ISLAND, PENINSULA, 4 OUTER SANCTUARY ISLANDS & DUNGEON
   // ==========================================================================
   function isInsideVolcanoDungeon(x, z) {
-    return Math.abs(x - -28) < 9.5 && z < -111 && z > -191;
+    return Math.abs(x - -28) < 9.5 && z < -124 && z > -191;
   }
 
   function getTerrainHeight(x, z) {
@@ -131,10 +131,10 @@ window.BlahajWorld = (function () {
       return 1.4;
     }
 
-    // 2. Interior Volcano Trial Dungeon Bridge (x = -28, z = -185..-111)
-    if (Math.abs(x - -28) < 7.8 && z <= -111 && z > -185) {
-      const u = Math.max(0, Math.min(1, (z - -185) / (-113 - -185)));
-      return 1.4 + u * 7.2;
+    // 2. Interior Volcano Trial Dungeon Bridge (x = -28, z = -185..-125)
+    if (Math.abs(x - -28) < 7.8 && z <= -125 && z > -185) {
+      const u = Math.max(0, Math.min(1, (z - -185) / (-125 - -185)));
+      return 1.4 + u * 23.1;
     }
 
     // 3. Tea Docks in South Crescent Harbour (x: 0, z: 46..70)
@@ -216,13 +216,13 @@ window.BlahajWorld = (function () {
       hLaundry = -1.5 + fLau * 8.8;
     }
 
-    // 6. THE SACRED VOLCANO PENINSULA (Isthmus + Volcano Cone + Front Temple Balcony)
+    // 6. THE SACRED VOLCANO PENINSULA (Isthmus + Massive Truncated Caldera Volcano)
     let hIsthmus = -4.5;
     if (z < -32 && z > -105) {
       const tIsth = (-z - 32) / 73;
       const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
       const distFromSpine = Math.abs(x - spineX);
-      const isthWidth = 13.5 - Math.sin(tIsth * Math.PI) * 3.5;
+      const isthWidth = 14.0 - Math.sin(tIsth * Math.PI) * 3.5;
       if (distFromSpine < isthWidth + 10) {
         const fIsth = 1 - smoothstep(isthWidth * 0.45, isthWidth + 8, distFromSpine);
         const targetElev = 3.2 + Math.pow(tIsth, 1.35) * 13.3;
@@ -234,23 +234,27 @@ window.BlahajWorld = (function () {
     const vz = z - -148;
     const dVolcano = Math.sqrt(vx * vx + vz * vz);
     const vAngle = Math.atan2(vz, vx);
-    const penRadius = 64 + Math.cos(vAngle * 4) * 5 + Math.sin(vAngle * 7) * 3;
+    // Expanded grand volcano base footprint (radius 78)
+    const penRadius = 78 + Math.cos(vAngle * 4) * 6 + Math.sin(vAngle * 7) * 3.5;
 
     let hVolcano = -4.5;
     if (dVolcano < penRadius) {
-      const norm = 1 - dVolcano / penRadius;
-      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.8 * norm * (1 - Math.pow(norm, 3));
-      let cone = -2.0 + Math.pow(norm, 1.5) * 66.0 + ribs;
+      const norm = Math.max(0, 1 - dVolcano / penRadius);
+      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.5 * norm * (1 - Math.pow(norm, 2.5));
+      // Truncated caldera peak: climbs up to rim at y ≈ 54
+      let cone = -2.0 + Math.pow(norm, 1.25) * 58.0 + ribs;
 
-      if (dVolcano < 11) {
-        const craterDepth = Math.cos((dVolcano / 11) * (Math.PI * 0.5)) * 8.0;
-        cone -= craterDepth;
+      // Cleanly hollowed crater basin (radius 24, truncated rim at 18..24)
+      if (dVolcano < 24) {
+        const craterDrop = Math.cos((dVolcano / 24) * (Math.PI * 0.5)) * 28.0;
+        cone -= craterDrop;
       }
 
-      const dTemple = Math.sqrt(Math.pow(x - -22, 2) + Math.pow(z - -103, 2));
-      if (dTemple < 16) {
-        const fTemp = 1 - smoothstep(9.0, 16, dTemple);
-        cone = cone * (1 - fTemp) + 16.5 * fTemp;
+      // Overlook Terrace sitting inside the rim looking down into the boiling caldera!
+      const dOverlook = Math.sqrt(Math.pow(x - -28, 2) + Math.pow(z - -127, 2));
+      if (dOverlook < 14) {
+        const fOverlook = 1 - smoothstep(7.0, 14, dOverlook);
+        cone = cone * (1 - fOverlook) + 38.5 * fOverlook;
       }
 
       hVolcano = cone;
@@ -353,8 +357,12 @@ window.BlahajWorld = (function () {
       const vx = x - -28;
       const vz = z - -148;
       const dVolcano = Math.sqrt(vx * vx + vz * vz);
-      const norm = Math.max(0, 1 - dVolcano / 64);
-      return Math.max(20.0, -2.0 + Math.pow(norm, 1.5) * 66.0);
+      const norm = Math.max(0, 1 - dVolcano / 78);
+      let cone = -2.0 + Math.pow(norm, 1.25) * 58.0;
+      if (dVolcano < 24) {
+        cone -= Math.cos((dVolcano / 24) * (Math.PI * 0.5)) * 28.0;
+      }
+      return Math.max(22.0, cone);
     }
     return getTerrainHeight(x, z);
   }
@@ -404,14 +412,14 @@ window.BlahajWorld = (function () {
 
       const onRoad = isOnIslandRoad(vx, vz);
 
-      if (dVol < 10.5 && vy > 46) {
+      if (dVol < 24 && vy > 24) {
         c.setHex(0xff5e1a);
-      } else if (dVol < 64 && vy > 5.0) {
+      } else if (dVol < 78 && vy > 5.0) {
         const lavaStream = Math.pow(Math.abs(Math.sin(vAng * 5 + dVol * 0.085)), 18);
-        const dTemple = Math.sqrt(Math.pow(vx - -22, 2) + Math.pow(vz - -103, 2));
-        if (lavaStream > 0.62 && vy > 9.0 && dTemple > 12) {
+        const dOverlook = Math.sqrt(Math.pow(vx - -28, 2) + Math.pow(vz - -127, 2));
+        if (lavaStream > 0.62 && vy > 9.0 && dOverlook > 14) {
           c.setHex(0xff6a1f);
-        } else if (dTemple < 11.5) {
+        } else if (dOverlook < 12.5) {
           c.setHex(0x3a3447);
         } else {
           const shade = 0.14 + (vy / 70) * 0.08;
@@ -962,27 +970,27 @@ window.BlahajWorld = (function () {
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
     const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff621a });
 
-    const calderaPool = new THREE.Mesh(new THREE.CylinderGeometry(9.8, 8.2, 2.2, 32), lavaMat);
-    calderaPool.position.set(-28, 57.5, -148);
+    const calderaPool = new THREE.Mesh(new THREE.CylinderGeometry(14.5, 12.0, 2.2, 32), lavaMat);
+    calderaPool.position.set(-28, 27.5, -148);
     group.add(calderaPool);
 
-    lavaLight = new THREE.PointLight(0xff591c, 3.2, 165);
-    lavaLight.position.set(-28, 66, -144);
+    lavaLight = new THREE.PointLight(0xff591c, 3.8, 185);
+    lavaLight.position.set(-28, 38, -148);
     group.add(lavaLight);
 
     // Rising Ember Plume
     const emberGeo = new THREE.BufferGeometry();
-    const emberCount = 260;
+    const emberCount = 320;
     const emberPositions = new Float32Array(emberCount * 3);
     for (let i = 0; i < emberCount; i++) {
-      emberPositions[i * 3] = -28 + (Math.random() - 0.5) * 22;
-      emberPositions[i * 3 + 1] = 56 + Math.random() * 55;
-      emberPositions[i * 3 + 2] = -148 + (Math.random() - 0.5) * 22;
+      emberPositions[i * 3] = -28 + (Math.random() - 0.5) * 26;
+      emberPositions[i * 3 + 1] = 28 + Math.random() * 65;
+      emberPositions[i * 3 + 2] = -148 + (Math.random() - 0.5) * 26;
     }
     emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
     emberSystem = new THREE.Points(
       emberGeo,
-      new THREE.PointsMaterial({ color: 0xff9436, size: 1.35, transparent: true, opacity: 0.85 })
+      new THREE.PointsMaterial({ color: 0xff9436, size: 1.45, transparent: true, opacity: 0.85 })
     );
     group.add(emberSystem);
 
@@ -1007,16 +1015,16 @@ window.BlahajWorld = (function () {
       group.add(gate);
     }
 
-    // High Volcano Temple Balcony at (-22, 16.5, -103)
-    const tx = -22;
-    const tz = -103;
-    const ty = 16.5;
+    // High Volcano Temple Balcony & Overlook inside the Caldera Rim at (-28, 38.5, -127)
+    const tx = -28;
+    const tz = -127;
+    const ty = 38.5;
 
     const templeGroup = new THREE.Group();
     templeGroup.position.set(tx, ty, tz);
 
-    // Dramatic Overhanging Balcony Platform jutting out over the steep slope!
-    const balconySlab = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 11.2, 2.2, 32), basaltMat);
+    // Dramatic Overlook Platform perched inside the rim looking straight into the boiling caldera!
+    const balconySlab = new THREE.Mesh(new THREE.CylinderGeometry(14.2, 12.0, 2.2, 32), basaltMat);
     balconySlab.position.y = -0.8;
     balconySlab.receiveShadow = true;
     templeGroup.add(balconySlab);
@@ -1024,11 +1032,11 @@ window.BlahajWorld = (function () {
     // Ornate Exit Archway from the Interior Volcano Dungeon onto the Balcony!
     [-4.2, 4.2].forEach((px) => {
       const col = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.72, 7.6, 16), basaltMat);
-      col.position.set(px, 3.8, -6.5);
+      col.position.set(px, 3.8, 6.2);
       templeGroup.add(col);
     });
     const frieze = new THREE.Mesh(new THREE.BoxGeometry(11.4, 1.8, 2.2), basaltMat);
-    frieze.position.set(0, 8.0, -6.5);
+    frieze.position.set(0, 8.0, 6.2);
     templeGroup.add(frieze);
 
     // Glowing Dungeon Exit Portal Arch in back of Balcony
@@ -1036,36 +1044,36 @@ window.BlahajWorld = (function () {
       new THREE.PlaneGeometry(6.8, 6.4),
       new THREE.MeshBasicMaterial({ color: 0xff7b29, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
     );
-    exitGlow.position.set(0, 3.4, -6.4);
+    exitGlow.position.set(0, 3.4, 6.1);
     templeGroup.add(exitGlow);
 
     // Central Lava Brazier Altar
     const altarBase = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.5, 2.4), basaltMat);
-    altarBase.position.set(0, 0.9, -2.2);
+    altarBase.position.set(0, 0.9, -1.8);
     templeGroup.add(altarBase);
 
     const sacredFlame = new THREE.Mesh(
       new THREE.OctahedronGeometry(0.95, 2),
       new THREE.MeshBasicMaterial({ color: 0xff8c38, wireframe: true })
     );
-    sacredFlame.position.set(0, 2.8, -2.2);
+    sacredFlame.position.set(0, 2.8, -1.8);
     templeGroup.add(sacredFlame);
     animatedObjects.push({ mesh: sacredFlame, type: 'spin_bob', baseY: 2.8 });
 
     group.add(templeGroup);
     scene.add(group);
 
-    // Spawn 8 Knockable Physics Beach-Shorts Carrots along the edge of the Volcano Balcony!
+    // Spawn 8 Knockable Physics Beach-Shorts Carrots along the rim edge facing down into the boiling caldera!
     const carrotColors = [0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x3b82f6, 0xec4899, 0x14b8a6, 0xf97316];
     carrotColors.forEach((col, idx) => {
-      const angle = -0.95 + (idx / 7) * 1.9; // Spread along the front cliff edge of the balcony
-      const homeX = tx + Math.sin(angle) * 10.2;
-      const homeZ = tz + Math.cos(angle) * 10.2;
+      const angle = -0.95 + (idx / 7) * 1.9; // Facing inward toward the crater center (-Z)
+      const homeX = tx + Math.sin(angle) * 10.5;
+      const homeZ = tz - Math.cos(angle) * 10.5;
       const homeY = ty + 0.3;
 
       const cMesh = window.BlahajModels.createBeachCarrot(col);
       cMesh.position.set(homeX, homeY, homeZ);
-      cMesh.rotation.y = angle + Math.PI;
+      cMesh.rotation.y = angle;
       scene.add(cMesh);
 
       balconyCarrots.push({
@@ -1132,24 +1140,24 @@ window.BlahajWorld = (function () {
     lavaFloor.position.set(-28, 0.35, -149);
     dungeonGroup.add(lavaFloor);
 
-    // Basalt Trial Walkway Bridge sloping from (y=1.4, z=-185) to (y=8.6, z=-113)
-    const bridgeGeo = new THREE.BoxGeometry(8.4, 0.8, 74);
+    // Basalt Trial Walkway Bridge sloping from (y=1.4, z=-185) to (y=24.5, z=-125)
+    const bridgeGeo = new THREE.BoxGeometry(8.4, 0.8, 62);
     const bridgeMesh = new THREE.Mesh(bridgeGeo, basaltMat);
-    bridgeMesh.position.set(-28, 4.6, -149);
-    bridgeMesh.rotation.x = -Math.atan2(7.2, 72);
+    bridgeMesh.position.set(-28, 12.8, -155);
+    bridgeMesh.rotation.x = -Math.atan2(23.1, 60);
     dungeonGroup.add(bridgeMesh);
 
     // Cavern Walls & Vaulted Obsidian Ceiling enclosing the Trial Gauntlet
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 16, 74), basaltMat);
-    leftWall.position.set(-35.5, 8, -149);
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 26, 62), basaltMat);
+    leftWall.position.set(-35.5, 14, -155);
     dungeonGroup.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 16, 74), basaltMat);
-    rightWall.position.set(-20.5, 8, -149);
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 26, 62), basaltMat);
+    rightWall.position.set(-20.5, 14, -155);
     dungeonGroup.add(rightWall);
 
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(18, 2.5, 74), basaltMat);
-    ceiling.position.set(-28, 16.5, -149);
+    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(18, 2.5, 62), basaltMat);
+    ceiling.position.set(-28, 27.5, -155);
     dungeonGroup.add(ceiling);
 
     // Interior Lava Glow Lights inside the Dungeon
@@ -1224,9 +1232,9 @@ window.BlahajWorld = (function () {
       });
     });
 
-    // Trial Core Ascent Portal at the end of the Dungeon (-28, 8.6, -115) -> Exits onto the Front Volcano Balcony!
+    // Trial Core Ascent Portal at the end of the Dungeon (-28, 24.5, -126) -> Exits onto the Overlook Balcony!
     const coreRing = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 14, 32), brassMat);
-    coreRing.position.set(-28, 11.2, -114);
+    coreRing.position.set(-28, 26.8, -126);
     dungeonGroup.add(coreRing);
 
     const coreDisc = new THREE.Mesh(
