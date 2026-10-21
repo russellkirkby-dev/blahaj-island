@@ -168,9 +168,10 @@ window.BlahajVolcano = (function () {
   function getFloorInfo(x, z, refY) {
     let best = null;
     let bestSurface = null;
+    const checkRef = typeof refY === 'number' ? refY : 1000;
     for (let i = 0; i < surfaces.length; i++) {
-      const y = surfaces[i].test(x, z, refY);
-      if (y !== null && y <= refY + 2.4 && (best === null || y > best)) {
+      const y = surfaces[i].test(x, z, checkRef);
+      if (y !== null && y <= checkRef + 0.65 && (best === null || y > best)) {
         best = y;
         bestSurface = surfaces[i];
       }
@@ -878,21 +879,21 @@ window.BlahajVolcano = (function () {
 
     // Solo Platformer Alternative: 6 stepping stones across the lava on the right flank
     const causewaySoloSpots = [
-      [9.0, -108, 2.5, 0],
-      [12.2, -117, 2.5, 0.25],
-      [9.2, -126, 2.6, 0],
-      [12.5, -135, 2.6, 0.3],
-      [9.8, -144, 2.5, 0.15],
-      [8.5, -151.5, 2.5, 0]
+      [9.0, -108, 2.8, 0],
+      [12.2, -117, 2.8, 0.25],
+      [9.2, -126, 2.8, 0],
+      [12.5, -135, 2.8, 0.3],
+      [9.8, -144, 2.8, 0.15],
+      [8.5, -151.5, 2.8, 0]
     ];
 
     causewaySoloSpots.forEach(([x, z, r, y], i) => {
       const group = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.3, 8.5, 20), m.floor);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.35, 8.5, 22), m.floor);
       body.position.y = -3.85;
       group.add(body);
 
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.08, 0.12, 8, 36), m.glow);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.08, 0.14, 8, 36), m.glow);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.42;
       group.add(rim);
@@ -907,7 +908,8 @@ window.BlahajVolcano = (function () {
       const p = { x, z, r, y, phase: i * 1.05, group, baseY: y };
       platforms.push(p);
 
-      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= r ? p.y : null), false);
+      // Generous landing collision margin (+0.75m plush body support)
+      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= r + 0.75 ? p.y : null), false);
     });
 
     // Central island.
@@ -951,19 +953,30 @@ window.BlahajVolcano = (function () {
     scn.add(relic);
 
     // Stepping platforms across the lava.
-    const stepSpots = [[0, -193.5], [4, -203.5], [-4, -213.5], [3, -223.5], [-3, -233.5], [0, -243]];
+    // 8 stepping stones spaced ~7.5m - 8.0m apart for smooth, rhythmic leaping
+    const stepSpots = [
+      [0, -192.5],
+      [3.2, -200.0],
+      [4.2, -207.5],
+      [1.2, -215.0],
+      [-2.5, -222.0],
+      [-3.8, -229.5],
+      [-1.5, -236.5],
+      [0, -243.5]
+    ];
     stepSpots.forEach(([x, z], i) => {
       const group = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.0, 0.8, 20), m.floor);
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 2.9, 0.8, 22), m.floor);
       group.add(body);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.1, 8, 36), m.glow);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.12, 8, 36), m.glow);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.42;
       group.add(rim);
       scn.add(group);
-      const p = { x, z, r: 3.4, phase: i * 1.1, y: 0, group };
+      const p = { x, z, r: 3.3, phase: i * 1.1, y: 0, group };
       platforms.push(p);
-      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= p.r ? p.y : null), false);
+      // Generous landing collision margin (+0.75m plush body support)
+      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= p.r + 0.75 ? p.y : null), false);
     });
 
     // Exit platform + corridor to the spiral.

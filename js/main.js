@@ -290,6 +290,9 @@
     velY: 0,
     rotY: Math.PI,
     isGrounded: true,
+    canDoubleJump: true,
+    doubleJumped: false,
+    coyoteTimer: 0,
     inBoat: false,
     warmth: 100,
     teaComfort: 88,
@@ -797,11 +800,29 @@
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
         if (player.inBoat) {
           disembarkBoatAtCurrentLocation();
-        } else if (player.isGrounded) {
+        } else if (player.isGrounded || player.coyoteTimer > 0) {
           const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
           player.velY = 8.8 * jumpBoost;
           player.isGrounded = false;
+          player.coyoteTimer = 0;
+          player.canDoubleJump = true;
+          player.doubleJumped = false;
           CozyAudio.shonk();
+          if (player.mesh && player.mesh.userData) {
+            player.mesh.userData.flipTimer = 0.35;
+          }
+        } else if (player.canDoubleJump && !player.doubleJumped) {
+          // Double jump: mid-air tail swish / plush flutter!
+          player.doubleJumped = true;
+          player.canDoubleJump = false;
+          const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
+          player.velY = 8.4 * jumpBoost;
+          CozyAudio.shonk();
+          CozyAudio.bounceBoing();
+          spawnFloatingBurst(player.pos, 0x56c2ff, 10);
+          if (player.mesh && player.mesh.userData) {
+            player.mesh.userData.flipTimer = 0.45;
+          }
         }
       }
     });
@@ -2552,12 +2573,87 @@
   // ==========================================================================
   let netSyncTimer = 0;
 
+  // Dynamic drop shadow for precise 3D jump landing feedback
+  let playerShadow = null;
+  function createPlayerShadow() {
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 128;
+    const ctx = cvs.getContext('2d');
+    const grad = ctx.createRadialGradient(64, 64, 6, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(8, 6, 12, 0.72)');
+    grad.addColorStop(0.45, 'rgba(12, 8, 16, 0.50)');
+    grad.addColorStop(0.82, 'rgba(20, 14, 22, 0.20)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const tex = new THREE.CanvasTexture(cvs);
+    const geo = new THREE.PlaneGeometry(2.8, 2.8);
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      opacity: 0.65,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+    playerShadow = new THREE.Mesh(geo, mat);
+    playerShadow.rotation.x = -Math.PI / 2;
+    playerShadow.renderOrder = 800;
+    return playerShadow;
+  }
+
+  function updatePlayerShadow() {
+    if (!playerShadow) playerShadow = createPlayerShadow();
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    if (playerShadow.parent !== activeScene) {
+      if (playerShadow.parent) playerShadow.parent.remove(playerShadow);
+      activeScene.add(playerShadow);
+    }
+
+    if (player.inBoat) {
+      playerShadow.visible = false;
+      return;
+    }
+
+    let floorY = -9999;
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
+      floorY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (worldApi && typeof worldApi.getTerrainHeight === 'function') {
+      floorY = worldApi.getTerrainHeight(player.pos.x, player.pos.z);
+    }
+
+    if (floorY > -500 && player.pos.y >= floorY - 0.45) {
+      playerShadow.visible = true;
+      playerShadow.position.set(player.pos.x, floorY + 0.05, player.pos.z);
+      const heightAbove = Math.max(0, player.pos.y - floorY);
+      const s = Math.max(0.65, 1.0 - heightAbove * 0.045);
+      playerShadow.scale.set(s, s, 1);
+      playerShadow.material.opacity = Math.max(0.18, 0.65 - heightAbove * 0.05);
+    } else if (currentZone === 'volcano' && window.BlahajVolcano && window.BlahajVolcano.constants) {
+      // Over open lava pit in dungeon: project guide at lava level so the player sees exactly where they are over the pit!
+      const lavaY = window.BlahajVolcano.constants.LAVA_Y || -2;
+      playerShadow.visible = true;
+      playerShadow.position.set(player.pos.x, lavaY + 0.08, player.pos.z);
+      const heightAbove = Math.max(0, player.pos.y - lavaY);
+      const s = Math.max(0.5, 0.85 - heightAbove * 0.03);
+      playerShadow.scale.set(s, s, 1);
+      playerShadow.material.opacity = Math.max(0.15, 0.45 - heightAbove * 0.04);
+    } else {
+      playerShadow.visible = false;
+    }
+  }
+
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.1);
     const elapsed = clock.getElapsedTime();
 
     updatePlayerMovement(dt, elapsed);
+    updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
     updateCamera();
@@ -2665,7 +2761,7 @@
         }
 
         const floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
-        if (floorY > -500) {
+        if (floorY > -500 && player.pos.y >= floorY - 0.45) {
           if (!player.isGrounded || player.pos.y > floorY + 0.05) {
             player.velY -= 24.0 * dt;
             player.pos.y += player.velY * dt;
@@ -2673,16 +2769,23 @@
               player.pos.y = floorY;
               player.velY = 0;
               player.isGrounded = true;
+              player.canDoubleJump = true;
+              player.doubleJumped = false;
+              player.coyoteTimer = 0.15;
             }
           } else {
             player.pos.y = floorY;
             player.velY = 0;
             player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
           }
         } else {
           player.velY -= 24.0 * dt;
           player.pos.y += player.velY * dt;
           player.isGrounded = false;
+          player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
 
         if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
@@ -2747,9 +2850,20 @@
               player.pos.y = groundY;
               player.velY = 0;
               player.isGrounded = true;
+              player.canDoubleJump = true;
+              player.doubleJumped = false;
+              player.coyoteTimer = 0.15;
             }
           } else {
             player.pos.y = groundY;
+            player.velY = 0;
+            player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
+          }
+          if (!player.isGrounded) {
+            player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
           }
         }
       }

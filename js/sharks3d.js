@@ -865,7 +865,14 @@ window.BlahajModels = (function () {
       }
     }
 
-    if (ud.beepTimer > 0) {
+    if (ud.flipTimer > 0) {
+      ud.flipTimer = Math.max(0, ud.flipTimer - dt);
+      const flipProgress = 1 - ud.flipTimer / 0.45;
+      rig.rotation.x = Math.sin(flipProgress * Math.PI * 2) * 0.75;
+      if (ud.tailGroup) {
+        ud.tailGroup.rotation.y = Math.sin(flipProgress * Math.PI * 4) * 0.45;
+      }
+    } else if (ud.beepTimer > 0) {
       ud.beepTimer = Math.max(0, ud.beepTimer - dt);
       const p = Math.sin((1 - ud.beepTimer / 0.9) * Math.PI);
       if (ud.leftFinPivot && ud.rightFinPivot) {
