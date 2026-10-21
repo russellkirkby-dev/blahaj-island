@@ -321,6 +321,12 @@
   // Sanctuary Island Claims (Synced across Co-op)
   const islandClaims = JSON.parse(localStorage.getItem('blahaj_island_claims_v1') || '{}');
 
+  // Volcano Instance State
+  let currentZone = 'island'; // 'island' | 'volcano'
+  let volcanoCheckpoint = { x: 0, y: 0, z: -2, rotY: Math.PI };
+  let isTransitioningZone = false;
+  let lastNearestInteractableKey = null;
+
   function saveBuiltStructuresToStorage() {
     if (!worldApi) return;
     const serialized = worldApi.getBuiltStructures().map((s) => ({
@@ -455,10 +461,34 @@
       composer.addPass(bloomPass);
     }
 
-    // 1. Build Expanded Blåhaj Archipelago (Main Island + 4 Outer Sanctuary Islands + Dungeon)
+    // 1. Build Expanded Blåhaj Archipelago (Main Island + 4 Outer Sanctuary Islands)
     worldApi = window.BlahajWorld.buildWorld(scene);
     loadSavedStructures();
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
+
+    // 1b. Build Instanced Volcano Trial Dungeon Scene
+    if (window.BlahajVolcano) {
+      window.BlahajVolcano.build(THREE, renderer);
+      window.BlahajVolcano.on({
+        checkpoint: (room, pt) => {
+          volcanoCheckpoint = { x: pt.x, y: pt.y, z: pt.z, rotY: pt.rotY || Math.PI };
+          showToast('CHECKPOINT REACHED! ⛩️', `Entered ${window.BlahajVolcano.getRoomTitle(pt.z)}!`);
+          CozyAudio.portalChime();
+        },
+        complete: () => {
+          player.trialPoints += 2;
+          updateMetersUI();
+          renderUpgradesGrid();
+          showToast('VOLCANO TRIAL CONQUERED! 🌋⚔️ (+2 TRIAL POINTS)', 'You reached the Sacred Caldera Overlook! Bump the Volunteer Carrots or step into the return portal!');
+          addChatLog('🌋⚔️ <strong>VOLCANO TRIAL CONQUERED!</strong> You made it to the Caldera Overlook and earned <strong>+2 Trial Points</strong>!', 'system');
+          CozyAudio.portalChime();
+          completeQuest('q-volcano');
+        },
+        lavaFall: () => {
+          handleVolcanoTrapHit('Molten Lava Sea');
+        }
+      });
+    }
 
     // 2. Spawn High-Polygon Player Shark & All Island Characters
     spawnPlayerShark('hermes');
@@ -482,14 +512,15 @@
     if (!cfg) return;
 
     if (player.mesh) {
-      scene.remove(player.mesh);
+      if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
     }
 
     player.sharkId = sharkId;
     player.mesh = window.BlahajModels.createPlushShark(cfg);
     player.mesh.position.copy(player.pos);
     player.mesh.rotation.y = player.rotY;
-    scene.add(player.mesh);
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    activeScene.add(player.mesh);
 
     updateBlueSharkVisibility();
 
@@ -630,6 +661,7 @@
   }
 
   function spawnFloatingBurst(originPos, colorHex = 0xff7eb6, count = 7) {
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.18, 0),
@@ -640,7 +672,7 @@
         1.8 + Math.random() * 0.7,
         (Math.random() - 0.5) * 1.4
       ));
-      scene.add(mesh);
+      activeScene.add(mesh);
       floatingBursts.push({
         mesh,
         vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, 1.8 + Math.random() * 1.2, (Math.random() - 0.5) * 1.5),
@@ -1262,27 +1294,151 @@
     return mendedOne;
   }
 
-  function completeVolcanoDungeonAscent() {
-    CozyAudio.portalChime();
+  function enterVolcanoTrial() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
     player.inBoat = false;
-    player.pos.set(-28, 38.6, -127);
-    player.rotY = Math.PI;
-    camState.yaw = 0;
-    player.velY = 0;
-    player.warmth = 100;
-    player.volcanoHonour = 100;
-    player.trialPoints += 1;
-    player.dungeonPortalCooldown = 4.0;
+    player.ridingWithPartner = false;
 
-    completeQuest('q-dungeon');
-    completeQuest('q-em-volcano');
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'The Trials of the Sacred Volcano';
+    subEl.textContent = 'Venturing into the ancient subterranean halls…';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'volcano';
+          if (window.BlahajVolcano) {
+            window.BlahajVolcano.setActive(true);
+            const start = window.BlahajVolcano.getStart();
+            volcanoCheckpoint = { ...start };
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajVolcano.getScene().add(player.mesh);
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+          camState.yaw = Math.PI;
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('THE SACRED VOLCANO TRIAL', 'Traverse the 3 chambers to reach the Caldera Overlook!');
+          addChatLog('🌋 Stepped inside <strong>The Obsidian Gatehall</strong> of the Sacred Volcano.', 'lore');
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'volcano'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function exitVolcanoTrial(toMainPortal = false) {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = toMainPortal ? 'Caldera Return Portal' : 'Exiting Volcano Trial';
+    subEl.textContent = toMainPortal ? 'Traversing the Great Seam back to Blåhaj Island…' : 'Returning to the North Rear Wharf…';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (window.BlahajVolcano) {
+            window.BlahajVolcano.setActive(false);
+          }
+
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+
+          if (toMainPortal) {
+            const gy = worldApi.getTerrainHeight(72, -10);
+            player.pos.set(72, gy + 0.6, -10);
+            player.rotY = Math.PI * 0.5;
+            camState.yaw = Math.PI * 0.5;
+            showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged through the Great Portal Gate!');
+          } else {
+            player.pos.set(-28, 1.5, -196);
+            player.rotY = 0;
+            camState.yaw = Math.PI;
+            showToast('NORTH REAR WHARF', 'Returned to the open ocean air.');
+          }
+          if (player.mesh) {
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'island'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function handleVolcanoTrapHit(trapName) {
+    if (player.trapCooldown > 0) return;
+    player.trapCooldown = 1.8;
+    CozyAudio.trapHit();
+    spawnFloatingBurst(player.pos, 0xff4500, 18);
+
+    const armorBonus = player.unlockedUpgrades.has('kevlar_stitching') ? 0.6 : 1.0;
+    const dmg = Math.round(25 * armorBonus);
+    player.warmth = Math.max(0, player.warmth - dmg);
     updateMetersUI();
-    renderUpgradesGrid();
-    renderBuilderToolbar();
 
-    spawnFloatingBurst(player.pos, 0xff9d3b, 22);
-    showToast('VOLCANO TRIAL SURVIVED! (+1 TRIAL POINT)', 'You emerged onto the Caldera Rim Overlook! Toss the volunteer Carrots into the boiling lava or press [U] to spend Trial Points!');
-    addChatLog('🌋⚔️ <strong>Trial Complete!</strong> You survived the Volcano Dungeon and emerged onto the Caldera Rim Overlook (+1 Trial Point)!', 'system');
+    showToast(`TRAP STRUCK! (-${dmg}% COHERENCE)`, `${trapName}! Soft stuffing loosened!`);
+    addChatLog(`💥 Struck by <strong>${trapName}</strong> (-${dmg}% Stuffing Coherence). Respawning at checkpoint...`, 'danger');
+
+    setTimeout(() => {
+      player.pos.set(volcanoCheckpoint.x, volcanoCheckpoint.y, volcanoCheckpoint.z);
+      player.rotY = volcanoCheckpoint.rotY || Math.PI;
+      player.velY = 0;
+      player.isGrounded = true;
+      if (player.mesh) {
+        player.mesh.position.copy(player.pos);
+        player.mesh.rotation.y = player.rotY;
+      }
+    }, 200);
   }
 
   function triggerInteract() {
@@ -1294,6 +1450,27 @@
 
     if (!nearestInteractable) return;
     const item = nearestInteractable;
+
+    // Volcano Instance specific interactables
+    if (item.kind === 'v_exit') {
+      exitVolcanoTrial(false);
+      return;
+    }
+    if (item.kind === 'v_portal') {
+      exitVolcanoTrial(true);
+      return;
+    }
+    if (item.kind === 'v_tea') {
+      player.warmth = 100;
+      player.teaComfort = 100;
+      player.teaSharedCount++;
+      updateMetersUI();
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0x86efac, 18);
+      showToast('REST NOOK TEA SIP 🍵✨', '100% Stuffing Coherence & Steaming Comfort restored!');
+      addChatLog('🍵 Sipped hot fragrant tea in the Rest Nook. Cozy warmth fills your plush heart!', 'lore');
+      return;
+    }
 
     if (item.kind === 'partner_boat') {
       player.ridingWithPartner = !player.ridingWithPartner;
@@ -1513,8 +1690,33 @@
       return;
     }
 
-    if (lm.type === 'dungeon_exit') {
-      completeVolcanoDungeonAscent();
+    if (lm.type === 'sealed_gate') {
+      openDialogueModal({
+        speaker: 'Ancient Sealed Volcano Gate',
+        role: 'LOCKED CANON · BLÅHAJ ISLAND',
+        portrait: 'assets/gallery/Blizzard-Volcano.png',
+        text: '“THE HIGH CALDERA IS SEALED FROM WITHOUT. The sheer mountain cliffs cannot be scaled. Only those who brave the subterranean Trials through the Sea Cave at the North Rear Wharf may stand upon the Caldera Overlook.”',
+        actions: [
+          {
+            label: 'Fast-Travel to Rear Wharf & Sea Cave ⛵',
+            className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              player.inBoat = false;
+              player.ridingWithPartner = false;
+              player.pos.set(-28, 1.5, -196);
+              player.rotY = 0;
+              camState.yaw = Math.PI;
+              showToast('REAR VOLCANO WHARF', 'Walk forward into the Sea Cave to enter the Trial!');
+            }
+          },
+          {
+            label: 'Leave Sealed Gate [E]',
+            className: 'btn-secondary',
+            onClick: () => closeDialogueModal()
+          }
+        ]
+      });
       return;
     }
 
@@ -1527,25 +1729,20 @@
         player.rotY = 0;
         camState.yaw = Math.PI;
         completeQuest('q-em-tea');
-        showToast('REAR VOLCANO WHARF', 'Stepped onto the Rear Wharf! Walk forward into the Volcano Trial Dungeon!');
+        showToast('REAR VOLCANO WHARF', 'Stepped onto the Rear Wharf! Walk forward into the Sea Cave to enter the Volcano Trial!');
       } else {
         openDialogueModal({
-          speaker: 'Rear Volcano Wharf & Dungeon Gate',
+          speaker: 'Rear Volcano Wharf & Sea Cave Entrance',
           role: 'THE TRIALS OF THE SACRED VOLCANO',
           portrait: 'assets/gallery/Blizzard-Volcano.png',
-          text: 'At the far northern tip of the Volcano Peninsula, obsidian gates open into the subterranean Volcano Trial Dungeon. Dodge the swinging obsidian pendulums and erupting lava geysers to reach the Core Portal—and emerge high up on the Front Volcano Temple Balcony with +1 Trial Point!',
+          text: 'The roaring Obsidian Sea Cave opens into the instanced subterranean Trials of the Sacred Volcano! Dodge the swinging obsidian pendulums, traverse the Molten Causeway, and ascend the Ember Spiral to emerge onto the grand Caldera Overlook!',
           actions: [
             {
-              label: 'Enter the Volcano Trial Dungeon! ⚔️🌋',
+              label: 'Enter the Volcano Trial Instance! 🌋⚔️',
               className: 'btn-primary',
               onClick: () => {
                 closeDialogueModal();
-                player.inBoat = false;
-                player.ridingWithPartner = false;
-                player.pos.set(-28, 1.5, -184);
-                player.rotY = 0;
-                camState.yaw = Math.PI;
-                showToast('VOLCANO TRIAL DUNGEON', 'Dodge the swinging axes & lava geysers to reach the Core Portal!');
+                enterVolcanoTrial();
               }
             },
             {
@@ -1554,10 +1751,10 @@
               onClick: () => {
                 closeDialogueModal();
                 if (boat) {
-                  boat.position.set(-28, 0.45, -214);
+                  boat.position.set(-21.5, 0.45, -204);
                   player.inBoat = true;
                   player.ridingWithPartner = false;
-                  player.pos.set(-28, 1.2, -214);
+                  player.pos.set(-21.5, 1.2, -204);
                   showToast('SAILING FROM REAR WHARF', 'Aboard the Regatta Sailboat on the North Sea!');
                 }
               }
@@ -1807,12 +2004,21 @@
 
     document.getElementById('btn-teleport-rear-wharf').addEventListener('click', () => {
       document.getElementById('upgrades-modal').classList.add('hidden');
-      player.inBoat = false;
-      player.pos.set(-28, 1.5, -200);
-      player.rotY = 0;
-      camState.yaw = Math.PI;
-      CozyAudio.portalChime();
-      showToast('REAR VOLCANO WHARF', 'Arrived at the North Shore Rear Wharf! Walk forward into the Volcano Trial Dungeon!');
+      if (currentZone === 'volcano') {
+        exitVolcanoTrial(false);
+      } else {
+        player.inBoat = false;
+        player.ridingWithPartner = false;
+        player.pos.set(-28, 1.5, -200);
+        player.rotY = 0;
+        camState.yaw = Math.PI;
+        if (player.mesh) {
+          player.mesh.position.copy(player.pos);
+          player.mesh.rotation.y = player.rotY;
+        }
+        CozyAudio.portalChime();
+        showToast('REAR VOLCANO WHARF', 'Arrived at the North Shore Rear Wharf! Walk forward into the Sea Cave to enter the Volcano Trial!');
+      }
     });
 
     const thumbContainer = document.getElementById('gallery-thumbnails');
@@ -2144,6 +2350,23 @@
           coopPartner.targetRotY = data.rotY;
           coopPartner.isMoving = data.isMoving;
           coopPartner.inBoat = !!data.inBoat;
+          coopPartner.zone = data.zone || 'island';
+          updateCoopPartnerVisibility();
+        } else if (data.type === 'zone_change') {
+          coopPartner.zone = data.zone;
+          updateCoopPartnerVisibility();
+        } else if (data.type === 'volcano_carrot_knock') {
+          if (window.BlahajVolcano) {
+            window.BlahajVolcano.knockCarrot(data.idx, data.vx || 0, data.vy || 8, data.vz || -12);
+            CozyAudio.carrotBoop();
+          }
+          if (typeof data.carrotsKnockedCount === 'number' && data.carrotsKnockedCount > player.carrotsKnockedCount) {
+            player.carrotsKnockedCount = data.carrotsKnockedCount;
+            if (player.carrotsKnockedCount >= 5) completeQuest('q-carrots');
+            updateMetersUI();
+            renderBuilderToolbar();
+          }
+          addChatLog('🥕🌋 Your partner bumped a Volunteer Carrot into the boiling caldera!', 'coop');
         } else if (data.type === 'shark_swap') {
           spawnCoopPartnerShark(data.sharkId);
         } else if (data.type === 'build_place' && data.item) {
@@ -2267,15 +2490,31 @@
     });
   }
 
+  function updateCoopPartnerVisibility() {
+    if (!coopPartner.mesh) return;
+    const sameZone = (coopPartner.zone || 'island') === currentZone;
+    coopPartner.mesh.visible = sameZone;
+    if (coopPartner.labelEl) {
+      coopPartner.labelEl.style.display = sameZone ? '' : 'none';
+    }
+    const currentScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    if (coopPartner.mesh.parent !== currentScene) {
+      if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+      currentScene.add(coopPartner.mesh);
+    }
+  }
+
   function spawnCoopPartnerShark(sharkId) {
     const cfg = LORE.sharks[sharkId] || LORE.sharks.solomon;
     coopPartner.sharkId = cfg.id;
     coopPartner.active = true;
 
-    if (coopPartner.mesh) scene.remove(coopPartner.mesh);
+    if (coopPartner.mesh && coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
     coopPartner.mesh = window.BlahajModels.createPlushShark(cfg);
     coopPartner.mesh.position.copy(coopPartner.targetPos);
-    scene.add(coopPartner.mesh);
+    
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    activeScene.add(coopPartner.mesh);
 
     if (!coopPartner.labelEl) {
       coopPartner.labelEl = createWorldLabel(
@@ -2286,6 +2525,7 @@
     } else {
       coopPartner.labelEl.querySelector('.npc-name').textContent = `${cfg.name} (Partner)`;
     }
+    updateCoopPartnerVisibility();
     updateBlueSharkVisibility();
   }
 
@@ -2306,21 +2546,28 @@
     updateInteractionsAndHUD();
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
-    window.BlahajWorld.updateWorld(elapsed, dt, scene);
 
-    // Update real-time procedural ocean, wind, sailing audio and occasional birb calls
-    CozyAudio.updateAmbient(elapsed, player.pos, player.inBoat, keys['w'] || keys['s'] || keys['a'] || keys['d'], camState.distance);
-    if (Math.random() < 0.003) {
-      const distToBirbs = Math.hypot(player.pos.x - 0, player.pos.z - 15);
-      if (distToBirbs < 60) {
-        CozyAudio.birbChirp();
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      window.BlahajVolcano.update(dt, elapsed, player.pos, coopPartner.active ? coopPartner : null);
+      renderer.render(window.BlahajVolcano.getScene(), camera);
+    } else {
+      window.BlahajWorld.updateWorld(elapsed, dt, scene);
+      if (composer) {
+        composer.render();
+      } else {
+        renderer.render(scene, camera);
       }
     }
 
-    if (composer) {
-      composer.render();
-    } else {
-      renderer.render(scene, camera);
+    // Update real-time procedural ocean, wind, sailing audio and occasional birb calls
+    if (currentZone === 'island') {
+      CozyAudio.updateAmbient(elapsed, player.pos, player.inBoat, keys['w'] || keys['s'] || keys['a'] || keys['d'], camState.distance);
+      if (Math.random() < 0.003) {
+        const distToBirbs = Math.hypot(player.pos.x - 0, player.pos.z - 15);
+        if (distToBirbs < 60) {
+          CozyAudio.birbChirp();
+        }
+      }
     }
   }
 
@@ -2356,78 +2603,130 @@
         player.ridingWithPartner = false;
       }
 
-      const onRoad = !player.inBoat && worldApi.isOnIslandRoad && worldApi.isOnIslandRoad(player.pos.x, player.pos.z);
+      const onRoad = !player.inBoat && currentZone === 'island' && worldApi.isOnIslandRoad && worldApi.isOnIslandRoad(player.pos.x, player.pos.z);
       const roadBoost = onRoad ? 1.18 : 1.0;
       const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
 
-      if (isMoving) {
-        const fwdX = -Math.sin(camState.yaw);
-        const fwdZ = -Math.cos(camState.yaw);
-        const rightX = Math.cos(camState.yaw);
-        const rightZ = -Math.sin(camState.yaw);
+      if (currentZone === 'volcano' && window.BlahajVolcano) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
 
-        const dirX = fwdX * moveForward + rightX * moveRight;
-        const dirZ = fwdZ * moveForward + rightZ * moveRight;
-        const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
 
-        let nx = player.pos.x + (dirX / len) * speed * dt;
-        let nz = player.pos.z + (dirZ / len) * speed * dt;
+          const rawNext = {
+            x: player.pos.x + (dirX / len) * speed * dt,
+            z: player.pos.z + (dirZ / len) * speed * dt
+          };
 
-        // Smoothly clamp lateral X inside the Subterranean Volcano Trial Dungeon so you never clip walls or snap onto the volcano roof!
-        if (nz < -111 && nz > -186 && Math.abs(player.pos.x - -28) < 9.5) {
-          nx = Math.max(-30.9, Math.min(-25.1, nx));
-        }
+          const resolved = window.BlahajVolcano.resolveMove(player.pos, rawNext, 0.72);
+          player.pos.x = resolved.x;
+          player.pos.z = resolved.z;
 
-        // Expanded bounds covering Main Island, Volcano Peninsula, and all 4 Outer Buildable Sanctuary Islands!
-        if (Math.abs(nx) < 275 && Math.abs(nz) < 275) {
-          const nextGroundY = worldApi.getTerrainHeight(nx, nz);
-          if (player.inBoat) {
-            if (nextGroundY < 0.85) {
-              player.pos.x = nx;
-              player.pos.z = nz;
-            }
-          } else {
-            player.pos.x = nx;
-            player.pos.z = nz;
+          const targetAngle = Math.atan2(dirX / len, dirZ / len);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          if (player.isGrounded) {
+            CozyAudio.footstep(false, true);
           }
         }
 
-        const targetAngle = Math.atan2(dirX / len, dirZ / len);
-        let diff = targetAngle - player.rotY;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        player.rotY += diff * Math.min(1, dt * 12);
-
-        // Footstep sounds when walking on land
-        if (!player.inBoat && player.isGrounded) {
-          const isShallow = player.pos.y < 0.65;
-          CozyAudio.footstep(isShallow, onRoad);
-        }
-      }
-
-      if (player.inBoat) {
-        const boat = worldApi.getBoatMesh();
-        if (boat) {
-          boat.position.x = player.pos.x;
-          boat.position.z = player.pos.z;
-          boat.rotation.y = player.rotY;
-          player.pos.y = boat.position.y + 0.88;
-        }
-      } else {
-        // Walk seamlessly across both natural terrain AND Hiram's player-built bridges, ramps, docks, and platforms!
-        const groundY = Math.max(0.0, worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y));
-        if (!player.isGrounded || player.pos.y > groundY + 0.05) {
-          player.velY -= 22.0 * dt;
-          player.pos.y += player.velY * dt;
-          if (player.pos.y <= groundY) {
-            player.pos.y = groundY;
+        const floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+        if (floorY > -500) {
+          if (!player.isGrounded || player.pos.y > floorY + 0.05) {
+            player.velY -= 24.0 * dt;
+            player.pos.y += player.velY * dt;
+            if (player.pos.y <= floorY) {
+              player.pos.y = floorY;
+              player.velY = 0;
+              player.isGrounded = true;
+            }
+          } else {
+            player.pos.y = floorY;
             player.velY = 0;
             player.isGrounded = true;
           }
         } else {
-          player.pos.y = groundY;
+          player.velY -= 24.0 * dt;
+          player.pos.y += player.velY * dt;
+          player.isGrounded = false;
+        }
+
+        if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
+          handleVolcanoTrapHit('Molten Lava Sea');
+        }
+      } else {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+
+          let nx = player.pos.x + (dirX / len) * speed * dt;
+          let nz = player.pos.z + (dirZ / len) * speed * dt;
+
+          // Expanded bounds covering Main Island, Volcano Peninsula, and all 4 Outer Buildable Sanctuary Islands!
+          if (Math.abs(nx) < 275 && Math.abs(nz) < 275) {
+            const nextGroundY = worldApi.getTerrainHeight(nx, nz);
+            if (player.inBoat) {
+              if (nextGroundY < 0.85) {
+                player.pos.x = nx;
+                player.pos.z = nz;
+              }
+            } else {
+              player.pos.x = nx;
+              player.pos.z = nz;
+            }
+          }
+
+          const targetAngle = Math.atan2(dirX / len, dirZ / len);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          // Footstep sounds when walking on land
+          if (!player.inBoat && player.isGrounded) {
+            const isShallow = player.pos.y < 0.65;
+            CozyAudio.footstep(isShallow, onRoad);
+          }
+        }
+
+        if (player.inBoat) {
+          const boat = worldApi.getBoatMesh();
+          if (boat) {
+            boat.position.x = player.pos.x;
+            boat.position.z = player.pos.z;
+            boat.rotation.y = player.rotY;
+            player.pos.y = boat.position.y + 0.88;
+          }
+        } else {
+          // Walk seamlessly across both natural terrain AND Hiram's player-built bridges, ramps, docks, and platforms!
+          const groundY = Math.max(0.0, worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y));
+          if (!player.isGrounded || player.pos.y > groundY + 0.05) {
+            player.velY -= 22.0 * dt;
+            player.pos.y += player.velY * dt;
+            if (player.pos.y <= groundY) {
+              player.pos.y = groundY;
+              player.velY = 0;
+              player.isGrounded = true;
+            }
+          } else {
+            player.pos.y = groundY;
+          }
         }
       }
     }
@@ -2460,7 +2759,8 @@
         z: player.pos.z,
         rotY: player.rotY,
         isMoving,
-        inBoat: player.inBoat
+        inBoat: player.inBoat,
+        zone: currentZone
       });
     }
   }
@@ -2473,6 +2773,47 @@
     if (player.dungeonPortalCooldown > 0) player.dungeonPortalCooldown -= dt;
 
     const knockMult = player.unlockedUpgrades.has('super_plush_hop') ? 1.85 : 1.0;
+
+    // Inside the Volcano Instance: Check Volunteer Carrots on the Caldera Overlook
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      const vCarrots = window.BlahajVolcano.getCarrots();
+      vCarrots.forEach((c, idx) => {
+        if (c.state === 'home') {
+          const dx = c.pos.x - player.pos.x;
+          const dz = c.pos.z - player.pos.z;
+          const d = Math.hypot(dx, dz);
+          if (d < 2.35 && Math.abs(player.pos.y - c.pos.y) < 2.2) {
+            const pushDir = new THREE.Vector3(dx, 0, dz).normalize();
+            if (pushDir.z > -0.25) pushDir.z = -0.75;
+            const vx = pushDir.x * 12.0 * knockMult;
+            const vy = 8.5 * knockMult;
+            const vz = pushDir.z * 14.5 * knockMult;
+            if (window.BlahajVolcano.knockCarrot(idx, vx, vy, vz)) {
+              CozyAudio.carrotBoop();
+              spawnFloatingBurst(c.pos, 0xff7b1c, 12);
+              player.carrotsKnockedCount++;
+              if (player.carrotsKnockedCount >= 5) completeQuest('q-carrots');
+              if (player.carrotsKnockedCount % 5 === 0) {
+                player.trialPoints++;
+                showToast('VOLUNTEER CARROT KNOCKED! (+1 TRIAL POINT) 🥕🌋', `Knocked ${player.carrotsKnockedCount} Carrots! Earned +1 Trial Point!`);
+                addChatLog(`🥕🌋 <strong>${player.carrotsKnockedCount} Volunteer Carrots Knocked!</strong> Earned <strong>+1 Trial Point</strong>!`, 'system');
+              } else {
+                showToast('VOLUNTEER CARROT BUMPED! 🥕✨', 'Wheeee! Down into the caldera! (+1 Carrot Spark for Hiram)');
+              }
+              updateMetersUI();
+              renderBuilderToolbar();
+              window.BlahajNetwork.send({
+                type: 'volcano_carrot_knock',
+                idx, vx, vy, vz,
+                carrotsKnockedCount: player.carrotsKnockedCount,
+                trialPoints: player.trialPoints
+              });
+            }
+          }
+        }
+      });
+      return;
+    }
 
     // 0. Check Hiram's Player-Built Plush Bounce Pads & Linked Pocket Portals!
     worldApi.getBuiltStructures().forEach((st) => {
@@ -2556,52 +2897,7 @@
       }
     });
 
-    // 3. Volcano Trial Dungeon Traps & Core Ascent Portal
-    if (worldApi.isInsideVolcanoDungeon(player.pos.x, player.pos.z)) {
-      if (player.trapCooldown <= 0) {
-        worldApi.getDungeonTraps().forEach((tr) => {
-          if (tr.type === 'pendulum') {
-            const d = tr.hitPos.distanceTo(player.pos);
-            if (d < 2.25) {
-              applyDungeonTrapHit('Swinging Obsidian Pendulum');
-            }
-          } else if (tr.type === 'geyser' && tr.active) {
-            const dx = player.pos.x - tr.x;
-            const dz = player.pos.z - tr.z;
-            if (Math.sqrt(dx * dx + dz * dz) < 1.65) {
-              applyDungeonTrapHit('Erupting Lava Geyser');
-            }
-          }
-        });
-      }
-
-      const dCore = Math.sqrt(Math.pow(player.pos.x - -28, 2) + Math.pow(player.pos.z - -114.5, 2));
-      if (dCore < 3.6 && player.dungeonPortalCooldown <= 0) {
-        completeVolcanoDungeonAscent();
-      }
-    }
-  }
-
-  function applyDungeonTrapHit(trapName) {
-    player.trapCooldown = 1.5;
-    CozyAudio.trapHit();
-    const dmg = player.unlockedUpgrades.has('kevlar_stitching') ? 7 : 18;
-    player.warmth = Math.max(10, player.warmth - dmg);
-    player.velY = 5.4;
-    player.isGrounded = false;
-    player.pos.z = Math.max(-184, player.pos.z - 2.2);
-    spawnFloatingBurst(player.pos, 0xff4500, 12);
-    updateMetersUI();
-
-    if (player.warmth <= 15) {
-      player.warmth = 100;
-      player.pos.set(-28, 1.4, -196);
-      updateMetersUI();
-      showToast('RESCUED BY HERMES!', 'Your stuffing got too toasted! Hermes whisked you back to the Rear Wharf with warm tea!');
-      addChatLog('🫖🛡️ <strong>Hermes</strong> rescued your toasted stuffing back to the Rear Volcano Wharf!', 'system');
-    } else {
-      showToast('VOLCANO DUNGEON TRAP!', `Oof! Singed by ${trapName} (-${dmg}% Stuffing Coherence)!`);
-    }
+    // 3. Volcano Trial Dungeon Traps & Core Ascent Portal (Legacy cleanup)
   }
 
   function updateCamera() {
@@ -2617,11 +2913,13 @@
 
     const camX = lookTarget.x + Math.sin(camState.yaw) * horizDist;
     const camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist;
-    const minGround = worldApi.getTerrainHeight(camX, camZ) + 0.95;
-    let camY = Math.max(minGround, lookTarget.y + vertDist);
-
-    if (worldApi.isInsideVolcanoDungeon(player.pos.x, player.pos.z)) {
-      camY = Math.min(camY, player.pos.y + 5.2);
+    let camY;
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      const ceilY = window.BlahajVolcano.getCeilingY(camX, camZ);
+      camY = Math.min(ceilY - 0.45, Math.max(player.pos.y + 0.65, lookTarget.y + vertDist));
+    } else {
+      const minGround = worldApi.getTerrainHeight(camX, camZ) + 0.95;
+      camY = Math.max(minGround, lookTarget.y + vertDist);
     }
 
     camera.position.set(camX, camY, camZ);
@@ -2638,6 +2936,32 @@
   function updateInteractionsAndHUD() {
     nearestInteractable = null;
     let bestDist = 999;
+
+    // Inside the Volcano Instance: Dedicated room zones, puzzles, tea and return portal
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      const roomTitle = window.BlahajVolcano.getRoomTitle(player.pos.z) || 'The Sacred Volcano Trial';
+      document.getElementById('hud-zone-name').textContent = roomTitle;
+
+      const vItems = window.BlahajVolcano.getInteractables(player.pos);
+      if (vItems.length > 0) {
+        nearestInteractable = vItems[0];
+      }
+
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
+      }
+
+      // Continuous hazard detection in the instance
+      const hazard = window.BlahajVolcano.checkHazards(player.pos);
+      if (hazard) {
+        handleVolcanoTrapHit(hazard);
+      }
+      return;
+    }
 
     // Allow hopping onto Partner's Boat to ride together!
     if (coopPartner.active && coopPartner.inBoat && coopPartner.mesh) {
@@ -2700,9 +3024,7 @@
       }
     });
 
-    let currentZoneTitle = worldApi.isInsideVolcanoDungeon(player.pos.x, player.pos.z)
-      ? 'Subterranean Volcano Trial Dungeon'
-      : 'Shores of Blåhaj Island';
+    let currentZoneTitle = 'Shores of Blåhaj Island';
 
     // Check if on any of the 4 Outer Sanctuary Islands
     (LORE.sanctuaryIslands || []).forEach((isl) => {
@@ -2721,11 +3043,13 @@
           if (d < lm.radius * 1.4) {
             currentZoneTitle = lm.zoneTitle;
           }
-          if (d < lm.radius && d < bestDist) {
+          const isCurrentBoat = lastNearestInteractableKey === (bMesh.userData.boatName || 'boat');
+          const effectiveBoatRadius = isCurrentBoat ? (lm.radius + 1.6) : lm.radius;
+          if (d < effectiveBoatRadius && d < bestDist) {
             bestDist = d;
             nearestInteractable = {
               kind: 'landmark',
-              ref: { ...lm, targetBoat: bMesh },
+              ref: { ...lm, targetBoat: bMesh, id: bMesh.userData.boatName || 'boat' },
               dist: d,
               prompt: `Board ${bMesh.userData.boatName || 'Regatta Sailboat'} [E] ⛵`
             };
@@ -2745,7 +3069,9 @@
       if (d < lm.radius * 1.4) {
         currentZoneTitle = lm.zoneTitle;
       }
-      if (d < lm.radius && d < bestDist) {
+      const isCurrentLm = lastNearestInteractableKey === lm.id;
+      const effectiveRadius = isCurrentLm ? (lm.radius + 1.6) : lm.radius;
+      if (d < effectiveRadius && d < bestDist) {
         bestDist = d;
         nearestInteractable = {
           kind: 'landmark',
@@ -2756,11 +3082,14 @@
       }
     });
 
+    lastNearestInteractableKey = nearestInteractable
+      ? (nearestInteractable.ref ? (nearestInteractable.ref.id || nearestInteractable.kind) : nearestInteractable.kind)
+      : null;
+
     document.getElementById('hud-zone-name').textContent = currentZoneTitle;
 
     const promptEl = document.getElementById('interaction-prompt');
     const isSailingNow = player.inBoat || player.ridingWithPartner;
-    promptEl.classList.toggle('sailing-corner', isSailingNow);
 
     if (builderState.active && player.sharkId === 'hiram' && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
@@ -2851,7 +3180,7 @@
       b.mesh.rotation.y += dt * 4;
       b.mesh.scale.setScalar(Math.max(0.01, b.life));
       if (b.life <= 0) {
-        scene.remove(b.mesh);
+        if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
         floatingBursts.splice(i, 1);
       }
     }

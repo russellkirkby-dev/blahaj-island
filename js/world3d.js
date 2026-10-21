@@ -122,22 +122,16 @@ window.BlahajWorld = (function () {
   // HEIGHTMAP: MAIN ISLAND, PENINSULA, 4 OUTER SANCTUARY ISLANDS & DUNGEON
   // ==========================================================================
   function isInsideVolcanoDungeon(x, z) {
-    return Math.abs(x - -28) < 9.5 && z < -124 && z > -191;
+    return false;
   }
 
   function getTerrainHeight(x, z) {
-    // 1. Rear Volcano Wharf (North side of Volcano Peninsula: x = -28, z = -185..-218)
-    if (Math.abs(x - -28) < 8.5 && z <= -185 && z >= -218) {
+    // 1. Rear Volcano Wharf Dock Plank (North side of Volcano Peninsula: x = -28, z = -185..-218)
+    if (Math.abs(x - -28) < 4.8 && z <= -185 && z >= -218) {
       return 1.4;
     }
 
-    // 2. Interior Volcano Trial Dungeon Bridge (x = -28, z = -185..-125)
-    if (Math.abs(x - -28) < 7.8 && z <= -125 && z > -185) {
-      const u = Math.max(0, Math.min(1, (z - -185) / (-125 - -185)));
-      return 1.4 + u * 23.1;
-    }
-
-    // 3. Tea Docks in South Crescent Harbour (x: 0, z: 46..70)
+    // 2. Tea Docks in South Crescent Harbour (x: 0, z: 46..70)
     if (Math.abs(x) < 5.5 && z > 46 && z < 70) {
       return 1.35;
     }
@@ -234,27 +228,31 @@ window.BlahajWorld = (function () {
     const vz = z - -148;
     const dVolcano = Math.sqrt(vx * vx + vz * vz);
     const vAngle = Math.atan2(vz, vx);
-    // Expanded grand volcano base footprint (radius 78)
-    const penRadius = 78 + Math.cos(vAngle * 4) * 6 + Math.sin(vAngle * 7) * 3.5;
+    // Grand volcano footprint
+    const penRadius = 76 + Math.cos(vAngle * 4) * 5 + Math.sin(vAngle * 7) * 3;
 
     let hVolcano = -4.5;
     if (dVolcano < penRadius) {
       const norm = Math.max(0, 1 - dVolcano / penRadius);
-      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.5 * norm * (1 - Math.pow(norm, 2.5));
-      // Truncated caldera peak: climbs up to rim at y ≈ 54
-      let cone = -2.0 + Math.pow(norm, 1.25) * 58.0 + ribs;
+      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.6 * norm * (1 - Math.pow(norm, 2.5));
+      // Sheer, unclimbable mountain cliffs rising up to caldera rim at y ≈ 56
+      let cone = -2.0 + Math.pow(norm, 1.35) * 60.0 + ribs;
 
-      // Cleanly hollowed crater basin (radius 24, truncated rim at 18..24)
-      if (dVolcano < 24) {
-        const craterDrop = Math.cos((dVolcano / 24) * (Math.PI * 0.5)) * 28.0;
+      // Truncated caldera crater bowl (clean drop into caldera basin)
+      if (dVolcano < 22) {
+        const craterDrop = Math.cos((dVolcano / 22) * (Math.PI * 0.5)) * 26.0;
         cone -= craterDrop;
       }
 
-      // Overlook Terrace sitting inside the rim looking down into the boiling caldera!
-      const dOverlook = Math.sqrt(Math.pow(x - -28, 2) + Math.pow(z - -127, 2));
-      if (dOverlook < 14) {
-        const fOverlook = 1 - smoothstep(7.0, 14, dOverlook);
-        cone = cone * (1 - fOverlook) + 38.5 * fOverlook;
+      // North Wharf Sea Cove: carve deep navigable water around the Rear Wharf (z < -184)
+      // so the wharf is never landlocked and boats have open ocean access!
+      if (z < -184) {
+        const dWharfDock = Math.abs(x - -28);
+        if (dWharfDock > 4.2 || z < -218) {
+          cone = -4.5;
+        } else {
+          cone = Math.min(cone, 1.4);
+        }
       }
 
       hVolcano = cone;
@@ -959,42 +957,46 @@ window.BlahajWorld = (function () {
   // ==========================================================================
   // VOLCANO PENINSULA SANCTUARY BALCONY & KNOCK-OFF-THE-CARROTS MINI-GAME!
   // ==========================================================================
+  // ==========================================================================
+  // VOLCANO PENINSULA: ISTHMUS, SEALED FRONT SHRINE & TRUNCATED CALDERA PEAK
+  // ==========================================================================
   function buildVolcanoPeninsulaAndBalcony(scene) {
     const group = new THREE.Group();
     const basaltMat = new THREE.MeshStandardMaterial({
-      color: 0x2c2836,
-      roughness: 0.82,
+      color: 0x221d28,
+      roughness: 0.85,
       bumpMap: getTerrainBumpTexture(),
       bumpScale: 0.08
     });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
     const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff621a });
 
-    const calderaPool = new THREE.Mesh(new THREE.CylinderGeometry(14.5, 12.0, 2.2, 32), lavaMat);
-    calderaPool.position.set(-28, 27.5, -148);
+    // Truncated Caldera Peak Molten Pool & Ember Plume at peak (-28, 54, -148)
+    const calderaPool = new THREE.Mesh(new THREE.CylinderGeometry(16.5, 14.0, 2.2, 32), lavaMat);
+    calderaPool.position.set(-28, 53.5, -148);
     group.add(calderaPool);
 
-    lavaLight = new THREE.PointLight(0xff591c, 3.8, 185);
-    lavaLight.position.set(-28, 38, -148);
+    lavaLight = new THREE.PointLight(0xff591c, 4.2, 220);
+    lavaLight.position.set(-28, 59, -148);
     group.add(lavaLight);
 
-    // Rising Ember Plume
+    // Billowing Skyward Ember Plume
     const emberGeo = new THREE.BufferGeometry();
-    const emberCount = 320;
+    const emberCount = 380;
     const emberPositions = new Float32Array(emberCount * 3);
     for (let i = 0; i < emberCount; i++) {
-      emberPositions[i * 3] = -28 + (Math.random() - 0.5) * 26;
-      emberPositions[i * 3 + 1] = 28 + Math.random() * 65;
-      emberPositions[i * 3 + 2] = -148 + (Math.random() - 0.5) * 26;
+      emberPositions[i * 3] = -28 + (Math.random() - 0.5) * 28;
+      emberPositions[i * 3 + 1] = 54 + Math.random() * 75;
+      emberPositions[i * 3 + 2] = -148 + (Math.random() - 0.5) * 28;
     }
     emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
     emberSystem = new THREE.Points(
       emberGeo,
-      new THREE.PointsMaterial({ color: 0xff9436, size: 1.45, transparent: true, opacity: 0.85 })
+      new THREE.PointsMaterial({ color: 0xff9436, size: 1.6, transparent: true, opacity: 0.88 })
     );
     group.add(emberSystem);
 
-    // Isthmus Torii Gates
+    // Isthmus Torii Gates along the scenic southern ridge
     for (let g = 0; g < 4; g++) {
       const gz = -44 - g * 14;
       const tIsth = (-gz - 32) / 73;
@@ -1015,87 +1017,72 @@ window.BlahajWorld = (function () {
       group.add(gate);
     }
 
-    // High Volcano Temple Balcony & Overlook inside the Caldera Rim at (-28, 38.5, -127)
-    const tx = -28;
-    const tz = -127;
-    const ty = 38.5;
+    // Ancient Sealed Obsidian Shrine & Gate at (-22, gy, -103)
+    const shrineX = -22;
+    const shrineZ = -103;
+    const shrineY = getTerrainHeight(shrineX, shrineZ);
 
-    const templeGroup = new THREE.Group();
-    templeGroup.position.set(tx, ty, tz);
+    const shrineGroup = new THREE.Group();
+    shrineGroup.position.set(shrineX, shrineY, shrineZ);
 
-    // Dramatic Overlook Platform perched inside the rim looking straight into the boiling caldera!
-    const balconySlab = new THREE.Mesh(new THREE.CylinderGeometry(14.2, 12.0, 2.2, 32), basaltMat);
-    balconySlab.position.y = -0.8;
-    balconySlab.receiveShadow = true;
-    templeGroup.add(balconySlab);
+    // Basalt foundation dais
+    const dais = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 9.2, 1.2, 24), basaltMat);
+    dais.position.y = 0.6;
+    dais.receiveShadow = true;
+    shrineGroup.add(dais);
 
-    // Ornate Exit Archway from the Interior Volcano Dungeon onto the Balcony!
-    [-4.2, 4.2].forEach((px) => {
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.72, 7.6, 16), basaltMat);
-      col.position.set(px, 3.8, 6.2);
-      templeGroup.add(col);
+    // Twin Carved Basalt Pillars
+    [-3.8, 3.8].forEach((px) => {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(1.6, 8.5, 1.8), basaltMat);
+      p.position.set(px, 4.85, 0);
+      p.castShadow = true;
+      shrineGroup.add(p);
     });
-    const frieze = new THREE.Mesh(new THREE.BoxGeometry(11.4, 1.8, 2.2), basaltMat);
-    frieze.position.set(0, 8.0, 6.2);
-    templeGroup.add(frieze);
 
-    // Glowing Dungeon Exit Portal Arch in back of Balcony
-    const exitGlow = new THREE.Mesh(
-      new THREE.PlaneGeometry(6.8, 6.4),
-      new THREE.MeshBasicMaterial({ color: 0xff7b29, side: THREE.DoubleSide, transparent: true, opacity: 0.55 })
+    // Massive Inscribed Lintel
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(10.5, 2.2, 2.4), basaltMat);
+    lintel.position.set(0, 9.8, 0);
+    shrineGroup.add(lintel);
+
+    // Impenetrable Sealed Obsidian Slab Door with Glowing Golden Runes
+    const doorSlab = new THREE.Mesh(
+      new THREE.BoxGeometry(6.4, 7.8, 0.8),
+      new THREE.MeshStandardMaterial({ color: 0x141018, roughness: 0.3, metalness: 0.85 })
     );
-    exitGlow.position.set(0, 3.4, 6.1);
-    templeGroup.add(exitGlow);
+    doorSlab.position.set(0, 4.5, -0.3);
+    shrineGroup.add(doorSlab);
 
-    // Central Lava Brazier Altar
-    const altarBase = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.5, 2.4), basaltMat);
-    altarBase.position.set(0, 0.9, -1.8);
-    templeGroup.add(altarBase);
-
-    const sacredFlame = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.95, 2),
-      new THREE.MeshBasicMaterial({ color: 0xff8c38, wireframe: true })
+    const runeRings = new THREE.Mesh(
+      new THREE.TorusGeometry(2.2, 0.12, 12, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffa338 })
     );
-    sacredFlame.position.set(0, 2.8, -1.8);
-    templeGroup.add(sacredFlame);
-    animatedObjects.push({ mesh: sacredFlame, type: 'spin_bob', baseY: 2.8 });
+    runeRings.position.set(0, 4.8, 0.2);
+    shrineGroup.add(runeRings);
 
-    group.add(templeGroup);
+    // Ancient Ritual Brazier
+    const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.7, 1.4, 16), brassMat);
+    brazier.position.set(0, 1.3, 3.2);
+    shrineGroup.add(brazier);
+
+    const eternalFlame = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.65, 1),
+      new THREE.MeshBasicMaterial({ color: 0xff9924, wireframe: true })
+    );
+    eternalFlame.position.set(0, 2.4, 3.2);
+    shrineGroup.add(eternalFlame);
+    animatedObjects.push({ mesh: eternalFlame, type: 'spin_bob', baseY: 2.4 });
+
+    group.add(shrineGroup);
     scene.add(group);
-
-    // Spawn 8 Knockable Physics Beach-Shorts Carrots along the rim edge facing down into the boiling caldera!
-    const carrotColors = [0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x3b82f6, 0xec4899, 0x14b8a6, 0xf97316];
-    carrotColors.forEach((col, idx) => {
-      const angle = -0.95 + (idx / 7) * 1.9; // Facing inward toward the crater center (-Z)
-      const homeX = tx + Math.sin(angle) * 10.5;
-      const homeZ = tz - Math.cos(angle) * 10.5;
-      const homeY = ty + 0.3;
-
-      const cMesh = window.BlahajModels.createBeachCarrot(col);
-      cMesh.position.set(homeX, homeY, homeZ);
-      cMesh.rotation.y = angle;
-      scene.add(cMesh);
-
-      balconyCarrots.push({
-        id: `carrot-${idx}`,
-        mesh: cMesh,
-        homePos: new THREE.Vector3(homeX, homeY, homeZ),
-        vel: new THREE.Vector3(0, 0, 0),
-        knockedOff: false,
-        respawnTimer: 0
-      });
-    });
   }
 
   // ==========================================================================
-  // REAR VOLCANO WHARF & INTERIOR VOLCANO TRIAL DUNGEON (WITH TRAPS!)
+  // REAR VOLCANO WHARF & SEA CAVE ENTRANCE TO THE VOLCANO TRIAL INSTANCE
   // ==========================================================================
   function buildRearVolcanoWharfAndDungeon(scene) {
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x4f3522, roughness: 0.85 });
     const basaltMat = new THREE.MeshStandardMaterial({ color: 0x241f2e, roughness: 0.85 });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.85 });
-    const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff4d12 });
-    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.2, metalness: 0.9 });
 
     // 1. Rear Volcano Wharf at North End of Peninsula (x = -28, z = -188..-216)
     const wharfGroup = new THREE.Group();
@@ -1106,7 +1093,7 @@ window.BlahajWorld = (function () {
 
     // Torch pillars flanking the Rear Volcano Wharf
     [-3.6, 3.6].forEach((px) => {
-      [-212, -198, -187].forEach((pz) => {
+      [-212, -198, -188].forEach((pz) => {
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 4.2, 10), woodMat);
         post.position.set(-28 + px, 3.2, pz);
         wharfGroup.add(post);
@@ -1119,132 +1106,45 @@ window.BlahajWorld = (function () {
       });
     });
 
-    // Towering Obsidian Skull/Shark Gate Entrance at (-28, 1.4, -185)
-    [-5.2, 5.2].forEach((px) => {
-      const gatePillar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 9.5, 2.4), basaltMat);
-      gatePillar.position.set(-28 + px, 5.8, -185);
+    // 2. Towering Obsidian Sea Cave Entrance Arch at (-28, 1.4, -185)
+    [-5.6, 5.6].forEach((px) => {
+      const gatePillar = new THREE.Mesh(new THREE.BoxGeometry(2.6, 11.5, 2.8), basaltMat);
+      gatePillar.position.set(-28 + px, 6.8, -185);
       wharfGroup.add(gatePillar);
     });
-    const gateHeader = new THREE.Mesh(new THREE.BoxGeometry(13.5, 2.4, 2.8), basaltMat);
-    gateHeader.position.set(-28, 10.8, -185);
+
+    const gateHeader = new THREE.Mesh(new THREE.BoxGeometry(15.2, 3.2, 3.4), basaltMat);
+    gateHeader.position.set(-28, 12.8, -185);
     wharfGroup.add(gateHeader);
 
-    scene.add(wharfGroup);
-
-    // 2. The Subterranean Volcano Trial Dungeon Corridor (x = -28, z = -185..-113)
-    const dungeonGroup = new THREE.Group();
-
-    // Bubbling Molten Lava Pit beneath the entire Dungeon Bridge
-    const lavaFloor = new THREE.Mesh(new THREE.PlaneGeometry(18, 76), lavaMat);
-    lavaFloor.rotation.x = -Math.PI / 2;
-    lavaFloor.position.set(-28, 0.35, -149);
-    dungeonGroup.add(lavaFloor);
-
-    // Basalt Trial Walkway Bridge sloping from (y=1.4, z=-185) to (y=24.5, z=-125)
-    const bridgeGeo = new THREE.BoxGeometry(8.4, 0.8, 62);
-    const bridgeMesh = new THREE.Mesh(bridgeGeo, basaltMat);
-    bridgeMesh.position.set(-28, 12.8, -155);
-    bridgeMesh.rotation.x = -Math.atan2(23.1, 60);
-    dungeonGroup.add(bridgeMesh);
-
-    // Cavern Walls & Vaulted Obsidian Ceiling enclosing the Trial Gauntlet
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 26, 62), basaltMat);
-    leftWall.position.set(-35.5, 14, -155);
-    dungeonGroup.add(leftWall);
-
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(2.5, 26, 62), basaltMat);
-    rightWall.position.set(-20.5, 14, -155);
-    dungeonGroup.add(rightWall);
-
-    const ceiling = new THREE.Mesh(new THREE.BoxGeometry(18, 2.5, 62), basaltMat);
-    ceiling.position.set(-28, 27.5, -155);
-    dungeonGroup.add(ceiling);
-
-    // Interior Lava Glow Lights inside the Dungeon
-    [-175, -150, -125].forEach((lz) => {
-      const pLight = new THREE.PointLight(0xff5514, 2.2, 32);
-      pLight.position.set(-28, 9.5, lz);
-      dungeonGroup.add(pLight);
-    });
-
-    // 3. DUNGEON TRAPS! (3 Swinging Obsidian Pendulum Axes + 3 Erupting Lava Geysers)
-    const pendulumZ = [-170, -152, -134];
-    pendulumZ.forEach((pz, idx) => {
-      const py = getTerrainHeight(-28, pz);
-      const pivot = new THREE.Group();
-      pivot.position.set(-28, py + 9.2, pz);
-
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 7.6, 10), brassMat);
-      rod.position.y = -3.8;
-      pivot.add(rod);
-
-      // Double-sided glowing obsidian battle axe blade
-      const axeBlade = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.28, 16), bladeMat);
-      axeBlade.rotation.x = Math.PI / 2;
-      axeBlade.position.y = -7.4;
-      pivot.add(axeBlade);
-
-      const rimGlow = new THREE.Mesh(
-        new THREE.TorusGeometry(1.62, 0.08, 10, 24),
-        new THREE.MeshBasicMaterial({ color: 0xff4500 })
-      );
-      rimGlow.position.y = -7.4;
-      pivot.add(rimGlow);
-
-      dungeonGroup.add(pivot);
-      dungeonTraps.push({
-        type: 'pendulum',
-        pivot,
-        z: pz,
-        baseY: py,
-        phase: idx * 1.35,
-        speed: 2.3 + idx * 0.25,
-        hitPos: new THREE.Vector3(-28, py + 1.8, pz)
-      });
-    });
-
-    // 3 Timed Erupting Lava Geyser Pillars
-    const geyserZ = [-161, -143, -125];
-    geyserZ.forEach((gz, idx) => {
-      const gy = getTerrainHeight(-28, gz);
-      const gx = -28 + (idx % 2 === 0 ? -1.4 : 1.4);
-
-      const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.2, 0.4, 16), brassMat);
-      vent.position.set(gx, gy + 0.15, gz);
-      dungeonGroup.add(vent);
-
-      const plume = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.85, 0.45, 6.5, 16),
-        new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.88 })
-      );
-      plume.position.set(gx, gy + 3.2, gz);
-      dungeonGroup.add(plume);
-
-      dungeonTraps.push({
-        type: 'geyser',
-        plume,
-        x: gx,
-        z: gz,
-        baseY: gy,
-        phase: idx * 2.1,
-        active: false,
-        hitPos: new THREE.Vector3(gx, gy + 1.5, gz)
-      });
-    });
-
-    // Trial Core Ascent Portal at the end of the Dungeon (-28, 24.5, -126) -> Exits onto the Overlook Balcony!
-    const coreRing = new THREE.Mesh(new THREE.TorusGeometry(2.6, 0.3, 14, 32), brassMat);
-    coreRing.position.set(-28, 26.8, -126);
-    dungeonGroup.add(coreRing);
-
-    const coreDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(2.4, 28),
-      new THREE.MeshBasicMaterial({ color: 0xff9d3b, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+    // Ancient Shark Crest at top of the arch
+    const archCrest = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1.2, 0),
+      new THREE.MeshStandardMaterial({ color: 0xff7b29, roughness: 0.2, metalness: 0.9 })
     );
-    coreDisc.position.set(-28, 11.2, -114);
-    dungeonGroup.add(coreDisc);
+    archCrest.position.set(-28, 15.2, -185);
+    wharfGroup.add(archCrest);
+    animatedObjects.push({ mesh: archCrest, type: 'spin_bob', baseY: 15.2 });
 
-    scene.add(dungeonGroup);
+    // Swirling Sea Cave Portal Volume inviting players to enter the instanced trial!
+    const portalVolume = new THREE.Mesh(
+      new THREE.PlaneGeometry(8.6, 9.5),
+      new THREE.MeshBasicMaterial({
+        color: 0xff5514,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.65
+      })
+    );
+    portalVolume.position.set(-28, 5.8, -184.8);
+    wharfGroup.add(portalVolume);
+
+    // Warm welcoming lantern light
+    const caveLight = new THREE.PointLight(0xff6a14, 3.2, 45);
+    caveLight.position.set(-28, 6.8, -186);
+    wharfGroup.add(caveLight);
+
+    scene.add(wharfGroup);
   }
 
   // ==========================================================================

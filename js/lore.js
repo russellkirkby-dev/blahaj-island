@@ -204,31 +204,22 @@ window.BLAHAJ_LORE = {
       type: 'portal'
     },
     {
-      id: 'volcano_temple',
-      name: 'Volcano Temple Balcony',
-      zoneTitle: 'Sacred Volcano Caldera · Volunteer Carrot Overlook',
-      pos: { x: -28, z: -127 },
-      radius: 16,
-      prompt: 'Honor the Volcano [E] · Toss Volunteer Carrots into Caldera!',
-      type: 'volcano'
+      id: 'sealed_volcano_gate',
+      name: 'Ancient Sealed Volcano Gate',
+      zoneTitle: 'Sacred Volcano Peninsula · Sealed Southern Gate',
+      pos: { x: -22, z: -103 },
+      radius: 12,
+      prompt: 'Inspect Ancient Sealed Gate [E] ⛩️',
+      type: 'sealed_gate'
     },
     {
       id: 'rear_volcano_wharf',
-      name: 'Rear Volcano Trial Wharf',
-      zoneTitle: 'North Shore · Rear Volcano Wharf & Dungeon Gate',
+      name: 'Rear Volcano Wharf & Sea Cave',
+      zoneTitle: 'North Shore · Rear Volcano Wharf & Sea Cave Gate',
       pos: { x: -28, z: -198 },
       radius: 16,
-      prompt: 'Dock Boat / Enter Volcano Trial Dungeon [E]',
+      prompt: 'Enter Volcano Trial Dungeon [E] 🌋⚔️',
       type: 'rear_wharf'
-    },
-    {
-      id: 'volcano_dungeon_core',
-      name: 'Heart of the Volcano Trial',
-      zoneTitle: 'Subterranean Volcano Trial Dungeon · Core Ascent',
-      pos: { x: -28, z: -126 },
-      radius: 10,
-      prompt: 'Claim Trial Victory & Exit to Caldera Overlook [E]',
-      type: 'dungeon_exit'
     },
     {
       id: 'spherical_foods',
