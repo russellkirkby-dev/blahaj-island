@@ -3537,6 +3537,7 @@
   window.__DEBUG__ = {
     getPlayer: () => player,
     getCamera: () => camera,
+    getScene: () => scene,
     getZone: () => currentZone,
     updateCamera,
     enterVolcanoTrial,

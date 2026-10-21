@@ -1142,30 +1142,51 @@ window.BlahajWorld = (function () {
       bumpScale: 0.08
     });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
-    const lavaMat = new THREE.MeshBasicMaterial({ color: 0xff621a });
 
-    // Truncated Caldera Peak Molten Pool & Ember Plume at peak (-28, 54, -148)
-    const calderaPool = new THREE.Mesh(new THREE.CylinderGeometry(16.5, 14.0, 2.2, 32), lavaMat);
-    calderaPool.position.set(-28, 53.5, -148);
-    group.add(calderaPool);
-
-    lavaLight = new THREE.PointLight(0xff591c, 4.2, 220);
-    lavaLight.position.set(-28, 59, -148);
+    // Volcanic ambient glow radiating from within the natural caldera crater bowl
+    lavaLight = new THREE.PointLight(0xff591c, 4.5, 200);
+    lavaLight.position.set(-28, 36, -148);
     group.add(lavaLight);
 
-    // Billowing Skyward Ember Plume
+    // Billowing Skyward Volcanic Ash & Ember Plume ascending naturally from deep within the crater
     const emberGeo = new THREE.BufferGeometry();
-    const emberCount = 380;
+    const emberCount = 420;
     const emberPositions = new Float32Array(emberCount * 3);
+    const emberColors = new Float32Array(emberCount * 3);
+
+    // Rich palette of volcanic sparks, embers, and fiery ash
+    const emberPalette = [
+      new THREE.Color(0xff4514), // Fiery vermilion
+      new THREE.Color(0xff8c26), // Intense orange
+      new THREE.Color(0xffc247), // Radiant gold spark
+      new THREE.Color(0xffe680), // Hot incandescent yellow
+      new THREE.Color(0xd9381e)  // Deep glowing ember
+    ];
+
     for (let i = 0; i < emberCount; i++) {
-      emberPositions[i * 3] = -28 + (Math.random() - 0.5) * 28;
-      emberPositions[i * 3 + 1] = 54 + Math.random() * 75;
-      emberPositions[i * 3 + 2] = -148 + (Math.random() - 0.5) * 28;
+      const ang = Math.random() * Math.PI * 2;
+      const rad = Math.sqrt(Math.random()) * 13.5;
+      emberPositions[i * 3] = -28 + Math.cos(ang) * rad;
+      emberPositions[i * 3 + 1] = 32.5 + Math.random() * 85;
+      emberPositions[i * 3 + 2] = -148 + Math.sin(ang) * rad;
+
+      const col = emberPalette[Math.floor(Math.random() * emberPalette.length)];
+      emberColors[i * 3] = col.r;
+      emberColors[i * 3 + 1] = col.g;
+      emberColors[i * 3 + 2] = col.b;
     }
     emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
+    emberGeo.setAttribute('color', new THREE.BufferAttribute(emberColors, 3));
     emberSystem = new THREE.Points(
       emberGeo,
-      new THREE.PointsMaterial({ color: 0xff9436, size: 1.6, transparent: true, opacity: 0.88 })
+      new THREE.PointsMaterial({
+        size: 1.8,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.88,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
     );
     group.add(emberSystem);
 
@@ -2553,14 +2574,29 @@ window.BlahajWorld = (function () {
   function updateWorld(time, dt = 0.016, scene = null) {
     if (waterUniforms) waterUniforms.uTime.value = time;
     if (grassUniforms) grassUniforms.uTime.value = time;
-    if (lavaLight) lavaLight.intensity = 2.9 + Math.sin(time * 4.5) * 0.55;
+    if (lavaLight) lavaLight.intensity = 3.2 + Math.sin(time * 4.5) * 0.65;
 
     if (emberSystem) {
       const pos = emberSystem.geometry.attributes.position;
       for (let i = 0; i < pos.count; i++) {
-        let y = pos.getY(i) + 0.14;
-        if (y > 115) y = 56;
-        pos.setY(i, y);
+        let y = pos.getY(i) + 0.18 + (i % 5) * 0.02;
+        let x = pos.getX(i);
+        let z = pos.getZ(i);
+
+        // Gentle natural atmospheric swirl and drift
+        x += Math.sin(time * 1.2 + i * 0.37) * 0.035;
+        z += Math.cos(time * 1.1 + i * 0.41) * 0.035;
+
+        // Reset into deep crater floor when reaching skyward apex
+        if (y > 122) {
+          y = 32.5 + Math.random() * 4.0;
+          const ang = Math.random() * Math.PI * 2;
+          const rad = Math.sqrt(Math.random()) * 13.5;
+          x = -28 + Math.cos(ang) * rad;
+          z = -148 + Math.sin(ang) * rad;
+        }
+
+        pos.setXYZ(i, x, y, z);
       }
       pos.needsUpdate = true;
     }
