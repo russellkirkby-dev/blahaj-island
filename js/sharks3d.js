@@ -30,16 +30,21 @@ window.BlahajModels = (function () {
     return plushBumpTex;
   }
 
-  function createPlushMaterial(hexColor, useVertexColors = false) {
+  function createPlushMaterial(hexColor, useVertexColors = false, mange = 0) {
+    const mangeVal = typeof mange === 'number' ? Math.max(0, Math.min(1.0, mange)) : 0;
+    // Base roughness increases slightly with mange as plush pile wears out
+    const baseRoughness = 0.85 + mangeVal * 0.10;
     const mat = new THREE.MeshStandardMaterial({
       color: useVertexColors ? 0xffffff : hexColor,
       vertexColors: useVertexColors,
-      roughness: 0.86,
+      roughness: baseRoughness,
       metalness: 0.01,
       bumpMap: getPlushTexture(),
-      bumpScale: 0.055,
+      bumpScale: 0.055 * (1.0 - mangeVal * 0.35), // Bump flattens where plush pile is worn down
       side: THREE.DoubleSide
     });
+
+    mat.customProgramCacheKey = () => `plush_mat_${useVertexColors ? 'vtx' : hexColor}_m${Math.round(mangeVal * 100)}`;
 
     mat.onBeforeCompile = (shader) => {
       shader.vertexShader =
@@ -52,6 +57,8 @@ window.BlahajModels = (function () {
           `
         );
 
+      const mangeFloat = mangeVal.toFixed(3);
+
       shader.fragmentShader =
         `varying vec3 vPlushObjPos;\n` +
         shader.fragmentShader.replace(
@@ -59,15 +66,18 @@ window.BlahajModels = (function () {
           `
           vec3 viewDir = normalize(vViewPosition);
           float ndotv = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
+          float uMange = ${mangeFloat};
 
           // High-frequency 3D plush micro-tuft fiber grain across the entire shark surface
           float tuft1 = sin(vPlushObjPos.x * 125.0 + vPlushObjPos.y * 45.0) * cos(vPlushObjPos.y * 140.0 - vPlushObjPos.z * 55.0);
           float tuft2 = sin(vPlushObjPos.z * 135.0 - vPlushObjPos.x * 60.0) * cos(vPlushObjPos.x * 110.0 + vPlushObjPos.y * 95.0);
           float fiberNoise = (tuft1 + tuft2) * 0.5;
 
-          // Velvet grazing sheen + sparkly fuzzy silhouette rim (like real IKEA Blåhaj plush pile!)
-          float velvetSheen = pow(1.0 - ndotv, 1.85);
-          float sharpFuzzyRim = pow(1.0 - ndotv, 3.4);
+          // Velvet grazing sheen + sparkly fuzzy silhouette rim (real plush pile)
+          // Matted down and weathered as mange increases
+          float sheenDamp = 1.0 - uMange * 0.68;
+          float velvetSheen = pow(1.0 - ndotv, 1.85) * sheenDamp;
+          float sharpFuzzyRim = pow(1.0 - ndotv, 3.4) * sheenDamp;
           float fuzzyEdgeTufts = 1.0 + fiberNoise * 0.38;
 
           // Surface micro-fleece texture modulation
@@ -78,6 +88,57 @@ window.BlahajModels = (function () {
           vec3 velvetColor = mix(gl_FragColor.rgb, vec3(0.84, 0.93, 1.0), 0.52);
           gl_FragColor.rgb += velvetColor * velvetSheen * 0.42 * fuzzyEdgeTufts;
           gl_FragColor.rgb += (plushTint * 0.5 + vec3(0.96, 0.94, 0.90) * 0.5) * sharpFuzzyRim * 0.58 * fuzzyEdgeTufts;
+
+          #if ${mangeVal > 0.01 ? '1' : '0'}
+          // --- PROCEDURAL DIRT, TEA STAINS, SOOT & GROUND PATINA ---
+          // 1. Ground contact mud / floor dust (rising smoothly from base cushion)
+          float groundHeight = clamp((vPlushObjPos.y - 0.14) / 0.95, 0.0, 1.0);
+          float groundTurb = sin(vPlushObjPos.x * 2.8 + vPlushObjPos.z * 2.4) * 0.08 + cos(vPlushObjPos.z * 3.5) * 0.06;
+          float groundMud = clamp(pow(1.0 - groundHeight, 1.4) + groundTurb, 0.0, 1.0);
+
+          // 2. Large organic tea / juice spill on the chest/belly (broad, non-periodic)
+          vec3 spillCenter = vec3(0.14, 1.05, 0.48);
+          float distSpill = length(vPlushObjPos - spillCenter);
+          float spillWarp = sin(vPlushObjPos.y * 6.0 + vPlushObjPos.x * 5.0) * 0.08;
+          float teaSpill = smoothstep(0.48 + spillWarp, 0.15, distSpill);
+
+          // 3. Lower belly love-worn smudge
+          vec3 smudgeCenter = vec3(-0.16, 0.68, 0.44);
+          float distSmudge = length(vPlushObjPos - smudgeCenter);
+          float bellySmudge = smoothstep(0.42, 0.10, distSmudge);
+
+          // 4. Snout tip rubbing & floor scuff
+          float snoutDist = smoothstep(1.95, 2.50, vPlushObjPos.y) * smoothstep(0.30, 0.85, vPlushObjPos.z);
+          float snoutWarp = cos(vPlushObjPos.x * 5.0 + vPlushObjPos.y * 4.0) * 0.05;
+          float snoutGrime = clamp(snoutDist * 1.3 + snoutWarp, 0.0, 1.2);
+
+          // 5. Soot / ash smudge across dorsal spine
+          float spineDist = smoothstep(1.0, 2.2, vPlushObjPos.y) * smoothstep(0.1, -0.4, vPlushObjPos.z);
+          float spineNoise = clamp(sin(vPlushObjPos.y * 4.2 + vPlushObjPos.x * 3.0), 0.0, 1.0);
+          float sootSmudge = spineDist * spineNoise * 0.65;
+
+          // Color grading for grime
+          vec3 mudColor  = vec3(0.20, 0.15, 0.10); // Rich dark earthy floor mud
+          vec3 teaColor  = vec3(0.50, 0.35, 0.20); // Warm dried tea / coffee spill
+          vec3 sootColor = vec3(0.10, 0.09, 0.09); // Charcoal soot / ash
+          vec3 noseColor = vec3(0.25, 0.20, 0.15); // Rubbed snout grime
+
+          // Composite grime intensity driven by uMange
+          float totalDirt = clamp((groundMud * 1.45 + teaSpill * 1.25 + bellySmudge * 0.95 + snoutGrime * 1.30 + sootSmudge * 1.05) * uMange, 0.0, 0.95);
+
+          vec3 grimeCol = mix(mudColor, teaColor, clamp(teaSpill * 1.6, 0.0, 1.0));
+          grimeCol = mix(grimeCol, noseColor, clamp(snoutGrime * 1.4, 0.0, 1.0));
+          grimeCol = mix(grimeCol, sootColor, clamp(sootSmudge * 1.5, 0.0, 1.0));
+
+          // Darken and tint fabric with grime
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * grimeCol * 2.1, totalDirt * 0.75);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, grimeCol, totalDirt * 0.55);
+
+          // Loved, sun-bleached plush desaturation
+          float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum), uMange * 0.32);
+          #endif
+
           #include <dithering_fragment>
           `
         );
@@ -91,7 +152,8 @@ window.BlahajModels = (function () {
   // Zero flat cuts, zero holes, zero piecewise derivative kinks: smooth cuddly plush silhouette!
   // ==========================================================================
   function evalUprightSharkStation(s, plump, mange) {
-    const slump = (mange || 0) * 0.045;
+    const mangeVal = typeof mange === 'number' ? Math.max(0, Math.min(1.0, mange)) : 0;
+    const slump = mangeVal * 0.06;
 
     // Smooth continuous base and top envelopes
     const tBot = Math.min(1.0, s / 0.18);
@@ -131,10 +193,25 @@ window.BlahajModels = (function () {
     const uvs = [];
     const indices = [];
 
-    const topCol = new THREE.Color(topColorHex || 0x2278c4);
-    const bellyCol = new THREE.Color(bellyColorHex || 0xf5ecdc);
+    const mangeVal = typeof mange === 'number' ? Math.max(0, Math.min(1.0, mange)) : 0;
+
+    // Base colors transition dynamically with mange:
+    // Pristine: vibrant ocean blue (0x2278c4) and clean warm cream (0xfbf8f2)
+    // High Mange: weathered dusty slate navy (0x354e68) and tea-stained aged linen (0xb29f84)
+    const pristineTop = new THREE.Color(topColorHex || 0x2278c4);
+    const weatheredTop = new THREE.Color(0x354e68);
+    const topCol = pristineTop.clone().lerp(weatheredTop, mangeVal * 0.65);
+
+    const pristineBelly = new THREE.Color(bellyColorHex || 0xfbf8f2);
+    const weatheredBelly = new THREE.Color(0xb29f84);
+    const bellyCol = pristineBelly.clone().lerp(weatheredBelly, mangeVal * 0.85);
+
     const mouthCol = new THREE.Color(0x8a2434); // Soft crimson plush mouth interior
-    const seamDarkCol = topCol.clone().multiplyScalar(0.78);
+    const cleanSeam = topCol.clone().multiplyScalar(0.78);
+    const grimySeam = new THREE.Color(0x241d18);
+    const seamDarkCol = cleanSeam.clone().lerp(grimySeam, mangeVal * 0.82);
+
+    const groundMudCol = new THREE.Color(0x382c20); // Earthy ground dirt for bottom cushion
 
     for (let i = 0; i <= rings; i++) {
       const s = i / rings;
@@ -176,23 +253,30 @@ window.BlahajModels = (function () {
         positions.push(px, py, pz);
         uvs.push(v * 4, s * 5);
 
-        // Blåhaj Two-Tone Coloring with Hand-Stitched Seam Shading
+        // Blåhaj Two-Tone Coloring with Hand-Stitched Seam Shading & Grime Accumulation
         if (inMouth) {
           colors.push(mouthCol.r, mouthCol.g, mouthCol.b);
         } else {
           // White belly covers the front (+Z), oceanic blue covers the flanks and back (-Z)
-          // On torso (s < 0.65), belly boundary is wide (cosT > -0.05)
-          // Near head (s >= 0.65), belly tapers underneath lower jaw
           const bellyCutoff = s < 0.65 ? -0.05 : -0.05 + Math.pow((s - 0.65) / 0.35, 1.2) * 1.35;
           const seamDist = cosT - bellyCutoff;
+          let vCol;
           if (seamDist > 0.06) {
-            colors.push(bellyCol.r, bellyCol.g, bellyCol.b);
+            vCol = bellyCol.clone();
           } else if (seamDist < -0.06) {
-            colors.push(topCol.r, topCol.g, topCol.b);
+            vCol = topCol.clone();
           } else {
             // Subtle darkened stitch seam along the fabric boundary
-            colors.push(seamDarkCol.r, seamDarkCol.g, seamDarkCol.b);
+            vCol = seamDarkCol.clone();
           }
+
+          // Ground contact grime discoloration on the bottom seating area (s < 0.30)
+          if (s < 0.30 && mangeVal > 0.04) {
+            const gFactor = Math.pow(1.0 - s / 0.30, 1.3) * mangeVal * 0.85;
+            vCol.lerp(groundMudCol, gFactor);
+          }
+
+          colors.push(vCol.r, vCol.g, vCol.b);
         }
       }
     }
@@ -227,9 +311,10 @@ window.BlahajModels = (function () {
     const uvs = [];
     const indices = [];
 
-    const slumpY = (mange || 0) * 0.08;
-    const slumpZ = (mange || 0) * 0.09;
-    const slumpX = (mange || 0) * 0.04;
+    const mangeVal = typeof mange === 'number' ? Math.max(0, Math.min(1.0, mange)) : 0;
+    const slumpY = mangeVal * 0.14;
+    const slumpZ = mangeVal * 0.16;
+    const slumpX = mangeVal * 0.085; // Lovable sideways plush flop
 
     for (let r = 0; r <= rows; r++) {
       const u = r / rows; // 0 at spine base, 1 at rounded apex tip
@@ -412,9 +497,9 @@ window.BlahajModels = (function () {
           ? config.mangeFactor
           : (window.__BLAHAJ_MANGE__ !== undefined ? window.__BLAHAJ_MANGE__ : 0.70));
 
-    const plushVertexMat = createPlushMaterial(config.bodyColor || 0x2278c4, true);
-    const bodyMat = createPlushMaterial(config.bodyColor || 0x2278c4, false);
-    const scarfMat = createPlushMaterial(config.scarfColor || 0x7c4d32, false);
+    const plushVertexMat = createPlushMaterial(config.bodyColor || 0x2278c4, true, mange);
+    const bodyMat = createPlushMaterial(config.bodyColor || 0x2278c4, false, mange);
+    const scarfMat = createPlushMaterial(config.scarfColor || 0x7c4d32, false, mange * 0.6);
     const brassMat = new THREE.MeshStandardMaterial({
       color: 0xd8aa5b,
       roughness: 0.26,
@@ -474,7 +559,11 @@ window.BlahajModels = (function () {
     rig.add(rightFinPivot);
 
     // 5. White Felt Teeth Rows along the Underside Grin of the Snout Overhang
-    const toothMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+    const toothBaseCol = (new THREE.Color(0xffffff)).lerp(new THREE.Color(0xded4bc), mange * 0.75);
+    const toothMat = new THREE.MeshStandardMaterial({
+      color: toothBaseCol,
+      roughness: 0.6 + mange * 0.25
+    });
     const stUpper = evalUprightSharkStation(0.74, plump, mange);
     const stLower = evalUprightSharkStation(0.69, plump, mange);
 
@@ -510,7 +599,6 @@ window.BlahajModels = (function () {
     }
 
     // 6. Large Glossy Black Button Eyes with Catchlights & Stitched Rims
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.08, metalness: 0.35 });
     const eyeRimMat = new THREE.MeshStandardMaterial({ color: 0x142234, roughness: 0.85 });
     const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
@@ -519,18 +607,37 @@ window.BlahajModels = (function () {
       eyeGroup.position.set(side * 0.51 * plump, 2.12, 0.74);
       eyeGroup.lookAt(side * 1.3, 2.22, 1.35);
 
+      // Wobbly / loose left eye at higher mange (crooked vintage plush character)
+      const isWobblyLeft = (side === 1 && mange > 0.35);
+      if (isWobblyLeft) {
+        const wobble = (mange - 0.35) / 0.65;
+        eyeGroup.rotation.z += wobble * 0.35;
+        eyeGroup.rotation.x += wobble * 0.18;
+        eyeGroup.position.y -= wobble * 0.035;
+      }
+
+      // Scratched / weathered button eye roughness increases with mange
+      const eyeRoughness = isWobblyLeft ? (0.08 + mange * 0.58) : (0.08 + mange * 0.25);
+      const thisEyeMat = new THREE.MeshStandardMaterial({
+        color: 0x05070a,
+        roughness: eyeRoughness,
+        metalness: Math.max(0.04, 0.35 - mange * 0.26)
+      });
+
       const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.022, 12, 24), eyeRimMat);
       eyeGroup.add(rim);
 
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), eyeMat);
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), thisEyeMat);
       dome.scale.set(1.0, 1.0, 0.72);
       eyeGroup.add(dome);
 
-      const glint1 = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 12), catchMat);
+      // Catchlights dim and shrink slightly as button eye scuffs
+      const catchScale = Math.max(0.25, 1.0 - mange * 0.65);
+      const glint1 = new THREE.Mesh(new THREE.SphereGeometry(0.036 * catchScale, 12, 12), catchMat);
       glint1.position.set(-0.032 * side, 0.036, 0.085);
       eyeGroup.add(glint1);
 
-      const glint2 = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 10), catchMat);
+      const glint2 = new THREE.Mesh(new THREE.SphereGeometry(0.018 * catchScale, 10, 10), catchMat);
       glint2.position.set(0.032 * side, -0.026, 0.085);
       eyeGroup.add(glint2);
 
@@ -579,99 +686,242 @@ window.BlahajModels = (function () {
     scarfGroup.add(clasp);
     rig.add(scarfGroup);
 
-    // 9. DYNAMIC MANGE FACTOR DETAILS (VISIBLE STITCHES, MENDING PATCHES & THREADS)
-    if (mange > 0.05) {
-      const stitchGroup = new THREE.Group();
+    // 9. DYNAMIC MANGE FACTOR DETAILS (STITCHES, PATCHES, COTTON PUFFS & THREADS)
+    if (mange > 0.04) {
+      const wearGroup = new THREE.Group();
 
       // (a) Hand-sewn running stitches along the dorsal spine seam
-      const spineStitchCount = Math.floor(4 + mange * 14);
+      const spineStitchCount = Math.floor(4 + mange * 18);
       for (let s = 0; s < spineStitchCount; s++) {
-        const u = 0.25 + (s / spineStitchCount) * 0.48;
+        const u = 0.22 + (s / spineStitchCount) * 0.52;
         const station = evalUprightSharkStation(u, plump, mange);
         const stitch = new THREE.Mesh(
-          new THREE.BoxGeometry(0.018, 0.045, 0.025),
+          new THREE.BoxGeometry(0.018, 0.046, 0.025),
           threadMat
         );
-        stitch.position.set((s % 2 === 0 ? 0.01 : -0.01), station.y, station.centerZ - station.depthBackZ - 0.006);
+        stitch.position.set((s % 2 === 0 ? 0.012 : -0.012), station.y, station.centerZ - station.depthBackZ - 0.006);
         stitch.rotation.z = Math.sin(s * 1.7) * 0.22;
-        stitchGroup.add(stitch);
+        wearGroup.add(stitch);
       }
 
-      // (b) Flank Mending Patch #1 (Denim with Cross-Stitches)
-      if (mange > 0.32) {
-        const patchGeo = new THREE.BoxGeometry(0.04, 0.32, 0.28);
-        const patchMat = createPlushMaterial(0x567798, false);
+      // (b) Escaping Fluffy Cotton Stuffing Puffs peeking through strained seams!
+      if (mange > 0.25) {
+        const cottonMat = new THREE.MeshStandardMaterial({
+          color: 0xf6f6f6,
+          roughness: 0.98,
+          metalness: 0.01
+        });
+
+        // 1. Right flank seam burst (right under the denim patch)
+        const pScale1 = Math.min(1.0, (mange - 0.25) / 0.50);
+        const burst1 = new THREE.Group();
+        burst1.position.set(0.72 * plump, 0.84, 0.12);
+        burst1.scale.setScalar(pScale1);
+
+        const cb1 = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), cottonMat);
+        cb1.scale.set(1.15, 0.85, 1.25);
+        burst1.add(cb1);
+        const cb2 = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8), cottonMat);
+        cb2.position.set(0.035, 0.045, -0.04);
+        burst1.add(cb2);
+        const cb3 = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), cottonMat);
+        cb3.position.set(-0.02, -0.035, 0.045);
+        burst1.add(cb3);
+        wearGroup.add(burst1);
+
+        // 2. Left flank seam burst (under the burlap patch)
+        if (mange > 0.35) {
+          const pScaleL = Math.min(1.0, (mange - 0.35) / 0.50);
+          const burstL = new THREE.Group();
+          burstL.position.set(-0.72 * plump, 0.68, 0.04);
+          burstL.scale.setScalar(pScaleL);
+
+          const cl1 = new THREE.Mesh(new THREE.SphereGeometry(0.058, 8, 8), cottonMat);
+          cl1.scale.set(1.1, 0.9, 1.2);
+          burstL.add(cl1);
+          const cl2 = new THREE.Mesh(new THREE.SphereGeometry(0.042, 8, 8), cottonMat);
+          cl2.position.set(-0.025, 0.035, -0.03);
+          burstL.add(cl2);
+          wearGroup.add(burstL);
+        }
+
+        // 3. Caudal peduncle / lower tail seam burst
+        if (mange > 0.50) {
+          const pScale2 = Math.min(1.0, (mange - 0.50) / 0.40);
+          const burst2 = new THREE.Group();
+          burst2.position.set(-0.16 * plump, 0.46, -0.64);
+          burst2.scale.setScalar(pScale2);
+
+          const ct1 = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), cottonMat);
+          burst2.add(ct1);
+          const ct2 = new THREE.Mesh(new THREE.SphereGeometry(0.040, 8, 8), cottonMat);
+          ct2.position.set(0.025, 0.035, -0.025);
+          burst2.add(ct2);
+          wearGroup.add(burst2);
+        }
+
+        // 4. Dorsal fin root seam burst
+        if (mange > 0.72) {
+          const pScale3 = Math.min(1.0, (mange - 0.72) / 0.28);
+          const burst3 = new THREE.Group();
+          burst3.position.set(0.045, 1.28, -0.66);
+          burst3.scale.setScalar(pScale3);
+          const cd1 = new THREE.Mesh(new THREE.SphereGeometry(0.046, 8, 8), cottonMat);
+          burst3.add(cd1);
+          wearGroup.add(burst3);
+        }
+      }
+
+      // (c) Flank Mending Patch #1 (Faded Denim with Cross & Edge Stitches)
+      if (mange > 0.16) {
+        const patchGeo = new THREE.BoxGeometry(0.04, 0.34, 0.30);
+        const patchMat = createPlushMaterial(0x4a6c8e, false, mange);
         const patch = new THREE.Mesh(patchGeo, patchMat);
-        patch.position.set(0.76 * plump, 0.95, -0.05);
+        patch.position.set(0.76 * plump, 0.96, -0.04);
         patch.rotation.y = 0.12;
         patch.rotation.z = -0.08;
-        stitchGroup.add(patch);
+        wearGroup.add(patch);
 
+        // Cross stitches on the 4 corners
         const corners = [
-          [-0.12, -0.10],
-          [-0.12, 0.10],
-          [0.12, -0.10],
-          [0.12, 0.10]
+          [-0.13, -0.11],
+          [-0.13, 0.11],
+          [0.13, -0.11],
+          [0.13, 0.11]
         ];
         corners.forEach(([dy, dz]) => {
           [-1, 1].forEach((cross) => {
             const leg = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.015, 0.06), threadMat);
-            leg.position.set(0.78 * plump, 0.95 + dy, -0.05 + dz);
+            leg.position.set(0.78 * plump, 0.96 + dy, -0.04 + dz);
             leg.rotation.x = cross * 0.78;
             leg.rotation.y = 0.12;
-            stitchGroup.add(leg);
+            wearGroup.add(leg);
           });
         });
       }
 
-      // (c) Flank Mending Patch #2 (Weathered Vintage Burlap)
-      if (mange > 0.62) {
-        const patch2Geo = new THREE.BoxGeometry(0.04, 0.26, 0.24);
-        const patch2Mat = createPlushMaterial(0x8a735c, false);
+      // (d) Flank Mending Patch #2 (Weathered Vintage Burlap / Corduroy)
+      if (mange > 0.38) {
+        const patch2Geo = new THREE.BoxGeometry(0.04, 0.28, 0.26);
+        const patch2Mat = createPlushMaterial(0x7c5d42, false, mange);
         const patch2 = new THREE.Mesh(patch2Geo, patch2Mat);
-        patch2.position.set(-0.72 * plump, 0.78, -0.22);
+        patch2.position.set(-0.73 * plump, 0.78, -0.20);
         patch2.rotation.y = -0.15;
         patch2.rotation.z = 0.12;
-        stitchGroup.add(patch2);
+        wearGroup.add(patch2);
 
         const corners2 = [
-          [-0.09, -0.08],
-          [-0.09, 0.08],
-          [0.09, -0.08],
-          [0.09, 0.08]
+          [-0.10, -0.09],
+          [-0.10, 0.09],
+          [0.10, -0.09],
+          [0.10, 0.09]
         ];
         corners2.forEach(([dy, dz]) => {
           [-1, 1].forEach((cross) => {
             const leg = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.015, 0.05), threadMat);
-            leg.position.set(-0.74 * plump, 0.78 + dy, -0.22 + dz);
+            leg.position.set(-0.75 * plump, 0.78 + dy, -0.20 + dz);
             leg.rotation.x = cross * 0.78;
             leg.rotation.y = -0.15;
-            stitchGroup.add(leg);
+            wearGroup.add(leg);
           });
         });
       }
 
-      // (d) Loose dangling thread strands
-      if (mange > 0.48) {
-        const threadCurve = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.008, 0.008, 0.20, 6),
-          threadMat
-        );
-        threadCurve.position.set(0.05, 1.35, -0.72);
-        threadCurve.rotation.z = 0.6;
-        threadCurve.rotation.x = 0.4;
-        stitchGroup.add(threadCurve);
+      // (e) Tail Peduncle Bandage / Canvas Wrap Patch
+      if (mange > 0.58) {
+        const bandageGeo = new THREE.CylinderGeometry(0.24, 0.22, 0.26, 16, 1, true);
+        const bandageMat = createPlushMaterial(0x92836e, false, mange);
+        const bandage = new THREE.Mesh(bandageGeo, bandageMat);
+        bandage.position.set(0, 0.46, -0.72);
+        bandage.rotation.x = Math.PI / 2;
+        wearGroup.add(bandage);
 
-        const threadCurve2 = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.007, 0.007, 0.22, 6),
-          threadMat
-        );
-        threadCurve2.position.set(-0.68 * plump, 0.68, 0.05);
-        threadCurve2.rotation.z = -0.8;
-        stitchGroup.add(threadCurve2);
+        // Bandage criss-cross stitches
+        [-0.08, 0.08].forEach((bx) => {
+          [-1, 1].forEach((ang) => {
+            const bStitch = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.07, 0.03), threadMat);
+            bStitch.position.set(bx, 0.46, -0.84);
+            bStitch.rotation.z = ang * 0.65;
+            wearGroup.add(bStitch);
+          });
+        });
       }
 
-      rig.add(stitchGroup);
+      // (f) Snout Bridge Emergency Mending Patch
+      if (mange > 0.78) {
+        const nosePatchGeo = new THREE.BoxGeometry(0.24, 0.03, 0.18);
+        const nosePatchMat = createPlushMaterial(0x564234, false, mange);
+        const nosePatch = new THREE.Mesh(nosePatchGeo, nosePatchMat);
+        nosePatch.position.set(0.02, 2.45, 0.76);
+        nosePatch.rotation.x = -0.32;
+        wearGroup.add(nosePatch);
+
+        // Nose cross stitches
+        [-1, 1].forEach((cross) => {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.035, 0.09), threadMat);
+          leg.position.set(0.02, 2.46, 0.76);
+          leg.rotation.y = cross * 0.78;
+          wearGroup.add(leg);
+        });
+      }
+
+      // (g) Chin / Under-Throat Emergency Mending Stitches
+      if (mange > 0.28) {
+        const chinStitches = Math.floor(4 + mange * 5);
+        for (let c = 0; c < chinStitches; c++) {
+          const u = (c / (chinStitches - 1)) - 0.5;
+          const stitch = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.045, 0.025), threadMat);
+          stitch.position.set(u * 0.28, 1.64, 0.52 - Math.abs(u) * 0.08);
+          stitch.rotation.y = u * 0.5;
+          stitch.rotation.z = (c % 2 === 0 ? 0.35 : -0.35);
+          wearGroup.add(stitch);
+        }
+      }
+
+      // (h) Shoulder Flipper Reinforcement Stitches
+      if (mange > 0.45) {
+        [-1, 1].forEach((side) => {
+          const sStitch = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.018, 0.06), threadMat);
+          sStitch.position.set(side * 0.73 * plump, 1.40, 0.08);
+          sStitch.rotation.x = 0.5;
+          wearGroup.add(sStitch);
+        });
+      }
+
+      // (i) Loose trailing and frayed thread strands
+      if (mange > 0.40) {
+        // Thread trailing from dorsal fin tip
+        const threadCurve = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.007, 0.007, 0.24, 6),
+          threadMat
+        );
+        threadCurve.position.set(0.06, 1.35, -0.72);
+        threadCurve.rotation.z = 0.6;
+        threadCurve.rotation.x = 0.4;
+        wearGroup.add(threadCurve);
+
+        // Thread dangling from flank patch
+        const threadCurve2 = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.006, 0.006, 0.22, 6),
+          threadMat
+        );
+        threadCurve2.position.set(-0.70 * plump, 0.66, 0.06);
+        threadCurve2.rotation.z = -0.8;
+        wearGroup.add(threadCurve2);
+
+        // Thread trailing from tail
+        if (mange > 0.65) {
+          const threadCurve3 = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.006, 0.006, 0.26, 6),
+            threadMat
+          );
+          threadCurve3.position.set(0.02, 0.35, -1.18);
+          threadCurve3.rotation.x = 0.85;
+          wearGroup.add(threadCurve3);
+        }
+      }
+
+      rig.add(wearGroup);
     }
 
     // 10. Character-Specific Relics, Hats & Tools
