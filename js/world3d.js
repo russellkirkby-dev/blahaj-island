@@ -110,10 +110,11 @@ window.BlahajWorld = (function () {
 
   // Analytical 3D Rolling Ocean Wave Height (matches GLSL vertex shader!)
   function getWaveHeight(x, z, time, ampOverride) {
+    const t = (time !== undefined && time !== null) ? time : (waterUniforms ? waterUniforms.uTime.value : 0.0);
     const amp = (ampOverride !== undefined) ? ampOverride : currentWaveAmp;
-    const w1 = Math.sin(x * 0.065 + time * 1.65) * Math.cos(z * 0.055 + time * 1.35) * 0.36 * amp;
-    const w2 = Math.sin((x * 0.8 + z * 0.6) * 0.12 - time * 2.15) * 0.18 * amp;
-    const w3 = Math.cos((x - z * 0.9) * 0.19 + time * 2.7) * 0.09 * amp;
+    const w1 = Math.sin(x * 0.065 + t * 1.65) * Math.cos(z * 0.055 + t * 1.35) * 0.36 * amp;
+    const w2 = Math.sin((x * 0.8 + z * 0.6) * 0.12 - t * 2.15) * 0.18 * amp;
+    const w3 = Math.cos((x - z * 0.9) * 0.19 + t * 2.7) * 0.09 * amp;
     return 0.22 + w1 + w2 + w3;
   }
 
@@ -173,6 +174,37 @@ window.BlahajWorld = (function () {
     return false;
   }
 
+  // ==========================================================================
+  // PROCEDURAL OCEANIC SEABED BATHYMETRY & REEF DEPTH (-2.0m to -12.5m)
+  // ==========================================================================
+  function getOceanSeabedDepth(x, z) {
+    // 1. Broad undulating seabed dunes and tectonic shelves (-5m to -9m)
+    let d = -6.2;
+    d += Math.sin(x * 0.024 + z * 0.019) * 2.5;
+    d += Math.cos(x * 0.048 - z * 0.038) * 1.6;
+
+    // 2. Coral ridges, rocky outcrops, and sand ripples
+    d += Math.sin(x * 0.12 + z * 0.095) * 0.85;
+    d += Math.cos(x * 0.24 - z * 0.19) * 0.38;
+
+    // 3. Sheltered South Crescent Lagoon: gentle shallow swimming basin (-2.4m to -4.2m)
+    const dHarbour = Math.hypot(x, z - 68);
+    if (dHarbour < 45) {
+      const f = 1 - smoothstep(12, 45, dHarbour);
+      d = d * (1 - f) + (-3.2 + Math.sin(x * 0.15) * 0.5) * f;
+    }
+
+    // 4. Volcanic oceanic trench plunging north of volcano peninsula (z < -135)
+    const dVolc = Math.hypot(x - -28, z - -148);
+    if (dVolc > 80 && z < -135) {
+      const trench = smoothstep(80, 190, dVolc);
+      d -= trench * 4.2;
+    }
+
+    // Clamped within safe, fun MMO diving depths (-2.0m to -12.5m)
+    return Math.min(-2.0, Math.max(-12.5, d));
+  }
+
   function getTerrainHeight(x, z) {
     // 1. Rear Volcano Wharf Dock Plank & Sea Cave Cavern (North side of Volcano Peninsula: x = -28, z = -172..-218)
     if (Math.abs(x - -28) < 5.8 && z <= -172 && z >= -218) {
@@ -196,6 +228,8 @@ window.BlahajWorld = (function () {
       }
     }
 
+    const baseSeabed = getOceanSeabedDepth(x, z);
+
     // 5. Main Blåhaj Island multi-contour landmass
     const dxMain = x - 0;
     const dzMain = z - 12;
@@ -206,17 +240,18 @@ window.BlahajWorld = (function () {
       Math.sin(angleMain * 5 + 1.1) * 6;
     const distMain = Math.sqrt(dxMain * dxMain + dzMain * dzMain);
 
-    let hMain = -4.5;
-    if (distMain < coastRadius + 16) {
-      const landFactor = 1 - smoothstep(coastRadius * 0.35, coastRadius + 8, distMain);
-      hMain = -2.2 + landFactor * 7.8 + fbmNoise(x, z) * landFactor * 1.35;
+    let hMain = baseSeabed;
+    if (distMain < coastRadius + 24) {
+      const landFactor = 1 - smoothstep(coastRadius * 0.35, coastRadius + 14, distMain);
+      const islandElev = -1.2 + landFactor * 7.8 + fbmNoise(x, z) * landFactor * 1.35;
+      hMain = baseSeabed * (1 - landFactor) + islandElev * landFactor;
     }
 
     // Sheltered South Crescent Harbour Cove around (0, 66)
     const dHarbour = Math.sqrt(x * x + Math.pow(z - 70, 2));
     if (dHarbour < 28) {
       const coveFactor = 1 - smoothstep(8, 28, dHarbour);
-      hMain -= coveFactor * 5.2;
+      hMain -= coveFactor * 4.2;
     }
 
     // Heartland Plaza around Sacred Tea House (0, 10)
@@ -228,7 +263,7 @@ window.BlahajWorld = (function () {
 
     // Northeast Crust Cliffs & Observatory Highlands (52, -48)
     const dObs = Math.sqrt(Math.pow(x - 52, 2) + Math.pow(z - -48, 2));
-    let hObs = -4.5;
+    let hObs = baseSeabed;
     if (dObs < 34) {
       const fObs = 1 - smoothstep(11, 34, dObs);
       hObs = -1.5 + fObs * 13.0 + Math.sin(x * 0.2) * 0.35 * (1 - fObs);
@@ -236,7 +271,7 @@ window.BlahajWorld = (function () {
 
     // East Cape Peninsula for Great Portal Gate (72, -10)
     const dPortal = Math.sqrt(Math.pow(x - 72, 2) + Math.pow(z - -10, 2));
-    let hPortal = -4.5;
+    let hPortal = baseSeabed;
     if (dPortal < 26) {
       const fPort = 1 - smoothstep(10, 26, dPortal);
       hPortal = -1.5 + fPort * 6.4;
@@ -244,7 +279,7 @@ window.BlahajWorld = (function () {
 
     // Southwest Bluff for Spherical Foods Café (-52, 34)
     const dSphere = Math.sqrt(Math.pow(x - -52, 2) + Math.pow(z - 34, 2));
-    let hSphere = -4.5;
+    let hSphere = baseSeabed;
     if (dSphere < 26) {
       const fSph = 1 - smoothstep(10, 26, dSphere);
       hSphere = -1.5 + fSph * 8.2;
@@ -252,14 +287,14 @@ window.BlahajWorld = (function () {
 
     // Western Artisans' Ridge for Laundry of Initiation (-64, -14)
     const dLaundry = Math.sqrt(Math.pow(x - -64, 2) + Math.pow(z - -14, 2));
-    let hLaundry = -4.5;
+    let hLaundry = baseSeabed;
     if (dLaundry < 26) {
       const fLau = 1 - smoothstep(10, 26, dLaundry);
       hLaundry = -1.5 + fLau * 8.8;
     }
 
     // 6. THE SACRED VOLCANO PENINSULA (Isthmus + Massive Truncated Caldera Volcano)
-    let hIsthmus = -4.5;
+    let hIsthmus = baseSeabed;
     if (z < -32 && z > -105) {
       const tIsth = (-z - 32) / 73;
       const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
@@ -268,7 +303,7 @@ window.BlahajWorld = (function () {
       if (distFromSpine < isthWidth + 10) {
         const fIsth = 1 - smoothstep(isthWidth * 0.45, isthWidth + 8, distFromSpine);
         const targetElev = 3.2 + Math.pow(tIsth, 1.35) * 13.3;
-        hIsthmus = -2.5 + fIsth * (targetElev + 2.5);
+        hIsthmus = baseSeabed * (1 - fIsth) + fIsth * targetElev;
       }
     }
 
@@ -279,7 +314,7 @@ window.BlahajWorld = (function () {
     // Grand volcano footprint
     const penRadius = 76 + Math.cos(vAngle * 4) * 5 + Math.sin(vAngle * 7) * 3;
 
-    let hVolcano = -4.5;
+    let hVolcano = baseSeabed;
     if (dVolcano < penRadius) {
       const norm = Math.max(0, 1 - dVolcano / penRadius);
       const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.6 * norm * (1 - Math.pow(norm, 2.5));
@@ -293,11 +328,10 @@ window.BlahajWorld = (function () {
       }
 
       // North Wharf Sea Cove: carve deep navigable water around the Rear Wharf (z < -184)
-      // so the wharf is never landlocked and boats have open ocean access!
       if (z < -184) {
         const dWharfDock = Math.abs(x - -28);
         if (dWharfDock > 4.2 || z < -218) {
-          cone = -4.5;
+          cone = baseSeabed;
         } else {
           cone = Math.min(cone, 1.4);
         }
@@ -307,7 +341,7 @@ window.BlahajWorld = (function () {
     }
 
     // 7. THE 4 OUTER BUILDABLE SANCTUARY ISLANDS (Wide flat plateaus + sandy beaches!)
-    let hOuter = -4.5;
+    let hOuter = baseSeabed;
     for (let i = 0; i < OUTER_ISLANDS.length; i++) {
       const isl = OUTER_ISLANDS[i];
       const dx = x - isl.x;
@@ -315,16 +349,15 @@ window.BlahajWorld = (function () {
       const ang = Math.atan2(dz, dx);
       const r = isl.radius + Math.cos(ang * 3 + i) * 4.5 + Math.sin(ang * 5 - i) * 2.5;
       const d = Math.sqrt(dx * dx + dz * dz);
-      if (d < r + 12) {
-        // Flat, build-friendly top plateau inside 68% radius, smooth sandy beach outside!
-        const f = 1 - smoothstep(r * 0.65, r + 6, d);
+      if (d < r + 22) {
+        const f = 1 - smoothstep(r * 0.65, r + 12, d);
         const gentleRipple = Math.sin(x * 0.08 + z * 0.08) * 0.12 * f;
-        const hIsl = -2.2 + f * (isl.elev + 2.2) + gentleRipple;
+        const hIsl = baseSeabed * (1 - f) + f * (isl.elev + 2.2) - 2.2 * (1 - f) + gentleRipple;
         if (hIsl > hOuter) hOuter = hIsl;
       }
     }
 
-    return Math.max(hMain, hObs, hPortal, hSphere, hLaundry, hIsthmus, hVolcano, hOuter);
+    return Math.max(baseSeabed, hMain, hObs, hPortal, hSphere, hLaundry, hIsthmus, hVolcano, hOuter);
   }
 
   // Compute walkable surface height including Hiram's player-built Bridges, Stairs, Docks & Platforms!
@@ -403,7 +436,7 @@ window.BlahajWorld = (function () {
       }
 
       if (surfY > -900) {
-        if (refY === null || surfY <= refY + 2.8) {
+        if (refY === null || (surfY <= refY + 2.8 && surfY >= refY - 1.2)) {
           if (surfY > bestY) bestY = surfY;
         }
       }
@@ -536,7 +569,7 @@ window.BlahajWorld = (function () {
     // Dock: BoxGeometry(8.5, 0.7, 44) at y = 1.4 (top: 1.75)
     if (Math.abs(x - (-28)) <= 4.4 && z >= -216 && z <= -172) {
       const topY = 1.75;
-      if (refY === null || topY <= refY + 2.8) {
+      if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
         if (topY > bestY) bestY = topY;
       }
     }
@@ -545,7 +578,7 @@ window.BlahajWorld = (function () {
     // Dock: BoxGeometry(7.5, 0.65, 26) at y = 1.35 (top: 1.675)
     if (Math.abs(x - 0) <= 3.9 && z >= 44 && z <= 70) {
       const topY = 1.675;
-      if (refY === null || topY <= refY + 2.8) {
+      if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
         if (topY > bestY) bestY = topY;
       }
     }
@@ -554,7 +587,7 @@ window.BlahajWorld = (function () {
     // Pier: BoxGeometry(5.6, 0.6, 34) at y = 1.45 (top: 1.75)
     if (Math.abs(x - 48) <= 2.9 && z >= 45 && z <= 79) {
       const topY = 1.75;
-      if (refY === null || topY <= refY + 2.8) {
+      if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
         if (topY > bestY) bestY = topY;
       }
     }
@@ -564,7 +597,7 @@ window.BlahajWorld = (function () {
       const isl = OUTER_ISLANDS[i];
       if (Math.abs(x - isl.dockX) <= 4.35 && Math.abs(z - isl.dockZ) <= 4.35) {
         const topY = 1.575;
-        if (refY === null || topY <= refY + 2.8) {
+        if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
           if (topY > bestY) bestY = topY;
         }
       }
@@ -581,7 +614,7 @@ window.BlahajWorld = (function () {
       const mb = mooredBoats[i];
       if (Math.hypot(x - mb.x, z - mb.z) <= 3.6) {
         const topY = 1.32;
-        if (refY === null || topY <= refY + 2.8) {
+        if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
           if (topY > bestY) bestY = topY;
         }
       }
@@ -647,8 +680,8 @@ window.BlahajWorld = (function () {
     buildSkyDomeAndSkySeam(scene);
     updateDayNight(scene, true);
 
-    // Sculpted Exterior Terrain Mesh (560x560 units covering Main Island + 4 Outer Sanctuary Islands!)
-    const terrainGeo = new THREE.PlaneGeometry(560, 560, 280, 280);
+    // Sculpted Exterior Terrain Mesh (720x720 units covering Main Island, 4 Outer Sanctuary Islands & Seabed!)
+    const terrainGeo = new THREE.PlaneGeometry(720, 720, 320, 320);
     terrainGeo.rotateX(-Math.PI / 2);
     const posAttr = terrainGeo.attributes.position;
     const colors = [];
@@ -679,7 +712,22 @@ window.BlahajWorld = (function () {
           c.setRGB(shade + 0.03, shade, shade + 0.04);
         }
       } else if (vy < 0.95) {
-        c.setHex(0xdec59b);
+        if (vy >= 0.0) {
+          // Warm shoreline & beach sand
+          c.setHex(0xdec59b);
+        } else if (vy >= -2.6) {
+          // Sunlit shallow ripple sand & turquoise caustics
+          const shallowT = (vy - (-2.6)) / 2.6;
+          c.setRGB(0.55 + 0.32 * shallowT, 0.68 + 0.12 * shallowT, 0.58 + 0.05 * shallowT);
+        } else if (vy >= -6.5) {
+          // Mid-depth coral reef shelf, rocky outcrops, and marine kelp
+          const reefT = (vy - (-6.5)) / 3.9;
+          c.setRGB(0.18 + 0.30 * reefT, 0.35 + 0.28 * reefT, 0.38 + 0.18 * reefT);
+        } else {
+          // Deep abyssal silt and volcanic basalt trench
+          const deepT = Math.max(0, (vy - (-12.5)) / 6.0);
+          c.setRGB(0.08 + 0.08 * deepT, 0.16 + 0.16 * deepT, 0.22 + 0.14 * deepT);
+        }
       } else if (onRoad) {
         const cobbleNoise = Math.sin(vx * 1.4) * Math.cos(vz * 1.4) * 0.035;
         c.setRGB(0.62 + cobbleNoise, 0.54 + cobbleNoise, 0.45 + cobbleNoise);
@@ -894,6 +942,7 @@ window.BlahajWorld = (function () {
       uniforms: waterUniforms,
       transparent: true,
       depthWrite: true,
+      side: THREE.DoubleSide,
       vertexShader: `
         uniform float uTime;
         uniform float uWaveAmp;
@@ -1497,9 +1546,11 @@ window.BlahajWorld = (function () {
     skyUniforms.uSunGlow.value = sunY > 0 ? Math.min(1.4, sunY / 120 + 0.3) : 0.0;
     skyUniforms.uMoonGlow.value = moonY > 0 ? Math.min(1.0, moonY / 130 + 0.2) : 0.0;
 
-    // Fog & Scene Background
+    // Fog & Scene Background (preserves deep oceanic marine fog when underwater)
     if (scene) {
-      if (scene.fog) scene.fog.color.copy(state.fog);
+      if (scene.fog && scene.fog.density <= 0.005) {
+        scene.fog.color.copy(state.fog);
+      }
       if (scene.background) scene.background.copy(state.horizon);
     }
 
@@ -2079,6 +2130,8 @@ window.BlahajWorld = (function () {
         const col = fishPalette[(sIdx + f) % fishPalette.length];
         const fMesh = window.BlahajModels.createTropicalFish(col);
         scene.add(fMesh);
+        // Distribute fish across the vertical water column: surface schoolers, mid-reef roamers, deep gliders
+        const baseDepth = -0.55 - (f * 1.3) - ((sIdx % 3) * 0.8);
         fishSchool.push({
           mesh: fMesh,
           centerX: cx,
@@ -2086,7 +2139,9 @@ window.BlahajWorld = (function () {
           radius: 4.5 + f * 2.2,
           angle: (f / 3) * Math.PI * 2 + sIdx,
           speed: 0.85 + (f % 2) * 0.35,
-          jumpPhase: Math.random() * Math.PI * 2
+          jumpPhase: Math.random() * Math.PI * 2,
+          baseDepth,
+          canLeap: (f === 0)
         });
       }
     });
@@ -3488,21 +3543,29 @@ window.BlahajWorld = (function () {
       }
     });
 
-    // 4. Update Swimming & Leaping Tropical Fishes
+    // 4. Update Swimming & Leaping Tropical Fishes across the 3D Water Column
     fishSchool.forEach((f) => {
       const prevWave = Math.sin((time - dt) * 2.4 + f.jumpPhase);
       f.angle += f.speed * dt;
       const nx = f.centerX + Math.cos(f.angle) * f.radius;
       const nz = f.centerZ + Math.sin(f.angle) * f.radius;
       const leapWave = Math.sin(time * 2.4 + f.jumpPhase);
-      const ny = leapWave > 0.6 ? (leapWave - 0.6) * 3.8 : -0.15 + leapWave * 0.15;
+
+      let ny;
+      if (f.canLeap && leapWave > 0.62) {
+        ny = (leapWave - 0.62) * 3.6;
+      } else {
+        ny = f.baseDepth + Math.sin(time * 1.8 + f.jumpPhase) * 0.38;
+      }
 
       f.mesh.position.set(nx, ny, nz);
       f.mesh.rotation.y = -f.angle;
-      f.mesh.rotation.x = leapWave > 0.6 ? -Math.cos(time * 2.4 + f.jumpPhase) * 0.6 : 0;
+      f.mesh.rotation.x = (f.canLeap && leapWave > 0.62)
+        ? -Math.cos(time * 2.4 + f.jumpPhase) * 0.6
+        : Math.sin(time * 1.8 + f.jumpPhase) * 0.14;
 
       // Splash sound effect on fish breaching surface
-      if (prevWave <= 0.6 && leapWave > 0.6 && window.CozyAudioTrigger) {
+      if (f.canLeap && prevWave <= 0.62 && leapWave > 0.62 && window.CozyAudioTrigger) {
         window.CozyAudioTrigger.fishSplash(f.mesh.position);
       }
     });

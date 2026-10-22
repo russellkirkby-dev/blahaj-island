@@ -568,6 +568,10 @@
     doubleJumped: false,
     coyoteTimer: 0,
     inBoat: false,
+    inWater: false,
+    isSwimming: false,
+    waterSurfaceY: 0.22,
+    bubbleTimer: 0,
     warmth: 100,
     teaComfort: 88,
     volcanoHonour: 72,
@@ -988,6 +992,31 @@
     }
   }
 
+  function spawnUnderwaterBubbles(originPos, count = 4) {
+    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12 + Math.random() * 0.08, 6, 6),
+        new THREE.MeshBasicMaterial({
+          color: 0xa5f3fc,
+          transparent: true,
+          opacity: 0.72
+        })
+      );
+      mesh.position.copy(originPos).add(new THREE.Vector3(
+        (Math.random() - 0.5) * 0.9,
+        (Math.random() - 0.5) * 0.4,
+        (Math.random() - 0.5) * 0.9
+      ));
+      activeScene.add(mesh);
+      floatingBursts.push({
+        mesh,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.8 + Math.random() * 1.4, (Math.random() - 0.5) * 0.4),
+        life: 0.95
+      });
+    }
+  }
+
   function spawnSnoozeZzz(originPos) {
     if (currentZone !== 'island') return;
     const mesh = new THREE.Mesh(
@@ -1192,6 +1221,15 @@
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
         if (player.inBoat) {
           disembarkBoatAtCurrentLocation();
+        } else if (player.isSwimming) {
+          // Underwater swim paddle stroke & breach jump!
+          const swimBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.35 : 1.0;
+          player.velY = Math.max(player.velY + 4.5 * swimBoost, 6.2 * swimBoost);
+          spawnUnderwaterBubbles(player.pos, 5);
+          CozyAudio.waterSplash(0.12, 0.22);
+          if (player.mesh && player.mesh.userData) {
+            player.mesh.userData.flipTimer = 0.28;
+          }
         } else if (player.isGrounded || player.coyoteTimer > 0) {
           const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
           player.velY = 8.8 * jumpBoost;
@@ -2257,9 +2295,10 @@
       // Hop right off the side of the boat at its current spot!
       const sideX = bx + Math.cos(player.rotY) * 2.8;
       const sideZ = bz - Math.sin(player.rotY) * 2.8;
-      const gy = Math.max(0.0, worldApi.getGroundAndStructureHeight(sideX, sideZ, player.pos.y + 2.0));
-      player.pos.set(sideX, Math.max(gy, 0.8), sideZ);
-      player.velY = 6.2;
+      const gy = worldApi.getGroundAndStructureHeight(sideX, sideZ, player.pos.y + 2.0);
+      const waterY = worldApi.getWaveHeight(sideX, sideZ, clock ? clock.getElapsedTime() : 0);
+      player.pos.set(sideX, Math.max(gy, waterY + 0.25), sideZ);
+      player.velY = 4.2;
       player.isGrounded = false;
       CozyAudio.shonk();
       CozyAudio.waterSplash(0.12, 0.35);
@@ -3740,7 +3779,7 @@
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
-    updateCamera();
+    updateCamera(elapsed);
     updateInteractionsAndHUD();
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
@@ -3925,13 +3964,99 @@
             boat.rotation.y = player.rotY;
             player.pos.y = boat.position.y + 0.88;
           }
+          player.inWater = false;
+          player.isSwimming = false;
         } else {
-          // Walk seamlessly across both natural terrain AND Hiram's player-built bridges, ramps, docks, and platforms!
-          const groundY = Math.max(0.0, worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y));
-          if (!player.isGrounded || player.pos.y > groundY + 0.05) {
-            player.velY -= 22.0 * dt;
+          // Walk across natural terrain & player structures, or swim through dynamic ocean depths!
+          const groundY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
+          const waterSurfaceY = worldApi.getWaveHeight(player.pos.x, player.pos.z, elapsed);
+          player.waterSurfaceY = waterSurfaceY;
+
+          const wasInWater = player.inWater;
+          // Player is in water when below wave crest and ground is deeper than shallows
+          player.inWater = player.pos.y < waterSurfaceY + 0.35 && groundY < waterSurfaceY - 0.25;
+          // Full swimming mode when submerged or in deeper waters
+          player.isSwimming = player.inWater && (player.pos.y < waterSurfaceY - 0.15 || groundY < waterSurfaceY - 1.2);
+
+          // Water entry splash!
+          if (!wasInWater && player.inWater) {
+            CozyAudio.waterSplash(0.18, 0.3);
+            spawnUnderwaterBubbles(player.pos, 8);
+            player.velY *= 0.35; // Water resistance absorbs downward velocity
+          }
+
+          if (player.isSwimming) {
+            // --- 3D BUOYANT SWIMMING PHYSICS ---
+            const swimBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.25 : 1.0;
+
+            // 1. Natural plush buoyancy gently lifting shark toward water surface
+            const submergedDepth = waterSurfaceY - player.pos.y;
+            const naturalBuoyancy = Math.max(-2.0, Math.min(6.5, submergedDepth * 3.2));
+            player.velY += naturalBuoyancy * dt;
+
+            // 2. Active swimming controls:
+            // [Space] paddles UP vigorously
+            const holdingSpace = keys[' '] || keys['space'];
+            if (holdingSpace) {
+              player.velY = Math.min(8.5, player.velY + 16.0 * dt * swimBoost);
+            }
+
+            // [Shift] or [C] (when not builder mode) dives DOWN
+            const holdingDive = keys['shift'] || (!builderState.active && (keys['c'] || keys['z']));
+            if (holdingDive) {
+              player.velY = Math.max(-7.5, player.velY - 16.0 * dt * swimBoost);
+            }
+
+            // Pitch diving: swimming forward while looking downward angles dive toward seabed
+            if (moveForward > 0 && camState.pitch > 0.12) {
+              player.velY = Math.max(-7.0, player.velY - camState.pitch * 9.0 * dt);
+            }
+
+            // 3. Hydrodynamic drag damping
+            player.velY *= Math.max(0.0, 1.0 - 3.2 * dt);
             player.pos.y += player.velY * dt;
+
+            // 4. Seabed collision: resting or scuttling on the sandy/rocky ocean floor!
             if (player.pos.y <= groundY) {
+              player.pos.y = groundY;
+              if (player.velY < 0) player.velY = 0;
+              player.isGrounded = true;
+              player.canDoubleJump = true;
+              player.doubleJumped = false;
+              player.coyoteTimer = 0.15;
+            } else {
+              player.isGrounded = false;
+            }
+
+            // 5. Breaching the surface: if leaping upward past the wave crest, launch into air!
+            if (player.pos.y > waterSurfaceY && player.velY > 4.2) {
+              CozyAudio.waterSplash(0.16, 0.25);
+              spawnUnderwaterBubbles(player.pos, 6);
+              if (player.mesh && player.mesh.userData) {
+                player.mesh.userData.flipTimer = 0.45;
+              }
+            }
+
+            // Periodic bubble stream while swimming submerged
+            player.bubbleTimer = (player.bubbleTimer || 0) + dt;
+            if (player.bubbleTimer > 0.35 && isMoving && submergedDepth > 0.4) {
+              player.bubbleTimer = 0;
+              spawnUnderwaterBubbles(player.pos, 2);
+            }
+          } else {
+            // --- TERRESTRIAL GRAVITY & WALKING ON LAND / SHALLOWS ---
+            if (!player.isGrounded || player.pos.y > groundY + 0.05) {
+              player.velY -= 22.0 * dt;
+              player.pos.y += player.velY * dt;
+              if (player.pos.y <= groundY) {
+                player.pos.y = groundY;
+                player.velY = 0;
+                player.isGrounded = true;
+                player.canDoubleJump = true;
+                player.doubleJumped = false;
+                player.coyoteTimer = 0.15;
+              }
+            } else {
               player.pos.y = groundY;
               player.velY = 0;
               player.isGrounded = true;
@@ -3939,16 +4064,9 @@
               player.doubleJumped = false;
               player.coyoteTimer = 0.15;
             }
-          } else {
-            player.pos.y = groundY;
-            player.velY = 0;
-            player.isGrounded = true;
-            player.canDoubleJump = true;
-            player.doubleJumped = false;
-            player.coyoteTimer = 0.15;
-          }
-          if (!player.isGrounded) {
-            player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
+            if (!player.isGrounded) {
+              player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
+            }
           }
         }
       }
@@ -3976,7 +4094,7 @@
         player.mesh.rotation.order = 'XYZ';
         player.mesh.rotation.set(0, player.rotY, 0);
       }
-      window.BlahajModels.animateShark(player.mesh, dt, isMoving && !player.inBoat && !player.ridingWithPartner, elapsed);
+      window.BlahajModels.animateShark(player.mesh, dt, isMoving && !player.inBoat && !player.ridingWithPartner, elapsed, player.isSwimming, player.velY);
     }
 
     worldActors.forEach((act) => {
@@ -4149,7 +4267,7 @@
     // 3. Volcano Trial Dungeon Traps & Core Ascent Portal (Legacy cleanup)
   }
 
-  function updateCamera() {
+  function updateCamera(elapsed = 0) {
     const rightVec = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
     const lookTarget = new THREE.Vector3(
       player.pos.x + rightVec.x * camState.shoulderRight,
@@ -4190,6 +4308,26 @@
 
     camera.position.set(camX, camY, camZ);
     camera.lookAt(lookTarget);
+
+    // Dynamic underwater marine turquoise fog when camera is submerged below ocean wave surface
+    if (scene && scene.fog && currentZone !== 'volcano') {
+      const waterAtCam = (worldApi && typeof worldApi.getWaveHeight === 'function')
+        ? worldApi.getWaveHeight(camX, camZ, elapsed)
+        : 0.22;
+      const isSubmerged = camY < waterAtCam;
+      if (isSubmerged) {
+        scene.fog.color.setHex(0x0a3d54); // Oceanic turquoise deep
+        scene.fog.density = 0.024;
+      } else {
+        const skyState = (worldApi && typeof worldApi.getDayNightState === 'function')
+          ? worldApi.getDayNightState()
+          : null;
+        if (skyState && skyState.fog) {
+          scene.fog.color.copy(skyState.fog);
+        }
+        scene.fog.density = 0.0015;
+      }
+    }
 
     const deg = ((-camState.yaw * 180) / Math.PI % 360 + 360) % 360;
     const track = document.getElementById('compass-track');

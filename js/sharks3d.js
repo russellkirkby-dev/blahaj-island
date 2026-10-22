@@ -1295,12 +1295,27 @@ window.BlahajModels = (function () {
     return group;
   }
 
-  function animateShark(mesh, dt, isMoving, time) {
+  function animateShark(mesh, dt, isMoving, time, isSwimming = false, swimVelY = 0) {
     if (!mesh || !mesh.userData || !mesh.userData.rig) return;
     const ud = mesh.userData;
     const rig = ud.rig;
 
-    if (isMoving) {
+    if (isSwimming) {
+      // Sinuous, hydrodynamic 3D plush shark swimming animation!
+      ud.walkPhase += dt * (isMoving ? 11.5 : 4.8);
+      // Gentle buoyant hovering bob
+      rig.position.y = Math.sin(ud.walkPhase * 0.75) * 0.12;
+      // Body banking roll
+      rig.rotation.z = Math.sin(ud.walkPhase * 0.6) * 0.09;
+
+      if (ud.leftFinPivot && ud.rightFinPivot) {
+        ud.leftFinPivot.rotation.z = Math.sin(ud.walkPhase) * 0.28 - 0.16;
+        ud.rightFinPivot.rotation.z = -Math.sin(ud.walkPhase) * 0.28 + 0.16;
+      }
+      if (ud.tailGroup) {
+        ud.tailGroup.rotation.y = Math.sin(ud.walkPhase * 1.25) * 0.42;
+      }
+    } else if (isMoving) {
       ud.walkPhase += dt * 10.5;
       rig.position.y = Math.abs(Math.sin(ud.walkPhase)) * 0.22;
       rig.rotation.z = Math.sin(ud.walkPhase) * 0.085;
@@ -1341,6 +1356,14 @@ window.BlahajModels = (function () {
         ud.rightFinPivot.rotation.z = -p * 0.55;
       }
       rig.rotation.x = p * 0.18;
+    } else if (isSwimming) {
+      // Tilt body pitch along climb/dive swim trajectory
+      const targetPitch = Math.max(-0.65, Math.min(0.65, -swimVelY * 0.08));
+      rig.rotation.x += (targetPitch - rig.rotation.x) * Math.min(1.0, dt * 7.5);
+      if (ud.leftFinPivot && ud.rightFinPivot) {
+        ud.leftFinPivot.rotation.y = 0;
+        ud.rightFinPivot.rotation.y = 0;
+      }
     } else {
       rig.rotation.x = 0;
       if (ud.leftFinPivot && ud.rightFinPivot) {
