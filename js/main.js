@@ -572,6 +572,7 @@
     isSwimming: false,
     waterSurfaceY: 0.22,
     bubbleTimer: 0,
+    hasSeenPelagicRiftNotice: false,
     warmth: 100,
     teaComfort: 88,
     volcanoHonour: 72,
@@ -3929,8 +3930,8 @@
           let nx = player.pos.x + (dirX / len) * speed * dt;
           let nz = player.pos.z + (dirZ / len) * speed * dt;
 
-          // Expanded bounds covering Main Island, Volcano Peninsula, and all 4 Outer Buildable Sanctuary Islands!
-          if (Math.abs(nx) < 275 && Math.abs(nz) < 275) {
+          // Expanded bounds covering Main Island, Volcano Peninsula, 4 Outer Islands, and the Deep Ocean Shelf!
+          if (Math.abs(nx) < 380 && Math.abs(nz) < 380) {
             const nextGroundY = worldApi.getTerrainHeight(nx, nz);
             if (player.inBoat) {
               if (nextGroundY < 0.85) {
@@ -4042,6 +4043,25 @@
             if (player.bubbleTimer > 0.35 && isMoving && submergedDepth > 0.4) {
               player.bubbleTimer = 0;
               spawnUnderwaterBubbles(player.pos, 2);
+            }
+
+            // Check Pelagic Abyss Instance Threshold (edge of charted deep shelf)
+            const dCoast = (worldApi && typeof worldApi.getDistanceToNearestCoast === 'function')
+              ? worldApi.getDistanceToNearestCoast(player.pos.x, player.pos.z)
+              : 0;
+
+            if (dCoast > 115.0) {
+              if (!player.hasSeenPelagicRiftNotice) {
+                player.hasSeenPelagicRiftNotice = true;
+                showToast('🌊 PELAGIC ABYSS TRENCH [Instance Threshold]', 'Strong oceanic currents swirl at the edge of the charted shelf! (Deeper Trench Instance coming soon)');
+                CozyAudio.portalChime();
+              }
+              // Gentle oceanic counter-current nudging player back toward the shelf
+              const lenToCenter = Math.hypot(player.pos.x, player.pos.z - 12) || 1;
+              player.pos.x -= (player.pos.x / lenToCenter) * 5.0 * dt;
+              player.pos.z -= ((player.pos.z - 12) / lenToCenter) * 5.0 * dt;
+            } else if (dCoast < 95.0) {
+              player.hasSeenPelagicRiftNotice = false;
             }
           } else {
             // --- TERRESTRIAL GRAVITY & WALKING ON LAND / SHALLOWS ---
