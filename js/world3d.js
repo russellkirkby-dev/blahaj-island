@@ -530,9 +530,27 @@ window.BlahajWorld = (function () {
         if (lx * lx + lz * lz <= 7.3) {
           surfY = st.y + 0.36;
         }
-      } else if (st.type === 'cushion_circle') {
+      } else if (st.type === 'cushion_circle' || st.type === 'plush_cushion') {
         if (lx * lx + lz * lz <= 4.0) {
           surfY = st.y + 0.65;
+        }
+      } else if (st.type === 'kotatsu_table') {
+        if (lx * lx + lz * lz <= 7.8) {
+          if (lx * lx + lz * lz <= 2.7) surfY = st.y + 0.89; // tabletop
+          else surfY = st.y + 0.23; // cushions
+        }
+      } else if (st.type === 'breb_oven') {
+        if (Math.abs(lx) <= 1.45 && Math.abs(lz) <= 1.35) {
+          if (lx * lx + lz * lz <= 1.8) surfY = st.y + 3.15; // dome top
+          else surfY = st.y + 1.80; // hearth counter
+        }
+      } else if (st.type === 'shark_statue') {
+        if (lx * lx + lz * lz <= 3.3) {
+          surfY = st.y + 1.40; // pedestal top
+        }
+      } else if (st.type === 'allen_obelisk') {
+        if (lx * lx + lz * lz <= 2.3) {
+          surfY = st.y + 2.40; // obelisk pedestal top
         }
       }
 
@@ -622,28 +640,82 @@ window.BlahajWorld = (function () {
       }
     }
 
-    // 4. The Ancient Volcano Sealed Shrine Dais (x = -22, z = -103)
-    // Basalt dais: CylinderGeometry(8.5, 9.2, 1.2, 24) at y = shrineY + 0.6 (top: shrineY + 1.20, r <= 9.2)
-    const dShrine = Math.hypot(x - (-22), z - (-103));
-    if (dShrine <= 9.2) {
-      const shrineY = getTerrainHeight(-22, -103);
-      const topY = shrineY + 1.20;
-      if (refY === null || topY <= refY + 2.8) {
-        if (topY > bestY) bestY = topY;
+    // 3b. Isthmus Causeway Torii Gates (4 solid jumpable basalt arches)
+    for (let g = 0; g < 4; g++) {
+      const gz = -44 - g * 14;
+      const tIsth = (-gz - 32) / 73;
+      const gx = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+      const gy = getTerrainHeight(gx, gz);
+      const topBeamY = gy + 6.425; // Top of horizontal crossbeam
+
+      // Crossbeam surface: width 9.6 (|x - gx| <= 4.8), depth 0.95 (|z - gz| <= 0.65)
+      if (Math.abs(x - gx) <= 4.85 && Math.abs(z - gz) <= 0.65) {
+        if (refY === null || topBeamY <= refY + 2.8) {
+          if (topBeamY > bestY) bestY = topBeamY;
+        }
+      }
+      // Top of side vertical columns (px = +/- 3.8)
+      if ((Math.abs((x - gx) - 3.8) <= 0.55 || Math.abs((x - gx) - (-3.8)) <= 0.55) && Math.abs(z - gz) <= 0.55) {
+        const topColY = gy + 6.2;
+        if (refY === null || topColY <= refY + 2.8) {
+          if (topColY > bestY) bestY = topColY;
+        }
       }
     }
 
-    // 5. The Spherical Foods Bluff (x = -52, z = 34)
-    // Dining Deck: CylinderGeometry(8.5, 9.2, 0.65, 32) at y = y0 + 0.3 (top: y0 + 0.625, r <= 9.2)
-    // Round Food Table: CylinderGeometry(3.1, 2.5, 1.2, 28) at y = y0 + 1.15 (top: y0 + 1.75, r <= 3.1)
+    // 4. The Ancient Volcano Exoteric Shrine Dais, Balcony, Steps & Altar (x = -22, z = -103)
+    const shrineY = getTerrainHeight(-22, -103);
+    const dShrine = Math.hypot(x - (-22), z - (-103));
+
+    // Balcony Dais Surface: r <= 9.2, top = shrineY + 1.20
+    if (dShrine <= 9.2) {
+      let bTop = shrineY + 1.20;
+      // Exoteric Offering Altar: width 3.4 (|dx| <= 1.7), depth 1.6 (z in [-100.2, -98.6])
+      if (Math.abs(x - (-22)) <= 1.75 && z >= -100.2 && z <= -98.6) {
+        bTop = shrineY + 1.84; // On top of the offering altar!
+      }
+      if (refY === null || bTop <= refY + 2.8) {
+        if (bTop > bestY) bestY = bTop;
+      }
+    }
+
+    // Grand Balcony Basalt Steps leading up from road (z in [-102.5, -94.0], |x - (-22)| <= 3.4)
+    if (Math.abs(x - (-22)) <= 3.4 && z >= -102.5 && z <= -94.0) {
+      const stepProg = (z - (-94.0)) / (-8.0); // 0 at road bottom, 1 at dais rim
+      const u = Math.max(0, Math.min(1, stepProg));
+      const stepSurfY = shrineY - 2.6 + u * 3.2 + 0.24;
+      if (refY === null || stepSurfY <= refY + 2.8) {
+        if (stepSurfY > bestY) bestY = stepSurfY;
+      }
+    }
+
+    // 5. The Spherical Foods Bluff (x = -52, z = 34, rotY = 0.55)
     const dSphere = Math.hypot(x - (-52), z - 34);
-    if (dSphere <= 9.2) {
+    if (dSphere <= 9.5) {
       const y0 = getTerrainHeight(-52, 34);
       let sphereSurfY = -999;
-      if (dSphere <= 3.1) {
+
+      // Solid Climbable & Jumpable Pavilion Rooftop Canopy (Cone/Dome from y0 + 4.6 to y0 + 7.4, r <= 8.4)
+      if (dSphere <= 8.4 && refY !== null && refY >= y0 + 3.8) {
+        sphereSurfY = y0 + 4.6 + 2.8 * (1.0 - dSphere / 8.4);
+      } else if (dSphere <= 3.1) {
         sphereSurfY = y0 + 1.75; // On top of the round food table
       } else {
-        sphereSurfY = y0 + 0.625; // On dining deck
+        // Climbing Crates in local frame (rotY = 0.55)
+        const dxS = x - (-52);
+        const dzS = z - 34;
+        const cosS = Math.cos(-0.55);
+        const sinS = Math.sin(-0.55);
+        const lxS = dxS * cosS - dzS * sinS;
+        const lzS = dxS * sinS + dzS * cosS;
+
+        if (lxS >= 5.2 && lxS <= 7.5 && lzS >= -4.0 && lzS <= 0.2) {
+          if (lzS < -2.6) sphereSurfY = y0 + 1.4;
+          else if (lzS < -1.4) sphereSurfY = y0 + 2.8;
+          else sphereSurfY = y0 + 4.2; // Top crate steps directly onto roof eaves!
+        } else {
+          sphereSurfY = y0 + 0.625; // On dining deck
+        }
       }
       if (refY === null || sphereSurfY <= refY + 2.8) {
         if (sphereSurfY > bestY) bestY = sphereSurfY;
@@ -1971,11 +2043,55 @@ window.BlahajWorld = (function () {
     const shrineGroup = new THREE.Group();
     shrineGroup.position.set(shrineX, shrineY, shrineZ);
 
-    // Basalt foundation dais
+    // Basalt foundation dais (The Front Balcony of the Exoteric Shrine)
     const dais = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 9.2, 1.2, 24), basaltMat);
     dais.position.y = 0.6;
     dais.receiveShadow = true;
     shrineGroup.add(dais);
+
+    // Colonnade of 6 heavy basalt foundation pillars supporting the balcony overhang over the slope
+    for (let pIdx = 0; pIdx < 6; pIdx++) {
+      const pAng = (pIdx / 5) * Math.PI * 0.85 + Math.PI * 0.08;
+      const pRad = 7.6;
+      const px = Math.cos(pAng) * pRad;
+      const pz = Math.sin(pAng) * pRad;
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.92, 8.5, 12), basaltMat);
+      pillar.position.set(px, -3.8, pz);
+      pillar.castShadow = true;
+      shrineGroup.add(pillar);
+    }
+
+    // Grand Carved Basalt Steps leading up to the Balcony from the Causeway road (z = -93 to -101)
+    const stepsCount = 7;
+    for (let s = 0; s < stepsCount; s++) {
+      const stepProg = s / (stepsCount - 1);
+      const stepRelZ = 8.5 - stepProg * 7.5; // from +8.5 (z = -94.5) to +1.0 (z = -102.0)
+      const stepRelY = -2.6 + stepProg * 3.2; // ascending up to dais top y = 0.6
+      const stepWidth = 6.6 - stepProg * 0.8;
+      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(stepWidth, 0.48, 1.35), basaltMat);
+      stepMesh.position.set(0, stepRelY, stepRelZ);
+      stepMesh.receiveShadow = true;
+      shrineGroup.add(stepMesh);
+    }
+
+    // Exoteric Offering Altar of the Volcanic Faith (front-facing for pilgrims & offerings)
+    const altar = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.25, 1.6), basaltMat);
+    altar.position.set(0, 1.22, 3.6);
+    altar.castShadow = true;
+    shrineGroup.add(altar);
+
+    // Glowing Golden Offering Chalice on the Altar
+    const chalice = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.38, 0.72, 16), brassMat);
+    chalice.position.set(0, 2.15, 3.6);
+    shrineGroup.add(chalice);
+
+    const sacredSpark = new THREE.Mesh(
+      new THREE.SphereGeometry(0.26, 14, 14),
+      new THREE.MeshBasicMaterial({ color: 0xff7722 })
+    );
+    sacredSpark.position.set(0, 2.7, 3.6);
+    shrineGroup.add(sacredSpark);
+    animatedObjects.push({ mesh: sacredSpark, type: 'spin_bob', baseY: 2.7 });
 
     // Twin Carved Basalt Pillars
     [-3.8, 3.8].forEach((px) => {
@@ -2921,7 +3037,7 @@ window.BlahajWorld = (function () {
     });
 
     const orbGroup = new THREE.Group();
-    orbGroup.position.set(0, 5.8, -4.2);
+    orbGroup.position.set(0, 8.2, 0);
     const orb = new THREE.Mesh(new THREE.SphereGeometry(1.15, 24, 22), brassMat);
     const orbRing = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.08, 12, 32), brassMat);
     orbRing.rotation.x = Math.PI * 0.38;
@@ -2929,6 +3045,50 @@ window.BlahajWorld = (function () {
     orbGroup.add(orbRing);
     group.add(orbGroup);
     animatedObjects.push({ mesh: orbGroup, type: 'spin_slow' });
+
+    // 6 Carved Cedar Columns supporting the Rooftop Canopy
+    for (let cIdx = 0; cIdx < 6; cIdx++) {
+      const ca = (cIdx / 6) * Math.PI * 2;
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 4.2, 10), woodMat);
+      col.position.set(Math.cos(ca) * 7.4, 2.4, Math.sin(ca) * 7.4);
+      col.castShadow = true;
+      group.add(col);
+    }
+
+    // Domed Pavilion Rooftop (Conical / bell canopy with brass trim & culinary finial)
+    const roofFascia = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.5, 0.45, 32), woodMat);
+    roofFascia.position.y = 4.5;
+    group.add(roofFascia);
+
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0x822433,
+      roughness: 0.65,
+      side: THREE.DoubleSide
+    });
+    const roofCanopy = new THREE.Mesh(new THREE.ConeGeometry(8.4, 2.8, 32, 1, true), roofMat);
+    roofCanopy.position.y = 5.9;
+    roofCanopy.castShadow = true;
+    roofCanopy.receiveShadow = true;
+    group.add(roofCanopy);
+
+    // Brass culinary finial sphere perched atop the roof apex
+    const roofFinial = new THREE.Mesh(new THREE.SphereGeometry(0.72, 20, 18), brassMat);
+    roofFinial.position.y = 7.6;
+    group.add(roofFinial);
+
+    // Stepped climbing crates on the side (allows players to hop up onto the roof)
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0x5a3e28, roughness: 0.85 });
+    const crate1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.6), crateMat);
+    crate1.position.set(6.2, 0.7, -3.2);
+    group.add(crate1);
+
+    const crate2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.4, 1.5), crateMat);
+    crate2.position.set(6.4, 2.1, -2.0);
+    group.add(crate2);
+
+    const crate3 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), crateMat);
+    crate3.position.set(6.6, 3.5, -0.8);
+    group.add(crate3);
 
     const light = new THREE.PointLight(0xffbe6b, 1.8, 28);
     light.position.set(0, 4.8, 0);

@@ -2400,21 +2400,30 @@
 
     if (lm.type === 'sealed_gate') {
       openDialogueModal({
-        speaker: 'Ancient Sealed Volcano Gate',
-        role: 'LOCKED CANON · BLÅHAJ ISLAND',
+        speaker: 'The Exoteric Volcano Shrine & Offering Altar',
+        role: 'SACRED FRONT BALCONY · THE VOLCANIC FAITH',
         portrait: 'assets/gallery/Blizzard-Volcano.png',
-        text: '“THE HIGH CALDERA IS SEALED FROM WITHOUT. The sheer mountain cliffs cannot be scaled. Only those who brave the subterranean Trials through the Sea Cave at the North Rear Wharf may stand upon the Caldera Overlook.”',
+        text: '“Welcome, pilgrim, to the Exoteric Shrine of the Sacred Volcano. From this front balcony facing our island community, sharks bring offerings of warm tea, fresh buns, and sincere devotion to appease the mountain. The esoteric trials of the inner caldera remain sealed from without—only initiates who brave the northern sea caves may tread the core.”',
         actions: [
           {
-            label: 'Enter the Volcano Trial Dungeon! 🌋⚔️',
+            label: 'Make an Offering to the Volcano 🌋🍵✨',
             className: 'btn-primary',
             onClick: () => {
               closeDialogueModal();
-              enterVolcanoTrial();
+              player.teaComfort = 100;
+              player.warmth = 100;
+              player.stuffing = 100;
+              player.trialPoints = (player.trialPoints || 0) + 1;
+              player.teaSharedCount = (player.teaSharedCount || 0) + 1;
+              updateMetersUI();
+              CozyAudio.portalChime();
+              spawnFloatingBurst(player.pos, 0xff7722, 26);
+              showToast('VOLCANO BLESSING GRANTED 🌋✨', 'Sacred offering placed upon the Altar! (+1 Trial Point · Tea Comfort Steaming)');
+              addChatLog('🌋 <strong>The Exoteric Volcano Shrine:</strong> You placed a sacred offering upon the Altar of the Core. The mountain rumbles with warm benevolence! (+1 Trial Point · Comfort Restored)', 'lore');
             }
           },
           {
-            label: 'Fast-Travel to Rear Wharf & Sea Cave ⛵',
+            label: 'Fast-Travel to Esoteric Sea Cave Wharf ⛵',
             className: 'btn-accent',
             onClick: () => {
               closeDialogueModal();
@@ -2427,7 +2436,15 @@
             }
           },
           {
-            label: 'Leave Sealed Gate [E]',
+            label: 'Enter the Volcano Trial Dungeon! 🌋⚔️',
+            className: 'btn-secondary',
+            onClick: () => {
+              closeDialogueModal();
+              enterVolcanoTrial();
+            }
+          },
+          {
+            label: 'Step Away from the Altar',
             className: 'btn-secondary',
             onClick: () => closeDialogueModal()
           }

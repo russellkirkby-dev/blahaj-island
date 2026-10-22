@@ -205,11 +205,11 @@ window.BLAHAJ_LORE = {
     },
     {
       id: 'sealed_volcano_gate',
-      name: 'Ancient Sealed Volcano Gate',
-      zoneTitle: 'Sacred Volcano Peninsula · Sealed Southern Gate',
+      name: 'The Exoteric Volcano Shrine & Offering Altar',
+      zoneTitle: 'Sacred Volcano Peninsula · Exoteric Front Shrine',
       pos: { x: -22, z: -103 },
       radius: 12,
-      prompt: 'Inspect Ancient Sealed Gate [E] ⛩️',
+      prompt: 'Make an Offering to the Volcano [E] 🌋🍵',
       type: 'sealed_gate'
     },
     {
