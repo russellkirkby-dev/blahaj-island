@@ -1428,18 +1428,6 @@ window.BlahajWorld = (function () {
     const moonY = Math.sin(moonAngle) * 280;
     const moonZ = Math.sin(moonAngle * 0.5) * 80 + 20;
 
-    // Update Sun & Moon 3D Body Meshes
-    if (sunGroup) {
-      sunGroup.position.set(sunX, sunY, sunZ);
-      sunGroup.lookAt(0, 0, 0);
-      sunGroup.visible = (sunY > -45);
-    }
-    if (moonGroup) {
-      moonGroup.position.set(moonX, moonY, moonZ);
-      moonGroup.lookAt(0, 0, 0);
-      moonGroup.visible = (moonY > -45);
-    }
-
     // Directional light (Sun by day, Moon by night)
     if (sunY > 0) {
       dirLight.position.set(sunX * 0.55, Math.max(30, sunY * 0.55), sunZ * 0.55);
@@ -1560,33 +1548,6 @@ window.BlahajWorld = (function () {
       `
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-    // Glowing Sun & Moon 3D Body Meshes
-    sunGroup = new THREE.Group();
-    const sunCore = new THREE.Mesh(
-      new THREE.SphereGeometry(14, 24, 24),
-      new THREE.MeshBasicMaterial({ color: 0xfffae6 })
-    );
-    sunGroup.add(sunCore);
-    const sunRing = new THREE.Mesh(
-      new THREE.RingGeometry(14, 34, 32),
-      new THREE.MeshBasicMaterial({ color: 0xffbf66, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
-    );
-    sunGroup.add(sunRing);
-    scene.add(sunGroup);
-
-    moonGroup = new THREE.Group();
-    const moonCore = new THREE.Mesh(
-      new THREE.SphereGeometry(11, 24, 24),
-      new THREE.MeshBasicMaterial({ color: 0xe6f0ff })
-    );
-    moonGroup.add(moonCore);
-    const moonRing = new THREE.Mesh(
-      new THREE.RingGeometry(11, 26, 32),
-      new THREE.MeshBasicMaterial({ color: 0x9bc2ff, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
-    );
-    moonGroup.add(moonRing);
-    scene.add(moonGroup);
 
     const starGeo = new THREE.BufferGeometry();
     const starPts = [];
@@ -1766,11 +1727,15 @@ window.BlahajWorld = (function () {
     animatedObjects.push({ mesh: eternalFlame, type: 'spin_bob', baseY: 2.4 });
 
     group.add(shrineGroup);
+    scene.add(group);
 
-    // Sunny the Beach Carrot's Scenic Safe Overlook Lounge (Umbrella, Beach Mat & Coconut Drink)
+    // Sunny the Beach Carrot's Scenic Crescent Beach Vacation Lounge (Umbrella, Beach Mat & Coconut Drink)
     const sunnyLounge = new THREE.Group();
-    const sunnyY = getTerrainHeight(-13.5, -92.5);
-    sunnyLounge.position.set(-13.5, sunnyY, -92.5);
+    const sunnyX = 22;
+    const sunnyZ = 48;
+    const sunnyY = getTerrainHeight(sunnyX, sunnyZ);
+    sunnyLounge.position.set(sunnyX, sunnyY, sunnyZ);
+    sunnyLounge.rotation.y = 0.15;
 
     // Striped sunny beach towel / mat
     const towel = new THREE.Mesh(
@@ -1806,8 +1771,7 @@ window.BlahajWorld = (function () {
     coconut.position.set(0.9, 0.2, 0.8);
     sunnyLounge.add(coconut);
 
-    group.add(sunnyLounge);
-    scene.add(group);
+    scene.add(sunnyLounge);
   }
 
   // ==========================================================================
@@ -1953,7 +1917,12 @@ window.BlahajWorld = (function () {
         hopPhase: Math.random() * Math.PI * 2,
         satiationTimer: 0,
         isSleeping: false,
-        snoozeTimer: Math.random() * 2.0
+        snoozeTimer: Math.random() * 2.0,
+        appetite: 0,
+        isEating: false,
+        eatTimer: 0,
+        crumbTimer: 0,
+        targetLoaf: null
       });
     });
   }
@@ -1970,7 +1939,8 @@ window.BlahajWorld = (function () {
     activeBrebLoaves.push({
       mesh: loaf,
       pos: loaf.position.clone(),
-      life: 10.0
+      life: 25.0,
+      claimedBy: null
     });
   }
 
@@ -3219,7 +3189,7 @@ window.BlahajWorld = (function () {
       }
     });
 
-    // 3. Update Birbs (Flocking to thrown Breb Loaves!)
+    // 3. Update Birbs (Flocking to thrown Breb Loaves, Pecking & Multi-Loaf Appetite!)
     for (let i = activeBrebLoaves.length - 1; i >= 0; i--) {
       activeBrebLoaves[i].life -= dt;
       if (activeBrebLoaves[i].life <= 0) {
@@ -3241,6 +3211,7 @@ window.BlahajWorld = (function () {
         // Satiated loaf pose! Birb settles down comfortably onto the meadow grass, snoozing
         const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
         b.mesh.position.y = groundY + 0.04;
+        b.mesh.rotation.x = 0;
         const breath = 1.0 + Math.sin(time * 2.2 + b.hopPhase) * 0.04;
         b.mesh.scale.set(1.18 * breath, 0.74 * (2.0 - breath), 1.18 * breath);
         if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
@@ -3259,33 +3230,140 @@ window.BlahajWorld = (function () {
         b.mesh.scale.set(1, 1, 1);
       }
 
+      // Birb is actively pecking & eating a loaf!
+      if (b.isEating) {
+        const loafStillExists = b.targetLoaf && activeBrebLoaves.includes(b.targetLoaf) && b.targetLoaf.life > 0;
+        if (!loafStillExists) {
+          b.isEating = false;
+          b.targetLoaf = null;
+          b.mesh.rotation.x = 0;
+        } else {
+          b.eatTimer -= dt;
+          const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
+          b.mesh.position.y = groundY;
+
+          // Face the delicious bread loaf
+          const ldx = b.targetLoaf.pos.x - b.mesh.position.x;
+          const ldz = b.targetLoaf.pos.z - b.mesh.position.z;
+          b.mesh.rotation.y = Math.atan2(ldx, ldz);
+
+          // Animated enthusiastic pecking & head bobbing!
+          b.mesh.rotation.x = Math.max(0, Math.sin(time * 22)) * 0.42;
+
+          // Flutter wings excitedly while pecking
+          if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
+            const wingPeck = Math.sin(time * 26 + b.hopPhase) * 0.35;
+            b.mesh.userData.leftWing.rotation.z = wingPeck;
+            b.mesh.userData.rightWing.rotation.z = -wingPeck;
+          }
+
+          // Flying breadcrumbs
+          b.crumbTimer = (b.crumbTimer || 0) + dt;
+          if (b.crumbTimer >= 0.4) {
+            b.crumbTimer = 0;
+            if (window.BlahajEffects && typeof window.BlahajEffects.spawnBreadCrumbs === 'function') {
+              window.BlahajEffects.spawnBreadCrumbs(b.targetLoaf.pos);
+            }
+          }
+
+          // Loaf visibly shrinks as the Birb munches it down
+          const eatRatio = Math.max(0.08, b.eatTimer / 3.5);
+          b.targetLoaf.mesh.scale.set(1.35 * eatRatio, 0.82 * eatRatio, 0.95 * eatRatio);
+
+          if (b.eatTimer <= 0) {
+            // Meal complete!
+            b.isEating = false;
+            b.mesh.rotation.x = 0;
+            if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
+              b.mesh.userData.leftWing.rotation.z = 0;
+              b.mesh.userData.rightWing.rotation.z = 0;
+            }
+
+            // Remove consumed loaf from world
+            b.targetLoaf.life = 0;
+            if (scene) scene.remove(b.targetLoaf.mesh);
+            const loafIdx = activeBrebLoaves.indexOf(b.targetLoaf);
+            if (loafIdx !== -1) activeBrebLoaves.splice(loafIdx, 1);
+            b.targetLoaf = null;
+
+            // Track multi-loaf appetite (takes 3 loaves to get fully stuffed into a coma)
+            b.appetite = (b.appetite || 0) + 1;
+
+            if (b.appetite >= 3) {
+              b.satiationTimer = 90.0;
+              b.isSleeping = true;
+              b.appetite = 0;
+              if (typeof window.BlahajOnBirbComa === 'function') {
+                window.BlahajOnBirbComa(b);
+              }
+            } else {
+              if (typeof window.BlahajOnBirbLoafEaten === 'function') {
+                window.BlahajOnBirbLoafEaten(b);
+              }
+            }
+          }
+          return;
+        }
+      }
+
+      // Search for nearest unclaimed bread loaf
       let nearestBreb = null;
-      let minD = 22;
+      let minD = 24;
       activeBrebLoaves.forEach((loaf) => {
-        const d = loaf.pos.distanceTo(b.mesh.position);
-        if (d < minD) {
-          minD = d;
-          nearestBreb = loaf;
+        if (loaf.life > 0 && (!loaf.claimedBy || loaf.claimedBy === b)) {
+          const d = loaf.pos.distanceTo(b.mesh.position);
+          if (d < minD) {
+            minD = d;
+            nearestBreb = loaf;
+          }
         }
       });
 
-      const dest = nearestBreb ? nearestBreb.pos : b.homePos;
-      const dist = dest.distanceTo(b.mesh.position);
-      if (dist > 0.75) {
-        const dir = dest.clone().sub(b.mesh.position).normalize();
-        const spd = nearestBreb ? 5.5 : 1.8;
-        b.mesh.position.x += dir.x * spd * dt;
-        b.mesh.position.z += dir.z * spd * dt;
-        b.mesh.rotation.y = Math.atan2(dir.x, dir.z);
-      }
-      const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
-      const hopSpeed = nearestBreb ? 14 : 6;
-      b.mesh.position.y = groundY + Math.abs(Math.sin(time * hopSpeed + b.hopPhase)) * (nearestBreb ? 0.35 : 0.14);
+      if (nearestBreb) {
+        const dist = nearestBreb.pos.distanceTo(b.mesh.position);
+        if (dist <= 0.85) {
+          // Reached loaf! Begin pecking and munching
+          b.isEating = true;
+          b.eatTimer = 3.5;
+          b.crumbTimer = 0;
+          b.targetLoaf = nearestBreb;
+          nearestBreb.claimedBy = b;
+          return;
+        }
 
-      if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
-        const flap = Math.sin(time * 18 + b.hopPhase) * (nearestBreb ? 0.65 : 0.2);
-        b.mesh.userData.leftWing.rotation.z = flap;
-        b.mesh.userData.rightWing.rotation.z = -flap;
+        // Hop eagerly towards bread loaf!
+        const dir = nearestBreb.pos.clone().sub(b.mesh.position).normalize();
+        b.mesh.position.x += dir.x * 5.5 * dt;
+        b.mesh.position.z += dir.z * 5.5 * dt;
+        b.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        b.mesh.rotation.x = 0;
+
+        const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
+        b.mesh.position.y = groundY + Math.abs(Math.sin(time * 15 + b.hopPhase)) * 0.35;
+
+        if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
+          const flap = Math.sin(time * 20 + b.hopPhase) * 0.65;
+          b.mesh.userData.leftWing.rotation.z = flap;
+          b.mesh.userData.rightWing.rotation.z = -flap;
+        }
+      } else {
+        // No loaf: gentle idle hopping around home position
+        b.mesh.rotation.x = 0;
+        const dHome = b.homePos.distanceTo(b.mesh.position);
+        if (dHome > 1.4) {
+          const dir = b.homePos.clone().sub(b.mesh.position).normalize();
+          b.mesh.position.x += dir.x * 1.8 * dt;
+          b.mesh.position.z += dir.z * 1.8 * dt;
+          b.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+        }
+        const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
+        b.mesh.position.y = groundY + Math.abs(Math.sin(time * 6 + b.hopPhase)) * 0.12;
+
+        if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
+          const flap = Math.sin(time * 10 + b.hopPhase) * 0.2;
+          b.mesh.userData.leftWing.rotation.z = flap;
+          b.mesh.userData.rightWing.rotation.z = -flap;
+        }
       }
     });
 

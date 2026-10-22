@@ -1454,9 +1454,22 @@ window.BlahajVolcano = (function () {
       });
     }
 
-    // Volunteer carrots (no auto-respawn while on the balcony; volunteers refresh upon entering the dungeon!)
+    // Volunteer carrots on the Volcano Balcony respawn after 18s so players can enjoy continuous carrot bowling!
     carrots.forEach((c, idx) => {
-      if (c.state === 'home') return;
+      if (c.state !== 'home') {
+        if (c.respawn > 0) {
+          c.respawn -= dt;
+          if (c.respawn <= 0) {
+            c.state = 'home';
+            c.knocked = false;
+            c.mesh.position.copy(c.home);
+            c.mesh.rotation.set(0, Math.PI, 0);
+            c.mesh.visible = true;
+            c.vel.set(0, 0, 0);
+            if (typeof on.carrotRespawn === 'function') on.carrotRespawn(idx);
+          }
+        }
+      }
       if (c.state === 'fly') {
         c.vel.y -= 19.5 * dt;
         c.mesh.position.addScaledVector(c.vel, dt);
@@ -1582,7 +1595,7 @@ window.BlahajVolcano = (function () {
     if (!c || c.state !== 'home') return false;
     c.state = 'fly';
     c.knocked = true;
-    c.respawn = -1;
+    c.respawn = 18.0;
     c.vel.set(vx, vy, vz);
     return true;
   }

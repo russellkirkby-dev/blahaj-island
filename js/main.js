@@ -1006,7 +1006,57 @@
       life: 1.6
     });
   }
-  window.BlahajEffects = { spawnSnoozeZzz };
+  function spawnBreadCrumbs(originPos) {
+    if (currentZone !== 'island') return;
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.045, 0),
+        new THREE.MeshStandardMaterial({ color: 0xd99b4e, roughness: 0.8 })
+      );
+      mesh.position.copy(originPos).add(new THREE.Vector3(
+        (Math.random() - 0.5) * 0.35,
+        0.08 + Math.random() * 0.15,
+        (Math.random() - 0.5) * 0.35
+      ));
+      scene.add(mesh);
+      floatingBursts.push({
+        mesh,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 0.5, 0.4 + Math.random() * 0.35, (Math.random() - 0.5) * 0.5),
+        life: 0.75
+      });
+    }
+  }
+  window.BlahajEffects = { spawnSnoozeZzz, spawnBreadCrumbs };
+
+  window.BlahajOnBirbLoafEaten = function (birb) {
+    player.birbCrumbs = (player.birbCrumbs || 0) + 1;
+    spawnFloatingBurst(birb.mesh.position, 0xfbbf24, 6);
+    CozyAudio.birbChirp();
+    const appetiteState = `${birb.appetite}/3`;
+    showToast('MUNCH MUNCH! 🥖🐦', `Plump Birb happily pecked warm Breb! (Appetite: ${appetiteState}) (+1 Birb Crumb)`);
+    addChatLog(`🐦 Birb happily finished pecking a loaf of Breb (${appetiteState} full). +1 Birb Crumb!`, 'lore');
+    completeQuest('q-breb');
+    updateMetersUI();
+    renderBuilderToolbar();
+  };
+
+  window.BlahajOnBirbComa = function (birb) {
+    player.birbCrumbs = (player.birbCrumbs || 0) + 1;
+    const prevMilestones = Math.floor(player.birbsFedCount / 10);
+    player.birbsFedCount += 1;
+    const newMilestones = Math.floor(player.birbsFedCount / 10);
+    if (newMilestones > prevMilestones) {
+      player.trialPoints += (newMilestones - prevMilestones);
+      showToast('BIRB BLESSING (+1 TRIAL POINT!)', `Full belly! Fed ${player.birbsFedCount} Birbs to satiation! Earned +1 Trial Point!`);
+    } else {
+      showToast('BREB COMA! 🥖💤', `Plump Birb ate 3 loaves to full capacity and entered a cozy 90s Breb Coma! (+1 Birb Crumb)`);
+    }
+    addChatLog(`🥖💤 A plump Birb ate 3 loaves and peacefully settled into a cozy Breb Coma!`, 'lore');
+    spawnFloatingBurst(birb.mesh.position, 0xffd166, 12);
+    completeQuest('q-breb');
+    updateMetersUI();
+    renderBuilderToolbar();
+  };
 
   function applySteamingSpiritBuff() {
     player.teaBuffTimer = 300.0; // 5 minutes active buff
@@ -1720,37 +1770,24 @@
 
     spawnFloatingBurst(dropPos, 0xfbbf24, 9);
 
-    let newlyFedBirbs = 0;
-    let sleepingBirbsNearby = 0;
+    let hungryNearby = 0;
+    let sleepingNearby = 0;
     const maxRadius = player.unlockedUpgrades.has('golden_breb') ? 32 : 20;
     worldApi.getBirbFlock().forEach((b) => {
       if (b.mesh.position.distanceTo(dropPos) < maxRadius) {
         if (b.satiationTimer > 0) {
-          sleepingBirbsNearby++;
+          sleepingNearby++;
         } else {
-          b.satiationTimer = 90.0; // Enters 90s Breb Coma!
-          newlyFedBirbs++;
-          spawnFloatingBurst(b.mesh.position, 0xffd166, 6);
+          hungryNearby++;
         }
       }
     });
 
-    if (newlyFedBirbs > 0) {
-      const prevMilestones = Math.floor(player.birbsFedCount / 10);
-      player.birbsFedCount += newlyFedBirbs;
-      const newMilestones = Math.floor(player.birbsFedCount / 10);
-      if (newMilestones > prevMilestones) {
-        player.trialPoints += (newMilestones - prevMilestones);
-        showToast('BIRB BLESSING (+1 TRIAL POINT!)', `Fed ${player.birbsFedCount} Birbs with warm Breb! Earned +1 Trial Point!`);
-      } else {
-        showToast('BREB COMA! 🥖💤', `${newlyFedBirbs} plump Birb${newlyFedBirbs > 1 ? 's' : ''} ate warm Breb and slipped into a cozy Breb Coma! (+${newlyFedBirbs} Birb Crumbs)`);
-      }
-      addChatLog(`🥖🐦 Tossed warm <strong>Breb</strong>! ${newlyFedBirbs} Birb(s) ate and entered a cozy Breb Coma (+${newlyFedBirbs} Birb Crumbs).`, 'lore');
-      completeQuest('q-breb');
-      updateMetersUI();
-      renderBuilderToolbar();
-    } else if (sleepingBirbsNearby > 0) {
-      showToast('FULL & SNOOZING! 💤', 'Nearby Birbs are already in a deep Breb Coma! Visit another island flock or wait for them to wake.');
+    if (hungryNearby > 0) {
+      showToast('TOSSED WARM BREB! 🥖', `${hungryNearby} hungry Birb${hungryNearby > 1 ? 's are' : ' is'} hopping over to peck and nibble!`);
+      addChatLog(`🥖 Tossed warm <strong>Breb</strong>! ${hungryNearby} hungry Birb(s) are scampering over to peck!`, 'lore');
+    } else if (sleepingNearby > 0) {
+      showToast('FULL & SNOOZING! 💤', 'Nearby Birbs are happily stuffed and loafing in the grass! Visit another island flock or wait for them to wake.');
       addChatLog('💤 The nearby Birbs are happily stuffed with Breb and loafing peacefully in the grass. Try visiting other island flocks!', 'lore');
     } else {
       showToast('TOSSED FRESH BREB 🥖', 'Tossed a golden loaf onto the grass. No hungry Birbs nearby!');

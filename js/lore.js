@@ -161,15 +161,15 @@ window.BLAHAJ_LORE = {
     {
       id: 'carrot_leader',
       name: 'Sunny the Beach Carrot',
-      tag: 'VOLCANO OVERLOOK DARE-CARROT',
+      tag: 'CRESCENT BEACH CONNOISSEUR',
       type: 'carrot',
       shortsColor: 0x3b82f6,
-      pos: { x: -13.5, z: -92.5, rotY: 2.2 },
+      pos: { x: 22, z: 48, rotY: 0.15 },
       portrait: 'assets/gallery/Volcano-temple.png',
       lines: [
-        '“Respect the Depths, Honor the Fire! I found the safest, sunniest lounge right here on the ridge overlooking the volcano!”',
-        '“My eight carrot cousins lined up right along the high Volcano Temple Balcony! Go ahead—run into them to knock them flying down the mountain! We love the breeze and we always climb right back up!”',
-        '“Or if you want a real challenge, hike or sail around to the Rear Volcano Wharf on the north shore to brave the Volcano Trial Dungeon!”'
+        '“Ahhh, now THIS is what I call proper vacation lounging! Soft golden sand, warm ocean breeze, and a chilled coconut drink at Crescent Beach.”',
+        '“My daredevil carrot cousins are still up on the high Volcano Balcony if you fancy knocking them flying down the slope—don’t worry, they bounce back up after a quick 18 seconds!”',
+        '“If you’re feeling extra brave, take a sailboat north to the Rear Volcano Wharf and enter the fiery dungeon depths!”'
       ]
     }
   ],
