@@ -337,40 +337,35 @@
       <div class="portal-header">
         <span class="portal-badge">THE GREAT PORTAL GATE · DIFFERENT SHORES, SAME OCEAN</span>
         <h2>Cross-Ocean Portal Link (Los Angeles ↔ New Zealand)</h2>
-        <p>Send the live Portal URL below to Helen on Discord! As soon as you both have the game open, you are <strong>automatically linked</strong> in Room <code>SHONK-LOVE</code>.</p>
+        <p>Send the invite link below to Helen on Discord. When she opens it, you will automatically link up!</p>
       </div>
-      <div class="portal-box" style="margin-bottom: 14px; border-color: #3be88f;">
-        <h3>✨ Direct Invite Link for Helen (Auto-Connects on Open!)</h3>
-        <p>Copy this public invite URL and paste it to Helen on Discord:</p>
-        <div class="input-row" style="flex-wrap: wrap; gap: 8px;">
-          <input type="text" id="tunnel-share-url" value="Generating Room Link..." readonly style="text-transform: none; color: #52f29c; min-width: 240px; flex: 1;" />
-          <button class="btn-primary" id="btn-copy-tunnel-url">Copy Link 📋</button>
-          <button class="btn-accent" id="btn-new-private-room" title="Generate a secret, unique room code to avoid strangers">New Private Room 🎲</button>
-        </div>
-      </div>
-      <div class="portal-grid">
-        <div class="portal-box">
-          <h3>1. Host / Switch Portal Room</h3>
-          <p>Both players start in <code>SHONK-LOVE</code> automatically, or you can switch rooms:</p>
-          <div class="input-row">
-            <input type="text" id="host-room-code" value="SHONK-LOVE" maxlength="20" />
-            <button class="btn-primary" id="btn-host-portal">Set Room</button>
-          </div>
-          <div class="portal-hint">Suggested codes: <code>SHONK-LOVE</code>, <code>HELEN-RUSSELL</code>, <code>SACRED-TEA</code></div>
-        </div>
 
-        <div class="portal-box">
-          <h3>2. Join Partner's Room Code</h3>
-          <p>Enter the same Portal Code to link across the Great Seam:</p>
-          <div class="input-row">
-            <input type="text" id="join-room-code" value="SHONK-LOVE" maxlength="20" />
-            <button class="btn-accent" id="btn-join-portal">Step Through</button>
-          </div>
-          <div class="portal-hint">Synced via built-in Co-op Relay + WebRTC PeerJS.</div>
+      <!-- Live Connection Status Banner -->
+      <div class="portal-status-bar" id="portal-modal-status" style="margin-bottom: 16px; font-size: 1.05rem; padding: 12px 18px; border-radius: 10px; background: rgba(22, 31, 54, 0.85); border: 1px solid rgba(82, 242, 156, 0.4);">
+        Status: Portal Open in Room <strong>SHONK-LOVE</strong> — Waiting for partner…
+      </div>
+
+      <!-- Step 1: Copy Link -->
+      <div class="portal-box" style="margin-bottom: 14px; border-color: #52f29c; background: rgba(82, 242, 156, 0.06);">
+        <h3 style="color: #52f29c;">✨ Step 1: Send this Direct Link to Helen</h3>
+        <p style="margin-bottom: 10px; font-size: 0.95rem; color: #e2e8f0;">
+          Helen does <strong>NOT</strong> need to type any codes or press any buttons. Clicking your link opens the game and puts her directly into your room!
+        </p>
+        <div class="input-row" style="flex-wrap: wrap; gap: 8px;">
+          <input type="text" id="tunnel-share-url" value="Generating Room Link..." readonly style="text-transform: none; color: #52f29c; font-weight: 600; min-width: 240px; flex: 1;" />
+          <button class="btn-primary" id="btn-copy-tunnel-url" style="padding: 10px 22px; font-size: 0.95rem;">Copy Link 📋</button>
+          <button class="btn-secondary" id="btn-new-private-room" title="Generate a secret, unique room code to avoid strangers">New Secret Code 🎲</button>
         </div>
       </div>
-      <div class="portal-status-bar" id="portal-modal-status">
-        Status: Portal Open in Room SHONK-LOVE — Waiting for partner to open the link!
+
+      <!-- Step 2: Custom Room Code -->
+      <div class="portal-box" style="border-color: rgba(255, 255, 255, 0.15);">
+        <h3>⚙️ Optional: Enter a Custom Room Word</h3>
+        <p style="font-size: 0.88rem; color: #cbd5e1; margin-bottom: 8px;">Want to use a specific word like <code>HELEN-RUSSELL</code> or <code>SACRED-TEA</code>? Type it here and click Apply:</p>
+        <div class="input-row" style="max-width: 480px;">
+          <input type="text" id="host-room-code" value="SHONK-LOVE" maxlength="20" placeholder="ROOM-CODE" />
+          <button class="btn-accent" id="btn-host-portal">Apply Room Code</button>
+        </div>
       </div>
     </div>
   </div>
@@ -426,12 +421,12 @@
     </div>
   </div>
 
-  <!-- Game Scripts -->
-  <script src="js/lore.js"></script>
-  <script src="js/sharks3d.js"></script>
-  <script src="js/world3d.js"></script>
-  <script src="js/volcano.js"></script>
-  <script src="js/network.js"></script>
-  <script src="js/main.js"></script>
+  <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
+  <script src="js/lore.js?v=2.2"></script>
+  <script src="js/sharks3d.js?v=2.2"></script>
+  <script src="js/world3d.js?v=2.2"></script>
+  <script src="js/volcano.js?v=2.2"></script>
+  <script src="js/network.js?v=2.2"></script>
+  <script src="js/main.js?v=2.2"></script>
 </body>
 </html>

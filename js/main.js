@@ -2512,19 +2512,27 @@
       });
     }
 
-    document.getElementById('btn-host-portal').addEventListener('click', () => {
-      const code = document.getElementById('host-room-code').value;
-      CozyAudio.portalChime();
-      window.BlahajNetwork.setRoom(code);
-      showToast('PORTAL ROOM SET 🌌', `Switched to Room ${code.trim().toUpperCase()}!`);
-    });
+    const hostBtn = document.getElementById('btn-host-portal');
+    if (hostBtn) {
+      hostBtn.addEventListener('click', () => {
+        const inp = document.getElementById('host-room-code');
+        const code = inp ? inp.value : '';
+        CozyAudio.portalChime();
+        window.BlahajNetwork.setRoom(code);
+        showToast('PORTAL ROOM SET 🌌', `Switched to Room ${code.trim().toUpperCase()}!`);
+      });
+    }
 
-    document.getElementById('btn-join-portal').addEventListener('click', () => {
-      const code = document.getElementById('join-room-code').value;
-      CozyAudio.portalChime();
-      window.BlahajNetwork.setRoom(code);
-      showToast('STEPPED THROUGH PORTAL 🌌', `Joined Room ${code.trim().toUpperCase()}!`);
-    });
+    const joinBtn = document.getElementById('btn-join-portal');
+    if (joinBtn) {
+      joinBtn.addEventListener('click', () => {
+        const inp = document.getElementById('join-room-code') || document.getElementById('host-room-code');
+        const code = inp ? inp.value : '';
+        CozyAudio.portalChime();
+        window.BlahajNetwork.setRoom(code);
+        showToast('STEPPED THROUGH PORTAL 🌌', `Joined Room ${code.trim().toUpperCase()}!`);
+      });
+    }
 
     window.BlahajNetwork.init({
       onConnect(info) {

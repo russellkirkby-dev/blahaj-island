@@ -53,7 +53,7 @@ window.BlahajNetwork = (function () {
   let outgoingEvents = [];
   let relayPartnerId = null;
 
-  // High-reliability ICE servers (Google STUNs, Cloudflare STUN, and OpenRelay TURN for symmetric NAT)
+  // High-reliability global anycast STUN endpoints (Google STUNs & Cloudflare STUN)
   const PEER_CONFIG = {
     config: {
       iceServers: [
@@ -62,23 +62,7 @@ window.BlahajNetwork = (function () {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:openrelay.metered.ca:80' },
-        {
-          urls: 'turn:openrelay.metered.ca:80',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        }
+        { urls: 'stun:stun.cloudflare.com:3478' }
       ]
     }
   };
@@ -89,7 +73,14 @@ window.BlahajNetwork = (function () {
 
   function getInviteUrl(room) {
     const r = room || currentRoom;
-    const base = window.location.origin + window.location.pathname;
+    let origin = window.location.origin;
+    let pathname = window.location.pathname;
+    // If running on a local testing server, always share the real public GitHub Pages link!
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      origin = 'https://russellkirkby-dev.github.io';
+      pathname = '/blahaj-island/';
+    }
+    const base = (origin + pathname).replace(/\/+$/, '') + '/';
     return `${base}?room=${encodeURIComponent(r)}`;
   }
 
@@ -237,8 +228,15 @@ window.BlahajNetwork = (function () {
         return;
       }
 
-      // Normal game data (only process once mutual handshake is confirmed)
-      if (!handshakeVerified) return;
+      // Normal game data: auto-verify if direct gameplay packet arrives
+      if (!handshakeVerified) {
+        if (data.type === 'move' || data.type === 'shark_swap') {
+          console.log('[BlahajNetwork] Received direct game packet, auto-verifying connection');
+          onConnectionEstablished(c, data.sharkId || 'partner');
+        } else {
+          return;
+        }
+      }
       if (isRelayConnected && data.type === 'move') return;
       if (callbacks.onData) callbacks.onData(data);
     });
