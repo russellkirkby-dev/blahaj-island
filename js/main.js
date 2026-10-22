@@ -282,6 +282,9 @@
   let scene, camera, renderer, composer, renderPass, clock;
   let worldApi = null;
 
+  // Global Mange Factor (0.0 = pristine brand-new plush, 1.0 = well-loved mangy veteran)
+  window.__BLAHAJ_MANGE__ = parseFloat(localStorage.getItem('blahaj_mange_factor') || '70') / 100;
+
   // Player state
   const player = {
     sharkId: 'hermes',
@@ -527,7 +530,7 @@
     }
 
     player.sharkId = sharkId;
-    player.mesh = window.BlahajModels.createPlushShark(cfg);
+    player.mesh = window.BlahajModels.createPlushShark(cfg, window.__BLAHAJ_MANGE__);
     player.mesh.position.copy(player.pos);
     player.mesh.rotation.y = player.rotY;
     const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
@@ -2080,6 +2083,40 @@
         hideVolcanoHUDCard();
       });
     }
+
+    // Interactive Mange Factor Slider
+    const mangeSlider = document.getElementById('mange-factor-slider');
+    const mangeLabel = document.getElementById('mange-value-label');
+    function formatMangeLabel(pct) {
+      let desc = 'Mangy Veteran';
+      if (pct === 0) desc = 'Mint In Box';
+      else if (pct < 20) desc = 'Fresh & Pristine';
+      else if (pct < 40) desc = 'Gentle Snuggles';
+      else if (pct < 65) desc = 'Well-Loved Plush';
+      else if (pct < 85) desc = 'Seasoned Adventurer';
+      else desc = 'The Mangy One';
+      return `${Math.round(pct)}% · ${desc}`;
+    }
+
+    if (mangeSlider && mangeLabel) {
+      const savedMangePct = Math.round(window.__BLAHAJ_MANGE__ * 100);
+      mangeSlider.value = savedMangePct;
+      mangeLabel.textContent = formatMangeLabel(savedMangePct);
+
+      mangeSlider.addEventListener('input', (e) => {
+        const pct = parseFloat(e.target.value);
+        window.__BLAHAJ_MANGE__ = pct / 100;
+        localStorage.setItem('blahaj_mange_factor', pct);
+        mangeLabel.textContent = formatMangeLabel(pct);
+        spawnPlayerShark(player.sharkId);
+        if (window.BlahajNetwork) {
+          window.BlahajNetwork.send({
+            type: 'mange_sync',
+            mange: window.__BLAHAJ_MANGE__
+          });
+        }
+      });
+    }
     const zoneBanner = document.querySelector('.zone-banner');
     if (zoneBanner) {
       zoneBanner.style.cursor = 'pointer';
@@ -2552,7 +2589,8 @@
         addChatLog('🌌 <strong>Great Portal Gate:</strong> Connected across the ocean! You are now exploring together.', 'coop');
         window.BlahajNetwork.send({
           type: 'shark_swap',
-          sharkId: player.sharkId
+          sharkId: player.sharkId,
+          mange: window.__BLAHAJ_MANGE__
         });
 
         // Share any existing Hiram-built structures with our partner on connect!
@@ -2572,7 +2610,9 @@
       onData(data) {
         if (data.type === 'move') {
           if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
-            spawnCoopPartnerShark(data.sharkId || 'solomon');
+            spawnCoopPartnerShark(data.sharkId || 'solomon', typeof data.mange === 'number' ? data.mange : undefined);
+          } else if (typeof data.mange === 'number' && data.mange !== coopPartner.mangeFactor) {
+            spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
           }
           coopPartner.targetPos.set(data.x, data.y, data.z);
           coopPartner.targetRotY = data.rotY;
@@ -2580,6 +2620,10 @@
           coopPartner.inBoat = !!data.inBoat;
           coopPartner.zone = data.zone || 'island';
           updateCoopPartnerVisibility();
+        } else if (data.type === 'mange_sync') {
+          if (typeof data.mange === 'number') {
+            spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
+          }
         } else if (data.type === 'zone_change') {
           coopPartner.zone = data.zone;
           updateCoopPartnerVisibility();
@@ -2596,7 +2640,7 @@
           }
           addChatLog('🥕🌋 Your partner bumped a Volunteer Carrot into the boiling caldera!', 'coop');
         } else if (data.type === 'shark_swap') {
-          spawnCoopPartnerShark(data.sharkId);
+          spawnCoopPartnerShark(data.sharkId, data.mange);
         } else if (data.type === 'build_place' && data.item) {
           const placed = worldApi.placeBuiltStructure(data.item);
           if (placed) {
@@ -2735,13 +2779,17 @@
     }
   }
 
-  function spawnCoopPartnerShark(sharkId) {
+  function spawnCoopPartnerShark(sharkId, mangeFactor) {
     const cfg = LORE.sharks[sharkId] || LORE.sharks.solomon;
     coopPartner.sharkId = cfg.id;
+    if (typeof mangeFactor === 'number') {
+      coopPartner.mangeFactor = mangeFactor;
+    }
     coopPartner.active = true;
 
     if (coopPartner.mesh && coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
-    coopPartner.mesh = window.BlahajModels.createPlushShark(cfg);
+    const mVal = coopPartner.mangeFactor !== undefined ? coopPartner.mangeFactor : 0.70;
+    coopPartner.mesh = window.BlahajModels.createPlushShark(cfg, mVal);
     coopPartner.mesh.position.copy(coopPartner.targetPos);
     
     const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
@@ -3090,7 +3138,8 @@
         rotY: player.rotY,
         isMoving,
         inBoat: player.inBoat,
-        zone: currentZone
+        zone: currentZone,
+        mange: window.__BLAHAJ_MANGE__
       });
     }
   }
@@ -3569,6 +3618,7 @@
   window.__DEBUG__ = {
     getPlayer: () => player,
     getCamera: () => camera,
+    getCamState: () => camState,
     getScene: () => scene,
     getZone: () => currentZone,
     updateCamera,

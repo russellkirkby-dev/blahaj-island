@@ -85,108 +85,130 @@ window.BlahajModels = (function () {
     return mat;
   }
 
-  // Exact analytical cross-section of our upright Blåhaj at vertical parameter s in [0..1]
-  // s = 0 is bottom of torso (y = 0.38), s = 1 is very tip of rounded snout (y = 2.68, z = 0.75)
-  // Using an explicit vertical loft guarantees zero self-intersection, a closed snout tip,
-  // and exact surface coordinates for eyes, mouth, teeth, gills, dorsal fin, and scarf!
-  function evalSharkRing(s, plump) {
-    // Height y goes smoothly from 0.38 to 2.62
-    const y = 0.38 + s * 2.24;
-    let centerZ = 0;
-    let widthX = 0.8;
-    let depthFrontZ = 0.75;
-    let depthBackZ = 0.75;
+  // ==========================================================================
+  // AUTHENTIC PLUSH BLÅHAJ PARAMETRIC LOFT (SEAMLESS ORGANIC BODY)
+  // u in [0..1] runs along longitudinal axis from tail tip (z = -1.65) to blunt snout (z = +1.40).
+  // Zero flat cuts, zero holes: naturally rounded closed poles at both ends.
+  // ==========================================================================
+  function evalPlushSharkStation(u, plump, mange) {
+    const z = -1.65 + u * 3.05;
 
-    if (s < 0.62) {
-      // Lower torso through chest (s = 0..0.62, y = 0.38..1.77)
-      const u = s / 0.62;
-      const bellyCurve = Math.sin(u * Math.PI * 0.82);
-      centerZ = -0.05 + u * 0.08;
-      widthX = (0.58 + 0.32 * bellyCurve) * plump;
-      depthFrontZ = (0.52 + 0.32 * bellyCurve) * plump;
-      depthBackZ = (0.56 + 0.28 * bellyCurve) * plump;
+    let rx = 0;
+    let ryTop = 0;
+    let ryBot = 0;
+    let yCenter = 0.85;
+
+    // Mange factor softens the stuffing: slight cozy slump in the middle belly
+    const slump = (mange || 0) * 0.055;
+
+    if (u < 0.25) {
+      // 1. Caudal Peduncle & Tail Base (u = 0..0.25, z = -1.65..-0.89)
+      const t = u / 0.25;
+      const taper = Math.sin(t * Math.PI * 0.5);
+      rx = (0.025 + taper * 0.38) * plump;
+      ryTop = 0.035 + taper * 0.44;
+      ryBot = 0.035 + taper * 0.40;
+      yCenter = 0.86 - t * 0.16;
+    } else if (u < 0.70) {
+      // 2. Main Abdomen, Belly & Spine (u = 0.25..0.70, z = -0.89..+0.48)
+      const t = (u - 0.25) / 0.45;
+      const bellyCurve = Math.sin(t * Math.PI);
+      rx = (0.40 + bellyCurve * 0.40) * plump;
+      ryTop = 0.47 + Math.sin(t * Math.PI * 0.85) * 0.33;
+      ryBot = 0.43 + bellyCurve * 0.36 + slump;
+      yCenter = 0.70 + Math.sin(t * Math.PI * 0.5) * 0.14 - slump * 0.45;
+    } else if (u < 0.90) {
+      // 3. Head & Cheeks (u = 0.70..0.90, z = +0.48..+1.09)
+      const t = (u - 0.70) / 0.20;
+      rx = (0.80 - t * 0.22) * plump;
+      ryTop = 0.80 - t * 0.24;
+      ryBot = 0.79 - t * 0.26;
+      yCenter = 0.84 + t * 0.08;
     } else {
-      // Neck (s=0.62, y=1.77) -> Head & Overhanging Broad Blåhaj Snout (s=1.0, y=2.62)
-      const u = (s - 0.62) / 0.38; // 0 at neck, 1 at snout crown
-      const dome = Math.cos(u * Math.PI * 0.5); // 1 at neck, 0 at very top crown
-      const snoutProject = Math.sin(u * Math.PI * 0.85);
-      // Snout projects forward (+Z) like a real shark head!
-      centerZ = 0.03 + snoutProject * 0.38;
-      // Blåhaj has a broad, friendly, slightly flattened wedge head (wider in X)
-      widthX = (0.85 * Math.pow(dome, 0.56)) * plump;
-      depthFrontZ = 0.78 * Math.pow(dome, 0.58);
-      depthBackZ = 0.76 * Math.pow(dome, 0.68);
+      // 4. Overhanging Blåhaj Snout (u = 0.90..1.0, z = +1.09..+1.40)
+      const t = (u - 0.90) / 0.10;
+      const noseCurve = Math.cos(t * Math.PI * 0.5);
+      rx = (0.58 * Math.pow(noseCurve, 0.65)) * plump;
+      ryTop = 0.56 * Math.pow(noseCurve, 0.70);
+      ryBot = 0.53 * Math.pow(noseCurve, 0.75);
+      yCenter = 0.92 - t * 0.04;
     }
 
-    return { y, centerZ, widthX, depthFrontZ, depthBackZ };
+    return { z, yCenter, rx, ryTop, ryBot };
   }
 
-  function buildAuthenticBlahajBodyGeometry(plump, topColorHex, bellyColorHex) {
-    const rings = 72;
-    const segs = 56;
+  function buildAuthenticBlahajBodyGeometry(plump, topColorHex, bellyColorHex, mange) {
+    const rings = 56;
+    const segs = 48;
     const positions = [];
     const colors = [];
     const uvs = [];
     const indices = [];
 
     const topCol = new THREE.Color(topColorHex || 0x2278c4);
-    const bellyCol = new THREE.Color(bellyColorHex || 0xf4eee1);
-    const mouthCol = new THREE.Color(0x9e2b3b); // Deep plush crimson mouth interior
-    const mouthRimCol = new THREE.Color(0xdccfb8);
+    const bellyCol = new THREE.Color(bellyColorHex || 0xf5ecdc);
+    const mouthCol = new THREE.Color(0x8a2434); // Soft crimson plush mouth interior
+    const seamDarkCol = topCol.clone().multiplyScalar(0.78);
 
     for (let i = 0; i <= rings; i++) {
-      const s = i / rings;
-      const ring = evalSharkRing(s, plump);
+      const u = i / rings;
+      const station = evalPlushSharkStation(u, plump, mange);
 
       for (let j = 0; j <= segs; j++) {
         const v = j / segs;
-        const theta = v * Math.PI * 2; // 0 = front (+Z), PI/2 = right (+X), PI = back (-Z)
+        const theta = v * Math.PI * 2; // 0 = top spine (+Y), PI/2 = left (+X), PI = belly (-Y), 3PI/2 = right (-X)
         const sinT = Math.sin(theta);
         const cosT = Math.cos(theta);
 
-        let px = sinT * ring.widthX;
-        let pz = ring.centerZ + (cosT >= 0 ? cosT * ring.depthFrontZ : cosT * ring.depthBackZ);
-        let py = ring.y;
+        let px = sinT * station.rx;
+        let py = station.yCenter + (cosT >= 0 ? cosT * station.ryTop : cosT * station.ryBot);
+        let pz = station.z;
 
-        // Subtle crimson plush Shark Grin on the front-underside of the solid snout!
-        let inMouthCavity = false;
-        let onMouthRim = false;
-        if (s > 0.65 && s < 0.80 && cosT > 0.42) {
-          const sNorm = (s - 0.725) / 0.075; // -1 to +1 vertically
-          const aNorm = (cosT - 0.42) / 0.58; // 0 at corners of grin, 1 at center front
-          const smileArch = sNorm + (1 - aNorm) * 0.22;
-          const mouthDist = smileArch * smileArch + Math.pow(1 - aNorm, 2.2) * 0.45;
-          if (mouthDist < 0.65) {
-            inMouthCavity = true;
-            const depthFactor = Math.max(0, 1 - mouthDist / 0.65);
-            // Shallow 4cm dimple so the snout stays 100% solid and flush with the teeth!
-            pz -= depthFactor * 0.045;
-            if (mouthDist > 0.46) onMouthRim = true;
+        // Bottom belly flattening: cozy plush stuffing rests slightly wider on underside
+        if (cosT < -0.15) {
+          px *= (1.0 + 0.12 * Math.pow(Math.abs(sinT), 1.6));
+        }
+
+        // Closed poles at u = 0 (tail tip) and u = 1 (snout tip)
+        if (i === 0) {
+          px = 0;
+          py = station.yCenter;
+        } else if (i === rings) {
+          px = 0;
+          py = station.yCenter;
+        }
+
+        // Mouth cavity indentation on the underside of the snout (u = 0.83..0.94, belly side)
+        let inMouth = false;
+        if (u > 0.83 && u < 0.95 && cosT < -0.38) {
+          const uMouth = (u - 0.89) / 0.06;
+          const aMouth = (cosT + 0.38) / -0.62;
+          const mDist = uMouth * uMouth + (1 - aMouth) * (1 - aMouth);
+          if (mDist < 0.82) {
+            inMouth = true;
+            const indent = (1 - mDist / 0.82) * 0.11;
+            py += indent;
+            pz -= indent * 0.5;
           }
         }
 
-        // Bottom cap closure at s = 0 and top snout closure at s = 1
-        if (i === 0) {
-          px = 0;
-          pz = ring.centerZ;
-        } else if (i === rings) {
-          px = 0;
-          pz = ring.centerZ;
-        }
-
         positions.push(px, py, pz);
-        uvs.push(v * 4, s * 5);
+        uvs.push(v * 3, u * 4);
 
-        // Two-tone Blåhaj coloring:
-        const bellyBoundary = s < 0.66 ? 0.08 : (s < 0.84 ? 0.08 + ((s - 0.66) / 0.18) * 0.92 : 1.5);
-        if (inMouthCavity && !onMouthRim) {
+        // Blåhaj Two-Tone Coloring with Hand-Stitched Seam Shading
+        if (inMouth) {
           colors.push(mouthCol.r, mouthCol.g, mouthCol.b);
-        } else if (onMouthRim) {
-          colors.push(mouthRimCol.r, mouthRimCol.g, mouthRimCol.b);
-        } else if (cosT > bellyBoundary) {
-          colors.push(bellyCol.r, bellyCol.g, bellyCol.b);
         } else {
-          colors.push(topCol.r, topCol.g, topCol.b);
+          // Belly seam line sits at roughly cosT = 0.10 (lower ~42% of cross section is white belly)
+          const seamDist = cosT - 0.10;
+          if (seamDist < -0.06) {
+            colors.push(bellyCol.r, bellyCol.g, bellyCol.b);
+          } else if (seamDist > 0.06) {
+            colors.push(topCol.r, topCol.g, topCol.b);
+          } else {
+            // Subtle darkened stitch seam along the fabric joint
+            colors.push(seamDarkCol.r, seamDarkCol.g, seamDarkCol.b);
+          }
         }
       }
     }
@@ -195,7 +217,6 @@ window.BlahajModels = (function () {
       for (let j = 0; j < segs; j++) {
         const a = i * (segs + 1) + j;
         const b = a + segs + 1;
-        // Outward-facing counter-clockwise triangle winding order!
         indices.push(a, a + 1, b);
         indices.push(a + 1, b + 1, b);
       }
@@ -210,44 +231,49 @@ window.BlahajModels = (function () {
     return geo;
   }
 
-  // Sculpted Hydrofoil Fin Geometry
-  function buildSculptedFinGeometry(length, chord, thickness, sweep, curveY = 0) {
-    const rings = 22;
-    const segs = 22;
+  // ==========================================================================
+  // AUTHENTIC PLUSH DORSAL FIN (SEAMLESSLY INTEGRATED ON TOP SPINE)
+  // Sweeps upward and backward with iconic concave trailing edge.
+  // ==========================================================================
+  function buildAuthenticDorsalFinGeometry(plump, mange) {
+    const geo = new THREE.BufferGeometry();
+    const rows = 18;
+    const cols = 12;
     const positions = [];
     const uvs = [];
     const indices = [];
 
-    for (let i = 0; i <= rings; i++) {
-      const u = i / rings;
-      const span = u * length;
-      const taper = Math.sin((1 - u * 0.94) * Math.PI * 0.5);
-      const c = chord * Math.pow(taper, 0.82);
-      const th = thickness * Math.pow(taper, 0.88);
-      const offsetSweep = Math.pow(u, 1.4) * sweep;
-      const bend = Math.pow(u, 1.6) * curveY;
+    // Mange slump tilts the fin backward and slightly to the side (cozy floppy plush)
+    const slumpZ = (mange || 0) * 0.12;
+    const slumpX = (mange || 0) * 0.06;
 
-      for (let j = 0; j <= segs; j++) {
-        const v = j / segs;
-        const a = v * Math.PI * 2;
-        const x = span;
-        const y = i === rings ? bend : Math.sin(a) * th + bend;
-        const z = i === rings ? -offsetSweep : Math.cos(a) * c * 0.5 - offsetSweep;
+    for (let r = 0; r <= rows; r++) {
+      const u = r / rows; // 0 at spine base, 1 at rounded apex tip
+      const baseZ = -0.06 - u * (0.34 + slumpZ);
+      const y = 1.50 + u * 0.84;
+      const chord = (0.60 * (1 - Math.pow(u, 1.25))) + 0.04;
+      const th = 0.13 * (1 - u * 0.88);
+
+      for (let c = 0; c <= cols; c++) {
+        const v = c / cols;
+        const ang = v * Math.PI * 2;
+        const x = Math.sin(ang) * th * 0.5 + Math.pow(u, 1.8) * slumpX;
+        const z = baseZ - (Math.cos(ang) * chord * 0.5);
+
         positions.push(x, y, z);
-        uvs.push(u * 2, v * 2);
+        uvs.push(v, u);
       }
     }
 
-    for (let i = 0; i < rings; i++) {
-      for (let j = 0; j < segs; j++) {
-        const a = i * (segs + 1) + j;
-        const b = a + segs + 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = r * (cols + 1) + c;
+        const b = a + cols + 1;
         indices.push(a, a + 1, b);
         indices.push(a + 1, b + 1, b);
       }
     }
 
-    const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geo.setIndex(indices);
@@ -256,248 +282,390 @@ window.BlahajModels = (function () {
   }
 
   // ==========================================================================
-  // CREATE HIGH-DETAIL 3D PLUSH SHARK (EYES, TEETH, GILLS & SCARF GUARANTEED VISIBLE!)
+  // AUTHENTIC PLUSH CAUDAL FIN (AUTHENTIC DUAL-LOBED SHARK TAIL)
+  // Continuous with the caudal peduncle at z = -1.65.
+  // Origin (0, 0, 0) is at the tail peduncle base (z = -1.65, y = 0.82)
+  // so tailGroup pivot can rotate naturally during swim/walk animations.
   // ==========================================================================
-  function createPlushShark(config) {
+  function buildAuthenticCaudalFinGeometry(plump, mange) {
+    const geo = new THREE.BufferGeometry();
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    const lobes = [
+      { yTip: 0.94, zTip: -0.71, th: 0.11, span: 0.85 }, // Upper lobe reaching up & back
+      { yTip: -0.56, zTip: -0.47, th: 0.09, span: 0.58 } // Lower lobe reaching down & back
+    ];
+
+    let vOffset = 0;
+    lobes.forEach((lb) => {
+      const rows = 16;
+      const cols = 10;
+      for (let r = 0; r <= rows; r++) {
+        const u = r / rows;
+        const y = lb.yTip * u;
+        const z = lb.zTip * u;
+        const chord = 0.44 * (1 - u * 0.82) + 0.03;
+        const th = lb.th * (1 - u * 0.80);
+
+        for (let c = 0; c <= cols; c++) {
+          const v = c / cols;
+          const a = v * Math.PI * 2;
+          const x = Math.sin(a) * th * 0.5;
+          const pz = z + Math.cos(a) * chord * 0.5;
+          positions.push(x, y, pz);
+          uvs.push(v, u);
+        }
+      }
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const a = vOffset + r * (cols + 1) + c;
+          const b = a + cols + 1;
+          indices.push(a, a + 1, b);
+          indices.push(a + 1, b + 1, b);
+        }
+      }
+      vOffset += (rows + 1) * (cols + 1);
+    });
+
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // ==========================================================================
+  // AUTHENTIC PLUSH PECTORAL FIN (CUDDLY FLIPPERS)
+  // Emerges smoothly from the side chest seam, sweeping back and downward.
+  // ==========================================================================
+  function buildAuthenticPectoralFinGeometry(side, plump, mange) {
+    const geo = new THREE.BufferGeometry();
+    const rows = 16;
+    const cols = 12;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    const droop = (mange || 0) * 0.10;
+
+    for (let r = 0; r <= rows; r++) {
+      const u = r / rows; // 0 at body base, 1 at rounded flipper tip
+      const spanX = side * u * 0.76;
+      const sweepZ = -u * 0.58;
+      const curveY = -Math.pow(u, 1.4) * (0.28 + droop);
+      const chord = 0.52 * (1 - u * 0.75) + 0.04;
+      const th = 0.12 * (1 - u * 0.82);
+
+      for (let c = 0; c <= cols; c++) {
+        const v = c / cols;
+        const a = v * Math.PI * 2;
+        const x = spanX;
+        const y = curveY + Math.sin(a) * th * 0.5;
+        const z = sweepZ + Math.cos(a) * chord * 0.5;
+        positions.push(x, y, z);
+        uvs.push(u, v);
+      }
+    }
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = r * (cols + 1) + c;
+        const b = a + cols + 1;
+        indices.push(a, a + 1, b);
+        indices.push(a + 1, b + 1, b);
+      }
+    }
+
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // ==========================================================================
+  // CREATE HIGH-DETAIL 3D PLUSH SHARK (INTACT PLUSH SILHOUETTE + DYNAMIC MANGE FACTOR)
+  // ==========================================================================
+  function createPlushShark(config, mangeOverride = null) {
     const group = new THREE.Group();
     const scale = config.scale || 1.0;
     const plump = config.plumpness || 1.0;
+    const mange = typeof mangeOverride === 'number'
+      ? mangeOverride
+      : (typeof config.mangeFactor === 'number'
+          ? config.mangeFactor
+          : (window.__BLAHAJ_MANGE__ !== undefined ? window.__BLAHAJ_MANGE__ : 0.70));
 
-    const plushVertexMat = createPlushMaterial(config.bodyColor || 0x3b638c, true);
-    const bodyMat = createPlushMaterial(config.bodyColor || 0x3b638c, false);
+    const plushVertexMat = createPlushMaterial(config.bodyColor || 0x2278c4, true);
+    const bodyMat = createPlushMaterial(config.bodyColor || 0x2278c4, false);
     const scarfMat = createPlushMaterial(config.scarfColor || 0x7c4d32, false);
     const brassMat = new THREE.MeshStandardMaterial({
       color: 0xd8aa5b,
       roughness: 0.26,
       metalness: 0.84
     });
+    const threadMat = new THREE.MeshStandardMaterial({
+      color: 0xe8dfd0,
+      roughness: 0.9,
+      metalness: 0.05
+    });
 
     const rig = new THREE.Group();
     group.add(rig);
 
-    // 1. Sculpted Blåhaj Head & Torso Mesh with Open Recessed Crimson Grin
+    // 1. Sculpted Seamless Plush Body (Authentic Blåhaj silhouette from snout to tail tip)
     const bodyGeo = buildAuthenticBlahajBodyGeometry(
       plump,
-      config.bodyColor || 0x3b638c,
-      config.bellyColor || 0xf5ecdc
+      config.bodyColor || 0x2278c4,
+      config.bellyColor || 0xf5ecdc,
+      mange
     );
     const bodyMesh = new THREE.Mesh(bodyGeo, plushVertexMat);
     bodyMesh.castShadow = true;
     bodyMesh.receiveShadow = true;
     rig.add(bodyMesh);
 
-    // 2. Prominent White Felt Teeth Rows (Upper & Lower Jaw Rim, sitting Proudly Outside the Mouth Cavity!)
-    const toothMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-    const upperMouthRing = evalSharkRing(0.79, plump);
-    const lowerMouthRing = evalSharkRing(0.65, plump);
-
-    // 9 Upper Teeth pointing down from the upper lip overhang
-    for (let t = -4; t <= 4; t++) {
-      const theta = (t / 4) * 0.78; // Spread across front grin
-      const isSolomonTooth = config.protrudingTooth && t === 2;
-      const tx = Math.sin(theta) * upperMouthRing.widthX * 0.94;
-      const tz = upperMouthRing.centerZ + Math.cos(theta) * upperMouthRing.depthFrontZ * 0.95;
-      const ty = upperMouthRing.y - Math.abs(t) * 0.018;
-
-      const toothGeo = new THREE.ConeGeometry(
-        isSolomonTooth ? 0.068 : 0.048,
-        isSolomonTooth ? 0.21 : 0.12,
-        12
-      );
-      const tooth = new THREE.Mesh(toothGeo, toothMat);
-      tooth.position.set(tx, ty - 0.04, tz + (isSolomonTooth ? 0.05 : 0.01));
-      tooth.rotation.x = Math.PI + (isSolomonTooth ? 0.35 : 0.08);
-      rig.add(tooth);
-    }
-
-    // 7 Lower Teeth pointing up along the lower jaw rim
-    for (let t = -3; t <= 3; t++) {
-      const theta = (t / 3) * 0.65;
-      const tx = Math.sin(theta) * lowerMouthRing.widthX * 0.90;
-      const tz = lowerMouthRing.centerZ + Math.cos(theta) * lowerMouthRing.depthFrontZ * 0.92;
-      const ty = lowerMouthRing.y + 0.03 - Math.abs(t) * 0.012;
-
-      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.095, 10), toothMat);
-      tooth.position.set(tx, ty, tz);
-      tooth.rotation.x = -0.15;
-      rig.add(tooth);
-    }
-
-    // 3. Large, Expressive Glossy Black Button Eyes Placed Proudly on the Surface of the Snout!
-    const eyeRing = evalSharkRing(0.84, plump);
-    const eyeTheta = 0.82; // ~47 degrees to Left & Right of front nose centerline
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x05070b, roughness: 0.06, metalness: 0.3 });
-    const eyeRimMat = new THREE.MeshStandardMaterial({ color: 0x1b2d42, roughness: 0.85 });
-    const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-    [-1, 1].forEach((side) => {
-      // Exact surface point at s = 0.84, theta = side * eyeTheta, pushed +0.03 outward along normal!
-      const ex = side * (Math.sin(eyeTheta) * eyeRing.widthX + 0.02);
-      const ey = eyeRing.y + 0.02;
-      const ez = eyeRing.centerZ + Math.cos(eyeTheta) * eyeRing.depthFrontZ + 0.02;
-
-      const eyeGroup = new THREE.Group();
-      eyeGroup.position.set(ex, ey, ez);
-      // Orient eye outward along the snout normal
-      eyeGroup.lookAt(ex + side * 1.2, ey + 0.35, ez + 1.1);
-
-      // Stitched plush eye border ring
-      const border = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.025, 12, 24), eyeRimMat);
-      eyeGroup.add(border);
-
-      // Large glossy black dome button eye
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.13, 24, 24), eyeMat);
-      dome.scale.set(1.0, 1.0, 0.78);
-      eyeGroup.add(dome);
-
-      // Bright white primary & secondary catchlights on the outer dome surface
-      const glint1 = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 12), catchMat);
-      glint1.position.set(-0.035 * side, 0.042, 0.095);
-      eyeGroup.add(glint1);
-
-      const glint2 = new THREE.Mesh(new THREE.SphereGeometry(0.02, 10, 10), catchMat);
-      glint2.position.set(0.038 * side, -0.032, 0.095);
-      eyeGroup.add(glint2);
-
-      rig.add(eyeGroup);
-    });
-
-    // Tatiana's canonical beauty spot on the surface of her cheek!
-    if (config.beautySpot) {
-      const bRing = evalSharkRing(0.77, plump);
-      const bTheta = 0.72;
-      const spot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.042, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0x120a10 })
-      );
-      spot.position.set(
-        Math.sin(bTheta) * bRing.widthX + 0.02,
-        bRing.y,
-        bRing.centerZ + Math.cos(bTheta) * bRing.depthFrontZ + 0.02
-      );
-      rig.add(spot);
-    }
-
-    // 4. 5 Stitched Gill Slits on Each Side of the Head (Sitting Proudly on the Cheek Surface!)
-    const gillMat = new THREE.MeshStandardMaterial({ color: 0x16283d, roughness: 0.9 });
-    [-1, 1].forEach((side) => {
-      for (let g = 0; g < 5; g++) {
-        const gs = 0.74 - g * 0.028;
-        const gRing = evalSharkRing(gs, plump);
-        const gTheta = 1.28 + g * 0.05; // Cheek side behind eye
-        const gx = side * (Math.sin(gTheta) * gRing.widthX + 0.018);
-        const gz = gRing.centerZ + Math.cos(gTheta) * gRing.depthFrontZ;
-
-        const gill = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.20, 0.035), gillMat);
-        gill.position.set(gx, gRing.y, gz);
-        gill.rotation.z = side * 0.18;
-        gill.rotation.y = side * 0.3;
-        rig.add(gill);
-      }
-    });
-
-    // 5. Iconic Swept Dorsal Fin on the Upper Back (Positioned on Exact Back Surface!)
-    const backRing = evalSharkRing(0.48, plump);
-    const dorsalGeo = buildSculptedFinGeometry(0.95, 0.72, 0.13, 0.42, 0);
-    dorsalGeo.rotateZ(Math.PI / 2);
-    dorsalGeo.rotateY(Math.PI);
+    // 2. Integrated Swept Dorsal Fin
+    const dorsalGeo = buildAuthenticDorsalFinGeometry(plump, mange);
     const dorsal = new THREE.Mesh(dorsalGeo, bodyMat);
-    dorsal.position.set(0, backRing.y, backRing.centerZ - backRing.depthBackZ + 0.08);
-    dorsal.rotation.x = -0.58;
     dorsal.castShadow = true;
     rig.add(dorsal);
 
-    // 6. Swept-Back Plush Shark Tail & Crescent Caudal Flukes (Attached at Lower Back!)
+    // 3. Tail Group with Authentic Heterocercal Dual-Lobe Caudal Flukes
     const tailGroup = new THREE.Group();
-    const lowBackRing = evalSharkRing(0.16, plump);
-    tailGroup.position.set(0, lowBackRing.y, lowBackRing.centerZ - lowBackRing.depthBackZ + 0.12);
-
-    const tailConeGeo = new THREE.ConeGeometry(0.46 * plump, 1.35, 24);
-    tailConeGeo.rotateX(-Math.PI * 0.44);
-    const tailCone = new THREE.Mesh(tailConeGeo, bodyMat);
-    tailCone.position.set(0, 0.05, -0.52);
-    tailCone.castShadow = true;
-    tailGroup.add(tailCone);
-
-    const upperFlukeGeo = buildSculptedFinGeometry(0.88, 0.42, 0.09, 0.32, 0);
-    upperFlukeGeo.rotateZ(Math.PI * 0.36);
-    upperFlukeGeo.rotateY(Math.PI);
-    const upperFluke = new THREE.Mesh(upperFlukeGeo, bodyMat);
-    upperFluke.position.set(0, 0.12, -1.08);
-    upperFluke.castShadow = true;
-    tailGroup.add(upperFluke);
-
-    const lowerFlukeGeo = buildSculptedFinGeometry(0.62, 0.34, 0.08, 0.24, 0);
-    lowerFlukeGeo.rotateZ(-Math.PI * 0.28);
-    lowerFlukeGeo.rotateY(Math.PI);
-    const lowerFluke = new THREE.Mesh(lowerFlukeGeo, bodyMat);
-    lowerFluke.position.set(0, 0.02, -1.05);
-    lowerFluke.castShadow = true;
-    tailGroup.add(lowerFluke);
-
+    tailGroup.position.set(0, 0.82, -1.65);
+    const caudalGeo = buildAuthenticCaudalFinGeometry(plump, mange);
+    const caudal = new THREE.Mesh(caudalGeo, bodyMat);
+    caudal.castShadow = true;
+    tailGroup.add(caudal);
     rig.add(tailGroup);
 
-    // 7. Soft Hydrofoil Side Pectoral Fins (Attached cleanly at Shoulder Ring s = 0.50!)
-    const shoulderRing = evalSharkRing(0.50, plump);
+    // 4. Side Pectoral Flippers with Animated Pivots
     const leftFinPivot = new THREE.Group();
-    leftFinPivot.position.set(shoulderRing.widthX - 0.06, shoulderRing.y, shoulderRing.centerZ + 0.08);
-    const leftFinGeo = buildSculptedFinGeometry(0.92, 0.56, 0.11, 0.26, -0.14);
+    leftFinPivot.position.set(0.68 * plump, 0.64, 0.35);
+    const leftFinGeo = buildAuthenticPectoralFinGeometry(1, plump, mange);
     const leftFin = new THREE.Mesh(leftFinGeo, bodyMat);
-    leftFin.rotation.z = -0.35;
-    leftFin.rotation.y = -0.18;
     leftFin.castShadow = true;
     leftFinPivot.add(leftFin);
     rig.add(leftFinPivot);
 
     const rightFinPivot = new THREE.Group();
-    rightFinPivot.position.set(-(shoulderRing.widthX - 0.06), shoulderRing.y, shoulderRing.centerZ + 0.08);
-    const rightFinGeo = buildSculptedFinGeometry(0.92, 0.56, 0.11, 0.26, -0.14);
-    rightFinGeo.scale(-1, 1, 1);
-    rightFinGeo.computeVertexNormals();
+    rightFinPivot.position.set(-0.68 * plump, 0.64, 0.35);
+    const rightFinGeo = buildAuthenticPectoralFinGeometry(-1, plump, mange);
     const rightFin = new THREE.Mesh(rightFinGeo, bodyMat);
-    rightFin.rotation.z = 0.35;
-    rightFin.rotation.y = 0.18;
     rightFin.castShadow = true;
     rightFinPivot.add(rightFin);
     rig.add(rightFinPivot);
 
-    // 8. Properly Fitted Scarf / Shawl Collar Sitting OUTSIDE the Neck Surface (Never Clips Back!)
-    const neckRing = evalSharkRing(0.58, plump);
-    const scarfGroup = new THREE.Group();
-    scarfGroup.position.set(0, neckRing.y, neckRing.centerZ);
+    // 5. White Felt Zig-Zag Teeth along the Underside Mouth Cavity
+    const toothMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+    for (let t = -4; t <= 4; t++) {
+      const frac = t / 4;
+      const angle = frac * 0.82;
+      const isSolomonSnaggle = config.protrudingTooth && t === 2;
+      const tx = Math.sin(angle) * 0.40 * plump;
+      const tz = 1.06 + Math.cos(angle) * 0.22;
+      const ty = 0.53 - Math.abs(frac) * 0.02;
 
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.14, 18, 36), scarfMat);
-    collar.rotation.x = Math.PI / 2 + 0.08;
-    // Scale X and Z to wrap 0.06 units outside neckRing.widthX and neckRing.depthBackZ!
-    collar.scale.set(neckRing.widthX + 0.07, (neckRing.depthFrontZ + neckRing.depthBackZ) * 0.5 + 0.09, 1.0);
+      const toothGeo = new THREE.ConeGeometry(
+        isSolomonSnaggle ? 0.055 : 0.038,
+        isSolomonSnaggle ? 0.17 : 0.09,
+        8
+      );
+      const tooth = new THREE.Mesh(toothGeo, toothMat);
+      tooth.position.set(tx, ty - (isSolomonSnaggle ? 0.04 : 0.02), tz + (isSolomonSnaggle ? 0.04 : 0.01));
+      tooth.rotation.x = Math.PI + (isSolomonSnaggle ? 0.35 : 0.16);
+      rig.add(tooth);
+    }
+    for (let t = -3; t <= 3; t++) {
+      const frac = t / 3;
+      const angle = frac * 0.70;
+      const tx = Math.sin(angle) * 0.34 * plump;
+      const tz = 0.98 + Math.cos(angle) * 0.18;
+      const ty = 0.44 + Math.abs(frac) * 0.015;
+
+      const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.075, 8), toothMat);
+      tooth.position.set(tx, ty, tz);
+      tooth.rotation.x = -0.20;
+      rig.add(tooth);
+    }
+
+    // 6. Large Glossy Black Button Eyes with Catchlights & Stitched Rims
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.08, metalness: 0.35 });
+    const eyeRimMat = new THREE.MeshStandardMaterial({ color: 0x142234, roughness: 0.85 });
+    const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+    [-1, 1].forEach((side) => {
+      const eyeGroup = new THREE.Group();
+      eyeGroup.position.set(side * 0.58 * plump, 1.15, 0.98);
+      eyeGroup.lookAt(side * 1.5, 1.28, 1.35);
+
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.022, 12, 24), eyeRimMat);
+      eyeGroup.add(rim);
+
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), eyeMat);
+      dome.scale.set(1.0, 1.0, 0.72);
+      eyeGroup.add(dome);
+
+      const glint1 = new THREE.Mesh(new THREE.SphereGeometry(0.036, 12, 12), catchMat);
+      glint1.position.set(-0.032 * side, 0.036, 0.085);
+      eyeGroup.add(glint1);
+
+      const glint2 = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 10), catchMat);
+      glint2.position.set(0.032 * side, -0.026, 0.085);
+      eyeGroup.add(glint2);
+
+      rig.add(eyeGroup);
+    });
+
+    if (config.beautySpot) {
+      const spot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.038, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0x140a12 })
+      );
+      spot.position.set(0.62 * plump, 1.02, 0.88);
+      rig.add(spot);
+    }
+
+    // 7. Five Authentic Embroidered Curved Gill Seams on each flank
+    const gillMat = new THREE.MeshStandardMaterial({ color: 0x162638, roughness: 0.9 });
+    [-1, 1].forEach((side) => {
+      for (let g = 0; g < 5; g++) {
+        const gz = 0.72 - g * 0.085;
+        const gy = 0.84 - g * 0.024;
+        const gx = side * (0.69 * plump + g * 0.018);
+
+        const gillGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.22, 8);
+        const gill = new THREE.Mesh(gillGeo, gillMat);
+        gill.position.set(gx, gy, gz);
+        gill.rotation.z = side * 0.26;
+        gill.rotation.y = side * 0.28;
+        rig.add(gill);
+      }
+    });
+
+    // 8. Soft Traveler Scarf / Collar Fitting Snugly Around Neck
+    const scarfGroup = new THREE.Group();
+    scarfGroup.position.set(0, 0.82, 0.22);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.85 * plump, 0.12, 16, 32), scarfMat);
+    collar.scale.set(1.0, 0.82, 1.0);
+    collar.rotation.x = Math.PI / 2 + 0.06;
     collar.castShadow = true;
     scarfGroup.add(collar);
 
-    const clasp = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 1), brassMat);
-    clasp.position.set(0, -0.04, neckRing.depthFrontZ + 0.12);
+    const clasp = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 1), brassMat);
+    clasp.position.set(0, -0.02, 0.75 * plump);
     scarfGroup.add(clasp);
     rig.add(scarfGroup);
 
-    // 9. Character-Specific Hats, Goggles, Hoods & Relics (Placed at Exact Crown Surface!)
-    const crownRing = evalSharkRing(0.92, plump);
-    if (config.id === 'hermes') {
-      // Stitched Fabric Patch on left flank
-      const flankRing = evalSharkRing(0.38, plump);
-      const patch = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, 0.30, 0.30),
-        createPlushMaterial(0x7596b5)
-      );
-      patch.position.set(-(flankRing.widthX + 0.01), flankRing.y, flankRing.centerZ + 0.1);
-      rig.add(patch);
+    // 9. DYNAMIC MANGE FACTOR DETAILS (VISIBLE STITCHES, MENDING PATCHES & THREADS)
+    if (mange > 0.05) {
+      const stitchGroup = new THREE.Group();
 
+      // (a) Hand-sewn running stitches along the dorsal spine seam
+      const spineStitchCount = Math.floor(4 + mange * 14);
+      for (let s = 0; s < spineStitchCount; s++) {
+        const u = 0.28 + (s / spineStitchCount) * 0.40;
+        const station = evalPlushSharkStation(u, plump, mange);
+        const stitch = new THREE.Mesh(
+          new THREE.BoxGeometry(0.018, 0.025, 0.045),
+          threadMat
+        );
+        stitch.position.set((s % 2 === 0 ? 0.01 : -0.01), station.yCenter + station.ryTop + 0.006, station.z);
+        stitch.rotation.y = Math.sin(s * 1.7) * 0.22;
+        stitchGroup.add(stitch);
+      }
+
+      // (b) Flank Mending Patch #1 (Denim / Tweed Patch with Cross-Stitches)
+      if (mange > 0.32) {
+        const patchGeo = new THREE.BoxGeometry(0.04, 0.28, 0.34);
+        const patchMat = createPlushMaterial(0x567798, false);
+        const patch = new THREE.Mesh(patchGeo, patchMat);
+        patch.position.set(0.72 * plump, 0.88, -0.22);
+        patch.rotation.y = 0.15;
+        patch.rotation.z = -0.12;
+        stitchGroup.add(patch);
+
+        const corners = [
+          [-0.10, -0.12],
+          [-0.10, 0.12],
+          [0.10, -0.12],
+          [0.10, 0.12]
+        ];
+        corners.forEach(([dy, dz]) => {
+          [-1, 1].forEach((cross) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.015, 0.06), threadMat);
+            leg.position.set(0.74 * plump, 0.88 + dy, -0.22 + dz);
+            leg.rotation.x = cross * 0.78;
+            leg.rotation.y = 0.15;
+            stitchGroup.add(leg);
+          });
+        });
+      }
+
+      // (c) Flank Mending Patch #2 (Weathered Vintage Burlap / Canvas Patch)
+      if (mange > 0.62) {
+        const patch2Geo = new THREE.BoxGeometry(0.04, 0.24, 0.26);
+        const patch2Mat = createPlushMaterial(0x8a735c, false);
+        const patch2 = new THREE.Mesh(patch2Geo, patch2Mat);
+        patch2.position.set(-0.68 * plump, 0.80, -0.55);
+        patch2.rotation.y = -0.18;
+        patch2.rotation.z = 0.15;
+        stitchGroup.add(patch2);
+
+        const corners2 = [
+          [-0.08, -0.09],
+          [-0.08, 0.09],
+          [0.08, -0.09],
+          [0.08, 0.09]
+        ];
+        corners2.forEach(([dy, dz]) => {
+          [-1, 1].forEach((cross) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.015, 0.05), threadMat);
+            leg.position.set(-0.70 * plump, 0.80 + dy, -0.55 + dz);
+            leg.rotation.x = cross * 0.78;
+            leg.rotation.y = -0.18;
+            stitchGroup.add(leg);
+          });
+        });
+      }
+
+      // (d) Loose dangling thread strands
+      if (mange > 0.48) {
+        const threadCurve = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.008, 0.008, 0.18, 6),
+          threadMat
+        );
+        threadCurve.position.set(0.06, 1.58, -0.32);
+        threadCurve.rotation.z = 0.6;
+        threadCurve.rotation.x = 0.4;
+        stitchGroup.add(threadCurve);
+
+        const threadCurve2 = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.007, 0.007, 0.22, 6),
+          threadMat
+        );
+        threadCurve2.position.set(-0.64 * plump, 0.62, 0.05);
+        threadCurve2.rotation.z = -0.8;
+        stitchGroup.add(threadCurve2);
+      }
+
+      rig.add(stitchGroup);
+    }
+
+    // 10. Character-Specific Relics, Hats & Tools
+    if (config.id === 'hermes') {
       // Ornate Brass Between Lantern on left fin
       const lanternGroup = new THREE.Group();
-      lanternGroup.position.set(0.78, -0.26, 0.22);
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.18, 12), brassMat);
-      roof.position.y = 0.22;
+      lanternGroup.position.set(0.75, -0.24, 0.22);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.16, 12), brassMat);
+      roof.position.y = 0.20;
       lanternGroup.add(roof);
       const bulb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.13, 16, 16),
+        new THREE.SphereGeometry(0.12, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0xffd885 })
       );
       lanternGroup.add(bulb);
@@ -505,39 +673,38 @@ window.BlahajModels = (function () {
       lanternGroup.add(lanLight);
       leftFinPivot.add(lanternGroup);
     } else if (config.id === 'solomon') {
-      // Star-Chef Toque Perched Proudly on Top of Head (y = 2.58)!
-      const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.40, 0.16, 28), scarfMat);
-      hatBand.position.set(0, 2.58, crownRing.centerZ - 0.05);
+      // Star-Chef Toque perched proudly on top of head
+      const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.36, 0.14, 28), scarfMat);
+      hatBand.position.set(0, 1.54, 0.88);
       hatBand.rotation.x = -0.15;
       rig.add(hatBand);
 
       const hatCrown = new THREE.Mesh(
-        new THREE.SphereGeometry(0.42, 24, 20),
+        new THREE.SphereGeometry(0.38, 24, 20),
         createPlushMaterial(0xf7f1e3)
       );
       hatCrown.scale.set(1.08, 0.85, 1.05);
-      hatCrown.position.set(0, 2.78, crownRing.centerZ - 0.08);
+      hatCrown.position.set(0, 1.72, 0.85);
       rig.add(hatCrown);
 
       // Golden Teapot on Brass Saucer
       const trayGroup = new THREE.Group();
       trayGroup.position.set(0.68, -0.06, 0.26);
-      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.26, 0.04, 20), brassMat);
-      saucer.position.y = -0.16;
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.24, 0.04, 20), brassMat);
+      saucer.position.y = -0.14;
       trayGroup.add(saucer);
-      const potBody = new THREE.Mesh(new THREE.SphereGeometry(0.21, 20, 18), brassMat);
+      const potBody = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 18), brassMat);
       trayGroup.add(potBody);
       leftFinPivot.add(trayGroup);
     } else if (config.id === 'hiram') {
-      // Builder Goggles on Forehead (s = 0.90)
-      const gRing = evalSharkRing(0.90, plump);
+      // Builder Goggles on Forehead
       const lensMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.1, metalness: 0.6 });
       [-0.22, 0.22].forEach((gx) => {
-        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.032, 12, 24), brassMat);
-        gFrame.position.set(gx, gRing.y + 0.04, gRing.centerZ + gRing.depthFrontZ * 0.92);
-        gFrame.rotation.x = -0.25;
+        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 12, 24), brassMat);
+        gFrame.position.set(gx, 1.34, 1.05);
+        gFrame.rotation.x = -0.28;
         rig.add(gFrame);
-        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.12, 20), lensMat);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.115, 20), lensMat);
         lens.position.copy(gFrame.position);
         lens.rotation.copy(gFrame.rotation);
         rig.add(lens);
@@ -546,54 +713,54 @@ window.BlahajModels = (function () {
       // Sacred Allen Key on Left Fin
       const allenGroup = new THREE.Group();
       allenGroup.position.set(0.68, -0.08, 0.24);
-      const hex1 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.62, 6), brassMat);
+      const hex1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.58, 6), brassMat);
       allenGroup.add(hex1);
-      const hex2 = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.28, 6), brassMat);
+      const hex2 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.26, 6), brassMat);
       hex2.rotation.z = Math.PI / 2;
-      hex2.position.set(0.12, 0.29, 0);
+      hex2.position.set(0.11, 0.27, 0);
       allenGroup.add(hex2);
       leftFinPivot.add(allenGroup);
     } else if (config.id === 'nimue') {
       // Glowing Crystal Pendant on Chest
       const crystal = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.18, 0),
+        new THREE.OctahedronGeometry(0.17, 0),
         new THREE.MeshBasicMaterial({ color: 0xd8b4fe })
       );
-      crystal.position.set(0, neckRing.y - 0.18, neckRing.centerZ + neckRing.depthFrontZ + 0.16);
+      crystal.position.set(0, 0.64, 0.95);
       rig.add(crystal);
       const cLight = new THREE.PointLight(0xc084fc, 0.85, 6);
       cLight.position.copy(crystal.position);
       rig.add(cLight);
     } else if (config.type === 'pink_shark') {
-      // Plush Russian Ushanka of Vigilance Perched on Crown (y = 2.60)
+      // Plush Russian Ushanka of Vigilance Perched on Crown
       const ushMat = createPlushMaterial(0x543442, false);
       const badgeMat = new THREE.MeshBasicMaterial({ color: 0xf5cd79 });
 
-      const ushCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.48, 0.34, 24), ushMat);
-      ushCrown.position.set(0, 2.62, crownRing.centerZ - 0.02);
+      const ushCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.46, 0.32, 24), ushMat);
+      ushCrown.position.set(0, 1.54, 0.88);
       rig.add(ushCrown);
 
-      const ushVisor = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.24, 0.15), ushMat);
-      ushVisor.position.set(0, 2.62, crownRing.centerZ + 0.45);
+      const ushVisor = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.22, 0.14), ushMat);
+      ushVisor.position.set(0, 1.54, 1.25);
       rig.add(ushVisor);
 
-      [-0.48, 0.48].forEach((ex) => {
-        const earFlap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 14), ushMat);
+      [-0.44, 0.44].forEach((ex) => {
+        const earFlap = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 14), ushMat);
         earFlap.scale.set(0.6, 1.4, 0.9);
-        earFlap.position.set(ex, 2.44, crownRing.centerZ);
+        earFlap.position.set(ex, 1.38, 0.88);
         rig.add(earFlap);
       });
 
-      const starBadge = new THREE.Mesh(new THREE.OctahedronGeometry(0.09, 0), badgeMat);
-      starBadge.position.set(0, 2.63, crownRing.centerZ + 0.54);
+      const starBadge = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), badgeMat);
+      starBadge.position.set(0, 1.55, 1.33);
       rig.add(starBadge);
 
       if (config.hasClipboard) {
         const board = new THREE.Mesh(
-          new THREE.BoxGeometry(0.42, 0.56, 0.04),
+          new THREE.BoxGeometry(0.40, 0.52, 0.04),
           new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.75 })
         );
-        board.position.set(-0.62, 0.02, 0.32);
+        board.position.set(-0.60, 0.02, 0.30);
         board.rotation.y = 0.4;
         rightFinPivot.add(board);
       }
@@ -609,7 +776,8 @@ window.BlahajModels = (function () {
       baseY: 0,
       beepTimer: 0,
       hopTimer: 0,
-      walkPhase: Math.random() * Math.PI * 2
+      walkPhase: Math.random() * Math.PI * 2,
+      mangeFactor: mange
     };
 
     return group;
