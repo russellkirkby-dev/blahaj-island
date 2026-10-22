@@ -487,8 +487,10 @@ window.BlahajModels = (function () {
   // ==========================================================================
   // CREATE HIGH-DETAIL 3D PLUSH SHARK (INTACT PLUSH SILHOUETTE + DYNAMIC MANGE FACTOR)
   // ==========================================================================
-  function createPlushShark(config, mangeOverride = null) {
+  function createPlushShark(config, mangeOverride = null, accessorySettings = {}) {
     const group = new THREE.Group();
+    group.userData.config = config;
+    group.userData.accessorySettings = Object.assign({ showRelic: true, showHeadgear: true }, accessorySettings);
     const scale = config.scale || 1.0;
     const plump = config.plumpness || 1.0;
     const mange = typeof mangeOverride === 'number'
@@ -925,9 +927,14 @@ window.BlahajModels = (function () {
     }
 
     // 10. Character-Specific Relics, Hats & Tools
+    const showRelic = accessorySettings.showRelic !== false;
+    const showHeadgear = accessorySettings.showHeadgear !== false;
+
     if (config.id === 'hermes') {
       // Ornate Brass Between Lantern on left fin
       const lanternGroup = new THREE.Group();
+      lanternGroup.userData.accessoryType = 'relic';
+      lanternGroup.visible = showRelic;
       lanternGroup.position.set(0.68, -0.28, 0.22);
       const roof = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.16, 12), brassMat);
       roof.position.y = 0.20;
@@ -945,6 +952,8 @@ window.BlahajModels = (function () {
       const hatBand = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.38, 0.14, 28), scarfMat);
       hatBand.position.set(0, 2.56, 0.16);
       hatBand.rotation.x = -0.12;
+      hatBand.userData.accessoryType = 'headgear';
+      hatBand.visible = showHeadgear;
       rig.add(hatBand);
 
       const hatCrown = new THREE.Mesh(
@@ -953,10 +962,14 @@ window.BlahajModels = (function () {
       );
       hatCrown.scale.set(1.08, 0.85, 1.05);
       hatCrown.position.set(0, 2.74, 0.14);
+      hatCrown.userData.accessoryType = 'headgear';
+      hatCrown.visible = showHeadgear;
       rig.add(hatCrown);
 
       // Golden Teapot on Brass Saucer
       const trayGroup = new THREE.Group();
+      trayGroup.userData.accessoryType = 'relic';
+      trayGroup.visible = showRelic;
       trayGroup.position.set(0.62, -0.06, 0.24);
       const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.24, 0.04, 20), brassMat);
       saucer.position.y = -0.14;
@@ -971,15 +984,21 @@ window.BlahajModels = (function () {
         const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 12, 24), brassMat);
         gFrame.position.set(gx, 2.22, 0.78);
         gFrame.rotation.x = -0.25;
+        gFrame.userData.accessoryType = 'headgear';
+        gFrame.visible = showHeadgear;
         rig.add(gFrame);
         const lens = new THREE.Mesh(new THREE.CircleGeometry(0.115, 20), lensMat);
         lens.position.copy(gFrame.position);
         lens.rotation.copy(gFrame.rotation);
+        lens.userData.accessoryType = 'headgear';
+        lens.visible = showHeadgear;
         rig.add(lens);
       });
 
       // Sacred Allen Key on Left Fin
       const allenGroup = new THREE.Group();
+      allenGroup.userData.accessoryType = 'relic';
+      allenGroup.visible = showRelic;
       allenGroup.position.set(0.62, -0.08, 0.22);
       const hex1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.58, 6), brassMat);
       allenGroup.add(hex1);
@@ -995,9 +1014,13 @@ window.BlahajModels = (function () {
         new THREE.MeshBasicMaterial({ color: 0xd8b4fe })
       );
       crystal.position.set(0, 1.34, 0.72);
+      crystal.userData.accessoryType = 'relic';
+      crystal.visible = showRelic;
       rig.add(crystal);
       const cLight = new THREE.PointLight(0xc084fc, 0.85, 6);
       cLight.position.copy(crystal.position);
+      cLight.userData.accessoryType = 'relic';
+      cLight.visible = showRelic;
       rig.add(cLight);
     } else if (config.type === 'pink_shark') {
       // Russian Ushanka on head crown
@@ -1327,8 +1350,22 @@ window.BlahajModels = (function () {
     }
   }
 
+  function updateSharkAccessories(sharkGroup, settings = {}) {
+    if (!sharkGroup) return;
+    sharkGroup.traverse((child) => {
+      if (child.userData && child.userData.accessoryType) {
+        if (child.userData.accessoryType === 'relic' && typeof settings.showRelic === 'boolean') {
+          child.visible = settings.showRelic;
+        } else if (child.userData.accessoryType === 'headgear' && typeof settings.showHeadgear === 'boolean') {
+          child.visible = settings.showHeadgear;
+        }
+      }
+    });
+  }
+
   return {
     createPlushShark,
+    updateSharkAccessories,
     createBirb,
     createTropicalFish,
     createBeachBall,

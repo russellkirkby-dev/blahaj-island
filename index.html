@@ -62,6 +62,10 @@
             </div>
             <input type="range" id="mange-factor-slider" class="mange-range" min="0" max="100" value="70" step="1" />
           </div>
+          <button type="button" class="btn-open-charsheet-hud" id="btn-open-charsheet" title="Open Character Sheet &amp; MMO Inventory [K]">
+            <span>🦈 Character Sheet &amp; Inventory</span>
+            <kbd>K</kbd>
+          </button>
         </div>
       </div>
 
@@ -118,9 +122,36 @@
               <input type="range" id="sky-time-slider" min="0" max="1440" step="5" value="720" class="mange-range" />
             </div>
 
+            <div class="sky-flyout-divider"></div>
+
+            <div class="sky-flyout-subhead">
+              <span>🌊 OCEAN WAVE CYCLE &amp; SWELL</span>
+              <span id="wave-cycle-badge" class="wave-state-pill">🔄 Auto Swell</span>
+            </div>
+            <div class="sky-status-desc" id="wave-cycle-desc">
+              Tidal ocean swells smoothly undulate from gentle ripples to high rolling seas (~80s harmonic cycle). Boats pitch and roll over crests!
+            </div>
+
+            <div class="sky-quick-btns">
+              <button type="button" class="btn-wave-preset" data-amp="0.4" title="Calm mirror sea with gentle ripples">🌊 Calm (0.4x)</button>
+              <button type="button" class="btn-wave-preset" data-amp="1.0" title="Standard ocean swells">⛵ Moderate (1.0x)</button>
+              <button type="button" class="btn-wave-preset" data-amp="2.0" title="High rolling seas with whitecaps and big crests">🌊 High Swell (2.0x)</button>
+            </div>
+
+            <div class="sky-slider-wrap">
+              <div class="sky-slider-label-row">
+                <span>Wave Swell: <strong id="wave-slider-amp-label">1.0x</strong></span>
+                <span id="wave-slider-condition-label" class="sky-phase-hilite">Moderate Ocean Swell</span>
+              </div>
+              <input type="range" id="wave-amp-slider" min="25" max="230" step="5" value="100" class="mange-range" />
+            </div>
+
             <div class="sky-flyout-footer">
               <button type="button" class="btn-resync-clock active" id="btn-resync-clock" title="Lock back onto live real-world wall clock">
-                🔄 Re-Sync with Real-World Clock (1-Hr Cycle)
+                🔄 Re-Sync Clock
+              </button>
+              <button type="button" class="btn-wave-auto active" id="btn-toggle-wave-auto" title="Toggle automatic natural ocean swell harmonic cycle">
+                🌊 Auto Wave Cycle: ON
               </button>
             </div>
           </div>
@@ -338,6 +369,13 @@
 
         <div class="bar-divider"></div>
 
+        <button class="action-slot util-slot" id="slot-k" title="[K] Open Character Sheet &amp; MMO Inventory">
+          <span class="slot-key">K</span>
+          <div class="slot-emoji">🎒</div>
+          <span class="slot-name">Character</span>
+          <span class="slot-power">Inventory</span>
+        </button>
+
         <button class="action-slot util-slot" id="slot-u" title="[U] Spend Volcano Trial Points to upgrade your Sharks!">
           <span class="slot-key">U</span>
           <div class="slot-emoji">⚔️</div>
@@ -363,6 +401,278 @@
   </div>
 
   <!-- ==================== MODALS ==================== -->
+
+  <!-- 0. CHARACTER SHEET & MMO INVENTORY MODAL [K] -->
+  <div class="modal-backdrop hidden" id="character-sheet-modal">
+    <div class="modal-card charsheet-card">
+      <button class="modal-close-x" id="close-charsheet-modal" title="Close [Esc]">✕</button>
+
+      <div class="charsheet-header">
+        <div class="charsheet-header-left">
+          <span class="portal-badge">🦈 ARCHIPELAGO DOSSIER · MMO CHARACTER SHEET</span>
+          <h2>Shark Character Sheet &amp; Satchel Inventory</h2>
+        </div>
+        <div class="charsheet-header-active-status" id="cs-active-badge">
+          <span class="status-dot online"></span>
+          <span>Active: <strong id="cs-active-name">Hermes</strong></span>
+        </div>
+      </div>
+
+      <!-- CHARACTER SELECTOR TABS -->
+      <div class="charsheet-tabs" id="charsheet-tabs">
+        <button type="button" class="cs-tab active" data-shark="hermes">
+          <img src="assets/gallery/Hermes.png" alt="Hermes" />
+          <div class="cs-tab-info">
+            <span class="cs-tab-name">Hermes</span>
+            <span class="cs-tab-sub">Portal Guide</span>
+          </div>
+        </button>
+        <button type="button" class="cs-tab" data-shark="solomon">
+          <img src="assets/gallery/Solomon.png" alt="Solomon" />
+          <div class="cs-tab-info">
+            <span class="cs-tab-name">Solomon</span>
+            <span class="cs-tab-sub">Star Chef</span>
+          </div>
+        </button>
+        <button type="button" class="cs-tab" data-shark="hiram">
+          <img src="assets/gallery/Hiram.png" alt="Hiram" />
+          <div class="cs-tab-info">
+            <span class="cs-tab-name">Hiram</span>
+            <span class="cs-tab-sub">Master Builder</span>
+          </div>
+        </button>
+        <button type="button" class="cs-tab" data-shark="nimue">
+          <img src="assets/gallery/Nimue.png" alt="Nimue" />
+          <div class="cs-tab-info">
+            <span class="cs-tab-name">Nimue</span>
+            <span class="cs-tab-sub">Seam Weaver</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- MAIN TWO-COLUMN BODY -->
+      <div class="charsheet-body">
+        <!-- LEFT COLUMN: AVATAR, PAPERDOLL & INDIVIDUAL SETTINGS -->
+        <div class="cs-col-left">
+          <div class="cs-avatar-card">
+            <div class="cs-portrait-wrapper">
+              <img id="cs-portrait" src="assets/gallery/Hermes.png" alt="Selected Shark" />
+              <div class="cs-stance-badge">Upright Plush Form</div>
+            </div>
+            <div class="cs-name-block">
+              <h3 id="cs-shark-name">Hermes</h3>
+              <div class="cs-shark-title" id="cs-shark-title">The Mangy One · The Weary Guide</div>
+              <div class="cs-shark-quote" id="cs-shark-quote">“I'm tired, sharkitty… but the road home is always worth the trip.”</div>
+            </div>
+            <button type="button" class="btn-primary cs-switch-active-btn" id="cs-btn-switch-active">
+              ✓ Currently Playing as Hermes
+            </button>
+          </div>
+
+          <!-- EQUIPPED PAPERDOLL SLOTS -->
+          <div class="cs-paperdoll-section">
+            <div class="cs-section-title">EQUIPPED RELICS &amp; GEAR</div>
+            <div class="cs-paperdoll-grid">
+              <div class="paperdoll-slot" id="pd-head" title="Head Slot">
+                <span class="pd-slot-tag">HEAD</span>
+                <span class="pd-slot-icon" id="pd-icon-head">🧢</span>
+                <span class="pd-slot-name" id="pd-name-head">Traveler's Hood</span>
+              </div>
+              <div class="paperdoll-slot" id="pd-neck" title="Neck / Scarf Slot">
+                <span class="pd-slot-tag">NECK</span>
+                <span class="pd-slot-icon" id="pd-icon-neck">🧣</span>
+                <span class="pd-slot-name" id="pd-name-neck">Hand-Knit Scarf</span>
+              </div>
+              <div class="paperdoll-slot primary-relic" id="pd-relic" title="Signature Relic / Main Hand">
+                <span class="pd-slot-tag">RELIC</span>
+                <span class="pd-slot-icon" id="pd-icon-relic">🏮</span>
+                <span class="pd-slot-name" id="pd-name-relic">Between Lantern</span>
+              </div>
+              <div class="paperdoll-slot" id="pd-satchel" title="Satchel / Off Hand">
+                <span class="pd-slot-tag">SATCHEL</span>
+                <span class="pd-slot-icon" id="pd-icon-satchel">🎒</span>
+                <span class="pd-slot-name" id="pd-name-satchel">Plush Haversack</span>
+              </div>
+              <div class="paperdoll-slot" id="pd-trinket" title="Trinket / Charm">
+                <span class="pd-slot-tag">CHARM</span>
+                <span class="pd-slot-icon" id="pd-icon-trinket">🥕</span>
+                <span class="pd-slot-name" id="pd-name-trinket">Balcony Carrot Charm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- INDIVIDUAL SHARK SETTINGS -->
+          <div class="cs-individual-settings">
+            <div class="cs-section-title">INDIVIDUAL CHARACTER SETTINGS</div>
+
+            <!-- Individual Mange Slider -->
+            <div class="cs-mange-box">
+              <div class="cs-mange-label-row">
+                <span>🧵 Character Mange Factor: <strong id="cs-mange-val-text">85% · Mangy Veteran</strong></span>
+              </div>
+              <input type="range" id="cs-mange-slider" class="mange-range" min="0" max="100" value="85" step="1" />
+              <div class="cs-mange-hint">
+                Controls dirt, patches, loose threads &amp; stuffing slump for this specific shark. Saved automatically.
+              </div>
+            </div>
+
+            <!-- Accessory Toggles -->
+            <div class="cs-accessories-toggles">
+              <label class="cs-toggle-row">
+                <input type="checkbox" id="cs-chk-relic" checked />
+                <span>Show Signature Relic / Tool in Hand</span>
+              </label>
+              <label class="cs-toggle-row">
+                <input type="checkbox" id="cs-chk-headgear" checked />
+                <span>Show Character Headgear / Goggles / Crystal</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: SATCHEL INVENTORY, RPG STATS & EMOTES -->
+        <div class="cs-col-right">
+          <div class="cs-subtabs-nav">
+            <button type="button" class="cs-subtab active" data-subtab="inventory">🎒 Satchel Inventory (16 Slots)</button>
+            <button type="button" class="cs-subtab" data-subtab="stats">📊 RPG Attributes &amp; Lore</button>
+            <button type="button" class="cs-subtab" data-subtab="emotes">✨ Voice Lines &amp; Emotes</button>
+          </div>
+
+          <!-- TAB 1: SATCHEL INVENTORY -->
+          <div class="cs-subtab-pane active" id="pane-inventory">
+            <div class="mmo-inventory-header">
+              <span class="mmo-bag-title">16-Slot Archipelago Traveling Satchel</span>
+              <span class="mmo-bag-count" id="mmo-bag-count">12 / 16 Slots Used</span>
+            </div>
+
+            <div class="mmo-inventory-grid" id="mmo-inventory-grid">
+              <!-- 16 MMO Inventory Slots dynamically populated -->
+            </div>
+
+            <!-- ITEM INSPECTOR DETAIL BOX -->
+            <div class="mmo-item-inspector" id="mmo-item-inspector">
+              <div class="inspector-icon-wrap" id="insp-icon-wrap">
+                <span class="inspector-icon" id="insp-icon">🥖</span>
+              </div>
+              <div class="inspector-details">
+                <div class="inspector-title-row">
+                  <h4 class="inspector-name" id="insp-name">Warm Breb Loaf</h4>
+                  <span class="inspector-rarity" id="insp-rarity">Cozy Quality</span>
+                </div>
+                <div class="inspector-type" id="insp-type">Consumable · Summons Birbs</div>
+                <div class="inspector-desc" id="insp-desc">Golden freshly-baked loaves from Solomon's kitchen. Toss onto the grass with [B] to feed and gather plump round island Birbs.</div>
+                <div class="inspector-stats" id="insp-stats">+100% Birb Gathering Radius · Steaming Warmth</div>
+              </div>
+            </div>
+
+            <!-- CURRENCIES FOOTER -->
+            <div class="mmo-currency-bar">
+              <div class="mmo-cur-pill" title="Plump Birbs Fed with Breb">
+                <span>🐦 Birbs Fed:</span> <strong id="cs-cur-birbs">0</strong>
+              </div>
+              <div class="mmo-cur-pill" title="Beach-Shorts Carrots knocked from high volcano balcony">
+                <span>🥕 Carrots:</span> <strong id="cs-cur-carrots">0</strong>
+              </div>
+              <div class="mmo-cur-pill" title="Volcano Trial Dungeon Points for Plush Upgrades">
+                <span>⚔️ Trial Pts:</span> <strong id="cs-cur-trials">0</strong>
+              </div>
+              <div class="mmo-cur-pill" title="Great Seam Rifts Mended">
+                <span>🪡 Seam Rifts:</span> <strong id="cs-cur-seam">3 / 6</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: RPG STATS & DOSSIER -->
+          <div class="cs-subtab-pane hidden" id="pane-stats">
+            <div class="cs-stats-grid">
+              <div class="cs-stat-card">
+                <div class="cs-stat-icon">🧸</div>
+                <div class="cs-stat-data">
+                  <span class="cs-stat-title">Stuffing Resilience</span>
+                  <strong class="cs-stat-val" id="cs-stat-stuffing">100 / 100</strong>
+                  <div class="cs-stat-bar-outer"><div class="cs-stat-bar-inner" style="width: 100%; background: #48bb78;"></div></div>
+                  <span class="cs-stat-sub">Plush cotton coherence. Knockback recovery &amp; double jump agility.</span>
+                </div>
+              </div>
+
+              <div class="cs-stat-card">
+                <div class="cs-stat-icon">🫖</div>
+                <div class="cs-stat-data">
+                  <span class="cs-stat-title">Tea Spirit &amp; Warmth</span>
+                  <strong class="cs-stat-val" id="cs-stat-tea">88% · Steaming</strong>
+                  <div class="cs-stat-bar-outer"><div class="cs-stat-bar-inner" style="width: 88%; background: #ed8936;"></div></div>
+                  <span class="cs-stat-sub">Shields against volcano dungeon ash and grants cozy speed aura.</span>
+                </div>
+              </div>
+
+              <div class="cs-stat-card">
+                <div class="cs-stat-icon">⛵</div>
+                <div class="cs-stat-data">
+                  <span class="cs-stat-title">Oceanic Wave Riding</span>
+                  <strong class="cs-stat-val">Firm Footing (+25%)</strong>
+                  <div class="cs-stat-bar-outer"><div class="cs-stat-bar-inner" style="width: 85%; background: #4299e1;"></div></div>
+                  <span class="cs-stat-sub">Enables seamless balance on boat decks as high ocean swells roll by.</span>
+                </div>
+              </div>
+
+              <div class="cs-stat-card">
+                <div class="cs-stat-icon">🪡</div>
+                <div class="cs-stat-data">
+                  <span class="cs-stat-title">Seam Mending Aptitude</span>
+                  <strong class="cs-stat-val" id="cs-stat-mending">Master Artisan</strong>
+                  <div class="cs-stat-bar-outer"><div class="cs-stat-bar-inner" style="width: 90%; background: #9f7aea;"></div></div>
+                  <span class="cs-stat-sub">Weaves golden starlight thread to seal cosmic tears in the universe.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="cs-lore-dossier">
+              <h4>📜 ARCHIPELAGO DOSSIER &amp; ARCHIVAL RECORD</h4>
+              <p id="cs-dossier-text">
+                Hermes is the interdimensional wanderer of Blåhaj Island. Bearing the ornate Between Lantern, he can sense the seams where realities fold together.
+              </p>
+            </div>
+          </div>
+
+          <!-- TAB 3: EMOTES & VOICE ACTIONS -->
+          <div class="cs-subtab-pane hidden" id="pane-emotes">
+            <div class="cs-emotes-grid">
+              <button type="button" class="cs-emote-btn" data-emote="shonk">
+                <span class="emote-icon">✨</span>
+                <strong>“Shonk!”</strong>
+                <span class="emote-sub">Plush hop &amp; joyful squeak [G]</span>
+              </button>
+              <button type="button" class="cs-emote-btn" data-emote="sharkitty">
+                <span class="emote-icon">🦈</span>
+                <strong>“Sharkitty?”</strong>
+                <span class="emote-sub">Curious head-tilt questioning</span>
+              </button>
+              <button type="button" class="cs-emote-btn" data-emote="beep">
+                <span class="emote-icon">💕</span>
+                <strong>Beep Nose</strong>
+                <span class="emote-sub">Soft fin nose-beep [F]</span>
+              </button>
+              <button type="button" class="cs-emote-btn" data-emote="breb">
+                <span class="emote-icon">🥖</span>
+                <strong>Toss Breb</strong>
+                <span class="emote-sub">Feed hungry Birbs [B]</span>
+              </button>
+              <button type="button" class="cs-emote-btn" data-emote="volcano">
+                <span class="emote-icon">🌋</span>
+                <strong>“Honor Volcano!”</strong>
+                <span class="emote-sub">Salute the sacred crater</span>
+              </button>
+              <button type="button" class="cs-emote-btn" data-emote="tea">
+                <span class="emote-icon">☕</span>
+                <strong>“A Cup of Tea”</strong>
+                <span class="emote-sub">Solomon's infinite hospitality</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 1. DIALOGUE / RITUAL / PIER NOTE MODAL -->
   <div class="modal-backdrop hidden" id="dialogue-modal">

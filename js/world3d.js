@@ -71,11 +71,47 @@ window.BlahajWorld = (function () {
     return false;
   }
 
+  // --------------------------------------------------------------------------
+  // OCEAN WAVE CYCLE & TIDE DYNAMICS
+  // Swell naturally undulates between gentle calm ripples (0.35x) and high rolling seas (2.05x)
+  // --------------------------------------------------------------------------
+  let currentWaveAmp = 1.0;
+  let waveAutoCycle = true;
+  let waveManualAmp = 1.0;
+
+  function getWaveAmplitude(time) {
+    if (!waveAutoCycle) return waveManualAmp;
+    // Harmonic swell wave: ~75-80 second full swell undulation
+    const primary = Math.sin(time * 0.082);
+    const secondary = Math.sin(time * 0.034) * 0.22;
+    const norm = Math.max(0.0, Math.min(1.0, 0.5 + 0.5 * primary + secondary));
+    return 0.35 + norm * 1.70; // 0.35x (placid ripples) to 2.05x (tall ocean rollers)
+  }
+
+  function setWaveState(opts = {}) {
+    if (typeof opts.auto === 'boolean') waveAutoCycle = opts.auto;
+    if (typeof opts.amplitude === 'number') {
+      waveManualAmp = Math.max(0.2, Math.min(2.5, opts.amplitude));
+      if (!waveAutoCycle) currentWaveAmp = waveManualAmp;
+    }
+  }
+
+  function getWaveState() {
+    return {
+      amplitude: currentWaveAmp,
+      autoCycle: waveAutoCycle,
+      label: currentWaveAmp < 0.65 ? 'Gentle Mirror Ripples' :
+             currentWaveAmp < 1.35 ? 'Moderate Ocean Swell' :
+             'High Rolling Seas & Whitecaps'
+    };
+  }
+
   // Analytical 3D Rolling Ocean Wave Height (matches GLSL vertex shader!)
-  function getWaveHeight(x, z, time) {
-    const w1 = Math.sin(x * 0.065 + time * 1.65) * Math.cos(z * 0.055 + time * 1.35) * 0.34;
-    const w2 = Math.sin((x * 0.8 + z * 0.6) * 0.12 - time * 2.15) * 0.16;
-    const w3 = Math.cos((x - z * 0.9) * 0.19 + time * 2.7) * 0.07;
+  function getWaveHeight(x, z, time, ampOverride) {
+    const amp = (ampOverride !== undefined) ? ampOverride : currentWaveAmp;
+    const w1 = Math.sin(x * 0.065 + time * 1.65) * Math.cos(z * 0.055 + time * 1.35) * 0.36 * amp;
+    const w2 = Math.sin((x * 0.8 + z * 0.6) * 0.12 - time * 2.15) * 0.18 * amp;
+    const w3 = Math.cos((x - z * 0.9) * 0.19 + time * 2.7) * 0.09 * amp;
     return 0.22 + w1 + w2 + w3;
   }
 
@@ -689,7 +725,10 @@ window.BlahajWorld = (function () {
       spawnBrebLoaf: (pos) => spawnBrebLoaf(scene, pos),
       updateDayNight: (sc, force) => updateDayNight(sc || scene, force),
       getDayNightState: () => currentSkyState,
-      getSkyKeyframes: () => SKY_KEYFRAMES
+      getSkyKeyframes: () => SKY_KEYFRAMES,
+      setWaveState,
+      getWaveState,
+      getWaveAmplitude: () => currentWaveAmp
     };
   }
 
@@ -809,6 +848,7 @@ window.BlahajWorld = (function () {
 
     waterUniforms = {
       uTime: { value: 0 },
+      uWaveAmp: { value: 1.0 },
       uCrestColor: { value: new THREE.Color(1.0, 0.72, 0.42) },
       uWaterDeepCol: { value: new THREE.Color(0.05, 0.17, 0.33) }
     };
@@ -818,6 +858,7 @@ window.BlahajWorld = (function () {
       transparent: true,
       vertexShader: `
         uniform float uTime;
+        uniform float uWaveAmp;
         attribute float aTerrainH;
         varying float vTerrainH;
         varying float vWave;
@@ -827,19 +868,22 @@ window.BlahajWorld = (function () {
           vTerrainH = aTerrainH;
           vec3 p = position;
           vWorldXZ = p.xz;
-          // 3-Layer Rolling Ocean Swells (matches getWaveHeight in JS)
-          float w1 = sin(p.x * 0.065 + uTime * 1.65) * cos(p.z * 0.055 + uTime * 1.35) * 0.34;
-          float w2 = sin((p.x * 0.8 + p.z * 0.6) * 0.12 - uTime * 2.15) * 0.16;
-          float w3 = cos((p.x - p.z * 0.9) * 0.19 + uTime * 2.7) * 0.07;
-          p.x += cos(p.x * 0.065 + uTime * 1.65) * 0.14;
-          p.z += sin(p.z * 0.055 + uTime * 1.35) * 0.14;
-          p.y += w1 + w2 + w3;
-          vWave = w1 + w2 + w3;
+          // Dynamic Rolling Ocean Swells (matches getWaveHeight in JS)
+          float amp = uWaveAmp;
+          float w1 = sin(p.x * 0.065 + uTime * 1.65) * cos(p.z * 0.055 + uTime * 1.35) * 0.36 * amp;
+          float w2 = sin((p.x * 0.8 + p.z * 0.6) * 0.12 - uTime * 2.15) * 0.18 * amp;
+          float w3 = cos((p.x - p.z * 0.9) * 0.19 + uTime * 2.7) * 0.09 * amp;
+          p.x += cos(p.x * 0.065 + uTime * 1.65) * (0.14 * amp);
+          p.z += sin(p.z * 0.055 + uTime * 1.35) * (0.14 * amp);
+          float totWave = w1 + w2 + w3;
+          p.y += totWave;
+          vWave = totWave;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }
       `,
       fragmentShader: `
         uniform float uTime;
+        uniform float uWaveAmp;
         uniform vec3 uCrestColor;
         uniform vec3 uWaterDeepCol;
         varying float vTerrainH;
@@ -858,11 +902,13 @@ window.BlahajWorld = (function () {
           float caustics = sin(vWorldXZ.x * 0.45 + uTime * 2.2) * cos(vWorldXZ.y * 0.45 - uTime * 1.8);
           col += vec3(0.18, 0.35, 0.38) * max(0.0, caustics) * shallow * 0.25;
 
-          // Sky-reactive glint on rolling wave crests
-          float crest = smoothstep(0.10, 0.48, vWave);
-          float whitecap = smoothstep(0.36, 0.55, vWave);
-          col += uCrestColor * crest * 0.32;
-          col = mix(col, vec3(0.98, 0.96, 0.92), whitecap * 0.42);
+          // Sky-reactive glint and whitecap foam on rolling wave crests (intensifies with wave amplitude)
+          float crestThreshold = 0.10 * max(0.4, uWaveAmp * 0.7);
+          float whitecapThreshold = 0.34 * max(0.45, uWaveAmp * 0.75);
+          float crest = smoothstep(crestThreshold, 0.45 * max(0.5, uWaveAmp * 0.85), vWave);
+          float whitecap = smoothstep(whitecapThreshold, 0.58 * max(0.5, uWaveAmp * 0.9), vWave);
+          col += uCrestColor * crest * 0.36;
+          col = mix(col, vec3(0.98, 0.96, 0.92), whitecap * 0.46);
 
           // Dual-band animated surf foam washing onto every island's beach
           float shoreZone = smoothstep(-1.25, 0.32, vTerrainH) * (1.0 - smoothstep(0.32, 0.95, vTerrainH));
@@ -3188,7 +3234,12 @@ window.BlahajWorld = (function () {
       }
     });
 
-    // 5. Update Bouncy Beach Balls & Boats on the Rolling 3D Ocean Waves!
+    // 5. Update Ocean Wave Cycle Uniform & Beach Balls / Fleet Boats Riding the Swells!
+    currentWaveAmp = getWaveAmplitude(time);
+    if (waterUniforms && waterUniforms.uWaveAmp) {
+      waterUniforms.uWaveAmp.value = currentWaveAmp;
+    }
+
     beachBalls.forEach((bb) => {
       bb.mesh.position.x += bb.vel.x * dt;
       bb.mesh.position.z += bb.vel.z * dt;
@@ -3203,10 +3254,46 @@ window.BlahajWorld = (function () {
 
     [...fleetBoats, partnerBoatMesh].forEach((bm) => {
       if (bm && bm.visible) {
-        const wH = getWaveHeight(bm.position.x, bm.position.z, time);
-        bm.position.y = wH + 0.25;
-        bm.rotation.x = Math.sin(time * 1.9 + bm.position.x * 0.08) * 0.055;
-        bm.rotation.z = Math.cos(time * 1.6 + bm.position.z * 0.08) * 0.065;
+        bm.rotation.order = 'YXZ';
+        const heading = bm.rotation.y;
+        const cosH = Math.cos(heading);
+        const sinH = Math.sin(heading);
+
+        // Sample water height at bow (+Z local) and stern (-Z local)
+        const bowDist = 2.4;
+        const bowX = bm.position.x + bowDist * sinH;
+        const bowZ = bm.position.z + bowDist * cosH;
+        const sternX = bm.position.x - bowDist * sinH;
+        const sternZ = bm.position.z - bowDist * cosH;
+
+        // Sample water height at port (-X local) and starboard (+X local)
+        const beamDist = 1.3;
+        const portX = bm.position.x - beamDist * cosH;
+        const portZ = bm.position.z + beamDist * sinH;
+        const starX = bm.position.x + beamDist * cosH;
+        const starZ = bm.position.z - beamDist * sinH;
+
+        const hBow = getWaveHeight(bowX, bowZ, time);
+        const hStern = getWaveHeight(sternX, sternZ, time);
+        const hPort = getWaveHeight(portX, portZ, time);
+        const hStar = getWaveHeight(starX, starZ, time);
+        const hCenter = getWaveHeight(bm.position.x, bm.position.z, time);
+
+        // Boat draft sits naturally on water surface plus buoyant lift
+        const targetY = (hBow + hStern + hCenter * 2.0) / 4.0 + 0.16;
+        bm.position.y += (targetY - bm.position.y) * Math.min(1.0, dt * 9.0);
+
+        // Pitch: bow up when climbing wave, bow down when descending trough
+        const targetPitch = Math.atan2(hStern - hBow, bowDist * 2.0);
+        // Roll: side-to-side listing with the wave slope
+        const targetRoll = Math.atan2(hStar - hPort, beamDist * 2.0);
+
+        // Add subtle harmonic water ripple vibration
+        const chopPitch = Math.sin(time * 2.8 + bm.position.x * 0.1) * 0.025 * currentWaveAmp;
+        const chopRoll = Math.cos(time * 2.3 + bm.position.z * 0.1) * 0.03 * currentWaveAmp;
+
+        bm.rotation.x += (targetPitch + chopPitch - bm.rotation.x) * Math.min(1.0, dt * 8.0);
+        bm.rotation.z += (targetRoll + chopRoll - bm.rotation.z) * Math.min(1.0, dt * 8.0);
       }
     });
 
@@ -3243,7 +3330,10 @@ window.BlahajWorld = (function () {
     updateWorld,
     updateDayNight,
     getDayNightState: () => currentSkyState,
-    getSkyKeyframes: () => SKY_KEYFRAMES
+    getSkyKeyframes: () => SKY_KEYFRAMES,
+    setWaveState,
+    getWaveState,
+    getWaveAmplitude: () => currentWaveAmp
   };
 })();
 

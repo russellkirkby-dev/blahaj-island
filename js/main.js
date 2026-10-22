@@ -282,8 +282,244 @@
   let scene, camera, renderer, composer, renderPass, clock;
   let worldApi = null;
 
-  // Global Mange Factor (0.0 = pristine brand-new plush, 1.0 = well-loved mangy veteran)
-  window.__BLAHAJ_MANGE__ = parseFloat(localStorage.getItem('blahaj_mange_factor') || '70') / 100;
+  // --------------------------------------------------------------------------
+  // INDIVIDUAL SHARK SETTINGS: MANGE FACTOR & ACCESSORIES
+  // --------------------------------------------------------------------------
+  const SHARK_DEFAULTS = {
+    hermes: { mange: 0.85, relic: true, headgear: true },
+    solomon: { mange: 0.45, relic: true, headgear: true },
+    hiram: { mange: 0.65, relic: true, headgear: true },
+    nimue: { mange: 0.25, relic: true, headgear: true }
+  };
+
+  function formatMangeLabel(pct) {
+    let desc = 'Mangy Veteran';
+    if (pct === 0) desc = 'Mint In Box';
+    else if (pct < 20) desc = 'Fresh & Pristine';
+    else if (pct < 40) desc = 'Gentle Snuggles';
+    else if (pct < 65) desc = 'Well-Loved Plush';
+    else if (pct < 85) desc = 'Seasoned Adventurer';
+    else desc = 'The Mangy One';
+    return `${Math.round(pct)}% · ${desc}`;
+  }
+
+  function getSharkMange(sharkId) {
+    const saved = localStorage.getItem('blahaj_mange_' + sharkId);
+    if (saved !== null) return parseFloat(saved);
+    return SHARK_DEFAULTS[sharkId] ? SHARK_DEFAULTS[sharkId].mange : 0.70;
+  }
+
+  function setSharkMange(sharkId, val) {
+    val = Math.max(0.0, Math.min(1.0, val));
+    localStorage.setItem('blahaj_mange_' + sharkId, val.toString());
+    if (player.sharkId === sharkId) {
+      window.__BLAHAJ_MANGE__ = val;
+      const cfg = LORE.sharks[sharkId];
+      if (player.mesh && player.mesh.parent) {
+        player.mesh.parent.remove(player.mesh);
+      }
+      const acc = getSharkAccessories(sharkId);
+      player.mesh = window.BlahajModels.createPlushShark(cfg, val, acc);
+      player.mesh.position.copy(player.pos);
+      player.mesh.rotation.y = player.rotY;
+      const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+      activeScene.add(player.mesh);
+
+      // Sync HUD slider
+      const hudSlider = document.getElementById('mange-factor-slider');
+      const hudLabel = document.getElementById('mange-value-label');
+      if (hudSlider && hudLabel) {
+        const pct = Math.round(val * 100);
+        hudSlider.value = pct;
+        hudLabel.textContent = formatMangeLabel(pct);
+      }
+
+      if (window.BlahajNetwork) {
+        window.BlahajNetwork.send({ type: 'mange_sync', mange: val });
+      }
+    }
+  }
+
+  function getSharkAccessories(sharkId) {
+    const saved = localStorage.getItem('blahaj_acc_' + sharkId);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      showRelic: SHARK_DEFAULTS[sharkId] ? SHARK_DEFAULTS[sharkId].relic : true,
+      showHeadgear: SHARK_DEFAULTS[sharkId] ? SHARK_DEFAULTS[sharkId].headgear : true
+    };
+  }
+
+  function setSharkAccessories(sharkId, acc) {
+    localStorage.setItem('blahaj_acc_' + sharkId, JSON.stringify(acc));
+    if (player.sharkId === sharkId && player.mesh) {
+      window.BlahajModels.updateSharkAccessories(player.mesh, acc);
+    }
+  }
+
+  // Active shark mange factor (Hermes starts at 85% mangy veteran by default)
+  window.__BLAHAJ_MANGE__ = getSharkMange('hermes');
+
+  // --------------------------------------------------------------------------
+  // 16-SLOT MMO SATCHEL INVENTORY & PAPERDOLL EQUIPMENT REGISTRY
+  // --------------------------------------------------------------------------
+  const PAPERDOLL_GEAR = {
+    hermes: {
+      head: { icon: '🧢', name: 'Traveler\'s Hood' },
+      neck: { icon: '🧣', name: 'Rust Wool Scarf' },
+      relic: { icon: '🏮', name: 'Between Lantern' },
+      satchel: { icon: '🎒', name: 'Plush Haversack' },
+      trinket: { icon: '🥕', name: 'Balcony Carrot' }
+    },
+    solomon: {
+      head: { icon: '👨‍🍳', name: 'Star-Chef Toque' },
+      neck: { icon: '🧣', name: 'Navy Silk Ribbon' },
+      relic: { icon: '🫖', name: 'Porcelain Teapot' },
+      satchel: { icon: '🥖', name: 'Bread Basket' },
+      trinket: { icon: '☕', name: 'Star-Forged Cup' }
+    },
+    hiram: {
+      head: { icon: '🥽', name: 'Builder Goggles' },
+      neck: { icon: '🧣', name: 'Ochre Work Scarf' },
+      relic: { icon: '🔧', name: 'Hex Key M10' },
+      satchel: { icon: '🧰', name: 'Architect Pack' },
+      trinket: { icon: '🌋', name: 'Obsidian Pebble' }
+    },
+    nimue: {
+      head: { icon: '👑', name: 'Starlit Coronet' },
+      neck: { icon: '🪡', name: 'Violet Silk Band' },
+      relic: { icon: '💎', name: 'Star Crystal' },
+      satchel: { icon: '📜', name: 'Scroll Case' },
+      trinket: { icon: '✨', name: 'Golden Needle' }
+    }
+  };
+
+  const MMO_INVENTORY_ITEMS = [
+    {
+      slot: 0,
+      icon: '🥖',
+      name: 'Warm Breb Loaf',
+      qty: 5,
+      rarity: 'cozy',
+      type: 'Consumable · Summons Birbs',
+      desc: 'Golden freshly-baked loaves from Solomon\'s kitchen. Toss onto meadow grass with [B] to feed and gather plump round island Birbs.',
+      stats: '+100% Birb Gathering Radius · Steaming Warmth'
+    },
+    {
+      slot: 1,
+      icon: '🫖',
+      name: 'Earl Grey Infusion',
+      qty: 3,
+      rarity: 'rare',
+      type: 'Sacred Brew · Restores Tea Comfort',
+      desc: 'Solomon\'s sacred ceremonial tea steeped with sweet orange blossom and bergamot. Instantly fills the Tea Comfort meter to 100%.',
+      stats: '+100% Tea Comfort · Grants Warmth Buff'
+    },
+    {
+      slot: 2,
+      icon: '🥕',
+      name: 'Beach-Shorts Carrot Figurine',
+      qty: 1,
+      rarity: 'legendary',
+      type: 'Sacred Balcony Souvenir',
+      desc: 'A rubber-clad carrot in floral boardshorts that tumbled off the high Volcano Balcony and bounced unharmed into the sea.',
+      stats: '+15% Plush Bounce Height · Lucky Charm'
+    },
+    {
+      slot: 3,
+      icon: '🔧',
+      name: 'Sacred Hex Key M10',
+      qty: 1,
+      rarity: 'epic',
+      type: 'Architectural Instrument',
+      desc: 'Hiram\'s indestructible brass hex key. Unlocks bridges, ramps, observation docks, and pocket portals across the archipelago.',
+      stats: 'Unlocks Master Builder Mode [C] · Zero Decay'
+    },
+    {
+      slot: 4,
+      icon: '🪡',
+      name: 'Golden Seam Needle',
+      qty: 1,
+      rarity: 'epic',
+      type: 'Cosmic Relic · Seam Weaving',
+      desc: 'Nimue\'s luminous silver-gold needle that knits reality back together. Glows brightly whenever a Great Seam rift is near.',
+      stats: '+40% Seam Mend Radius · Night Illumination'
+    },
+    {
+      slot: 5,
+      icon: '🏮',
+      name: 'Between Star Lantern',
+      qty: 1,
+      rarity: 'epic',
+      type: 'Dimensional Beacon',
+      desc: 'Hermes\'s eternal lantern. Burns with violet-amber starlight, revealing paths between Los Angeles and New Zealand shores.',
+      stats: 'Portal Guide Beacon · Clears Interdimensional Fog'
+    },
+    {
+      slot: 6,
+      icon: '🏐',
+      name: 'Striped Beach Ball',
+      qty: 2,
+      rarity: 'cozy',
+      type: 'Physics Toy · Ocean Floater',
+      desc: 'Buoyant inflatable beach ball. Bump it with your shark nose or boat bow to watch it launch over rolling swells!',
+      stats: 'Elastic Collision Rating: 0.96 · Waterproof'
+    },
+    {
+      slot: 7,
+      icon: '🌋',
+      name: 'Volcanic Obsidian Pebble',
+      qty: 4,
+      rarity: 'rare',
+      type: 'Trial Token & Mineral',
+      desc: 'Smooth polished volcanic stone collected from the Rear Wharf caldera entrance. Radiates comforting thermal heat.',
+      stats: '+20% Trap Resilience in Volcano Dungeons'
+    },
+    {
+      slot: 8,
+      icon: '🧵',
+      name: 'Plush Cotton Fluff Bundles',
+      qty: 12,
+      rarity: 'cozy',
+      type: 'Crafting Material',
+      desc: 'Premium cloud-soft synthetic cotton fluff. Used to mend loose seams, reinforce stuffing, and adjust your shark\'s plush stance.',
+      stats: 'Restores 25 Stuffing Coherence'
+    },
+    {
+      slot: 9,
+      icon: '⛵',
+      name: 'Folded Regatta Sail Paper',
+      qty: 1,
+      rarity: 'rare',
+      type: 'Nautical Charm',
+      desc: 'Origami sailboat folded by Hermes. Whispers with sea breezes and stabilizes boats as they crest high rolling ocean swells.',
+      stats: '+15% Boat Top Speed · Wave Pitch Damper'
+    },
+    {
+      slot: 10,
+      icon: '📜',
+      name: 'Archipelago Sea Chart',
+      qty: 1,
+      rarity: 'cozy',
+      type: 'Cartography Codex',
+      desc: 'Detailed parchment map documenting Hermes Atoll, Solomon Cay, Hiram Isle, and Nimue Sanctuary beyond the outer reefs.',
+      stats: 'Marks All 4 Sanctuary Wharfs & Docks'
+    },
+    {
+      slot: 11,
+      icon: '☕',
+      name: 'Star-Forged Teacup',
+      qty: 1,
+      rarity: 'legendary',
+      type: 'Porcelain Treasure',
+      desc: 'Solomon\'s favourite gold-trimmed porcelain cup. Never spills a single drop, even during 2.0x high swell rolling seas.',
+      stats: 'Immune to Wave Listing · Infinite Refills'
+    }
+  ];
+
+  let selectedCSShark = 'hermes';
+  let selectedInventorySlot = 0;
 
   // Global Celestial Day/Night Cycle State (Tied to real-world clock: 1 real hour = 24 island hours)
   window.__BLAHAJ_DAY_CYCLE__ = {
@@ -565,13 +801,32 @@
     }
 
     player.sharkId = sharkId;
-    player.mesh = window.BlahajModels.createPlushShark(cfg, window.__BLAHAJ_MANGE__);
+    const individualMange = getSharkMange(sharkId);
+    window.__BLAHAJ_MANGE__ = individualMange;
+    const individualAcc = getSharkAccessories(sharkId);
+
+    player.mesh = window.BlahajModels.createPlushShark(cfg, individualMange, individualAcc);
     player.mesh.position.copy(player.pos);
     player.mesh.rotation.y = player.rotY;
     const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
     activeScene.add(player.mesh);
 
     updateBlueSharkVisibility();
+
+    // Sync HUD slider to this shark's individual mange factor!
+    const hudSlider = document.getElementById('mange-factor-slider');
+    const hudLabel = document.getElementById('mange-value-label');
+    if (hudSlider && hudLabel) {
+      const pct = Math.round(individualMange * 100);
+      hudSlider.value = pct;
+      hudLabel.textContent = formatMangeLabel(pct);
+    }
+
+    // Refresh Character Sheet if open
+    const csModal = document.getElementById('character-sheet-modal');
+    if (csModal && !csModal.classList.contains('hidden')) {
+      renderCharacterSheet(selectedCSShark);
+    }
 
     document.getElementById('hud-shark-portrait').src = cfg.portrait;
     document.getElementById('hud-shark-key').textContent = cfg.key;
@@ -804,6 +1059,11 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        const csModal = document.getElementById('character-sheet-modal');
+        if (csModal && !csModal.classList.contains('hidden')) {
+          closeCharacterSheetModal();
+          return;
+        }
         const skyFlyout = document.getElementById('sky-controls-flyout');
         if (skyFlyout && !skyFlyout.classList.contains('hidden')) {
           skyFlyout.classList.add('hidden');
@@ -843,6 +1103,7 @@
       if (k === 'u') toggleUpgradesModal();
       if (k === 'm') toggleGalleryModal();
       if (k === 'p') togglePortalModal();
+      if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
         if (player.inBoat) {
@@ -885,8 +1146,11 @@
   function isAnyModalOpen() {
     const skyFlyout = document.getElementById('sky-controls-flyout');
     const isSkyOpen = skyFlyout && !skyFlyout.classList.contains('hidden');
+    const csModal = document.getElementById('character-sheet-modal');
+    const isCSOpen = csModal && !csModal.classList.contains('hidden');
     return (
       isSkyOpen ||
+      isCSOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -897,6 +1161,189 @@
   function releasePointerLock() {
     if (document.pointerLockElement) {
       document.exitPointerLock?.();
+    }
+  }
+
+  // ==========================================================================
+  // MMO CHARACTER SHEET & ARCHIPELAGO DOSSIER MODAL
+  // ==========================================================================
+  function openCharacterSheet(sharkId = null) {
+    releasePointerLock();
+    const m = document.getElementById('character-sheet-modal');
+    if (!m) return;
+    selectedCSShark = sharkId || player.sharkId || 'hermes';
+    renderCharacterSheet(selectedCSShark);
+    m.classList.remove('hidden');
+    CozyAudio.shonk();
+  }
+
+  function closeCharacterSheetModal() {
+    const m = document.getElementById('character-sheet-modal');
+    if (m) m.classList.add('hidden');
+  }
+
+  function toggleCharacterSheetModal(sharkId = null) {
+    const m = document.getElementById('character-sheet-modal');
+    if (!m) return;
+    if (m.classList.contains('hidden')) {
+      openCharacterSheet(sharkId);
+    } else {
+      closeCharacterSheetModal();
+    }
+  }
+
+  function renderCharacterSheet(sharkId) {
+    selectedCSShark = sharkId || player.sharkId || 'hermes';
+    const cfg = LORE.sharks[selectedCSShark] || LORE.sharks.hermes;
+
+    // 1. Top Shark Selection Tabs
+    document.querySelectorAll('.cs-tab').forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.shark === selectedCSShark);
+    });
+
+    // 2. Active Shark Badge & Switch Button
+    const activeBadge = document.getElementById('cs-active-name');
+    if (activeBadge) activeBadge.textContent = LORE.sharks[player.sharkId].name;
+
+    const switchBtn = document.getElementById('cs-btn-switch-active');
+    if (switchBtn) {
+      if (selectedCSShark === player.sharkId) {
+        switchBtn.textContent = `✓ Currently Playing as ${cfg.name}`;
+        switchBtn.classList.remove('btn-accent');
+        switchBtn.classList.add('btn-secondary');
+        switchBtn.style.opacity = '0.75';
+      } else {
+        switchBtn.textContent = `Switch Active Shark to ${cfg.name} [${cfg.key}]`;
+        switchBtn.classList.remove('btn-secondary');
+        switchBtn.classList.add('btn-accent');
+        switchBtn.style.opacity = '1.0';
+      }
+    }
+
+    // 3. Avatar card details
+    const portraitEl = document.getElementById('cs-portrait');
+    if (portraitEl) portraitEl.src = cfg.portrait;
+    const nameEl = document.getElementById('cs-shark-name');
+    if (nameEl) nameEl.textContent = cfg.name;
+    const titleEl = document.getElementById('cs-shark-title');
+    if (titleEl) titleEl.textContent = cfg.title;
+    const quoteEl = document.getElementById('cs-shark-quote');
+    if (quoteEl) quoteEl.textContent = cfg.quote;
+
+    // 4. Paperdoll Gear Slots
+    const gear = PAPERDOLL_GEAR[selectedCSShark] || PAPERDOLL_GEAR.hermes;
+    ['head', 'neck', 'relic', 'satchel', 'trinket'].forEach((slot) => {
+      const g = gear[slot];
+      const iconEl = document.getElementById(`pd-icon-${slot}`);
+      const nameEl = document.getElementById(`pd-name-${slot}`);
+      if (iconEl && g) iconEl.textContent = g.icon;
+      if (nameEl && g) nameEl.textContent = g.name;
+    });
+
+    // 5. Individual Mange Slider & Value
+    const mVal = getSharkMange(selectedCSShark);
+    const csSlider = document.getElementById('cs-mange-slider');
+    const csValText = document.getElementById('cs-mange-val-text');
+    const pct = Math.round(mVal * 100);
+    if (csSlider) csSlider.value = pct;
+    if (csValText) csValText.textContent = formatMangeLabel(pct);
+
+    // 6. Accessories Toggles
+    const acc = getSharkAccessories(selectedCSShark);
+    const chkRelic = document.getElementById('cs-chk-relic');
+    const chkHeadgear = document.getElementById('cs-chk-headgear');
+    if (chkRelic) chkRelic.checked = acc.showRelic !== false;
+    if (chkHeadgear) chkHeadgear.checked = acc.showHeadgear !== false;
+
+    // 7. MMO Inventory Grid (16 Slots)
+    const gridEl = document.getElementById('mmo-inventory-grid');
+    if (gridEl) {
+      gridEl.innerHTML = '';
+      for (let i = 0; i < 16; i++) {
+        const item = MMO_INVENTORY_ITEMS.find((x) => x.slot === i);
+        const slotEl = document.createElement('div');
+        slotEl.className = 'mmo-slot';
+        if (i === selectedInventorySlot) slotEl.classList.add('selected');
+
+        if (item) {
+          slotEl.classList.add(`rarity-${item.rarity}`);
+          slotEl.title = `${item.name} (${item.type})`;
+          slotEl.innerHTML = `
+            <span class="mmo-slot-icon">${item.icon}</span>
+            ${item.qty > 1 ? `<span class="mmo-slot-qty">${item.qty}</span>` : ''}
+          `;
+          slotEl.addEventListener('click', () => {
+            selectedInventorySlot = i;
+            renderCharacterSheet(selectedCSShark);
+            updateItemInspector(item);
+          });
+        } else {
+          slotEl.classList.add('empty');
+          slotEl.title = `Satchel Slot ${i + 1} (Empty)`;
+          slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">🎒</span>`;
+          slotEl.addEventListener('click', () => {
+            selectedInventorySlot = i;
+            renderCharacterSheet(selectedCSShark);
+            updateItemInspector(null, i);
+          });
+        }
+        gridEl.appendChild(slotEl);
+      }
+    }
+
+    // Update item inspector for selected slot
+    const curItem = MMO_INVENTORY_ITEMS.find((x) => x.slot === selectedInventorySlot);
+    updateItemInspector(curItem, selectedInventorySlot);
+
+    // 8. Currency Readouts
+    const curBirbs = document.getElementById('cs-cur-birbs');
+    const curCarrots = document.getElementById('cs-cur-carrots');
+    const curTrials = document.getElementById('cs-cur-trials');
+    const curSeam = document.getElementById('cs-cur-seam');
+    if (curBirbs) curBirbs.textContent = player.birbsFedCount;
+    if (curCarrots) curCarrots.textContent = player.carrotsKnockedCount;
+    if (curTrials) curTrials.textContent = player.trialPoints;
+    if (curSeam) curSeam.textContent = `${player.seamMendedCount || 0} / 6`;
+
+    // 9. RPG Stats & Lore tab data
+    const stuffingEl = document.getElementById('cs-stat-stuffing');
+    if (stuffingEl) stuffingEl.textContent = `${Math.round(player.warmth)} / 100`;
+    const teaEl = document.getElementById('cs-stat-tea');
+    if (teaEl) teaEl.textContent = `${Math.round(player.teaComfort)}% · Steaming`;
+    const dossierText = document.getElementById('cs-dossier-text');
+    if (dossierText) {
+      dossierText.textContent = `${cfg.role} — ${cfg.quote} ${cfg.greetings ? cfg.greetings[0] : ''}`;
+    }
+  }
+
+  function updateItemInspector(item, slotIdx = 0) {
+    const iconEl = document.getElementById('insp-icon');
+    const nameEl = document.getElementById('insp-name');
+    const rarityEl = document.getElementById('insp-rarity');
+    const typeEl = document.getElementById('insp-type');
+    const descEl = document.getElementById('insp-desc');
+    const statsEl = document.getElementById('insp-stats');
+
+    if (item) {
+      if (iconEl) iconEl.textContent = item.icon;
+      if (nameEl) nameEl.textContent = item.name;
+      if (rarityEl) {
+        rarityEl.textContent = item.rarity.toUpperCase();
+        rarityEl.className = `inspector-rarity rarity-${item.rarity}`;
+      }
+      if (typeEl) typeEl.textContent = item.type;
+      if (descEl) descEl.textContent = item.desc;
+      if (statsEl) statsEl.textContent = item.stats;
+    } else {
+      if (iconEl) iconEl.textContent = '🎒';
+      if (nameEl) nameEl.textContent = `Empty Satchel Slot ${slotIdx + 1}`;
+      if (rarityEl) {
+        rarityEl.textContent = 'EMPTY';
+        rarityEl.className = 'inspector-rarity';
+      }
+      if (typeEl) typeEl.textContent = 'Archipelago Satchel Storage';
+      if (descEl) descEl.textContent = 'Ready to hold fresh shells, loaf loaves, and treasures found across the islands.';
+      if (statsEl) statsEl.textContent = 'No modifiers active.';
     }
   }
 
@@ -2115,6 +2562,103 @@
     document.getElementById('close-gallery-modal').addEventListener('click', toggleGalleryModal);
     document.getElementById('close-upgrades-modal').addEventListener('click', toggleUpgradesModal);
 
+    const closeCSBtn = document.getElementById('close-charsheet-modal');
+    if (closeCSBtn) closeCSBtn.addEventListener('click', closeCharacterSheetModal);
+
+    const openCSBtn = document.getElementById('btn-open-charsheet');
+    if (openCSBtn) openCSBtn.addEventListener('click', () => openCharacterSheet(player.sharkId));
+
+    const slotK = document.getElementById('slot-k');
+    if (slotK) slotK.addEventListener('click', () => toggleCharacterSheetModal(player.sharkId));
+
+    const unitFrame = document.getElementById('player-unit-frame');
+    if (unitFrame) {
+      unitFrame.style.cursor = 'pointer';
+      unitFrame.addEventListener('click', (e) => {
+        // Do not trigger if clicking on the mange slider directly
+        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range'))) {
+          return;
+        }
+        openCharacterSheet(player.sharkId);
+      });
+    }
+
+    // Character Sheet Shark Selector Tabs
+    document.querySelectorAll('.cs-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        renderCharacterSheet(tab.dataset.shark);
+      });
+    });
+
+    // Character Sheet Subtabs (Inventory, Stats, Emotes)
+    document.querySelectorAll('.cs-subtab').forEach((st) => {
+      st.addEventListener('click', () => {
+        const sub = st.dataset.subtab;
+        document.querySelectorAll('.cs-subtab').forEach((s) => s.classList.toggle('active', s === st));
+        ['inventory', 'stats', 'emotes'].forEach((name) => {
+          const pane = document.getElementById(`pane-${name}`);
+          if (pane) pane.classList.toggle('hidden', name !== sub);
+        });
+      });
+    });
+
+    // Switch Active Shark button inside Character Sheet
+    const switchActiveBtn = document.getElementById('cs-btn-switch-active');
+    if (switchActiveBtn) {
+      switchActiveBtn.addEventListener('click', () => {
+        if (selectedCSShark !== player.sharkId) {
+          spawnPlayerShark(selectedCSShark);
+          renderCharacterSheet(selectedCSShark);
+          CozyAudio.shonk();
+          showToast(`PLAYING AS ${LORE.sharks[selectedCSShark].name.toUpperCase()} 🦈`, LORE.sharks[selectedCSShark].title);
+        }
+      });
+    }
+
+    // Individual Shark Mange Slider inside Character Sheet
+    const csMangeSlider = document.getElementById('cs-mange-slider');
+    const csMangeValText = document.getElementById('cs-mange-val-text');
+    if (csMangeSlider && csMangeValText) {
+      csMangeSlider.addEventListener('input', (e) => {
+        const pct = parseFloat(e.target.value);
+        setSharkMange(selectedCSShark, pct / 100);
+        csMangeValText.textContent = formatMangeLabel(pct);
+      });
+    }
+
+    // Individual Shark Accessories Toggles
+    const chkRelic = document.getElementById('cs-chk-relic');
+    const chkHeadgear = document.getElementById('cs-chk-headgear');
+    function onAccessoryToggle() {
+      const acc = {
+        showRelic: chkRelic ? chkRelic.checked : true,
+        showHeadgear: chkHeadgear ? chkHeadgear.checked : true
+      };
+      setSharkAccessories(selectedCSShark, acc);
+    }
+    if (chkRelic) chkRelic.addEventListener('change', onAccessoryToggle);
+    if (chkHeadgear) chkHeadgear.addEventListener('change', onAccessoryToggle);
+
+    // Emotes buttons inside Character Sheet
+    document.querySelectorAll('.cs-emote-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const emote = btn.dataset.emote;
+        if (emote === 'shonk') triggerShonkEmote();
+        else if (emote === 'beep') triggerBeepNose();
+        else if (emote === 'breb') triggerFeedBreb();
+        else if (emote === 'volcano') {
+          CozyAudio.shonk();
+          addChatLog('🌋 <strong>Salute to the Volcano:</strong> “May the magma stay cozy and the carrots bounce high!”', 'lore');
+        } else if (emote === 'tea') {
+          CozyAudio.teaPour();
+          addChatLog('🫖 <strong>Solomon:</strong> “Earl Grey of Enlightenment for everyone! A cup of infinite comfort.”', 'lore');
+        } else if (emote === 'sharkitty') {
+          CozyAudio.shonk();
+          addChatLog('🦈 <em>Sharkitty?</em> · Plush fins flutter happily!', 'lore');
+        }
+      });
+    });
+
     const vhudCard = document.getElementById('volcano-hud-card');
     if (vhudCard) {
       vhudCard.addEventListener('click', () => hideVolcanoHUDCard());
@@ -2127,19 +2671,9 @@
       });
     }
 
-    // Interactive Mange Factor Slider
+    // Interactive Mange Factor Slider in Unit Frame
     const mangeSlider = document.getElementById('mange-factor-slider');
     const mangeLabel = document.getElementById('mange-value-label');
-    function formatMangeLabel(pct) {
-      let desc = 'Mangy Veteran';
-      if (pct === 0) desc = 'Mint In Box';
-      else if (pct < 20) desc = 'Fresh & Pristine';
-      else if (pct < 40) desc = 'Gentle Snuggles';
-      else if (pct < 65) desc = 'Well-Loved Plush';
-      else if (pct < 85) desc = 'Seasoned Adventurer';
-      else desc = 'The Mangy One';
-      return `${Math.round(pct)}% · ${desc}`;
-    }
 
     if (mangeSlider && mangeLabel) {
       const savedMangePct = Math.round(window.__BLAHAJ_MANGE__ * 100);
@@ -2148,24 +2682,23 @@
 
       mangeSlider.addEventListener('input', (e) => {
         const pct = parseFloat(e.target.value);
-        window.__BLAHAJ_MANGE__ = pct / 100;
-        localStorage.setItem('blahaj_mange_factor', pct);
+        setSharkMange(player.sharkId, pct / 100);
         mangeLabel.textContent = formatMangeLabel(pct);
-        spawnPlayerShark(player.sharkId);
-        if (window.BlahajNetwork) {
-          window.BlahajNetwork.send({
-            type: 'mange_sync',
-            mange: window.__BLAHAJ_MANGE__
-          });
+        if (selectedCSShark === player.sharkId) {
+          if (csMangeSlider) csMangeSlider.value = pct;
+          if (csMangeValText) csMangeValText.textContent = formatMangeLabel(pct);
         }
       });
     }
+
     // Celestial Day/Night Clock Widget & Sky Controls Flyout
     const btnToggleSky = document.getElementById('btn-toggle-sky-controls');
     const skyFlyout = document.getElementById('sky-controls-flyout');
     const btnCloseSky = document.getElementById('btn-close-sky-controls');
     const btnResyncClock = document.getElementById('btn-resync-clock');
     const skyTimeSlider = document.getElementById('sky-time-slider');
+    const btnToggleWaveAuto = document.getElementById('btn-toggle-wave-auto');
+    const waveAmpSlider = document.getElementById('wave-amp-slider');
 
     if (btnToggleSky && skyFlyout) {
       btnToggleSky.addEventListener('click', (e) => {
@@ -2197,6 +2730,45 @@
           if (btnResyncClock) btnResyncClock.classList.remove('active');
         });
       });
+
+      // Wave Swell Preset Buttons: Calm (0.4x), Moderate (1.0x), High Swell (2.0x)
+      document.querySelectorAll('.btn-wave-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const amp = parseFloat(btn.dataset.amp);
+          const setW = (worldApi && worldApi.setWaveState) || (window.BlahajWorld && window.BlahajWorld.setWaveState);
+          if (setW) setW({ auto: false, amplitude: amp });
+          document.querySelectorAll('.btn-wave-preset').forEach((b) => b.classList.toggle('active', b === btn));
+          if (btnToggleWaveAuto) btnToggleWaveAuto.classList.remove('active');
+          if (waveAmpSlider) waveAmpSlider.value = Math.round(amp * 100);
+          updateCelestialClockHUD();
+        });
+      });
+
+      // Wave Swell Slider (20% to 220%)
+      if (waveAmpSlider) {
+        waveAmpSlider.addEventListener('input', (e) => {
+          const amp = parseFloat(e.target.value) / 100.0;
+          const setW = (worldApi && worldApi.setWaveState) || (window.BlahajWorld && window.BlahajWorld.setWaveState);
+          if (setW) setW({ auto: false, amplitude: amp });
+          document.querySelectorAll('.btn-wave-preset').forEach((b) => b.classList.remove('active'));
+          if (btnToggleWaveAuto) btnToggleWaveAuto.classList.remove('active');
+          updateCelestialClockHUD();
+        });
+      }
+
+      // Toggle Natural Auto Wave Swell Cycle
+      if (btnToggleWaveAuto) {
+        btnToggleWaveAuto.addEventListener('click', () => {
+          const getW = (worldApi && worldApi.getWaveState) || (window.BlahajWorld && window.BlahajWorld.getWaveState);
+          const setW = (worldApi && worldApi.setWaveState) || (window.BlahajWorld && window.BlahajWorld.setWaveState);
+          if (getW && setW) {
+            const ws = getW();
+            setW({ auto: !ws.autoCycle });
+            document.querySelectorAll('.btn-wave-preset').forEach((b) => b.classList.remove('active'));
+            updateCelestialClockHUD();
+          }
+        });
+      }
 
       // Scrub Slider (0..1440 in-game minutes)
       if (skyTimeSlider) {
@@ -3246,7 +3818,21 @@
 
     if (player.mesh) {
       player.mesh.position.copy(player.pos);
-      player.mesh.rotation.y = player.rotY;
+      if (player.inBoat) {
+        const boat = worldApi.getBoatMesh();
+        if (boat) {
+          player.mesh.rotation.order = 'YXZ';
+          player.mesh.rotation.y = player.rotY;
+          player.mesh.rotation.x = boat.rotation.x * 0.82;
+          player.mesh.rotation.z = boat.rotation.z * 0.82;
+        } else {
+          player.mesh.rotation.order = 'XYZ';
+          player.mesh.rotation.set(0, player.rotY, 0);
+        }
+      } else {
+        player.mesh.rotation.order = 'XYZ';
+        player.mesh.rotation.set(0, player.rotY, 0);
+      }
       window.BlahajModels.animateShark(player.mesh, dt, isMoving && !player.inBoat && !player.ridingWithPartner, elapsed);
     }
 
@@ -3711,6 +4297,49 @@
           sliderEl.value = Math.round(totalMin);
         }
       }
+    }
+
+    // Live Ocean Wave Swell HUD in Flyout
+    const getWaveFn = (worldApi && worldApi.getWaveState) || (window.BlahajWorld && window.BlahajWorld.getWaveState);
+    if (getWaveFn) {
+      const waveState = getWaveFn();
+      if (waveState) {
+        const waveBadge = document.getElementById('wave-cycle-badge');
+        const waveAmpLabel = document.getElementById('wave-slider-amp-label');
+        const waveCondLabel = document.getElementById('wave-slider-condition-label');
+        const waveSlider = document.getElementById('wave-amp-slider');
+        const btnAuto = document.getElementById('btn-toggle-wave-auto');
+
+        if (waveBadge) {
+          waveBadge.textContent = waveState.autoCycle ? '🔄 Auto Swell' : '⚓ Manual Swell';
+        }
+        if (waveAmpLabel) {
+          waveAmpLabel.textContent = `${waveState.amplitude.toFixed(2)}x`;
+        }
+        if (waveCondLabel) {
+          waveCondLabel.textContent = waveState.label;
+        }
+        if (waveSlider && waveState.autoCycle && document.activeElement !== waveSlider) {
+          waveSlider.value = Math.round(waveState.amplitude * 100);
+        }
+        if (btnAuto) {
+          btnAuto.classList.toggle('active', waveState.autoCycle);
+          btnAuto.textContent = waveState.autoCycle ? '🌊 Auto Wave Cycle: ON' : '⚓ Auto Wave Cycle: OFF';
+        }
+      }
+    }
+
+    // Keep Character Sheet currencies synchronized if open
+    const csModal = document.getElementById('character-sheet-modal');
+    if (csModal && !csModal.classList.contains('hidden')) {
+      const curBirbs = document.getElementById('cs-cur-birbs');
+      const curCarrots = document.getElementById('cs-cur-carrots');
+      const curTrials = document.getElementById('cs-cur-trials');
+      const curSeam = document.getElementById('cs-cur-seam');
+      if (curBirbs) curBirbs.textContent = player.birbsFedCount;
+      if (curCarrots) curCarrots.textContent = player.carrotsKnockedCount;
+      if (curTrials) curTrials.textContent = player.trialPoints;
+      if (curSeam) curSeam.textContent = `${player.seamMendedCount || 0} / 6`;
     }
   }
 
