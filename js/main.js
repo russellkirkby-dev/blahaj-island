@@ -4347,7 +4347,7 @@
         camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
       }
     } else {
-      const minGround = worldApi.getGroundAndStructureHeight(camX, camZ) + 0.95;
+      const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
       camY = Math.max(minGround, camY);
     }
 

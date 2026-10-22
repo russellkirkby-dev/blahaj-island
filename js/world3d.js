@@ -564,7 +564,7 @@ window.BlahajWorld = (function () {
   }
 
   // Compute solid walkable surface height for all permanent Island Landmarks, Daises, Platforms & Decks!
-  function getLandmarkSurfaceHeight(x, z, refY = null) {
+  function getLandmarkSurfaceHeight(x, z, refY = null, forCamera = false) {
     let bestY = -999;
 
     // 1. The Great Portal Gate Dais on East Cape (x = 72, z = -10)
@@ -641,24 +641,28 @@ window.BlahajWorld = (function () {
     }
 
     // 3b. Isthmus Causeway Torii Gates (4 solid jumpable basalt arches)
-    for (let g = 0; g < 4; g++) {
-      const gz = -44 - g * 14;
-      const tIsth = (-gz - 32) / 73;
-      const gx = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
-      const gy = getTerrainHeight(gx, gz);
-      const topBeamY = gy + 6.425; // Top of horizontal crossbeam
+    // Only check arches for physical player movement/jumping, NOT for camera collision (forCamera === true),
+    // so the camera sweeps cleanly through the gateway without clipping or hitching!
+    if (!forCamera) {
+      for (let g = 0; g < 4; g++) {
+        const gz = -44 - g * 14;
+        const tIsth = (-gz - 32) / 73;
+        const gx = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+        const gy = getTerrainHeight(gx, gz);
+        const topBeamY = gy + 6.425; // Top of horizontal crossbeam
 
-      // Crossbeam surface: width 9.6 (|x - gx| <= 4.8), depth 0.95 (|z - gz| <= 0.65)
-      if (Math.abs(x - gx) <= 4.85 && Math.abs(z - gz) <= 0.65) {
-        if (refY === null || topBeamY <= refY + 2.8) {
-          if (topBeamY > bestY) bestY = topBeamY;
+        // Crossbeam surface: width 9.6 (|x - gx| <= 4.8), depth 0.95 (|z - gz| <= 0.65)
+        if (Math.abs(x - gx) <= 4.85 && Math.abs(z - gz) <= 0.65) {
+          if (refY === null || topBeamY <= refY + 2.8) {
+            if (topBeamY > bestY) bestY = topBeamY;
+          }
         }
-      }
-      // Top of side vertical columns (px = +/- 3.8)
-      if ((Math.abs((x - gx) - 3.8) <= 0.55 || Math.abs((x - gx) - (-3.8)) <= 0.55) && Math.abs(z - gz) <= 0.55) {
-        const topColY = gy + 6.2;
-        if (refY === null || topColY <= refY + 2.8) {
-          if (topColY > bestY) bestY = topColY;
+        // Top of side vertical columns (px = +/- 3.8)
+        if ((Math.abs((x - gx) - 3.8) <= 0.55 || Math.abs((x - gx) - (-3.8)) <= 0.55) && Math.abs(z - gz) <= 0.55) {
+          const topColY = gy + 6.2;
+          if (refY === null || topColY <= refY + 2.8) {
+            if (topColY > bestY) bestY = topColY;
+          }
         }
       }
     }
@@ -679,11 +683,10 @@ window.BlahajWorld = (function () {
       }
     }
 
-    // Grand Balcony Basalt Steps leading up from road (z in [-102.5, -94.0], |x - (-22)| <= 3.4)
-    if (Math.abs(x - (-22)) <= 3.4 && z >= -102.5 && z <= -94.0) {
-      const stepProg = (z - (-94.0)) / (-8.0); // 0 at road bottom, 1 at dais rim
-      const u = Math.max(0, Math.min(1, stepProg));
-      const stepSurfY = shrineY - 2.6 + u * 3.2 + 0.24;
+    // Grand Balcony Basalt Steps leading up from causeway road to the front lip of the dais (z in [-94.5, -86.0], |x - (-22)| <= 3.4)
+    if (Math.abs(x - (-22)) <= 3.5 && z >= -94.8 && z <= -85.8) {
+      const u = Math.max(0, Math.min(1, (z - (-86.0)) / (-8.5))); // 0 at road (z=-86.0), 1 at dais lip (z=-94.5)
+      const stepSurfY = shrineY - 4.2 + u * 4.8 + 0.28;
       if (refY === null || stepSurfY <= refY + 2.8) {
         if (stepSurfY > bestY) bestY = stepSurfY;
       }
@@ -796,10 +799,10 @@ window.BlahajWorld = (function () {
     return bestY;
   }
 
-  function getGroundAndStructureHeight(x, z, refY = null) {
+  function getGroundAndStructureHeight(x, z, refY = null, forCamera = false) {
     const tY = getTerrainHeight(x, z);
-    const sY = getStructureSurfaceHeight(x, z, refY);
-    const lmY = getLandmarkSurfaceHeight(x, z, refY);
+    const sY = getStructureSurfaceHeight(x, z, refY, forCamera);
+    const lmY = getLandmarkSurfaceHeight(x, z, refY, forCamera);
     return Math.max(tY, sY, lmY);
   }
 
@@ -1359,10 +1362,10 @@ window.BlahajWorld = (function () {
       },
       {
         id: 'sign-balcony',
-        x: -16.5,
-        z: -98.0,
-        title: '🪧 Volcano Temple Overlook',
-        directions: '🥕 Dare-Carrot Ledge | 🌋 Trial Dungeon Exit | ⬇️ Return to High Island',
+        x: -17.0,
+        z: -83.5,
+        title: '🪧 Exoteric Volcano Shrine & Causeway',
+        directions: '⬆️ Exoteric Shrine & Offering Altar | 🌋 Esoteric Sea Cave Wharf (Behind) | ⬇️ Return to High Island',
         arrows: [Math.PI * 0.5, 0]
       }
     ];
@@ -2061,14 +2064,14 @@ window.BlahajWorld = (function () {
       shrineGroup.add(pillar);
     }
 
-    // Grand Carved Basalt Steps leading up to the Balcony from the Causeway road (z = -93 to -101)
-    const stepsCount = 7;
+    // Grand Carved Basalt Steps leading up to the Balcony from the Causeway road (z = -86.0 to -94.5)
+    const stepsCount = 9;
     for (let s = 0; s < stepsCount; s++) {
       const stepProg = s / (stepsCount - 1);
-      const stepRelZ = 8.5 - stepProg * 7.5; // from +8.5 (z = -94.5) to +1.0 (z = -102.0)
-      const stepRelY = -2.6 + stepProg * 3.2; // ascending up to dais top y = 0.6
-      const stepWidth = 6.6 - stepProg * 0.8;
-      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(stepWidth, 0.48, 1.35), basaltMat);
+      const stepRelZ = 17.0 - stepProg * 8.5; // from relZ = +17.0 (z = -86.0) down to relZ = +8.5 (z = -94.5)
+      const stepRelY = -4.2 + stepProg * 4.8; // ascending from road level (-4.2) up to balcony lip (+0.6)
+      const stepWidth = 6.8;
+      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(stepWidth, 0.55, 1.4), basaltMat);
       stepMesh.position.set(0, stepRelY, stepRelZ);
       stepMesh.receiveShadow = true;
       shrineGroup.add(stepMesh);
