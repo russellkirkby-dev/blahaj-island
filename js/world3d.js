@@ -18,7 +18,6 @@ window.BlahajWorld = (function () {
   const kelpPlants = [];
   const deepJellyfish = [];
   const coralFormations = [];
-  const pelagicRiftBeacons = [];
 
   let boatMesh = null;
   let partnerBoatMesh = null;
@@ -858,7 +857,7 @@ window.BlahajWorld = (function () {
     buildWaterFishesAndBeachBalls(scene);
     buildKelpForests(scene);
     buildCoralReefs(scene);
-    buildPelagicRiftBoundary(scene);
+    buildUnderwaterSeaFlora(scene);
 
     return {
       getTerrainHeight,
@@ -2199,12 +2198,20 @@ window.BlahajWorld = (function () {
   // SWIMMING TROPICAL FISHES & BOUNCY BEACH BALLS IN THE WATER
   // ==========================================================================
   function buildWaterFishesAndBeachBalls(scene) {
-    const fishPalette = [0xff7828, 0xfacc15, 0xec4899, 0x38bdf8, 0x4ade80, 0xa855f7];
+    const fishPalette = [0xff7828, 0xfacc15, 0xec4899, 0x38bdf8, 0x4ade80, 0xa855f7, 0x06b6d4, 0xf43f5e];
     const schoolCenters = [
-      [18, 76], [-20, 78], [0, 92], [68, 34],
-      [-72, 16], [-48, -75], [22, -68], [-28, -224],
-      [0, 84], [-14, 96], [112, 22], [-88, 48],
-      [42, 115], [-45, 118], [120, -48], [-78, -125]
+      // Crescent Harbour & South Lagoon shallows (immediate swimming entry)
+      [0, 66], [14, 70], [-14, 72], [22, 78], [-22, 80], [0, 92], [-14, 100],
+      // East Cape Beach (immediate spawn waters) & Hermes Channel
+      [68, 8], [76, -2], [84, 18], [105, 12], [125, -5],
+      // West Ridge Artisans' Coast & Solomon Channel
+      [-62, 5], [-74, -12], [-85, 32], [-98, 52],
+      // North Volcano Sea Cove
+      [-28, -205], [-16, -192], [-38, -218],
+      // Outer Sanctuary Islands Shallows
+      [165, -8], [178, 10], [-155, 85], [-155, -85], [155, -110],
+      // Shelf Break & Deep Terraces
+      [45, 120], [-45, 125], [115, -45], [-75, -130]
     ];
 
     schoolCenters.forEach(([cx, cz], sIdx) => {
@@ -2247,42 +2254,62 @@ window.BlahajWorld = (function () {
   }
 
   // ==========================================================================
-  // SWAYING 3D KELP FORESTS (CRESCENT LAGOON, CHANNEL GROVES & GIANT BULL KELP)
+  // SWAYING 3D KELP FORESTS & GIANT BULL KELP CATHEDRALS (450+ STALKS!)
   // ==========================================================================
   function buildKelpForests(scene) {
     const kelpMat = new THREE.MeshStandardMaterial({
-      color: 0x2d6a4f,
-      roughness: 0.58,
+      color: 0x1b4332,
+      roughness: 0.55,
       metalness: 0.08,
       side: THREE.DoubleSide
     });
     const kelpGoldMat = new THREE.MeshStandardMaterial({
-      color: 0x52b788,
+      color: 0x40916c,
       roughness: 0.52,
       metalness: 0.12,
       side: THREE.DoubleSide
     });
+    const kelpSunMat = new THREE.MeshStandardMaterial({
+      color: 0x74c69d,
+      roughness: 0.48,
+      metalness: 0.15,
+      side: THREE.DoubleSide
+    });
     const bladderMat = new THREE.MeshStandardMaterial({
-      color: 0xd88d3e,
-      roughness: 0.4,
-      metalness: 0.15
+      color: 0xf59e0b,
+      roughness: 0.38,
+      metalness: 0.22,
+      emissive: 0x78350f,
+      emissiveIntensity: 0.35
     });
 
-    const bladeGeo = new THREE.ConeGeometry(0.38, 1.6, 5);
-    bladeGeo.scale(0.18, 1.0, 1.0); // Flatten cone into curved ribbon blade
-    const bladderGeo = new THREE.SphereGeometry(0.16, 6, 6);
+    // Broad, lush, undulating kelp ribbons
+    const bladeGeo = new THREE.ConeGeometry(0.85, 3.4, 5);
+    bladeGeo.scale(0.32, 1.0, 1.0);
+    const giantBladeGeo = new THREE.ConeGeometry(1.25, 4.8, 5);
+    giantBladeGeo.scale(0.35, 1.0, 1.0);
 
-    // Placement clusters:
-    // 1. Crescent Harbour Kelp Sanctuary (South of Tea Docks & Pier)
-    // 2. East Cape Channel Kelp Grove
-    // 3. West Reef Kelp Shoals
-    // 4. Shelf-Edge Giant Bull Kelp
+    const bladderGeo = new THREE.SphereGeometry(0.34, 8, 8);
+    const giantBladderGeo = new THREE.SphereGeometry(0.52, 8, 8);
+
+    // Dense clusters distributed across all quadrants of the archipelago
     const kelpClusters = [
-      { count: 85, cx: 0, cz: 86, rx: 34, rz: 18, isGiant: false },
-      { count: 40, cx: 110, cz: 18, rx: 22, rz: 16, isGiant: false },
-      { count: 40, cx: -80, cz: 45, rx: 24, rz: 18, isGiant: false },
-      { count: 35, cx: 0, cz: 125, rx: 42, rz: 12, isGiant: true }, // Giant Bull Kelp on Shelf Break
-      { count: 25, cx: -110, cz: 115, rx: 26, rz: 14, isGiant: true }
+      // 1. Crescent Harbour & Tea Bay Shallows (immediate swimming area)
+      { count: 110, cx: 0, cz: 82, rx: 36, rz: 22, isGiant: false },
+      // 2. East Cape Spawn Beach & Hermes Channel (visible right from spawn!)
+      { count: 75, cx: 88, cz: 18, rx: 28, rz: 20, isGiant: false },
+      // 3. West Artisans' Reef & Solomon Cay Channel
+      { count: 75, cx: -82, cz: 42, rx: 28, rz: 22, isGiant: false },
+      // 4. North Volcano Sea Cove
+      { count: 50, cx: -28, cz: -212, rx: 26, rz: 18, isGiant: false },
+      // 5. Outer Sanctuary Islands Coastlines
+      { count: 40, cx: 165, cz: -18, rx: 24, rz: 20, isGiant: false },
+      { count: 40, cx: -155, cz: 85, rx: 24, rz: 20, isGiant: false },
+      // 6. The Grand Continental Drop-Off Giant Bull Kelp Towers (-10m to -21.5m)
+      // These reach 16m to 22m tall so sharks can swim all the way up and down amongst them!
+      { count: 65, cx: 0, cz: 135, rx: 48, rz: 16, isGiant: true },
+      { count: 55, cx: -105, cz: 125, rx: 32, rz: 16, isGiant: true },
+      { count: 50, cx: 125, cz: -55, rx: 32, rz: 16, isGiant: true }
     ];
 
     kelpClusters.forEach((cl) => {
@@ -2291,39 +2318,44 @@ window.BlahajWorld = (function () {
         const kz = cl.cz + (Math.random() - 0.5) * 2 * cl.rz;
         const groundY = getTerrainHeight(kx, kz);
 
-        // Only place kelp underwater between -2.4m and -17m
-        if (groundY < -2.2 && groundY > -17.5) {
+        // Place kelp underwater between -1.6m and -23.0m
+        if (groundY < -1.5 && groundY > -23.0) {
           const group = new THREE.Group();
           group.position.set(kx, groundY, kz);
 
-          // Height of kelp stalk: reaches up to near surface (-0.6m to -1.2m)
-          const targetTopY = Math.min(-0.6, groundY + (cl.isGiant ? 11.5 : 5.5 + Math.random() * 3.5));
-          const totalHeight = Math.max(3.2, targetTopY - groundY);
+          // Height of kelp stalk: reaches up to near surface (-0.8m to -1.5m)
+          const targetTopY = -0.9 - Math.random() * 0.8;
+          const totalHeight = Math.max(3.8, targetTopY - groundY);
 
-          // Stalk
-          const stalkGeo = new THREE.CylinderGeometry(0.06, 0.11, totalHeight, 5, 4);
+          // Stalk stipe thickness
+          const rBase = cl.isGiant ? 0.32 : 0.18;
+          const rTop = cl.isGiant ? 0.18 : 0.10;
+          const stalkGeo = new THREE.CylinderGeometry(rTop, rBase, totalHeight, 6, 6);
           stalkGeo.translate(0, totalHeight / 2, 0);
           const stalkMesh = new THREE.Mesh(stalkGeo, kelpMat);
           group.add(stalkMesh);
 
           // Alternating fronds & air bladders along stalk
-          const frondCount = Math.floor(totalHeight * 1.6);
-          const matToUse = Math.random() > 0.4 ? kelpMat : kelpGoldMat;
+          const frondCount = Math.floor(totalHeight * 1.3);
+          const bGeo = cl.isGiant ? giantBladeGeo : bladeGeo;
+          const bldGeo = cl.isGiant ? giantBladderGeo : bladderGeo;
 
           for (let f = 1; f < frondCount; f++) {
             const fy = (f / frondCount) * totalHeight;
-            const fang = (f * 1.7) + (i * 0.5);
+            const fang = (f * 1.8) + (i * 0.4);
 
-            const blade = new THREE.Mesh(bladeGeo, matToUse);
+            const matPick = f % 3 === 0 ? kelpSunMat : (f % 2 === 0 ? kelpGoldMat : kelpMat);
+            const blade = new THREE.Mesh(bGeo, matPick);
             blade.position.set(0, fy, 0);
-            blade.rotation.set(0.35 + Math.random() * 0.2, fang, 0.45);
-            const scaleBlade = 0.75 + Math.random() * 0.5;
+            blade.rotation.set(0.32 + Math.random() * 0.15, fang, 0.42);
+            const scaleBlade = 0.85 + Math.random() * 0.45;
             blade.scale.set(scaleBlade, scaleBlade, scaleBlade);
             group.add(blade);
 
-            // Small air bladder float at base of frond
-            const bladder = new THREE.Mesh(bladderGeo, bladderMat);
-            bladder.position.set(Math.cos(fang) * 0.12, fy, Math.sin(fang) * 0.12);
+            // Large buoyant amber air bladder at base of each frond
+            const bladder = new THREE.Mesh(bldGeo, bladderMat);
+            const distBld = cl.isGiant ? 0.35 : 0.22;
+            bladder.position.set(Math.cos(fang) * distBld, fy, Math.sin(fang) * distBld);
             group.add(bladder);
           }
 
@@ -2340,107 +2372,147 @@ window.BlahajWorld = (function () {
   }
 
   // ==========================================================================
-  // 3D CORAL REEFS, TABLE CORALS & BIOLUMINESCENT DEEP JELLIES
+  // 3D CORAL REEFS, GIANT BRAIN CORALS & BIOLUMINESCENT DEEP JELLIES
   // ==========================================================================
   function buildCoralReefs(scene) {
-    // 1. Brain Coral Domes on the Near Shelf
-    const brainColors = [0xf4a261, 0xe76f51, 0xffb703, 0xb5838d, 0x2a9d8f];
-    const brainDomeGeo = new THREE.SphereGeometry(1.2, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    // 1. Giant Brain Coral Domes
+    const brainColors = [0xf4a261, 0xe76f51, 0xffb703, 0xf43f5e, 0x2a9d8f, 0x8338ec];
+    const brainDomeGeo = new THREE.SphereGeometry(2.4, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.5);
 
-    // 2. Staghorn Coral Branches
-    const branchColors = [0xec4899, 0x8b5cf6, 0x06b6d4, 0x10b981, 0xf97316];
-    const branchGeo = new THREE.CylinderGeometry(0.08, 0.16, 1.35, 5);
+    // 2. Giant Staghorn Coral Branches
+    const branchColors = [0x00f5d4, 0xf72585, 0x7209b7, 0x4ade80, 0xfbbf24, 0x38bdf8];
+    const branchGeo = new THREE.CylinderGeometry(0.14, 0.28, 2.2, 5);
 
     // 3. Table / Shelf Coral Plates on the Drop-Off Cliff
-    const plateGeo = new THREE.CylinderGeometry(1.6, 1.4, 0.18, 12);
-    const plateMat = new THREE.MeshStandardMaterial({
-      color: 0x9d4edd,
-      roughness: 0.65,
-      metalness: 0.12
-    });
+    const plateGeo = new THREE.CylinderGeometry(2.8, 2.4, 0.28, 14);
+    const plateColors = [0x9d4edd, 0xd946ef, 0x06b6d4, 0xf59e0b];
 
-    // Reef Cluster Locations around the Near Shelf and Intermediate Terraces
+    // 4. Basking Sea Stars
+    const starGeo = new THREE.ConeGeometry(0.45, 0.14, 5);
+    const starMat = new THREE.MeshStandardMaterial({ color: 0xff5400, roughness: 0.6 });
+
+    // 38 Reef Cluster Locations across near-shore shallows, beaches, channels, and drop-offs
     const reefCenters = [
-      [22, 82], [-24, 84], [12, 98], [-18, 102],
-      [115, 25], [125, -5], [-92, 52], [-105, 30],
-      [45, 120], [-45, 120], [80, 85], [-85, 80],
-      [-28, -210], [-42, -195]
+      // Immediate Crescent Harbour & Tea Beach shallows (right where player wades in!)
+      [0, 64], [16, 68], [-16, 70], [8, 80], [-10, 82], [24, 78], [-24, 80],
+      // East Cape Beach (immediately off the spawn portal!)
+      [66, 2], [74, 14], [80, 24], [62, -18],
+      // West Artisans' Ridge Coast
+      [-58, 8], [-68, -8], [-76, 20], [-84, 40],
+      // Outer Sanctuary Island Docks
+      [145, -10], [180, 5], [-140, 75], [-175, 105], [-140, -75], [145, -95],
+      // Mid-Shelf Terraces & Drop-Off Ledges
+      [35, 115], [-35, 118], [0, 138], [-28, 145], [28, 145],
+      [110, 45], [-95, 75], [125, -45], [-75, -120],
+      // North Volcano Sea Cove
+      [-28, -200], [-18, -212], [-40, -215]
     ];
 
     reefCenters.forEach(([cx, cz], rIdx) => {
       const gy = getTerrainHeight(cx, cz);
-      if (gy < -2.0 && gy > -18.0) {
-        // Brain Coral Dome
+      // Place corals at depths between -0.8m and -19.0m
+      if (gy < -0.8 && gy > -19.0) {
+        // Giant Brain Coral Dome
         const bCol = brainColors[rIdx % brainColors.length];
-        const bMat = new THREE.MeshStandardMaterial({ color: bCol, roughness: 0.72, metalness: 0.05 });
+        const bMat = new THREE.MeshStandardMaterial({ color: bCol, roughness: 0.68, metalness: 0.08 });
         const dome = new THREE.Mesh(brainDomeGeo, bMat);
-        const s = 0.65 + Math.random() * 0.65;
+        const s = 1.0 + Math.random() * 0.95; // Domes are 2.4m to 4.7m wide!
         dome.scale.set(s, s * 0.85, s);
-        dome.position.set(cx, gy - 0.05, cz);
+        dome.position.set(cx, gy - 0.1, cz);
         dome.rotation.y = Math.random() * Math.PI * 2;
         scene.add(dome);
 
-        // Clustered Staghorn Coral Bush
+        // Clustered Staghorn Coral Bush with thick branches
         const stagGroup = new THREE.Group();
-        stagGroup.position.set(cx + (Math.random() - 0.5) * 3.5, gy, cz + (Math.random() - 0.5) * 3.5);
+        stagGroup.position.set(cx + (Math.random() - 0.5) * 4.5, gy, cz + (Math.random() - 0.5) * 4.5);
         const stCol = branchColors[(rIdx + 2) % branchColors.length];
-        const stMat = new THREE.MeshStandardMaterial({ color: stCol, roughness: 0.55, metalness: 0.15 });
+        const stMat = new THREE.MeshStandardMaterial({ color: stCol, roughness: 0.52, metalness: 0.18 });
 
-        for (let b = 0; b < 6; b++) {
+        for (let b = 0; b < 7; b++) {
           const br = new THREE.Mesh(branchGeo, stMat);
-          const ang = (b / 6) * Math.PI * 2;
-          br.position.set(Math.cos(ang) * 0.32, 0.6, Math.sin(ang) * 0.32);
+          const ang = (b / 7) * Math.PI * 2;
+          br.position.set(Math.cos(ang) * 0.65, 1.0, Math.sin(ang) * 0.65);
           br.rotation.set(
-            (Math.random() - 0.5) * 0.35 + Math.sin(ang) * 0.35,
+            (Math.random() - 0.5) * 0.35 + Math.sin(ang) * 0.45,
             Math.random() * Math.PI,
-            (Math.random() - 0.5) * 0.35 + Math.cos(ang) * 0.35
+            (Math.random() - 0.5) * 0.35 + Math.cos(ang) * 0.45
           );
           stagGroup.add(br);
         }
         scene.add(stagGroup);
 
-        // If on the Drop-Off Cliff (depth < -6.0m), place Table / Plate Corals stepping outward
-        if (gy < -6.0) {
-          const plate = new THREE.Mesh(plateGeo, plateMat);
-          plate.position.set(cx, gy + 1.2, cz);
-          plate.rotation.set((Math.random() - 0.5) * 0.1, Math.random() * Math.PI, (Math.random() - 0.5) * 0.1);
+        // Basking sea star resting on brain coral
+        const star = new THREE.Mesh(starGeo, starMat);
+        star.position.set(cx + 0.5, gy + s * 1.8, cz);
+        star.rotation.x = Math.PI * 0.5;
+        scene.add(star);
+
+        // Table / Plate Corals stepping out along the Drop-Off Cliff (depth < -5.5m)
+        if (gy < -5.5) {
+          const pMat = new THREE.MeshStandardMaterial({
+            color: plateColors[rIdx % plateColors.length],
+            roughness: 0.6,
+            metalness: 0.14
+          });
+          const plate = new THREE.Mesh(plateGeo, pMat);
+          plate.position.set(cx, gy + 2.2, cz);
+          plate.rotation.set((Math.random() - 0.5) * 0.08, Math.random() * Math.PI, (Math.random() - 0.5) * 0.08);
           scene.add(plate);
         }
       }
     });
 
-    // 4. Bioluminescent Deep Jellyfish along the Grand Drop-Off and Deep Shelf (-7m to -17m)
-    const jellyGeo = new THREE.SphereGeometry(0.55, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.6);
-    const jellyTentacleGeo = new THREE.CylinderGeometry(0.03, 0.01, 1.4, 4);
-    jellyTentacleGeo.translate(0, -0.7, 0);
+    // 4. Bioluminescent Deep Jellyfish (28+ Jellies in both shallow lagoons and deep shelf!)
+    const jellyGeo = new THREE.SphereGeometry(1.35, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.65);
+    const jellyTentacleGeo = new THREE.CylinderGeometry(0.04, 0.015, 2.8, 4);
+    jellyTentacleGeo.translate(0, -1.4, 0);
 
-    const jellyMat = new THREE.MeshStandardMaterial({
+    const jellyMatCyan = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
-      emissive: 0x0369a1,
-      emissiveIntensity: 0.75,
+      emissive: 0x0284c7,
+      emissiveIntensity: 1.1,
       transparent: true,
-      opacity: 0.75,
-      roughness: 0.25
+      opacity: 0.78,
+      roughness: 0.2
+    });
+    const jellyMatViolet = new THREE.MeshStandardMaterial({
+      color: 0xc084fc,
+      emissive: 0x9333ea,
+      emissiveIntensity: 1.1,
+      transparent: true,
+      opacity: 0.78,
+      roughness: 0.2
     });
 
     const jellyLocations = [
-      [0, 118, -9.5], [-25, 130, -14.0], [30, 125, -12.5],
-      [110, 55, -10.0], [130, 75, -15.5], [-95, 85, -11.0],
-      [-120, 105, -16.0], [0, 155, -18.5], [-28, -215, -12.0]
+      // Crescent Harbour & South Lagoon (depth -2.5m to -5.5m)
+      [0, 75, -2.5], [18, 85, -3.2], [-18, 85, -3.2], [0, 95, -4.0],
+      // East Cape Spawn Channel (immediately visible near spawn portal!)
+      [72, 18, -2.8], [95, 25, -3.8], [115, 10, -4.5],
+      // West Artisans' Channel
+      [-65, 20, -2.8], [-85, 45, -4.0], [-105, 55, -4.8],
+      // Grand Continental Drop-Off & Deep Shelf (-8m to -18m)
+      [0, 125, -8.5], [-28, 135, -11.0], [28, 135, -11.0], [0, 155, -16.5],
+      [110, 55, -9.5], [130, 75, -14.5], [-95, 85, -10.0], [-120, 105, -15.0],
+      // Outer Island Lagoons & Volcano Cove
+      [165, -5, -3.5], [-155, 95, -3.5], [-155, -75, -3.8], [155, -105, -3.8],
+      [-28, -205, -5.5], [-35, -220, -12.5], [0, 175, -19.5], [-50, 160, -18.0]
     ];
 
     jellyLocations.forEach(([jx, jz, jy], idx) => {
       const jGroup = new THREE.Group();
       jGroup.position.set(jx, jy, jz);
 
-      const bell = new THREE.Mesh(jellyGeo, jellyMat);
+      const matPick = idx % 2 === 0 ? jellyMatCyan : jellyMatViolet;
+      const bell = new THREE.Mesh(jellyGeo, matPick);
       jGroup.add(bell);
 
-      // Trailing tentacles
-      for (let t = 0; t < 5; t++) {
-        const tent = new THREE.Mesh(jellyTentacleGeo, jellyMat);
-        const ta = (t / 5) * Math.PI * 2;
-        tent.position.set(Math.cos(ta) * 0.25, 0, Math.sin(ta) * 0.25);
+      // 8 Trailing tentacles
+      for (let t = 0; t < 8; t++) {
+        const tent = new THREE.Mesh(jellyTentacleGeo, matPick);
+        const ta = (t / 8) * Math.PI * 2;
+        tent.position.set(Math.cos(ta) * 0.65, 0, Math.sin(ta) * 0.65);
+        tent.rotation.z = Math.sin(ta) * 0.08;
         jGroup.add(tent);
       }
 
@@ -2450,43 +2522,87 @@ window.BlahajWorld = (function () {
         baseX: jx,
         baseY: jy,
         baseZ: jz,
-        driftRadius: 2.5 + (idx % 3) * 1.5,
+        driftRadius: 2.8 + (idx % 3) * 1.6,
         driftAngle: idx * 0.7,
-        driftSpeed: 0.25 + (idx % 2) * 0.15,
-        pulsePhase: idx * 1.1
+        driftSpeed: 0.22 + (idx % 2) * 0.12,
+        pulsePhase: idx * 0.95
       });
     });
   }
 
   // ==========================================================================
-  // PELAGIC ABYSS INSTANCE THRESHOLD BOUNDARY RIFT BEACONS
+  // 7,500 SWAYING 3D SEAGRASS & SEA ANEMONE BLADES (MOVING IN OCEAN CURRENT!)
   // ==========================================================================
-  function buildPelagicRiftBoundary(scene) {
-    const riftMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.55,
+  function buildUnderwaterSeaFlora(scene) {
+    const bladeCount = 7500;
+    const bladeGeo = new THREE.ConeGeometry(0.18, 1.6, 4, 1, true);
+    bladeGeo.translate(0, 0.8, 0);
+
+    const seaGrassUniforms = { uTime: { value: 0 } };
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: 0x10b981,
+      roughness: 0.65,
+      metalness: 0.08,
       side: THREE.DoubleSide
     });
-    const riftGeo = new THREE.CylinderGeometry(0.22, 0.65, 22, 6, 1, true);
 
-    // Place 16 beacons along the outer perimeter (dCoast ≈ 115m)
-    for (let a = 0; a < 16; a++) {
-      const ang = (a / 16) * Math.PI * 2;
-      const rx = Math.cos(ang) * 235;
-      const rz = 12 + Math.sin(ang) * 235;
-      const gy = getTerrainHeight(rx, rz);
+    bladeMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = seaGrassUniforms.uTime;
+      shader.vertexShader =
+        `uniform float uTime;\n` +
+        shader.vertexShader.replace(
+          '#include <begin_vertex>',
+          `
+          #include <begin_vertex>
+          float worldX = instanceMatrix[3][0];
+          float worldZ = instanceMatrix[3][2];
+          float sway = sin(uTime * 1.9 + worldX * 0.16 + worldZ * 0.14) * 0.35 * position.y;
+          transformed.x += sway;
+          transformed.z += cos(uTime * 1.5 + worldZ * 0.18) * 0.25 * position.y;
+          `
+        );
+    };
 
-      if (gy < -14.0) {
-        const beacon = new THREE.Mesh(riftGeo, riftMat);
-        beacon.position.set(rx, gy + 11.0, rz);
-        scene.add(beacon);
-        pelagicRiftBeacons.push({
-          mesh: beacon,
-          beaconPhase: a * 0.4
-        });
+    const instMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, bladeCount);
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    let placed = 0;
+
+    for (let attempt = 0; attempt < 28000 && placed < bladeCount; attempt++) {
+      const gx = (Math.random() - 0.5) * 440;
+      const gz = (Math.random() - 0.5) * 440 + 10;
+      const gy = getTerrainHeight(gx, gz);
+
+      // Place on near shelf and lagoon seabed (-1.1m to -6.8m)
+      if (gy < -1.1 && gy > -6.8) {
+        dummy.position.set(gx, gy - 0.05, gz);
+        dummy.rotation.set(
+          (Math.random() - 0.5) * 0.25,
+          Math.random() * Math.PI * 2,
+          (Math.random() - 0.5) * 0.25
+        );
+        const s = 0.85 + Math.random() * 0.95;
+        dummy.scale.set(s, s * (1.0 + Math.random() * 0.8), s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(placed, dummy.matrix);
+
+        // Palette of vibrant marine turquoise, emerald eelgrass, and coral green
+        const hue = 0.42 + (Math.random() - 0.5) * 0.12;
+        color.setHSL(hue, 0.72, 0.28 + Math.random() * 0.18);
+        instMesh.setColorAt(placed, color);
+        placed++;
       }
     }
+
+    instMesh.count = placed;
+    instMesh.instanceMatrix.needsUpdate = true;
+    if (instMesh.instanceColor) instMesh.instanceColor.needsUpdate = true;
+    scene.add(instMesh);
+
+    animatedObjects.push({
+      type: 'custom_tick',
+      tick: (t) => { seaGrassUniforms.uTime.value = t; }
+    });
   }
 
   // ==========================================================================
@@ -3988,14 +4104,6 @@ window.BlahajWorld = (function () {
       }
     });
 
-    // 9. Pulsate Pelagic Abyss Rift Beacons at the Instance Threshold Boundary
-    pelagicRiftBeacons.forEach((b) => {
-      b.beaconPhase += dt * 1.8;
-      if (b.mesh && b.mesh.material) {
-        b.mesh.material.opacity = 0.42 + Math.sin(b.beaconPhase) * 0.28;
-      }
-    });
-
     animatedObjects.forEach((item) => {
       if (item.type === 'portal_spin') {
         item.mesh.rotation.z = time * 1.25;
@@ -4005,6 +4113,8 @@ window.BlahajWorld = (function () {
       } else if (item.type === 'spin_bob') {
         item.mesh.rotation.y = time * 1.1;
         item.mesh.position.y = item.baseY + Math.sin(time * 2.2) * 0.25;
+      } else if (item.type === 'custom_tick' && typeof item.tick === 'function') {
+        item.tick(time);
       }
     });
   }

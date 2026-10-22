@@ -3191,6 +3191,14 @@
       body: 'Eight <strong>Dare-Carrots</strong> in beach shorts have volunteered for the caldera. Give them a gentle bump into the crater, or step into the <strong>Return Portal</strong> home!',
       tip: 'Knocking carrots awards Trial Points and volcano honor!',
       plainText: 'Eight Dare-Carrots in beach shorts have volunteered for the caldera. Give them a gentle bump into the crater, or step into the Return Portal home!'
+    },
+    pelagic_current: {
+      icon: '🌊',
+      tag: 'OCEAN CURRENT · CONTINENTAL BREAK',
+      title: 'THE ABYSSAL SURGE',
+      body: 'Powerful oceanic undertows and open-sea swells surge across the continental shelf break! The deep ocean current blows you back toward the island shores.',
+      tip: 'The pelagic current is too powerful to cross.',
+      plainText: 'Powerful oceanic undertows and open-sea swells surge across the continental shelf break! The deep ocean current blows you back toward the island shores.'
     }
   };
 
@@ -4045,23 +4053,23 @@
               spawnUnderwaterBubbles(player.pos, 2);
             }
 
-            // Check Pelagic Abyss Instance Threshold (edge of charted deep shelf)
+            // Check Pelagic Current (edge of charted deep ocean shelf)
             const dCoast = (worldApi && typeof worldApi.getDistanceToNearestCoast === 'function')
               ? worldApi.getDistanceToNearestCoast(player.pos.x, player.pos.z)
               : 0;
 
             if (dCoast > 115.0) {
-              if (!player.hasSeenPelagicRiftNotice) {
-                player.hasSeenPelagicRiftNotice = true;
-                showToast('🌊 PELAGIC ABYSS TRENCH [Instance Threshold]', 'Strong oceanic currents swirl at the edge of the charted shelf! (Deeper Trench Instance coming soon)');
-                CozyAudio.portalChime();
-              }
-              // Gentle oceanic counter-current nudging player back toward the shelf
+              showVolcanoHUDNotice('pelagic_current');
+              // Oceanic counter-current blowing player back toward the island shores
               const lenToCenter = Math.hypot(player.pos.x, player.pos.z - 12) || 1;
-              player.pos.x -= (player.pos.x / lenToCenter) * 5.0 * dt;
-              player.pos.z -= ((player.pos.z - 12) / lenToCenter) * 5.0 * dt;
-            } else if (dCoast < 95.0) {
-              player.hasSeenPelagicRiftNotice = false;
+              const pushSpeed = Math.min(13.0, 7.5 + (dCoast - 115.0) * 1.8);
+              player.pos.x -= (player.pos.x / lenToCenter) * pushSpeed * dt;
+              player.pos.z -= ((player.pos.z - 12) / lenToCenter) * pushSpeed * dt;
+              if (Math.random() < 0.25) {
+                spawnUnderwaterBubbles(player.pos, 3);
+              }
+            } else if (dCoast < 85.0) {
+              shownVolcanoNotices.delete('pelagic_current');
             }
           } else {
             // --- TERRESTRIAL GRAVITY & WALKING ON LAND / SHALLOWS ---
