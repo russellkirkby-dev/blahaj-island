@@ -82,6 +82,51 @@
         <span class="zone-sub">THE WATER THAT DOTH NOT WET</span>
         <h1 id="hud-zone-name">Sacred Tea House Terrace</h1>
       </div>
+
+      <!-- CELESTIAL CLOCK WIDGET (Tied to real-world clock: 1 real hour = 24 island hours) -->
+      <div class="celestial-clock-container" id="celestial-clock-container">
+        <button type="button" class="celestial-clock-btn" id="btn-toggle-sky-controls" title="Island Time & Sky Cycle (Synced to real-world clock: 1 real hour = 24 island hours). Click to open Sky & Time Controls!">
+          <span class="clock-icon" id="clock-phase-icon">☀️</span>
+          <span class="clock-time" id="clock-time-text">12:00 PM</span>
+          <span class="clock-phase" id="clock-phase-tag">High Noon</span>
+          <span class="clock-sync-badge" id="clock-sync-badge" title="Tied to real-world clock (synced with partner in co-op)">● CLOCK SYNC</span>
+        </button>
+
+        <!-- FLYOUT POPUP: Time of Day & Sky Cycle Controls -->
+        <div class="sky-controls-flyout hidden" id="sky-controls-flyout">
+          <div class="sky-flyout-header">
+            <span class="sky-flyout-title">🌅 ISLAND SKY &amp; DAY/NIGHT CYCLE</span>
+            <button type="button" class="sky-flyout-close" id="btn-close-sky-controls" title="Close [Esc]">✕</button>
+          </div>
+          <div class="sky-flyout-body">
+            <div class="sky-status-desc">
+              Tied to the <strong>real-world clock</strong> (1 real hour = 24 island hours). Every time you or your partner log in, you get the exact live time of day!
+            </div>
+
+            <div class="sky-quick-btns">
+              <button type="button" class="btn-sky-preset" data-hour="6" title="Set to 06:00 AM (Dawn &amp; Sunrise)">🌅 Dawn</button>
+              <button type="button" class="btn-sky-preset" data-hour="12" title="Set to 12:00 PM (High Noon)">☀️ Noon</button>
+              <button type="button" class="btn-sky-preset" data-hour="18" title="Set to 06:00 PM (Golden Sunset)">🌇 Sunset</button>
+              <button type="button" class="btn-sky-preset" data-hour="0" title="Set to 12:00 AM (Starlit Midnight)">🌙 Night</button>
+            </div>
+
+            <div class="sky-slider-wrap">
+              <div class="sky-slider-label-row">
+                <span>Time of Day: <strong id="sky-slider-time-label">12:00 PM</strong></span>
+                <span id="sky-slider-phase-label" class="sky-phase-hilite">High Noon</span>
+              </div>
+              <input type="range" id="sky-time-slider" min="0" max="1440" step="5" value="720" class="mange-range" />
+            </div>
+
+            <div class="sky-flyout-footer">
+              <button type="button" class="btn-resync-clock active" id="btn-resync-clock" title="Lock back onto live real-world wall clock">
+                🔄 Re-Sync with Real-World Clock (1-Hr Cycle)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="compass-strip" id="compass-strip">
         <div class="compass-track" id="compass-track">
           <span data-deg="0" class="c-cardinal">N · VOLCANO &amp; REAR WHARF</span>

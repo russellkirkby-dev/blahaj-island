@@ -25,6 +25,16 @@ window.BlahajWorld = (function () {
   let emberSystem = null;
   let terrainBumpTex = null;
 
+  // Celestial Day/Night & Lighting references
+  let hemiLight = null;
+  let dirLight = null;
+  let skyMat = null;
+  let skyUniforms = null;
+  let starPoints = null;
+  let sunGroup = null;
+  let moonGroup = null;
+  let cloudMat = null;
+
   // Road spline segments radiating from Sacred Tea House Hub (0, 10) to all High Island landmarks
   const ROAD_SEGMENTS = [
     { x1: 0, z1: 48, x2: 0, z2: 10, w: 3.1 },      // South Harbour Road
@@ -544,10 +554,10 @@ window.BlahajWorld = (function () {
     scene.background = new THREE.Color(0x161f36);
     scene.fog = new THREE.FogExp2(0x1e2842, 0.0015);
 
-    const hemiLight = new THREE.HemisphereLight(0xffd6a5, 0x283b5e, 0.8);
+    hemiLight = new THREE.HemisphereLight(0xffd6a5, 0x283b5e, 0.8);
     scene.add(hemiLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffb163, 1.28);
+    dirLight = new THREE.DirectionalLight(0xffb163, 1.28);
     dirLight.position.set(-90, 140, 80);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -563,6 +573,7 @@ window.BlahajWorld = (function () {
     scene.add(dirLight);
 
     buildSkyDomeAndSkySeam(scene);
+    updateDayNight(scene, true);
 
     // Sculpted Exterior Terrain Mesh (560x560 units covering Main Island + 4 Outer Sanctuary Islands!)
     const terrainGeo = new THREE.PlaneGeometry(560, 560, 280, 280);
@@ -675,7 +686,10 @@ window.BlahajWorld = (function () {
       createStructureMesh: (type, isPreview) => createStructureMesh(type, isPreview),
       placeBuiltStructure: (itemData) => placeBuiltStructure(scene, itemData),
       removeBuiltStructure: (id) => removeBuiltStructure(scene, id),
-      spawnBrebLoaf: (pos) => spawnBrebLoaf(scene, pos)
+      spawnBrebLoaf: (pos) => spawnBrebLoaf(scene, pos),
+      updateDayNight: (sc, force) => updateDayNight(sc || scene, force),
+      getDayNightState: () => currentSkyState,
+      getSkyKeyframes: () => SKY_KEYFRAMES
     };
   }
 
@@ -793,7 +807,11 @@ window.BlahajWorld = (function () {
     }
     waterGeo.setAttribute('aTerrainH', new THREE.BufferAttribute(shoreDepth, 1));
 
-    waterUniforms = { uTime: { value: 0 } };
+    waterUniforms = {
+      uTime: { value: 0 },
+      uCrestColor: { value: new THREE.Color(1.0, 0.72, 0.42) },
+      uWaterDeepCol: { value: new THREE.Color(0.05, 0.17, 0.33) }
+    };
 
     const waterMat = new THREE.ShaderMaterial({
       uniforms: waterUniforms,
@@ -822,14 +840,16 @@ window.BlahajWorld = (function () {
       `,
       fragmentShader: `
         uniform float uTime;
+        uniform vec3 uCrestColor;
+        uniform vec3 uWaterDeepCol;
         varying float vTerrainH;
         varying float vWave;
         varying vec2 vWorldXZ;
 
         void main() {
           float shallow = smoothstep(-4.4, 0.45, vTerrainH);
-          vec3 abyssCol = vec3(0.05, 0.17, 0.33);
-          vec3 reefCol = vec3(0.11, 0.56, 0.69);
+          vec3 abyssCol = uWaterDeepCol;
+          vec3 reefCol = mix(abyssCol, vec3(0.11, 0.56, 0.69), 0.75);
           vec3 lagoonCol = vec3(0.28, 0.78, 0.82);
           vec3 col = mix(abyssCol, reefCol, shallow);
           col = mix(col, lagoonCol, smoothstep(-1.4, 0.25, vTerrainH) * 0.65);
@@ -838,10 +858,10 @@ window.BlahajWorld = (function () {
           float caustics = sin(vWorldXZ.x * 0.45 + uTime * 2.2) * cos(vWorldXZ.y * 0.45 - uTime * 1.8);
           col += vec3(0.18, 0.35, 0.38) * max(0.0, caustics) * shallow * 0.25;
 
-          // Golden sunset glint on rolling wave crests
+          // Sky-reactive glint on rolling wave crests
           float crest = smoothstep(0.10, 0.48, vWave);
           float whitecap = smoothstep(0.36, 0.55, vWave);
-          col += vec3(1.0, 0.72, 0.42) * crest * 0.28;
+          col += uCrestColor * crest * 0.32;
           col = mix(col, vec3(0.98, 0.96, 0.92), whitecap * 0.42);
 
           // Dual-band animated surf foam washing onto every island's beach
@@ -863,7 +883,7 @@ window.BlahajWorld = (function () {
 
   function buildVolumetricCloudsAndWildflowers(scene) {
     // 1. 18 Sculpted Volumetric Sunset Cloud Clusters drifting around High Island & Volcano Peak
-    const cloudMat = new THREE.MeshStandardMaterial({
+    cloudMat = new THREE.MeshStandardMaterial({
       color: 0xffe8d6,
       emissive: 0x4a2538,
       emissiveIntensity: 0.28,
@@ -1065,9 +1085,352 @@ window.BlahajWorld = (function () {
     });
   }
 
+  // ==========================================================================
+  // CELESTIAL DAY / NIGHT KEYFRAMES (TIED TO REAL-WORLD CLOCK 1-HR CYCLE)
+  // 1 Real Hour = 24 Island Hours. Cycle progress p in [0..1).
+  // p = 0.00 -> 06:00 AM (Dawn & Sunrise)
+  // p = 0.25 -> 12:00 PM (High Noon / Golden Midday)
+  // p = 0.50 -> 06:00 PM (Sunset & Golden Hour)
+  // p = 0.75 -> 12:00 AM (Starlit Midnight & Cool Moon)
+  // ==========================================================================
+  const SKY_KEYFRAMES = [
+    {
+      p: 0.00, // 06:00 AM Dawn & Sunrise
+      timeStr: '06:00 AM',
+      phaseName: 'Dawn & Sunrise',
+      phaseIcon: '🌅',
+      horizon: new THREE.Color(0xf68c68),
+      mid: new THREE.Color(0x94608c),
+      zenith: new THREE.Color(0x1a2244),
+      fog: new THREE.Color(0xa86e7a),
+      sunColor: new THREE.Color(0xff9e58),
+      sunIntensity: 0.95,
+      hemiSky: new THREE.Color(0xffaf82),
+      hemiGround: new THREE.Color(0x2d2232),
+      hemiIntensity: 0.70,
+      starOpacity: 0.15,
+      cloudColor: new THREE.Color(0xffcfb2),
+      cloudEmissive: new THREE.Color(0x401828),
+      waterCrest: new THREE.Color(0xffaa66)
+    },
+    {
+      p: 0.125, // 09:00 AM Morning
+      timeStr: '09:00 AM',
+      phaseName: 'Golden Morning',
+      phaseIcon: '🌤️',
+      horizon: new THREE.Color(0x8ad2ff),
+      mid: new THREE.Color(0x42a0e8),
+      zenith: new THREE.Color(0x1660a8),
+      fog: new THREE.Color(0x72bce8),
+      sunColor: new THREE.Color(0xfff0d0),
+      sunIntensity: 1.25,
+      hemiSky: new THREE.Color(0xafe0ff),
+      hemiGround: new THREE.Color(0x355840),
+      hemiIntensity: 0.82,
+      starOpacity: 0.0,
+      cloudColor: new THREE.Color(0xffffff),
+      cloudEmissive: new THREE.Color(0x0c1e2e),
+      waterCrest: new THREE.Color(0xffeedd)
+    },
+    {
+      p: 0.25, // 12:00 PM High Noon
+      timeStr: '12:00 PM',
+      phaseName: 'High Noon',
+      phaseIcon: '☀️',
+      horizon: new THREE.Color(0x70c4ff),
+      mid: new THREE.Color(0x288fe0),
+      zenith: new THREE.Color(0x0c488e),
+      fog: new THREE.Color(0x56aee8),
+      sunColor: new THREE.Color(0xfffbf0),
+      sunIntensity: 1.38,
+      hemiSky: new THREE.Color(0xbde8ff),
+      hemiGround: new THREE.Color(0x3b6245),
+      hemiIntensity: 0.88,
+      starOpacity: 0.0,
+      cloudColor: new THREE.Color(0xffffff),
+      cloudEmissive: new THREE.Color(0x10283c),
+      waterCrest: new THREE.Color(0xffffff)
+    },
+    {
+      p: 0.375, // 03:00 PM Afternoon
+      timeStr: '03:00 PM',
+      phaseName: 'Sunny Afternoon',
+      phaseIcon: '☀️',
+      horizon: new THREE.Color(0x7ed0fa),
+      mid: new THREE.Color(0x3598e2),
+      zenith: new THREE.Color(0x145296),
+      fog: new THREE.Color(0x62b2e8),
+      sunColor: new THREE.Color(0xfff4dc),
+      sunIntensity: 1.30,
+      hemiSky: new THREE.Color(0xb8e4ff),
+      hemiGround: new THREE.Color(0x385c42),
+      hemiIntensity: 0.85,
+      starOpacity: 0.0,
+      cloudColor: new THREE.Color(0xfff8f0),
+      cloudEmissive: new THREE.Color(0x162438),
+      waterCrest: new THREE.Color(0xfff4e6)
+    },
+    {
+      p: 0.50, // 06:00 PM Sunset / Golden Hour
+      timeStr: '06:00 PM',
+      phaseName: 'Golden Sunset',
+      phaseIcon: '🌇',
+      horizon: new THREE.Color(0xff5e28),
+      mid: new THREE.Color(0x843068),
+      zenith: new THREE.Color(0x161036),
+      fog: new THREE.Color(0x9a3e52),
+      sunColor: new THREE.Color(0xff7424),
+      sunIntensity: 1.20,
+      hemiSky: new THREE.Color(0xffa872),
+      hemiGround: new THREE.Color(0x321a28),
+      hemiIntensity: 0.72,
+      starOpacity: 0.12,
+      cloudColor: new THREE.Color(0xffad82),
+      cloudEmissive: new THREE.Color(0x561e32),
+      waterCrest: new THREE.Color(0xff7838)
+    },
+    {
+      p: 0.60, // 08:24 PM Twilight Dusk
+      timeStr: '08:24 PM',
+      phaseName: 'Twilight Dusk',
+      phaseIcon: '🌆',
+      horizon: new THREE.Color(0x4a2c5a),
+      mid: new THREE.Color(0x1e1e44),
+      zenith: new THREE.Color(0x0c0c22),
+      fog: new THREE.Color(0x28203c),
+      sunColor: new THREE.Color(0x7288c8),
+      sunIntensity: 0.45,
+      hemiSky: new THREE.Color(0x384068),
+      hemiGround: new THREE.Color(0x161622),
+      hemiIntensity: 0.46,
+      starOpacity: 0.65,
+      cloudColor: new THREE.Color(0x544062),
+      cloudEmissive: new THREE.Color(0x1e1228),
+      waterCrest: new THREE.Color(0x9298cc)
+    },
+    {
+      p: 0.75, // 12:00 AM Starlit Midnight
+      timeStr: '12:00 AM',
+      phaseName: 'Starlit Midnight',
+      phaseIcon: '🌙',
+      horizon: new THREE.Color(0x0a1426),
+      mid: new THREE.Color(0x060b18),
+      zenith: new THREE.Color(0x02040a),
+      fog: new THREE.Color(0x081020),
+      sunColor: new THREE.Color(0x8ab4f8), // cool silver moonlight
+      sunIntensity: 0.38,
+      hemiSky: new THREE.Color(0x1a2a46),
+      hemiGround: new THREE.Color(0x080e18),
+      hemiIntensity: 0.34,
+      starOpacity: 0.98,
+      cloudColor: new THREE.Color(0x142034),
+      cloudEmissive: new THREE.Color(0x060c18),
+      waterCrest: new THREE.Color(0x82aae8)
+    },
+    {
+      p: 0.90, // 03:36 AM Deep Night & Moon
+      timeStr: '03:36 AM',
+      phaseName: 'Deep Night & Moon',
+      phaseIcon: '🌌',
+      horizon: new THREE.Color(0x0e182e),
+      mid: new THREE.Color(0x080f20),
+      zenith: new THREE.Color(0x030610),
+      fog: new THREE.Color(0x0b1424),
+      sunColor: new THREE.Color(0x92bcfc),
+      sunIntensity: 0.36,
+      hemiSky: new THREE.Color(0x1c2e4c),
+      hemiGround: new THREE.Color(0x09101c),
+      hemiIntensity: 0.32,
+      starOpacity: 0.95,
+      cloudColor: new THREE.Color(0x18243c),
+      cloudEmissive: new THREE.Color(0x070e1c),
+      waterCrest: new THREE.Color(0x88b2f0)
+    }
+  ];
+
+  let currentSkyState = null;
+
+  function interpolateDayNightKeyframes(p) {
+    p = ((p % 1.0) + 1.0) % 1.0;
+    const n = SKY_KEYFRAMES.length;
+    let idxA = 0;
+    for (let i = 0; i < n; i++) {
+      if (p >= SKY_KEYFRAMES[i].p) {
+        idxA = i;
+      }
+    }
+    const idxB = (idxA + 1) % n;
+    const kA = SKY_KEYFRAMES[idxA];
+    const kB = SKY_KEYFRAMES[idxB];
+
+    const span = (kB.p - kA.p + 1.0) % 1.0;
+    const rawT = ((p - kA.p + 1.0) % 1.0) / (span || 1.0);
+    const t = Math.max(0, Math.min(1, rawT));
+    const easeT = (1.0 - Math.cos(t * Math.PI)) * 0.5;
+
+    // Calculate In-Game 24-hour time
+    const totalMinutes = ((p * 24.0 * 60.0 + 6.0 * 60.0) % 1440.0 + 1440.0) % 1440.0;
+    const inGameHours = Math.floor(totalMinutes / 60);
+    const inGameMinutes = Math.floor(totalMinutes % 60);
+    const h12 = inGameHours % 12 === 0 ? 12 : inGameHours % 12;
+    const ampm = inGameHours < 12 ? 'AM' : 'PM';
+    const timeStr = `${h12.toString().padStart(2, '0')}:${inGameMinutes.toString().padStart(2, '0')} ${ampm}`;
+
+    let phaseName = kA.phaseName;
+    let phaseIcon = kA.phaseIcon;
+    if (inGameHours >= 5 && inGameHours < 8) {
+      phaseName = 'Dawn & Sunrise'; phaseIcon = '🌅';
+    } else if (inGameHours >= 8 && inGameHours < 11) {
+      phaseName = 'Golden Morning'; phaseIcon = '🌤️';
+    } else if (inGameHours >= 11 && inGameHours < 14) {
+      phaseName = 'High Noon'; phaseIcon = '☀️';
+    } else if (inGameHours >= 14 && inGameHours < 17) {
+      phaseName = 'Sunny Afternoon'; phaseIcon = '☀️';
+    } else if (inGameHours >= 17 && inGameHours < 19) {
+      phaseName = 'Golden Sunset'; phaseIcon = '🌇';
+    } else if (inGameHours >= 19 && inGameHours < 21) {
+      phaseName = 'Twilight Dusk'; phaseIcon = '🌆';
+    } else if (inGameHours >= 21 || inGameHours < 3) {
+      phaseName = 'Starlit Midnight'; phaseIcon = '🌙';
+    } else {
+      phaseName = 'Deep Night & Moon'; phaseIcon = '🌌';
+    }
+
+    const state = {
+      progress: p,
+      inGameHours,
+      inGameMinutes,
+      timeStr,
+      phaseName,
+      phaseIcon,
+      horizon: kA.horizon.clone().lerp(kB.horizon, easeT),
+      mid: kA.mid.clone().lerp(kB.mid, easeT),
+      zenith: kA.zenith.clone().lerp(kB.zenith, easeT),
+      fog: kA.fog.clone().lerp(kB.fog, easeT),
+      sunColor: kA.sunColor.clone().lerp(kB.sunColor, easeT),
+      sunIntensity: THREE.MathUtils.lerp(kA.sunIntensity, kB.sunIntensity, easeT),
+      hemiSky: kA.hemiSky.clone().lerp(kB.hemiSky, easeT),
+      hemiGround: kA.hemiGround.clone().lerp(kB.hemiGround, easeT),
+      hemiIntensity: THREE.MathUtils.lerp(kA.hemiIntensity, kB.hemiIntensity, easeT),
+      starOpacity: THREE.MathUtils.lerp(kA.starOpacity, kB.starOpacity, easeT),
+      cloudColor: kA.cloudColor.clone().lerp(kB.cloudColor, easeT),
+      cloudEmissive: kA.cloudEmissive.clone().lerp(kB.cloudEmissive, easeT),
+      waterCrest: kA.waterCrest.clone().lerp(kB.waterCrest, easeT)
+    };
+    currentSkyState = state;
+    return state;
+  }
+
+  function updateDayNight(scene, forceUpdate = false) {
+    if (!skyUniforms || !dirLight || !hemiLight) return null;
+
+    let p = 0;
+    if (window.__BLAHAJ_DAY_CYCLE__ && !window.__BLAHAJ_DAY_CYCLE__.isRealtime) {
+      p = window.__BLAHAJ_DAY_CYCLE__.manualProgress;
+    } else {
+      // Tied to real-world clock: 1 real hour = 24 island hours
+      const now = new Date();
+      const sec = now.getMinutes() * 60 + now.getSeconds() + now.getMilliseconds() / 1000;
+      p = (sec / 3600) % 1.0;
+    }
+
+    const state = interpolateDayNightKeyframes(p);
+
+    // Calculate celestial positions (orbital radius R = 320)
+    const alpha = p * Math.PI * 2;
+    const R = 320;
+    const sunX = Math.cos(alpha) * R;
+    const sunY = Math.sin(alpha) * 280;
+    const sunZ = Math.sin(alpha * 0.5) * 80 + 20;
+
+    const moonAngle = alpha + Math.PI;
+    const moonX = Math.cos(moonAngle) * R;
+    const moonY = Math.sin(moonAngle) * 280;
+    const moonZ = Math.sin(moonAngle * 0.5) * 80 + 20;
+
+    // Update Sun & Moon 3D Body Meshes
+    if (sunGroup) {
+      sunGroup.position.set(sunX, sunY, sunZ);
+      sunGroup.lookAt(0, 0, 0);
+      sunGroup.visible = (sunY > -45);
+    }
+    if (moonGroup) {
+      moonGroup.position.set(moonX, moonY, moonZ);
+      moonGroup.lookAt(0, 0, 0);
+      moonGroup.visible = (moonY > -45);
+    }
+
+    // Directional light (Sun by day, Moon by night)
+    if (sunY > 0) {
+      dirLight.position.set(sunX * 0.55, Math.max(30, sunY * 0.55), sunZ * 0.55);
+      dirLight.color.copy(state.sunColor);
+      dirLight.intensity = state.sunIntensity;
+    } else {
+      dirLight.position.set(moonX * 0.55, Math.max(30, moonY * 0.55), moonZ * 0.55);
+      dirLight.color.copy(state.sunColor);
+      dirLight.intensity = state.sunIntensity;
+    }
+
+    // Hemisphere Light
+    hemiLight.color.copy(state.hemiSky);
+    hemiLight.groundColor.copy(state.hemiGround);
+    hemiLight.intensity = state.hemiIntensity;
+
+    // Sky Dome Shader Uniforms
+    skyUniforms.uHorizonCol.value.copy(state.horizon);
+    skyUniforms.uMidCol.value.copy(state.mid);
+    skyUniforms.uZenithCol.value.copy(state.zenith);
+    skyUniforms.uSunPos.value.set(sunX, sunY, sunZ);
+    skyUniforms.uSunCol.value.copy(state.sunColor);
+    skyUniforms.uMoonPos.value.set(moonX, moonY, moonZ);
+    skyUniforms.uSunGlow.value = sunY > 0 ? Math.min(1.4, sunY / 80 + 0.3) : 0.0;
+    skyUniforms.uMoonGlow.value = moonY > 0 ? Math.min(1.0, moonY / 90 + 0.2) : 0.0;
+
+    // Fog & Scene Background
+    if (scene) {
+      if (scene.fog) scene.fog.color.copy(state.fog);
+      if (scene.background) scene.background.copy(state.horizon);
+    }
+
+    // Twinkling Stars
+    if (starPoints && starPoints.material) {
+      starPoints.material.opacity = state.starOpacity;
+    }
+
+    // Volumetric Clouds
+    if (cloudMat) {
+      cloudMat.color.copy(state.cloudColor);
+      cloudMat.emissive.copy(state.cloudEmissive);
+    }
+
+    // Water Highlights & Deep Oceanic Tint
+    if (waterUniforms) {
+      waterUniforms.uCrestColor.value.copy(state.waterCrest);
+      const deepNight = new THREE.Color(0x020a16);
+      const deepDay = new THREE.Color(0x051b33);
+      const deepBlend = sunY > 0 ? deepDay : deepNight;
+      waterUniforms.uWaterDeepCol.value.copy(deepBlend);
+    }
+
+    return state;
+  }
+
   function buildSkyDomeAndSkySeam(scene) {
+    skyUniforms = {
+      uHorizonCol: { value: new THREE.Color(0xf68c68) },
+      uMidCol:     { value: new THREE.Color(0x94608c) },
+      uZenithCol:  { value: new THREE.Color(0x1a2244) },
+      uSunPos:     { value: new THREE.Vector3(0, 100, 0) },
+      uSunCol:     { value: new THREE.Color(0xffaa6a) },
+      uMoonPos:    { value: new THREE.Vector3(0, -100, 0) },
+      uMoonCol:    { value: new THREE.Color(0x8ab4f8) },
+      uSunGlow:    { value: 1.0 },
+      uMoonGlow:   { value: 0.8 }
+    };
+
     const skyGeo = new THREE.SphereGeometry(380, 40, 28);
-    const skyMat = new THREE.ShaderMaterial({
+    skyMat = new THREE.ShaderMaterial({
+      uniforms: skyUniforms,
       side: THREE.BackSide,
       depthWrite: false,
       vertexShader: `
@@ -1079,19 +1442,71 @@ window.BlahajWorld = (function () {
         }
       `,
       fragmentShader: `
+        uniform vec3 uHorizonCol;
+        uniform vec3 uMidCol;
+        uniform vec3 uZenithCol;
+        uniform vec3 uSunPos;
+        uniform vec3 uSunCol;
+        uniform vec3 uMoonPos;
+        uniform vec3 uMoonCol;
+        uniform float uSunGlow;
+        uniform float uMoonGlow;
         varying vec3 vWorldPosition;
+
         void main() {
-          float h = normalize(vWorldPosition).y;
-          vec3 horizonCol = vec3(0.88, 0.46, 0.28);
-          vec3 midCol = vec3(0.32, 0.22, 0.44);
-          vec3 zenithCol = vec3(0.06, 0.09, 0.18);
-          vec3 col = mix(horizonCol, midCol, smoothstep(-0.05, 0.28, h));
-          col = mix(col, zenithCol, smoothstep(0.22, 0.75, h));
+          vec3 ray = normalize(vWorldPosition);
+          float h = ray.y;
+
+          // Atmospheric vertical dome gradient
+          vec3 col = mix(uHorizonCol, uMidCol, smoothstep(-0.04, 0.35, h));
+          col = mix(col, uZenithCol, smoothstep(0.25, 0.82, h));
+
+          // Sun disk and warm atmospheric corona
+          vec3 sunDir = normalize(uSunPos);
+          float sunDot = max(0.0, dot(ray, sunDir));
+          float sunDisk = smoothstep(0.9982, 0.9996, sunDot);
+          float sunCorona = pow(sunDot, 12.0) * uSunGlow * 0.75;
+          col += (uSunCol * sunDisk * 2.5 + uSunCol * sunCorona);
+
+          // Moon disk and cool lunar halo
+          vec3 moonDir = normalize(uMoonPos);
+          float moonDot = max(0.0, dot(ray, moonDir));
+          float moonDisk = smoothstep(0.9985, 0.9997, moonDot);
+          float moonHalo = pow(moonDot, 18.0) * uMoonGlow * 0.45;
+          col += (uMoonCol * moonDisk * 2.2 + uMoonCol * moonHalo);
+
           gl_FragColor = vec4(col, 1.0);
         }
       `
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // Glowing Sun & Moon 3D Body Meshes
+    sunGroup = new THREE.Group();
+    const sunCore = new THREE.Mesh(
+      new THREE.SphereGeometry(14, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0xfffae6 })
+    );
+    sunGroup.add(sunCore);
+    const sunRing = new THREE.Mesh(
+      new THREE.RingGeometry(14, 34, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffbf66, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+    );
+    sunGroup.add(sunRing);
+    scene.add(sunGroup);
+
+    moonGroup = new THREE.Group();
+    const moonCore = new THREE.Mesh(
+      new THREE.SphereGeometry(11, 24, 24),
+      new THREE.MeshBasicMaterial({ color: 0xe6f0ff })
+    );
+    moonGroup.add(moonCore);
+    const moonRing = new THREE.Mesh(
+      new THREE.RingGeometry(11, 26, 32),
+      new THREE.MeshBasicMaterial({ color: 0x9bc2ff, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+    );
+    moonGroup.add(moonRing);
+    scene.add(moonGroup);
 
     const starGeo = new THREE.BufferGeometry();
     const starPts = [];
@@ -1106,7 +1521,11 @@ window.BlahajWorld = (function () {
       );
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPts, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xfff5db, size: 1.1 })));
+    starPoints = new THREE.Points(
+      starGeo,
+      new THREE.PointsMaterial({ color: 0xfff5db, size: 1.1, transparent: true, opacity: 0.0 })
+    );
+    scene.add(starPoints);
 
     const seamPts = [];
     for (let i = -10; i <= 10; i++) {
@@ -2575,6 +2994,7 @@ window.BlahajWorld = (function () {
     if (waterUniforms) waterUniforms.uTime.value = time;
     if (grassUniforms) grassUniforms.uTime.value = time;
     if (lavaLight) lavaLight.intensity = 3.2 + Math.sin(time * 4.5) * 0.65;
+    updateDayNight(scene);
 
     if (emberSystem) {
       const pos = emberSystem.geometry.attributes.position;
@@ -2820,7 +3240,10 @@ window.BlahajWorld = (function () {
     isInsideVolcanoDungeon,
     isOnIslandRoad,
     getWaveHeight,
-    updateWorld
+    updateWorld,
+    updateDayNight,
+    getDayNightState: () => currentSkyState,
+    getSkyKeyframes: () => SKY_KEYFRAMES
   };
 })();
 

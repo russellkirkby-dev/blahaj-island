@@ -285,6 +285,41 @@
   // Global Mange Factor (0.0 = pristine brand-new plush, 1.0 = well-loved mangy veteran)
   window.__BLAHAJ_MANGE__ = parseFloat(localStorage.getItem('blahaj_mange_factor') || '70') / 100;
 
+  // Global Celestial Day/Night Cycle State (Tied to real-world clock: 1 real hour = 24 island hours)
+  window.__BLAHAJ_DAY_CYCLE__ = {
+    isRealtime: true, // Tied to real-world wall clock!
+    manualProgress: 0.25,
+    setRealtime() {
+      this.isRealtime = true;
+      if (worldApi && worldApi.updateDayNight) {
+        worldApi.updateDayNight(scene, true);
+      } else if (window.BlahajWorld && window.BlahajWorld.updateDayNight) {
+        window.BlahajWorld.updateDayNight(scene, true);
+      }
+      updateCelestialClockHUD();
+    },
+    setManualHour(h) {
+      this.isRealtime = false;
+      this.manualProgress = (((h - 6.0) % 24.0 + 24.0) % 24.0) / 24.0;
+      if (worldApi && worldApi.updateDayNight) {
+        worldApi.updateDayNight(scene, true);
+      } else if (window.BlahajWorld && window.BlahajWorld.updateDayNight) {
+        window.BlahajWorld.updateDayNight(scene, true);
+      }
+      updateCelestialClockHUD();
+    },
+    setManualProgress(p) {
+      this.isRealtime = false;
+      this.manualProgress = ((p % 1.0) + 1.0) % 1.0;
+      if (worldApi && worldApi.updateDayNight) {
+        worldApi.updateDayNight(scene, true);
+      } else if (window.BlahajWorld && window.BlahajWorld.updateDayNight) {
+        window.BlahajWorld.updateDayNight(scene, true);
+      }
+      updateCelestialClockHUD();
+    }
+  };
+
   // Player state
   const player = {
     sharkId: 'hermes',
@@ -769,6 +804,11 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        const skyFlyout = document.getElementById('sky-controls-flyout');
+        if (skyFlyout && !skyFlyout.classList.contains('hidden')) {
+          skyFlyout.classList.add('hidden');
+          return;
+        }
         const vhudCard = document.getElementById('volcano-hud-card');
         if (vhudCard && !vhudCard.classList.contains('hidden')) {
           hideVolcanoHUDCard();
@@ -843,7 +883,10 @@
   }
 
   function isAnyModalOpen() {
+    const skyFlyout = document.getElementById('sky-controls-flyout');
+    const isSkyOpen = skyFlyout && !skyFlyout.classList.contains('hidden');
     return (
+      isSkyOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -2117,6 +2160,62 @@
         }
       });
     }
+    // Celestial Day/Night Clock Widget & Sky Controls Flyout
+    const btnToggleSky = document.getElementById('btn-toggle-sky-controls');
+    const skyFlyout = document.getElementById('sky-controls-flyout');
+    const btnCloseSky = document.getElementById('btn-close-sky-controls');
+    const btnResyncClock = document.getElementById('btn-resync-clock');
+    const skyTimeSlider = document.getElementById('sky-time-slider');
+
+    if (btnToggleSky && skyFlyout) {
+      btnToggleSky.addEventListener('click', (e) => {
+        e.stopPropagation();
+        skyFlyout.classList.toggle('hidden');
+        if (!skyFlyout.classList.contains('hidden')) {
+          if (document.exitPointerLock) document.exitPointerLock();
+        }
+      });
+
+      if (btnCloseSky) {
+        btnCloseSky.addEventListener('click', () => {
+          skyFlyout.classList.add('hidden');
+        });
+      }
+
+      // Close flyout when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!skyFlyout.classList.contains('hidden') && !skyFlyout.contains(e.target) && e.target !== btnToggleSky && !btnToggleSky.contains(e.target)) {
+          skyFlyout.classList.add('hidden');
+        }
+      });
+
+      // Quick Preset Buttons: Dawn (6 AM), Noon (12 PM), Sunset (6 PM), Night (12 AM)
+      document.querySelectorAll('.btn-sky-preset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const hour = parseFloat(btn.dataset.hour);
+          window.__BLAHAJ_DAY_CYCLE__.setManualHour(hour);
+          if (btnResyncClock) btnResyncClock.classList.remove('active');
+        });
+      });
+
+      // Scrub Slider (0..1440 in-game minutes)
+      if (skyTimeSlider) {
+        skyTimeSlider.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          window.__BLAHAJ_DAY_CYCLE__.setManualHour(val / 60.0);
+          if (btnResyncClock) btnResyncClock.classList.remove('active');
+        });
+      }
+
+      // Re-Sync Button
+      if (btnResyncClock) {
+        btnResyncClock.addEventListener('click', () => {
+          window.__BLAHAJ_DAY_CYCLE__.setRealtime();
+          btnResyncClock.classList.add('active');
+        });
+      }
+    }
+
     const zoneBanner = document.querySelector('.zone-banner');
     if (zoneBanner) {
       zoneBanner.style.cursor = 'pointer';
@@ -2273,6 +2372,37 @@
     const slotUSub = document.getElementById('slot-u-sub');
     if (slotUSub) {
       slotUSub.textContent = `${player.trialPoints} Trial Pt${player.trialPoints === 1 ? '' : 's'}`;
+    }
+
+    // Update Island Celestial Clock HUD
+    if (worldApi && worldApi.getDayNightState) {
+      const skyState = worldApi.getDayNightState();
+      if (skyState) {
+        const iconEl = document.getElementById('clock-phase-icon');
+        const timeEl = document.getElementById('clock-time-text');
+        const phaseEl = document.getElementById('clock-phase-tag');
+        const badgeEl = document.getElementById('clock-sync-badge');
+        const sliderTimeEl = document.getElementById('sky-slider-time-label');
+        const sliderPhaseEl = document.getElementById('sky-slider-phase-label');
+        const sliderEl = document.getElementById('sky-time-slider');
+
+        if (iconEl) iconEl.textContent = skyState.phaseIcon;
+        if (timeEl) timeEl.textContent = skyState.timeStr;
+        if (phaseEl) phaseEl.textContent = skyState.phaseName;
+
+        const isReal = window.__BLAHAJ_DAY_CYCLE__ && window.__BLAHAJ_DAY_CYCLE__.isRealtime;
+        if (badgeEl) {
+          badgeEl.textContent = isReal ? '● CLOCK SYNC' : 'MANUAL';
+          badgeEl.classList.toggle('manual', !isReal);
+        }
+
+        if (sliderTimeEl) sliderTimeEl.textContent = skyState.timeStr;
+        if (sliderPhaseEl) sliderPhaseEl.textContent = skyState.phaseName;
+        if (sliderEl && isReal && document.activeElement !== sliderEl) {
+          const totalMin = ((skyState.progress * 24.0 * 60.0 + 6.0 * 60.0) % 1440.0 + 1440.0) % 1440.0;
+          sliderEl.value = Math.round(totalMin);
+        }
+      }
     }
   }
 
@@ -3545,6 +3675,41 @@
       } else {
         coopPartner.labelEl.style.opacity = '0';
         coopPartner.labelEl.style.display = 'none';
+      }
+    }
+
+    updateCelestialClockHUD();
+  }
+
+  function updateCelestialClockHUD() {
+    const getSkyFn = (worldApi && worldApi.getDayNightState) || (window.BlahajWorld && window.BlahajWorld.getDayNightState);
+    if (getSkyFn) {
+      const skyState = getSkyFn();
+      if (skyState) {
+        const iconEl = document.getElementById('clock-phase-icon');
+        const timeEl = document.getElementById('clock-time-text');
+        const phaseEl = document.getElementById('clock-phase-tag');
+        const badgeEl = document.getElementById('clock-sync-badge');
+        const sliderTimeEl = document.getElementById('sky-slider-time-label');
+        const sliderPhaseEl = document.getElementById('sky-slider-phase-label');
+        const sliderEl = document.getElementById('sky-time-slider');
+
+        if (iconEl) iconEl.textContent = skyState.phaseIcon;
+        if (timeEl) timeEl.textContent = skyState.timeStr;
+        if (phaseEl) phaseEl.textContent = skyState.phaseName;
+
+        const isReal = window.__BLAHAJ_DAY_CYCLE__ && window.__BLAHAJ_DAY_CYCLE__.isRealtime;
+        if (badgeEl) {
+          badgeEl.textContent = isReal ? '● CLOCK SYNC' : 'MANUAL';
+          badgeEl.classList.toggle('manual', !isReal);
+        }
+
+        if (sliderTimeEl) sliderTimeEl.textContent = skyState.timeStr;
+        if (sliderPhaseEl) sliderPhaseEl.textContent = skyState.phaseName;
+        if (sliderEl && document.activeElement !== sliderEl) {
+          const totalMin = ((skyState.progress * 24.0 * 60.0 + 6.0 * 60.0) % 1440.0 + 1440.0) % 1440.0;
+          sliderEl.value = Math.round(totalMin);
+        }
       }
     }
   }
