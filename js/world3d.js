@@ -31,8 +31,10 @@ window.BlahajWorld = (function () {
   let skyMat = null;
   let skyUniforms = null;
   let starPoints = null;
+  let skyMesh = null;
   let sunGroup = null;
   let moonGroup = null;
+  let lastCamera = null;
   let cloudMat = null;
 
   // Road spline segments radiating from Sacred Tea House Hub (0, 10) to all High Island landmarks
@@ -868,7 +870,7 @@ window.BlahajWorld = (function () {
   // ROLLING 3D OCEAN WAVES, SURF FOAM, VOLUMETRIC CLOUDS, ROADS & SIGNPOSTS
   // ==========================================================================
   function buildShaderWater(scene) {
-    const waterGeo = new THREE.PlaneGeometry(820, 820, 220, 220);
+    const waterGeo = new THREE.PlaneGeometry(1600, 1600, 240, 240);
     waterGeo.rotateX(-Math.PI / 2);
 
     const pos = waterGeo.attributes.position;
@@ -884,12 +886,14 @@ window.BlahajWorld = (function () {
       uTime: { value: 0 },
       uWaveAmp: { value: 1.0 },
       uCrestColor: { value: new THREE.Color(1.0, 0.72, 0.42) },
-      uWaterDeepCol: { value: new THREE.Color(0.05, 0.17, 0.33) }
+      uWaterDeepCol: { value: new THREE.Color(0.05, 0.17, 0.33) },
+      uHorizonCol: { value: new THREE.Color(0xf68c68) }
     };
 
     const waterMat = new THREE.ShaderMaterial({
       uniforms: waterUniforms,
       transparent: true,
+      depthWrite: true,
       vertexShader: `
         uniform float uTime;
         uniform float uWaveAmp;
@@ -920,6 +924,7 @@ window.BlahajWorld = (function () {
         uniform float uWaveAmp;
         uniform vec3 uCrestColor;
         uniform vec3 uWaterDeepCol;
+        uniform vec3 uHorizonCol;
         varying float vTerrainH;
         varying float vWave;
         varying vec2 vWorldXZ;
@@ -951,7 +956,13 @@ window.BlahajWorld = (function () {
           float foamMask = clamp((surfWave1 * 0.75 + surfWave2 * 0.55) * shoreZone, 0.0, 1.0);
           col = mix(col, vec3(0.98, 0.95, 0.90), foamMask * 0.88);
 
-          gl_FragColor = vec4(col, 0.90);
+          // Natural atmospheric horizon fade across open ocean distances
+          float distCenter = length(vWorldXZ);
+          float horizonFade = smoothstep(520.0, 780.0, distCenter);
+          col = mix(col, uHorizonCol, horizonFade * 0.92);
+          float alpha = mix(0.90, 1.0, smoothstep(220.0, 520.0, distCenter));
+
+          gl_FragColor = vec4(col, alpha);
         }
       `
     });
@@ -1416,25 +1427,57 @@ window.BlahajWorld = (function () {
 
     const state = interpolateDayNightKeyframes(p);
 
-    // Calculate celestial positions (orbital radius R = 320)
+    // Calculate celestial positions (orbital radius R = 720)
+    // Sun rises East-Northeast, arcs high South at noon, and sets in the scenic Northwest
     const alpha = p * Math.PI * 2;
-    const R = 320;
+    const R = 720;
     const sunX = Math.cos(alpha) * R;
-    const sunY = Math.sin(alpha) * 280;
-    const sunZ = Math.sin(alpha * 0.5) * 80 + 20;
+    const sunY = Math.sin(alpha) * 580;
+    const sunZ = Math.sin(alpha) * 160 - 110;
 
     const moonAngle = alpha + Math.PI;
     const moonX = Math.cos(moonAngle) * R;
-    const moonY = Math.sin(moonAngle) * 280;
-    const moonZ = Math.sin(moonAngle * 0.5) * 80 + 20;
+    const moonY = Math.sin(moonAngle) * 580;
+    const moonZ = Math.sin(moonAngle) * 160 - 110;
+
+    const cam = lastCamera || (window.__DEBUG__ && window.__DEBUG__.getCamera && window.__DEBUG__.getCamera());
+    const camX = cam ? cam.position.x : 0;
+    const camY = cam ? cam.position.y : 0;
+    const camZ = cam ? cam.position.z : 0;
+
+    // Update Sun & Moon 3D Body Meshes (Flush with Horizon, Facing Camera)
+    if (sunGroup) {
+      sunGroup.position.set(camX + sunX, sunY, camZ + sunZ);
+      if (cam) {
+        sunGroup.lookAt(camX, camY, camZ);
+      } else {
+        sunGroup.lookAt(0, 0, 0);
+      }
+      sunGroup.visible = (sunY > -32);
+    }
+    if (moonGroup) {
+      moonGroup.position.set(camX + moonX, moonY, camZ + moonZ);
+      if (cam) {
+        moonGroup.lookAt(camX, camY, camZ);
+      } else {
+        moonGroup.lookAt(0, 0, 0);
+      }
+      moonGroup.visible = (moonY > -25);
+    }
+    if (skyMesh) {
+      skyMesh.position.set(camX, 0, camZ);
+    }
+    if (starPoints) {
+      starPoints.position.set(camX, 0, camZ);
+    }
 
     // Directional light (Sun by day, Moon by night)
     if (sunY > 0) {
-      dirLight.position.set(sunX * 0.55, Math.max(30, sunY * 0.55), sunZ * 0.55);
+      dirLight.position.set(camX + sunX * 0.45, Math.max(30, sunY * 0.45), camZ + sunZ * 0.45);
       dirLight.color.copy(state.sunColor);
       dirLight.intensity = state.sunIntensity;
     } else {
-      dirLight.position.set(moonX * 0.55, Math.max(30, moonY * 0.55), moonZ * 0.55);
+      dirLight.position.set(camX + moonX * 0.45, Math.max(30, moonY * 0.45), camZ + moonZ * 0.45);
       dirLight.color.copy(state.sunColor);
       dirLight.intensity = state.sunIntensity;
     }
@@ -1451,8 +1494,8 @@ window.BlahajWorld = (function () {
     skyUniforms.uSunPos.value.set(sunX, sunY, sunZ);
     skyUniforms.uSunCol.value.copy(state.sunColor);
     skyUniforms.uMoonPos.value.set(moonX, moonY, moonZ);
-    skyUniforms.uSunGlow.value = sunY > 0 ? Math.min(1.4, sunY / 80 + 0.3) : 0.0;
-    skyUniforms.uMoonGlow.value = moonY > 0 ? Math.min(1.0, moonY / 90 + 0.2) : 0.0;
+    skyUniforms.uSunGlow.value = sunY > 0 ? Math.min(1.4, sunY / 120 + 0.3) : 0.0;
+    skyUniforms.uMoonGlow.value = moonY > 0 ? Math.min(1.0, moonY / 130 + 0.2) : 0.0;
 
     // Fog & Scene Background
     if (scene) {
@@ -1471,9 +1514,10 @@ window.BlahajWorld = (function () {
       cloudMat.emissive.copy(state.cloudEmissive);
     }
 
-    // Water Highlights & Deep Oceanic Tint
+    // Water Highlights, Horizon Fade & Deep Oceanic Tint
     if (waterUniforms) {
       waterUniforms.uCrestColor.value.copy(state.waterCrest);
+      if (waterUniforms.uHorizonCol) waterUniforms.uHorizonCol.value.copy(state.horizon);
       const deepNight = new THREE.Color(0x020a16);
       const deepDay = new THREE.Color(0x051b33);
       const deepBlend = sunY > 0 ? deepDay : deepNight;
@@ -1496,7 +1540,7 @@ window.BlahajWorld = (function () {
       uMoonGlow:   { value: 0.8 }
     };
 
-    const skyGeo = new THREE.SphereGeometry(380, 40, 28);
+    const skyGeo = new THREE.SphereGeometry(950, 40, 28);
     skyMat = new THREE.ShaderMaterial({
       uniforms: skyUniforms,
       side: THREE.BackSide,
@@ -1529,42 +1573,118 @@ window.BlahajWorld = (function () {
           vec3 col = mix(uHorizonCol, uMidCol, smoothstep(-0.04, 0.35, h));
           col = mix(col, uZenithCol, smoothstep(0.25, 0.82, h));
 
-          // Sun disk and warm atmospheric corona
+          // Soft warm atmospheric solar corona
           vec3 sunDir = normalize(uSunPos);
           float sunDot = max(0.0, dot(ray, sunDir));
-          float sunDisk = smoothstep(0.9982, 0.9996, sunDot);
-          float sunCorona = pow(sunDot, 12.0) * uSunGlow * 0.75;
-          col += (uSunCol * sunDisk * 2.5 + uSunCol * sunCorona);
+          float sunCorona = pow(sunDot, 10.0) * uSunGlow * 0.85;
+          col += uSunCol * sunCorona;
 
-          // Moon disk and cool lunar halo
+          // Soft cool lunar halo
           vec3 moonDir = normalize(uMoonPos);
           float moonDot = max(0.0, dot(ray, moonDir));
-          float moonDisk = smoothstep(0.9985, 0.9997, moonDot);
-          float moonHalo = pow(moonDot, 18.0) * uMoonGlow * 0.45;
-          col += (uMoonCol * moonDisk * 2.2 + uMoonCol * moonHalo);
+          float moonHalo = pow(moonDot, 14.0) * uMoonGlow * 0.55;
+          col += uMoonCol * moonHalo;
 
           gl_FragColor = vec4(col, 1.0);
         }
       `
     });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
+    skyMesh = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(skyMesh);
+
+    // Glowing Sun & Moon 3D Body Meshes (Huge, Sky-Dominating Radiant Scale)
+    sunGroup = new THREE.Group();
+    const sunCore = new THREE.Mesh(
+      new THREE.SphereGeometry(34, 28, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    sunGroup.add(sunCore);
+
+    // Radiant Solar Corona Disc & Outer Glow (Additive Glowing Brilliance)
+    const sunGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(85, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0xffaa22,
+        transparent: true,
+        opacity: 0.60,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    sunGlow.position.z = -0.2;
+    sunGroup.add(sunGlow);
+
+    const sunOuterHalo = new THREE.Mesh(
+      new THREE.RingGeometry(34, 130, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0xff7711,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    sunOuterHalo.position.z = -0.4;
+    sunGroup.add(sunOuterHalo);
+    scene.add(sunGroup);
+
+    moonGroup = new THREE.Group();
+    const moonCore = new THREE.Mesh(
+      new THREE.SphereGeometry(25, 28, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    moonGroup.add(moonCore);
+
+    const moonGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(65, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0x70a5ff,
+        transparent: true,
+        opacity: 0.50,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        fog: false
+      })
+    );
+    moonGlow.position.z = -0.2;
+    moonGroup.add(moonGlow);
+    scene.add(moonGroup);
 
     const starGeo = new THREE.BufferGeometry();
     const starPts = [];
     for (let i = 0; i < 2000; i++) {
-      const r = 340;
+      const r = 880;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.random() * Math.PI * 0.46;
       starPts.push(
         r * Math.sin(phi) * Math.cos(theta),
-        r * Math.cos(phi) + 18,
+        r * Math.cos(phi) + 25,
         r * Math.sin(phi) * Math.sin(theta)
       );
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPts, 3));
     starPoints = new THREE.Points(
       starGeo,
-      new THREE.PointsMaterial({ color: 0xfff5db, size: 1.1, transparent: true, opacity: 0.0 })
+      new THREE.PointsMaterial({ color: 0xfff5db, size: 1.5, transparent: true, opacity: 0.0 })
     );
     scene.add(starPoints);
 
@@ -3050,7 +3170,8 @@ window.BlahajWorld = (function () {
   // ==========================================================================
   // UPDATE WORLD (GRASS, WATER, TRAPS, CARROTS, BIRBS, STRUCTURES & BALLS)
   // ==========================================================================
-  function updateWorld(time, dt = 0.016, scene = null) {
+  function updateWorld(time, dt = 0.016, scene = null, activeCamera = null) {
+    if (activeCamera) lastCamera = activeCamera;
     if (waterUniforms) waterUniforms.uTime.value = time;
     if (grassUniforms) grassUniforms.uTime.value = time;
     if (lavaLight) lavaLight.intensity = 3.2 + Math.sin(time * 4.5) * 0.65;

@@ -715,7 +715,7 @@
     clock = new THREE.Clock();
 
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.1, 2400);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -3751,7 +3751,7 @@
       if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
       window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
     } else {
-      window.BlahajWorld.updateWorld(elapsed, dt, scene);
+      window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
     }
 
     if (composer) {
