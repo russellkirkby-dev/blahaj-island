@@ -257,6 +257,55 @@ body, html {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
+/* Steaming Comfort Active Buff Indicator */
+.steaming-buff-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(74, 222, 128, 0.65);
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #86efac;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(8px);
+  animation: buffGlowPulse 2.4s ease-in-out infinite;
+}
+
+.steaming-buff-pill.hidden {
+  display: none !important;
+}
+
+.steaming-buff-pill .buff-icon {
+  font-size: 13px;
+}
+
+.steaming-buff-pill .buff-title {
+  color: #bbf7d0;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.steaming-buff-pill .buff-timer {
+  background: rgba(16, 185, 129, 0.3);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: #ffffff;
+  border: 1px solid rgba(110, 231, 183, 0.4);
+}
+
+@keyframes buffGlowPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(74, 222, 128, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(74, 222, 128, 0.55); border-color: rgba(134, 239, 172, 0.9); }
+}
+
 .unit-quote {
   margin-top: 6px;
   font-size: 11px;

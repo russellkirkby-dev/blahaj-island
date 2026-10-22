@@ -560,9 +560,9 @@
   const player = {
     sharkId: 'hermes',
     mesh: null,
-    pos: new THREE.Vector3(0, 4.2, 26),
+    pos: new THREE.Vector3(58.0, 2.8, -10.0),
     velY: 0,
-    rotY: Math.PI,
+    rotY: -Math.PI / 2,
     isGrounded: true,
     canDoubleJump: true,
     doubleJumped: false,
@@ -580,7 +580,10 @@
     spentCarrots: 0,
     unlockedUpgrades: new Set(),
     trapCooldown: 0,
-    dungeonPortalCooldown: 0
+    dungeonPortalCooldown: 0,
+    teaBuffTimer: 0,
+    lastNoseBeepTime: 0,
+    lastSharedTeaTime: 0
   };
 
   // Hiram the Magical Builder State (Exclusive to Hiram [3]!)
@@ -635,7 +638,7 @@
 
   // Neverwinter / MMO Over-The-Shoulder Camera State
   const camState = {
-    yaw: 0,
+    yaw: -Math.PI / 2,
     pitch: 0.22,
     distance: 7.4,
     shoulderRight: 0.85,
@@ -983,6 +986,37 @@
         life: 1.1
       });
     }
+  }
+
+  function spawnSnoozeZzz(originPos) {
+    if (currentZone !== 'island') return;
+    const mesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.12, 0),
+      new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.85 })
+    );
+    mesh.position.copy(originPos).add(new THREE.Vector3(
+      (Math.random() - 0.5) * 0.4,
+      0.55 + Math.random() * 0.2,
+      (Math.random() - 0.5) * 0.4
+    ));
+    scene.add(mesh);
+    floatingBursts.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 0.3, 0.75 + Math.random() * 0.3, (Math.random() - 0.5) * 0.3),
+      life: 1.6
+    });
+  }
+  window.BlahajEffects = { spawnSnoozeZzz };
+
+  function applySteamingSpiritBuff() {
+    player.teaBuffTimer = 300.0; // 5 minutes active buff
+    player.teaComfort = 100;
+    player.warmth = 100;
+    CozyAudio.teaPour();
+    spawnFloatingBurst(player.pos, 0x86efac, 18);
+    updateMetersUI();
+    showToast('STEAMING SPIRIT BUFF! 🍵✨', 'Granted 5 minutes of Steaming Spirit! +15% Agility & Immunity to Coherence Decay!');
+    addChatLog('🍵 Steeping warmth fills your plush seams with <strong>Steaming Spirit</strong> (+15% Agility, 5m Coherence Shield)!', 'lore');
   }
 
   // ==========================================================================
@@ -1334,6 +1368,27 @@
       if (typeEl) typeEl.textContent = item.type;
       if (descEl) descEl.textContent = item.desc;
       if (statsEl) statsEl.textContent = item.stats;
+
+      const actWrap = document.getElementById('insp-actions');
+      const useBtn = document.getElementById('btn-inspect-use');
+      if (actWrap && useBtn) {
+        if (item.slot === 1) { // Sacred Brew
+          actWrap.style.display = 'block';
+          useBtn.textContent = 'Sip Sacred Tea (+5m Steaming Spirit) 🍵';
+          useBtn.onclick = () => {
+            applySteamingSpiritBuff();
+          };
+        } else if (item.slot === 0) { // Breb
+          actWrap.style.display = 'block';
+          useBtn.textContent = 'Toss Warm Breb [B] 🥖';
+          useBtn.onclick = () => {
+            closeCharacterSheetModal();
+            triggerFeedBreb();
+          };
+        } else {
+          actWrap.style.display = 'none';
+        }
+      }
     } else {
       if (iconEl) iconEl.textContent = '🎒';
       if (nameEl) nameEl.textContent = `Empty Satchel Slot ${slotIdx + 1}`;
@@ -1344,6 +1399,8 @@
       if (typeEl) typeEl.textContent = 'Archipelago Satchel Storage';
       if (descEl) descEl.textContent = 'Ready to hold fresh shells, loaf loaves, and treasures found across the islands.';
       if (statsEl) statsEl.textContent = 'No modifiers active.';
+      const actWrap = document.getElementById('insp-actions');
+      if (actWrap) actWrap.style.display = 'none';
     }
   }
 
@@ -1663,35 +1720,41 @@
 
     spawnFloatingBurst(dropPos, 0xfbbf24, 9);
 
-    let nearbyBirbs = 0;
+    let newlyFedBirbs = 0;
+    let sleepingBirbsNearby = 0;
     const maxRadius = player.unlockedUpgrades.has('golden_breb') ? 32 : 20;
     worldApi.getBirbFlock().forEach((b) => {
       if (b.mesh.position.distanceTo(dropPos) < maxRadius) {
-        nearbyBirbs++;
-        spawnFloatingBurst(b.mesh.position, 0xffd166, 4);
+        if (b.satiationTimer > 0) {
+          sleepingBirbsNearby++;
+        } else {
+          b.satiationTimer = 90.0; // Enters 90s Breb Coma!
+          newlyFedBirbs++;
+          spawnFloatingBurst(b.mesh.position, 0xffd166, 6);
+        }
       }
     });
 
-    if (nearbyBirbs > 0) {
+    if (newlyFedBirbs > 0) {
       const prevMilestones = Math.floor(player.birbsFedCount / 10);
-      player.birbsFedCount += nearbyBirbs;
+      player.birbsFedCount += newlyFedBirbs;
       const newMilestones = Math.floor(player.birbsFedCount / 10);
       if (newMilestones > prevMilestones) {
         player.trialPoints += (newMilestones - prevMilestones);
         showToast('BIRB BLESSING (+1 TRIAL POINT!)', `Fed ${player.birbsFedCount} Birbs with warm Breb! Earned +1 Trial Point!`);
       } else {
-        showToast('FEEDING THE BIRBS WITH BREB', `${nearbyBirbs} plump Birb${nearbyBirbs > 1 ? 's' : ''} hopped over to snack on warm Breb!`);
+        showToast('BREB COMA! 🥖💤', `${newlyFedBirbs} plump Birb${newlyFedBirbs > 1 ? 's' : ''} ate warm Breb and slipped into a cozy Breb Coma! (+${newlyFedBirbs} Birb Crumbs)`);
       }
-      addChatLog(`🥖🐦 Tossed warm <strong>Breb</strong>! ${nearbyBirbs} plump Birbs hopped over happily.`, 'lore');
+      addChatLog(`🥖🐦 Tossed warm <strong>Breb</strong>! ${newlyFedBirbs} Birb(s) ate and entered a cozy Breb Coma (+${newlyFedBirbs} Birb Crumbs).`, 'lore');
       completeQuest('q-breb');
       updateMetersUI();
       renderBuilderToolbar();
+    } else if (sleepingBirbsNearby > 0) {
+      showToast('FULL & SNOOZING! 💤', 'Nearby Birbs are already in a deep Breb Coma! Visit another island flock or wait for them to wake.');
+      addChatLog('💤 The nearby Birbs are happily stuffed with Breb and loafing peacefully in the grass. Try visiting other island flocks!', 'lore');
     } else {
-      player.birbsFedCount += 1;
-      addChatLog('🥖 Tossed a warm loaf of <strong>Breb</strong> onto the grass for the Birbs (+1 Birb Crumb)!', 'lore');
-      completeQuest('q-breb');
-      updateMetersUI();
-      renderBuilderToolbar();
+      showToast('TOSSED FRESH BREB 🥖', 'Tossed a golden loaf onto the grass. No hungry Birbs nearby!');
+      addChatLog('🥖 Tossed a warm loaf of <strong>Breb</strong> onto the grass.', 'lore');
     }
 
     window.BlahajNetwork.send({
@@ -1723,20 +1786,35 @@
       }
     });
 
+    const now = performance.now();
+    const elapsedSinceBeep = player.lastNoseBeepTime ? (now - player.lastNoseBeepTime) / 1000 : 999;
+    const isBeepEligible = elapsedSinceBeep >= 120.0;
+
     if (closestActor) {
       if (closestActor.mesh.userData) {
         closestActor.mesh.userData.beepTimer = 0.9;
       }
       spawnFloatingBurst(closestActor.mesh.position, 0xf5cd79, 8);
-      const replies = [
-        '“Beep! Sharkitty!! 💕”',
-        '“Be Nice, Beep Noses! My stuffing feels 100% fluffier!”',
-        '“Shonk! Best fin-to-nose boop on Blåhaj Island!”'
-      ];
-      const msg = replies[Math.floor(Math.random() * replies.length)];
-      showActorSpeechBubble(closestActor, msg);
-      addChatLog(`🦈💕 You beeped noses with <strong>${closestActor.name}</strong>!`, 'lore');
-      completeQuest('q-beep');
+      if (isBeepEligible) {
+        player.lastNoseBeepTime = now;
+        player.teaComfort = Math.min(100, player.teaComfort + 15);
+        updateMetersUI();
+        const replies = [
+          '“Beep! Sharkitty!! 💕”',
+          '“Be Nice, Beep Noses! My stuffing feels 100% fluffier!”',
+          '“Shonk! Best fin-to-nose boop on Blåhaj Island!”'
+        ];
+        const msg = replies[Math.floor(Math.random() * replies.length)];
+        showActorSpeechBubble(closestActor, msg);
+        showToast('FRIENDSHIP NOSE-BEEP! 💕', `Synced fin nose-beep with ${closestActor.name}! (+15% Comfort · 2m Cooldown)`);
+        addChatLog(`🦈💕 You beeped noses with <strong>${closestActor.name}</strong>!`, 'lore');
+        completeQuest('q-beep');
+      } else {
+        const remainingSec = Math.ceil(120.0 - elapsedSinceBeep);
+        showActorSpeechBubble(closestActor, `“Beep! 💕 (Friendship resonance already warm! Next milestone in ${remainingSec}s)”`);
+        showToast('COZY RESONANCE 💕', `Friendship already glowing! Next milestone in ${remainingSec}s`);
+        addChatLog(`🦈💕 Warm fin nose-beep with <strong>${closestActor.name}</strong> (Milestone cooldown: ${remainingSec}s).`, 'lore');
+      }
     } else {
       addChatLog('🦈💕 You gave an affectionate fin nose-beep!', 'lore');
       completeQuest('q-beep');
@@ -1768,12 +1846,16 @@
     } else if (player.sharkId === 'solomon') {
       CozyAudio.teaPour();
       spawnFloatingBurst(player.pos, 0xf5cd79, 14);
-      player.teaComfort = 100;
-      player.warmth = 100;
-      player.teaSharedCount++;
+      applySteamingSpiritBuff();
+      const now = performance.now();
+      const elapsedSinceTea = player.lastSharedTeaTime ? (now - player.lastSharedTeaTime) / 1000 : 999;
+      if (elapsedSinceTea >= 120.0) {
+        player.lastSharedTeaTime = now;
+        player.teaSharedCount++;
+        completeQuest('q-tea');
+      }
       triggerFeedBreb();
       updateMetersUI();
-      completeQuest('q-tea');
       showToast('SACRED TEA & WARM BREB', 'Solomon pours steaming Tea & tosses fresh Breb for the Birbs!');
       addChatLog('🫖 <strong>Solomon</strong> serves Earl Grey of Enlightenment & warm Breb!', 'system');
     } else if (player.sharkId === 'hiram') {
@@ -1848,6 +1930,9 @@
           currentZone = 'volcano';
           if (window.BlahajVolcano) {
             window.BlahajVolcano.setActive(true);
+            if (typeof window.BlahajVolcano.resetVolunteerCarrots === 'function') {
+              window.BlahajVolcano.resetVolunteerCarrots();
+            }
             const start = window.BlahajVolcano.getStart();
             volcanoCheckpoint = { ...start };
             player.pos.set(start.x, start.y, start.z);
@@ -1915,13 +2000,13 @@
           }
 
           if (toMainPortal) {
-            const spawnX = 67.8;
-            const spawnZ = -8.35;
+            const spawnX = 58.0;
+            const spawnZ = -10.0;
             const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
             player.pos.set(spawnX, sy, spawnZ);
-            player.rotY = -Math.PI * 0.38;
-            camState.yaw = -Math.PI * 0.38;
-            showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged onto the Great Portal Threshold on East Cape!');
+            player.rotY = -Math.PI / 2;
+            camState.yaw = -Math.PI / 2;
+            showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged outside the Great Portal Gate on East Cape!');
           } else {
             player.pos.set(-28, 1.5, -196);
             player.rotY = 0;
@@ -1996,14 +2081,8 @@
       return;
     }
     if (item.kind === 'v_tea') {
-      player.warmth = 100;
-      player.teaComfort = 100;
+      applySteamingSpiritBuff();
       player.teaSharedCount++;
-      updateMetersUI();
-      CozyAudio.portalChime();
-      spawnFloatingBurst(player.pos, 0x86efac, 18);
-      showToast('REST NOOK TEA SIP 🍵✨', '100% Stuffing Coherence & Steaming Comfort restored!');
-      addChatLog('🍵 Sipped hot fragrant tea in the Rest Nook. Cozy warmth fills your plush heart!', 'lore');
       return;
     }
 
@@ -2417,11 +2496,11 @@
         text: 'The Golden Teapot steams gently beside the Eternal Biscuit Tin. You pour a fresh cup of Earl Grey of Enlightenment—and rescue the Biscuit of Impossible Dunking right at the safe dunking interval!',
         actions: [
           {
-            label: 'Sip Tea & Warm Stuffing (+100% Comfort)',
+            label: 'Sip Steaming Tea (+100% Comfort & 5m Steaming Spirit Buff) 🍵',
             className: 'btn-primary',
             onClick: () => {
+              applySteamingSpiritBuff();
               closeDialogueModal();
-              showToast('TEA IS SACRED', 'Stuffing Coherence & Tea Comfort fully restored!');
             }
           }
         ]
@@ -2944,6 +3023,20 @@
     const slotUSub = document.getElementById('slot-u-sub');
     if (slotUSub) {
       slotUSub.textContent = `${player.trialPoints} Trial Pt${player.trialPoints === 1 ? '' : 's'}`;
+    }
+
+    // Active Steaming Spirit Buff Indicator
+    const buffPill = document.getElementById('steaming-buff-pill');
+    const buffTimerText = document.getElementById('buff-timer-text');
+    if (buffPill && buffTimerText) {
+      if (player.teaBuffTimer > 0) {
+        buffPill.classList.remove('hidden');
+        const m = Math.floor(player.teaBuffTimer / 60);
+        const s = Math.floor(player.teaBuffTimer % 60);
+        buffTimerText.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+      } else {
+        buffPill.classList.add('hidden');
+      }
     }
 
     // Update Island Celestial Clock HUD
@@ -3589,10 +3682,22 @@
     }
   }
 
+  let lastMeterUpdateSecond = -1;
   function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.1);
     const elapsed = clock.getElapsedTime();
+
+    if (player.teaBuffTimer > 0) {
+      player.teaBuffTimer = Math.max(0, player.teaBuffTimer - dt);
+      player.warmth = 100;
+    }
+
+    const curQuarter = Math.floor(elapsed * 4.0);
+    if (curQuarter !== lastMeterUpdateSecond) {
+      lastMeterUpdateSecond = curQuarter;
+      updateMetersUI();
+    }
 
     updatePlayerMovement(dt, elapsed);
     updatePlayerShadow();
@@ -3665,7 +3770,8 @@
 
       const onRoad = !player.inBoat && currentZone === 'island' && worldApi.isOnIslandRoad && worldApi.isOnIslandRoad(player.pos.x, player.pos.z);
       const roadBoost = onRoad ? 1.18 : 1.0;
-      const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost;
+      const teaAgilityBoost = (player.teaBuffTimer > 0) ? 1.15 : 1.0;
+      const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost * teaAgilityBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
 
@@ -4411,10 +4517,14 @@
 
   window.__DEBUG__ = {
     getPlayer: () => player,
+    getWorldApi: () => worldApi,
     getCamera: () => camera,
     getCamState: () => camState,
     getScene: () => scene,
     getZone: () => currentZone,
+    applySteamingSpiritBuff,
+    triggerFeedBreb,
+    triggerBeepNose,
     updateCamera,
     enterVolcanoTrial,
     exitVolcanoTrial

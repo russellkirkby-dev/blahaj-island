@@ -362,9 +362,24 @@ window.BlahajWorld = (function () {
         if (lx * lx + lz * lz <= 13.0) {
           surfY = st.y + 0.38;
         }
+        // Solid Conical Canopy Roof (ConeGeometry: r=4.3, h=1.8 at st.y + 4.4, base=3.5, apex=5.3)
+        const rGz = Math.hypot(lx, lz);
+        if (rGz <= 4.3 && refY !== null && refY >= st.y + 2.8) {
+          const roofGz = st.y + 3.5 + 1.8 * (1.0 - rGz / 4.3);
+          if (roofGz <= refY + 2.8 && roofGz > surfY) {
+            surfY = roofGz;
+          }
+        }
       } else if (st.type === 'birch_cabin') {
         if (Math.abs(lx) <= 3.4 && Math.abs(lz) <= 3.8) {
           surfY = st.y + 0.32;
+        }
+        // Solid A-Frame Pitched Roof (ridge along z=0 at y=st.y+5.1, eaves at |lx|=2.7 at y=st.y+3.3)
+        if (Math.abs(lx) <= 2.8 && Math.abs(lz) <= 3.8 && refY !== null && refY >= st.y + 2.6) {
+          const roofCabin = st.y + 5.1 - (Math.abs(lx) / 2.8) * 1.8;
+          if (roofCabin <= refY + 2.8 && roofCabin > surfY) {
+            surfY = roofCabin;
+          }
         }
       } else if (st.type === 'bounce_pad') {
         if (lx * lx + lz * lz <= 5.5) {
@@ -438,6 +453,25 @@ window.BlahajWorld = (function () {
       }
       if (refY === null || teaSurfY <= refY + 2.8) {
         if (teaSurfY > bestY) bestY = teaSurfY;
+      }
+
+      // Solid Walkable Pagoda Roof Tiers for the Sacred Tea House (Jumping / Dropping onto the roof):
+      // Lower Cone Roof: Cone(11.4, 3.2) at y = y0 + 7.6 (Base: y0 + 6.0, Apex: y0 + 9.2)
+      // Upper Cone Roof: Cone(7.8, 2.8) at y = y0 + 9.8 (Base: y0 + 8.4, Apex: y0 + 11.2)
+      // Spire Kettle Top: Sphere(0.78) at y = y0 + 11.5 (Top: y0 + 12.28)
+      if (dTea <= 11.4) {
+        let roofSurfY = -999;
+        if (dTea <= 0.9) {
+          roofSurfY = y0 + 12.28;
+        } else if (dTea <= 7.8) {
+          roofSurfY = y0 + 8.4 + 2.8 * (1.0 - dTea / 7.8);
+        } else {
+          roofSurfY = y0 + 6.0 + 3.2 * (1.0 - dTea / 11.4);
+        }
+        // Only engage roof collision if shark is at or above roof level (prevents getting popped to roof from ground)
+        if (refY !== null && refY >= y0 + 5.2 && roofSurfY <= refY + 2.8) {
+          if (roofSurfY > bestY) bestY = roofSurfY;
+        }
       }
     }
 
@@ -1893,7 +1927,15 @@ window.BlahajWorld = (function () {
       [-8, 48, 0x60a5fa], [8, 49, 0xfbbf24], [14, 52, 0xf472b6],
       // Spherical Foods & East Cape
       [-44, 28, 0xa78bfa], [-46, 31, 0x60a5fa], [58, -6, 0xfbbf24],
-      [61, -8, 0x38bdf8], [42, 54, 0xf472b6], [45, 56, 0x60a5fa]
+      [61, -8, 0x38bdf8], [42, 54, 0xf472b6], [45, 56, 0x60a5fa],
+      // Hermes Atoll Sanctuary (Eastern Atoll)
+      [168, -14, 0x38bdf8], [172, -6, 0x60a5fa], [179, -12, 0xfbbf24], [182, -8, 0xf472b6],
+      // Solomon Cay Sanctuary (Northwestern Atoll)
+      [-160, 90, 0xfbbf24], [-168, 98, 0xa78bfa], [-162, 102, 0x60a5fa], [-170, 92, 0x34d399],
+      // Hiram Isle Sanctuary (Southwestern Isle)
+      [-160, -85, 0xfbbf24], [-168, -94, 0x38bdf8], [-162, -96, 0xf472b6], [-172, -86, 0xa78bfa],
+      // Nimue Sanctuary (Southeastern Isle)
+      [160, -110, 0xa78bfa], [168, -118, 0x38bdf8], [162, -122, 0xf472b6], [170, -112, 0x60a5fa]
     ];
 
     birbSpots.forEach(([bx, bz, col], idx) => {
@@ -1909,7 +1951,9 @@ window.BlahajWorld = (function () {
         homePos: new THREE.Vector3(bx, by, bz),
         targetPos: new THREE.Vector3(bx, by, bz),
         hopPhase: Math.random() * Math.PI * 2,
-        fedTimer: 0
+        satiationTimer: 0,
+        isSleeping: false,
+        snoozeTimer: Math.random() * 2.0
       });
     });
   }
@@ -3185,6 +3229,36 @@ window.BlahajWorld = (function () {
     }
 
     birbFlock.forEach((b) => {
+      // Birb Satiation & Breb Coma handling
+      if (b.satiationTimer > 0) {
+        b.satiationTimer = Math.max(0, b.satiationTimer - dt);
+        b.isSleeping = b.satiationTimer > 0;
+      } else {
+        b.isSleeping = false;
+      }
+
+      if (b.isSleeping) {
+        // Satiated loaf pose! Birb settles down comfortably onto the meadow grass, snoozing
+        const groundY = getGroundAndStructureHeight(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y);
+        b.mesh.position.y = groundY + 0.04;
+        const breath = 1.0 + Math.sin(time * 2.2 + b.hopPhase) * 0.04;
+        b.mesh.scale.set(1.18 * breath, 0.74 * (2.0 - breath), 1.18 * breath);
+        if (b.mesh.userData.leftWing && b.mesh.userData.rightWing) {
+          b.mesh.userData.leftWing.rotation.z = 0;
+          b.mesh.userData.rightWing.rotation.z = 0;
+        }
+        b.snoozeTimer = (b.snoozeTimer || 0) + dt;
+        if (b.snoozeTimer >= 2.2) {
+          b.snoozeTimer = 0;
+          if (window.BlahajEffects && typeof window.BlahajEffects.spawnSnoozeZzz === 'function') {
+            window.BlahajEffects.spawnSnoozeZzz(b.mesh.position);
+          }
+        }
+        return; // Stuffed and happy: ignores further breb loaves until awake!
+      } else {
+        b.mesh.scale.set(1, 1, 1);
+      }
+
       let nearestBreb = null;
       let minD = 22;
       activeBrebLoaves.forEach((loaf) => {

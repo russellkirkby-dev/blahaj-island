@@ -1372,6 +1372,10 @@ window.BlahajVolcano = (function () {
     c.mesh.visible = true;
   }
 
+  function resetVolunteerCarrots() {
+    carrots.forEach((c) => returnCarrotHome(c));
+  }
+
   function setActive(flag) {
     active = flag;
     if (flag) resetRun();
@@ -1450,10 +1454,9 @@ window.BlahajVolcano = (function () {
       });
     }
 
-    // Volunteer carrots.
+    // Volunteer carrots (no auto-respawn while on the balcony; volunteers refresh upon entering the dungeon!)
     carrots.forEach((c, idx) => {
       if (c.state === 'home') return;
-      c.respawn -= dt;
       if (c.state === 'fly') {
         c.vel.y -= 19.5 * dt;
         c.mesh.position.addScaledVector(c.vel, dt);
@@ -1478,7 +1481,6 @@ window.BlahajVolcano = (function () {
           if (typeof on.carrotLost === 'function') on.carrotLost(idx);
         }
       }
-      if (c.respawn <= 0) returnCarrotHome(c);
     });
 
     // Crater splash particles + lake flare.
@@ -1580,7 +1582,7 @@ window.BlahajVolcano = (function () {
     if (!c || c.state !== 'home') return false;
     c.state = 'fly';
     c.knocked = true;
-    c.respawn = 8;
+    c.respawn = -1;
     c.vel.set(vx, vy, vz);
     return true;
   }
@@ -1590,6 +1592,7 @@ window.BlahajVolcano = (function () {
     isBuilt: () => built,
     isActive: () => active,
     setActive,
+    resetVolunteerCarrots,
     getScene: () => scn,
     getStart: () => START,
     on: setHandlers,
