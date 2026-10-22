@@ -220,6 +220,41 @@ window.BlahajWorld = (function () {
   }
 
   // ==========================================================================
+  // CLEAN BEACH SAND BAND (TRADITIONAL TIDY WADING & SWIMMING SEABED)
+  // Protected zones extending offshore from beaches: clean ripple sand,
+  // free of weeds, kelp stipes, or coral clusters.
+  // ==========================================================================
+  function isInCleanBeachSandBand(x, z) {
+    // 1. Crescent Harbour & Tea Beach (Primary resort beach and bathing basin)
+    // Extends from shore (z ~ 48) out to z = 85, across the sheltered inner bay
+    if (Math.abs(x) < 42 && z >= 45 && z <= 85) {
+      return true;
+    }
+
+    // 2. East Cape Portal Gate Sandy Beach Cove
+    if (x >= 56 && x <= 88 && z >= -28 && z <= 22) {
+      const dCoast = getDistanceToNearestCoast(x, z);
+      if (dCoast < 22.0) return true;
+    }
+
+    // 3. Sunny the Beach Carrot's Sandy Cove & Parasol Strand
+    const dSunny = Math.hypot(x - 20, z - 62);
+    if (dSunny < 24.0) return true;
+
+    // 4. In south crescent sector past z > 85, transition to offshore meadow & barrier reef
+    if (Math.abs(x) < 45 && z > 85) return false;
+
+    // 5. General pristine beach sand band: shallow near-shore perimeter around main & outer islands
+    // Exclude rugged volcanic cliffs (z < -115) and steep western artisan rock cliffs
+    if (z < -115) return false;
+    if (x < -55 && z < -5 && z > -35) return false;
+
+    const dCoast = getDistanceToNearestCoast(x, z);
+    const depth = getTerrainHeight(x, z);
+    return dCoast >= 0 && dCoast < 18.0 && depth > -3.0;
+  }
+
+  // ==========================================================================
   // PROCEDURAL OCEANIC SEABED BATHYMETRY & REEF DEPTH
   // Near Shelf (30-40m) -> Mid-Shelf Step -> Grand Drop-Off -> Capped Deep Shelf
   // ==========================================================================
@@ -778,16 +813,22 @@ window.BlahajWorld = (function () {
           c.setRGB(shade + 0.03, shade, shade + 0.04);
         }
       } else if (vy < 0.95) {
+        const inSandBand = isInCleanBeachSandBand(vx, vz);
         if (vy >= 0.0) {
-          // Warm shoreline & beach sand
-          c.setHex(0xdec59b);
-        } else if (vy >= -2.4) {
-          // Sunlit shallow ripple sand & turquoise caustics
-          const shallowT = (vy - (-2.4)) / 2.4;
-          c.setRGB(0.58 + 0.28 * shallowT, 0.70 + 0.12 * shallowT, 0.60 + 0.05 * shallowT);
+          // Warm shoreline & clean dry beach sand
+          c.setHex(0xf1dfba);
+        } else if (inSandBand || vy >= -2.8) {
+          // Clean, sunlit Sand Band: smooth golden-ivory ripple sand with turquoise caustics
+          const sandT = Math.max(0, Math.min(1, (vy - (-3.4)) / 3.4));
+          const rippleSparkle = Math.sin(vx * 0.45 + vz * 0.4) * 0.025;
+          c.setRGB(
+            0.65 + 0.26 * sandT + rippleSparkle,
+            0.75 + 0.12 * sandT + rippleSparkle,
+            0.64 + 0.05 * sandT
+          );
         } else if (vy >= -5.5) {
           // Near Shelf: vibrant coral reef gardens & golden-green kelp floor
-          const shelfT = (vy - (-5.5)) / 3.1;
+          const shelfT = (vy - (-5.5)) / 2.7;
           c.setRGB(0.24 + 0.24 * shelfT, 0.48 + 0.18 * shelfT, 0.40 + 0.15 * shelfT);
         } else if (vy >= -10.5) {
           // Mid-Shelf Terrace: rocky ledges with coral lavender and sea fans
@@ -866,6 +907,7 @@ window.BlahajWorld = (function () {
       getLandmarkSurfaceHeight,
       getDistanceToNearestCoast,
       getOceanSeabedDepth,
+      isInCleanBeachSandBand: (x, z) => isInCleanBeachSandBand(x, z),
       isInsideVolcanoDungeon,
       isOnIslandRoad,
       getWaveHeight,
@@ -2294,12 +2336,12 @@ window.BlahajWorld = (function () {
 
     // Dense clusters distributed across all quadrants of the archipelago
     const kelpClusters = [
-      // 1. Crescent Harbour & Tea Bay Shallows (immediate swimming area)
-      { count: 110, cx: 0, cz: 82, rx: 36, rz: 22, isGiant: false },
-      // 2. East Cape Spawn Beach & Hermes Channel (visible right from spawn!)
-      { count: 75, cx: 88, cz: 18, rx: 28, rz: 20, isGiant: false },
+      // 1. Crescent Outer Lagoon Kelp Forest (Offshore past the clean beach sand band)
+      { count: 110, cx: 0, cz: 104, rx: 34, rz: 16, isGiant: false },
+      // 2. East Cape Channel Kelp Grove (Between headland & Hermes Atoll)
+      { count: 75, cx: 106, cz: 24, rx: 22, rz: 18, isGiant: false },
       // 3. West Artisans' Reef & Solomon Cay Channel
-      { count: 75, cx: -82, cz: 42, rx: 28, rz: 22, isGiant: false },
+      { count: 75, cx: -86, cz: 44, rx: 26, rz: 20, isGiant: false },
       // 4. North Volcano Sea Cove
       { count: 50, cx: -28, cz: -212, rx: 26, rz: 18, isGiant: false },
       // 5. Outer Sanctuary Islands Coastlines
@@ -2316,6 +2358,10 @@ window.BlahajWorld = (function () {
       for (let i = 0; i < cl.count; i++) {
         const kx = cl.cx + (Math.random() - 0.5) * 2 * cl.rx;
         const kz = cl.cz + (Math.random() - 0.5) * 2 * cl.rz;
+
+        // Keep clean beach sand bands completely clear!
+        if (isInCleanBeachSandBand(kx, kz)) continue;
+
         const groundY = getTerrainHeight(kx, kz);
 
         // Place kelp underwater between -1.6m and -23.0m
@@ -2391,24 +2437,28 @@ window.BlahajWorld = (function () {
     const starGeo = new THREE.ConeGeometry(0.45, 0.14, 5);
     const starMat = new THREE.MeshStandardMaterial({ color: 0xff5400, roughness: 0.6 });
 
-    // 38 Reef Cluster Locations across near-shore shallows, beaches, channels, and drop-offs
+    // Designated Reef Cluster Locations across offshore barrier reefs, rocky sounds, channels, and drop-offs
     const reefCenters = [
-      // Immediate Crescent Harbour & Tea Beach shallows (right where player wades in!)
-      [0, 64], [16, 68], [-16, 70], [8, 80], [-10, 82], [24, 78], [-24, 80],
-      // East Cape Beach (immediately off the spawn portal!)
-      [66, 2], [74, 14], [80, 24], [62, -18],
-      // West Artisans' Ridge Coast
-      [-58, 8], [-68, -8], [-76, 20], [-84, 40],
-      // Outer Sanctuary Island Docks
-      [145, -10], [180, 5], [-140, 75], [-175, 105], [-140, -75], [145, -95],
-      // Mid-Shelf Terraces & Drop-Off Ledges
-      [35, 115], [-35, 118], [0, 138], [-28, 145], [28, 145],
-      [110, 45], [-95, 75], [125, -45], [-75, -120],
-      // North Volcano Sea Cove
-      [-28, -200], [-18, -212], [-40, -215]
+      // 1. The Crescent Barrier Reef (Offshore Breakwater Garden, past the beach sand band!)
+      [-38, 92], [-22, 98], [-8, 105], [0, 108], [8, 105], [22, 98], [38, 92],
+      [0, 118], [24, 115], [-24, 115],
+      // 2. West Artisans' Rocky Sound & Coral Gardens
+      [-68, 10], [-76, 25], [-86, 38], [-96, 50], [-72, -12], [-85, 5],
+      // 3. East Headland Fringing Reef (Offshore rocky cape past Portal Gate)
+      [92, -5], [105, 12], [115, 25], [98, 35], [88, -22],
+      // 4. Mid-Shelf Terraces & Grand Drop-Off Ledges
+      [35, 125], [-35, 128], [0, 142], [-28, 148], [28, 148],
+      [110, 52], [-95, 82], [125, -45], [-75, -120],
+      // 5. North Volcano Basalt Reef
+      [-28, -200], [-18, -212], [-40, -215],
+      // 6. Outer Sanctuary Island Drop-Offs
+      [150, -15], [185, 10], [-145, 82], [-180, 110], [-145, -80], [150, -100]
     ];
 
     reefCenters.forEach(([cx, cz], rIdx) => {
+      // Keep beach sand bands completely clear!
+      if (isInCleanBeachSandBand(cx, cz)) return;
+
       const gy = getTerrainHeight(cx, cz);
       // Place corals at depths between -0.8m and -19.0m
       if (gy < -0.8 && gy > -19.0) {
@@ -2568,30 +2618,56 @@ window.BlahajWorld = (function () {
     const color = new THREE.Color();
     let placed = 0;
 
-    for (let attempt = 0; attempt < 28000 && placed < bladeCount; attempt++) {
+    for (let attempt = 0; attempt < 38000 && placed < bladeCount; attempt++) {
       const gx = (Math.random() - 0.5) * 440;
       const gz = (Math.random() - 0.5) * 440 + 10;
       const gy = getTerrainHeight(gx, gz);
 
-      // Place on near shelf and lagoon seabed (-1.1m to -6.8m)
-      if (gy < -1.1 && gy > -6.8) {
-        dummy.position.set(gx, gy - 0.05, gz);
-        dummy.rotation.set(
-          (Math.random() - 0.5) * 0.25,
-          Math.random() * Math.PI * 2,
-          (Math.random() - 0.5) * 0.25
-        );
-        const s = 0.85 + Math.random() * 0.95;
-        dummy.scale.set(s, s * (1.0 + Math.random() * 0.8), s);
-        dummy.updateMatrix();
-        instMesh.setMatrixAt(placed, dummy.matrix);
+      // Must be underwater in near-shelf & mid-shelf depth range (-1.2m to -8.5m)
+      if (gy >= -1.2 || gy <= -8.5) continue;
 
-        // Palette of vibrant marine turquoise, emerald eelgrass, and coral green
-        const hue = 0.42 + (Math.random() - 0.5) * 0.12;
-        color.setHSL(hue, 0.72, 0.28 + Math.random() * 0.18);
-        instMesh.setColorAt(placed, color);
-        placed++;
+      // EXCLUDE ALL CLEAN BEACH SAND BANDS (traditional tidy swimming beaches!)
+      if (isInCleanBeachSandBand(gx, gz)) continue;
+
+      // Must be in one of the DESIGNATED OFFSHORE SEAGRASS ZONES:
+      let inSeagrassZone = false;
+      // 1. Crescent Lagoon Offshore Meadow (past the beach sand band: z in [86, 126])
+      if (gz >= 86 && gz <= 126 && Math.abs(gx) <= 44) inSeagrassZone = true;
+      // 2. West Sound Beds between Main Island & Nimue's Isle
+      else if (gx >= -115 && gx <= -55 && gz >= 10 && gz <= 65) inSeagrassZone = true;
+      // 3. East Channel Meadow offshore of Great Portal Headland
+      else if (gx >= 82 && gx <= 138 && gz >= -20 && gz <= 42) inSeagrassZone = true;
+      // 4. Outer Atoll deep fringes (past 20m from island centers)
+      else {
+        for (let i = 0; i < OUTER_ISLANDS.length; i++) {
+          const isl = OUTER_ISLANDS[i];
+          const d = Math.hypot(gx - isl.x, gz - isl.z);
+          if (d >= 20.0 && d <= 48.0) { inSeagrassZone = true; break; }
+        }
+        if (!inSeagrassZone) {
+          const dCoast = getDistanceToNearestCoast(gx, gz);
+          if (dCoast >= 36.0 && dCoast <= 58.0) inSeagrassZone = true;
+        }
       }
+
+      if (!inSeagrassZone) continue;
+
+      dummy.position.set(gx, gy - 0.05, gz);
+      dummy.rotation.set(
+        (Math.random() - 0.5) * 0.25,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.25
+      );
+      const s = 0.85 + Math.random() * 0.95;
+      dummy.scale.set(s, s * (1.0 + Math.random() * 0.8), s);
+      dummy.updateMatrix();
+      instMesh.setMatrixAt(placed, dummy.matrix);
+
+      // Palette of vibrant marine turquoise, emerald eelgrass, and coral green
+      const hue = 0.42 + (Math.random() - 0.5) * 0.12;
+      color.setHSL(hue, 0.72, 0.28 + Math.random() * 0.18);
+      instMesh.setColorAt(placed, color);
+      placed++;
     }
 
     instMesh.count = placed;
@@ -4126,6 +4202,7 @@ window.BlahajWorld = (function () {
     getLandmarkSurfaceHeight,
     getDistanceToNearestCoast,
     getOceanSeabedDepth,
+    isInCleanBeachSandBand: (x, z) => isInCleanBeachSandBand(x, z),
     isInsideVolcanoDungeon,
     isOnIslandRoad,
     getWaveHeight,
