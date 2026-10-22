@@ -644,22 +644,29 @@ window.BlahajWorld = (function () {
     // Only check arches for physical player movement/jumping, NOT for camera collision (forCamera === true),
     // so the camera sweeps cleanly through the gateway without clipping or hitching!
     if (!forCamera) {
-      for (let g = 0; g < 4; g++) {
-        const gz = -44 - g * 14;
-        const tIsth = (-gz - 32) / 73;
-        const gx = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
-        const gy = getTerrainHeight(gx, gz);
-        const topBeamY = gy + 6.425; // Top of horizontal crossbeam
+      const causewayGateSpecs = [
+        { x: -16.5, z: -44.0, beamW: 10.0, span: 8.0 },
+        { x: -19.5, z: -58.0, beamW: 10.0, span: 8.0 },
+        { x: -21.5, z: -72.0, beamW: 10.2, span: 8.2 },
+        { x: -22.0, z: -85.2, beamW: 10.8, span: 8.6 }
+      ];
 
-        // Crossbeam surface: width 9.6 (|x - gx| <= 4.8), depth 0.95 (|z - gz| <= 0.65)
-        if (Math.abs(x - gx) <= 4.85 && Math.abs(z - gz) <= 0.65) {
+      for (let g = 0; g < causewayGateSpecs.length; g++) {
+        const gs = causewayGateSpecs[g];
+        const gy = getTerrainHeight(gs.x, gs.z);
+        const topBeamY = gy + 6.71; // Top of horizontal crossbeam (6.35 + 0.36)
+
+        // Crossbeam surface
+        const hw = gs.beamW * 0.5;
+        if (Math.abs(x - gs.x) <= hw && Math.abs(z - gs.z) <= 0.65) {
           if (refY === null || topBeamY <= refY + 2.8) {
             if (topBeamY > bestY) bestY = topBeamY;
           }
         }
-        // Top of side vertical columns (px = +/- 3.8)
-        if ((Math.abs((x - gx) - 3.8) <= 0.55 || Math.abs((x - gx) - (-3.8)) <= 0.55) && Math.abs(z - gz) <= 0.55) {
-          const topColY = gy + 6.2;
+        // Top of side vertical columns
+        const colOff = gs.span * 0.5;
+        if ((Math.abs((x - gs.x) - colOff) <= 0.55 || Math.abs((x - gs.x) - (-colOff)) <= 0.55) && Math.abs(z - gs.z) <= 0.55) {
+          const topColY = gy + 6.4;
           if (refY === null || topColY <= refY + 2.8) {
             if (topColY > bestY) bestY = topColY;
           }
@@ -683,9 +690,10 @@ window.BlahajWorld = (function () {
       }
     }
 
-    // Grand Balcony Basalt Steps leading up from causeway road to the front lip of the dais (z in [-94.5, -86.0], |x - (-22)| <= 3.4)
-    if (Math.abs(x - (-22)) <= 3.5 && z >= -94.8 && z <= -85.8) {
-      const u = Math.max(0, Math.min(1, (z - (-86.0)) / (-8.5))); // 0 at road (z=-86.0), 1 at dais lip (z=-94.5)
+    // Grand Balcony Basalt Steps rising directly from Gate 3 (z = -85.5) up to the front lip of the dais (z = -94.5)
+    // Width is 6.2m (|x - (-22)| <= 3.1)
+    if (Math.abs(x - (-22)) <= 3.2 && z >= -94.8 && z <= -85.2) {
+      const u = Math.max(0, Math.min(1, (z - (-85.2)) / (-9.3))); // 0 at Gate 3 threshold (z = -85.2), 1 at dais lip (z = -94.5)
       const stepSurfY = shrineY - 4.2 + u * 4.8 + 0.28;
       if (refY === null || stepSurfY <= refY + 2.8) {
         if (stepSurfY > bestY) bestY = stepSurfY;
@@ -2017,26 +2025,32 @@ window.BlahajWorld = (function () {
     );
     group.add(emberSystem);
 
-    // Isthmus Torii Gates along the scenic southern ridge
-    for (let g = 0; g < 4; g++) {
-      const gz = -44 - g * 14;
-      const tIsth = (-gz - 32) / 73;
-      const gx = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
-      const gy = getTerrainHeight(gx, gz);
+    // Isthmus Torii Gates gracefully leading along the causeway and framing the grand stairs
+    const causewayGateSpecs = [
+      { x: -16.5, z: -44.0, rotY: 0.18, span: 8.0, beamW: 10.0 }, // Gate 0: lower isthmus
+      { x: -19.5, z: -58.0, rotY: 0.12, span: 8.0, beamW: 10.0 }, // Gate 1: mid isthmus
+      { x: -21.5, z: -72.0, rotY: 0.05, span: 8.2, beamW: 10.2 }, // Gate 2: upper causeway
+      { x: -22.0, z: -85.2, rotY: 0.00, span: 8.6, beamW: 10.8 }  // Gate 3: final ceremonial arch framing the grand steps!
+    ];
 
+    causewayGateSpecs.forEach((gs) => {
+      const gy = getTerrainHeight(gs.x, gs.z);
       const gate = new THREE.Group();
-      gate.position.set(gx, gy, gz);
-      [-3.8, 3.8].forEach((px) => {
-        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.48, 6.2, 14), basaltMat);
-        col.position.set(px, 3.1, 0);
+      gate.position.set(gs.x, gy, gs.z);
+      gate.rotation.y = gs.rotY;
+
+      const colOff = gs.span * 0.5;
+      [-colOff, colOff].forEach((px) => {
+        const col = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.50, 6.4, 14), basaltMat);
+        col.position.set(px, 3.2, 0);
         col.castShadow = true;
         gate.add(col);
       });
-      const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.65, 0.85), basaltMat);
-      crossBeam.position.y = 6.1;
+      const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(gs.beamW, 0.72, 0.95), basaltMat);
+      crossBeam.position.y = 6.35;
       gate.add(crossBeam);
       group.add(gate);
-    }
+    });
 
     // Ancient Sealed Obsidian Shrine & Gate at (-22, gy, -103)
     const shrineX = -22;
@@ -2064,14 +2078,15 @@ window.BlahajWorld = (function () {
       shrineGroup.add(pillar);
     }
 
-    // Grand Carved Basalt Steps leading up to the Balcony from the Causeway road (z = -86.0 to -94.5)
+    // Grand Carved Basalt Steps rising directly from Gate 3 (z = -85.5) up to the Balcony front lip (z = -94.5)
+    // Width is 6.2m, fitting comfortably inside Gate 3's 8.6m column span with zero clipping!
     const stepsCount = 9;
     for (let s = 0; s < stepsCount; s++) {
       const stepProg = s / (stepsCount - 1);
-      const stepRelZ = 17.0 - stepProg * 8.5; // from relZ = +17.0 (z = -86.0) down to relZ = +8.5 (z = -94.5)
+      const stepRelZ = 17.5 - stepProg * 9.0; // from relZ = +17.5 (z = -85.5) down to relZ = +8.5 (z = -94.5)
       const stepRelY = -4.2 + stepProg * 4.8; // ascending from road level (-4.2) up to balcony lip (+0.6)
-      const stepWidth = 6.8;
-      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(stepWidth, 0.55, 1.4), basaltMat);
+      const stepWidth = 6.2;
+      const stepMesh = new THREE.Mesh(new THREE.BoxGeometry(stepWidth, 0.52, 1.45), basaltMat);
       stepMesh.position.set(0, stepRelY, stepRelZ);
       stepMesh.receiveShadow = true;
       shrineGroup.add(stepMesh);
