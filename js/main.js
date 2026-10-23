@@ -315,6 +315,44 @@
       this.playTone(390, 0.05, 'sine', 0.18, 920);
     },
 
+    birthdayFanfare() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const notes = [
+        { f: 261.63, d: 0.18, t: 0.00 }, // C4
+        { f: 261.63, d: 0.18, t: 0.20 }, // C4
+        { f: 293.66, d: 0.35, t: 0.40 }, // D4
+        { f: 261.63, d: 0.35, t: 0.78 }, // C4
+        { f: 349.23, d: 0.35, t: 1.15 }, // F4
+        { f: 329.63, d: 0.65, t: 1.52 }, // E4
+        { f: 261.63, d: 0.18, t: 2.25 }, // C4
+        { f: 261.63, d: 0.18, t: 2.45 }, // C4
+        { f: 293.66, d: 0.35, t: 2.65 }, // D4
+        { f: 261.63, d: 0.35, t: 3.02 }, // C4
+        { f: 392.00, d: 0.35, t: 3.40 }, // G4
+        { f: 349.23, d: 0.70, t: 3.78 }  // F4
+      ];
+      notes.forEach((n) => {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(n.f, n.d, 'triangle', 0.14, n.f * 1.5);
+          this.playTone(n.f * 2, n.d * 0.8, 'sine', 0.07, n.f * 2.5);
+        }, n.t * 1000);
+      });
+    },
+
+    bistroChime() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(1046.5, 0.45, 'sine', 0.12, 2093);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(1318.5, 0.55, 'sine', 0.10, 2637);
+      }, 90);
+    },
+
     cartBump(intensity = 4.0) {
       if (gameSettings && !gameSettings.sfxVol) return;
       this.ensure();
@@ -788,6 +826,9 @@
     }
     if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       return window.BlahajLaundromat.getScene();
+    }
+    if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      return window.BlahajSphericalFoods.getScene();
     }
     return scene;
   }
@@ -2375,6 +2416,7 @@
           player.velY = 0;
           player.isGrounded = true;
           camState.yaw = Math.PI;
+          updateCamera(0);
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
@@ -2385,6 +2427,129 @@
           window.BlahajNetwork.send({
             type: 'zone_change',
             zone: 'laundromat'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function enterSphericalFoods() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+    if (player.inCart) dismountLaundryCart();
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'Spherical Foods Bistro & Rotunda';
+    subEl.textContent = 'Entering the grand dining rotunda… Everything is better in a sphere! 🧆✨';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.bistroChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(async () => {
+          currentZone = 'spherical_foods';
+          if (window.BlahajSphericalFoods) {
+            await window.BlahajSphericalFoods.build();
+            window.BlahajSphericalFoods.setActive(true);
+            const start = window.BlahajSphericalFoods.getStart();
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajSphericalFoods.getScene().add(player.mesh);
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+          camState.yaw = Math.PI;
+          updateCamera(0);
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+
+          const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
+          if (isWeek) {
+            showToast("HELEN'S BIRTHDAY WEEK! 🎂✨", "Joyeux Anniversaire! Feast your eyes upon Helen's Celestial Birthday Bombe!");
+            addChatLog("🎂 Stepped inside <strong>Spherical Foods Bistro</strong>. Festive balloons float around Helen's Birthday Alcove!", 'lore');
+            CozyAudio.birthdayFanfare();
+          } else {
+            showToast('SPHERICAL FOODS BISTRO 🧆', 'No flat food allowed! Step up to Monsieur Betterave [E].');
+            addChatLog('🧆 Stepped inside <strong>Spherical Foods Bistro</strong>. Aromatic steam swirls around the brass chandelier.', 'lore');
+          }
+          updateCoopPartnerVisibility();
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'spherical_foods'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function exitSphericalFoods() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'Returning to Blåhaj Island';
+    subEl.textContent = 'Stepping through the mahogany doors back to Southwest Bluff… ☀️';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'overworld';
+          if (window.BlahajSphericalFoods) {
+            window.BlahajSphericalFoods.setActive(false);
+          }
+          player.pos.set(-47.7, 7.4, 42.2);
+          player.rotY = 0.55;
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+          camState.yaw = 0.55;
+          updateCamera(0);
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('SOUTHWEST BLUFF ☀️', 'Fresh ocean breeze greets you outside Spherical Foods.');
+          addChatLog('☀️ Stepped outside <strong>Spherical Foods Bistro</strong> onto the sunlit Southwest Bluff.', 'lore');
+          updateCoopPartnerVisibility();
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'overworld'
           });
         }, 250);
       }
@@ -2637,6 +2802,28 @@
     }
     if (item.kind === 'laundromat_return') {
       exitLaundromat();
+      return;
+    }
+
+    // Spherical Foods Instance specific interactables
+    if (item.kind === 'spherical_exit') {
+      exitSphericalFoods();
+      return;
+    }
+    if (item.kind === 'helen_birthday_cake') {
+      triggerHelensBirthdayCake();
+      return;
+    }
+    if (item.kind === 'monsieur_betterave') {
+      openSphericalFoodsMenuModal();
+      return;
+    }
+    if (item.kind === 'booth_seat') {
+      CozyAudio.bistroChime();
+      player.teaComfort = 100;
+      updateMetersUI();
+      showToast('VELVET ROUND BOOTH 🛋️', 'You sink comfortably into the curved burgundy velvet banquette. Perfect spherical view!');
+      addChatLog('🛋️ Slid into the plush burgundy velvet booth at <strong>Spherical Foods Bistro</strong> (+100% Comfort).', 'lore');
       return;
     }
 
@@ -3134,27 +3321,8 @@
     }
 
     if (lm.type === 'spherical') {
-      CozyAudio.teaPour();
-      player.teaComfort = 100;
-      updateMetersUI();
       completeQuest('q-sw-feast');
-      openDialogueModal({
-        speaker: 'Spherical Foods Café',
-        role: 'EVERYTHING IS BETTER IN A SPHERE · NO FLAT FOOD HERE',
-        portrait: 'assets/gallery/Spherical-Foods.png',
-        text: 'Monsieur Betterave presents the circular menu at the burgundy round booth: Lava Lychee Sphere, Miso Ramen Sphere, Burrata Bombe, Golden Beet Sphere, Truffle Mac Sphere, and Matcha Tiramisphere!',
-        actions: [
-          {
-            label: 'Order the Lava Lychee & Truffle Mac Spheres! 🧆',
-            className: 'btn-primary',
-            onClick: () => {
-              closeDialogueModal();
-              spawnFloatingBurst(player.pos, 0xf5cd79, 14);
-              showToast('WELL-ROUNDED MEAL', 'Served hot and perfectly spherical!');
-            }
-          }
-        ]
-      });
+      enterSphericalFoods();
       return;
     }
 
@@ -4179,6 +4347,113 @@
     log.scrollTop = log.scrollHeight;
   }
 
+  function triggerHelensBirthdayCake() {
+    CozyAudio.birthdayFanfare();
+    player.teaComfort = 100;
+    player.warmth = 100;
+    updateMetersUI();
+    spawnFloatingBurst(player.pos, 0xf43f5e, 28);
+    spawnFloatingBurst(player.pos, 0xfbbf24, 24);
+
+    const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
+
+    openDialogueModal({
+      speaker: "Helen's Celestial Birthday Bombe ✨🎂",
+      role: 'SPHERICAL BIRTHDAY MASTERPIECE · CELEBRATED OCT 24',
+      portrait: 'assets/gallery/Spherical-Foods.png',
+      text: isWeek
+        ? '“Joyeux Anniversaire, Helen! In accordance with Monsieur Betterave’s sacred culinary law, no flat cake shall ever be baked on this island. Behold: a flawless sphere of passionfruit chiffon and raspberry-rose mousse with a hazelnut praline pearl core, encased in mirror-glazed ruby glacage, dusted with edible gold leaf stars and crowned with an enchanted flickering candle!”'
+        : '“A magnificent spherical birthday cake reserved in honor of Helen’s birthday on October 24th! Its enchanted candle flickers warmly under the rotunda chandelier.”',
+      actions: [
+        {
+          label: 'Make a Birthday Wish & Taste the Ruby Glaze! 🎂✨',
+          className: 'btn-primary',
+          onClick: () => {
+            closeDialogueModal();
+            CozyAudio.bistroChime();
+            spawnFloatingBurst(player.pos, 0xfbbf24, 32);
+            showToast("JOYEUX ANNIVERSAIRE, HELEN! 🎂✨", "Sweet raspberry-rose & gold stars! (Warmth & Comfort Maxed!)");
+            addChatLog("🎂 <em>Happy Birthday Helen!</em> You tasted <strong>Helen's Celestial Birthday Bombe</strong>. Golden stars and sweet raspberry warmth fill your heart (+100% Comfort, +100% Warmth)!", 'cozy');
+          }
+        },
+        {
+          label: 'Admire the Golden Candle & Sparklers 🕯️✨',
+          className: 'btn-secondary',
+          onClick: () => {
+            closeDialogueModal();
+            CozyAudio.shonk();
+            showToast("ENCHANTED CANDLE 🕯️", "The golden flame crackles with cozy warm sparklers!");
+          }
+        }
+      ]
+    });
+  }
+
+  function openSphericalFoodsMenuModal() {
+    CozyAudio.bistroChime();
+    const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
+
+    const actions = [
+      {
+        label: isWeek ? "✨ ORDER: Helen's Birthday Bombe (Oct 24 Week Special!) 🎂" : "Helen's Birthday Bombe (Reserved for Oct 24) 🎂",
+        className: 'btn-accent',
+        onClick: () => {
+          closeDialogueModal();
+          triggerHelensBirthdayCake();
+        }
+      },
+      {
+        label: 'Order Lava Lychee & Truffle Mac Spheres! 🧆🍄',
+        className: 'btn-primary',
+        onClick: () => {
+          closeDialogueModal();
+          CozyAudio.bistroChime();
+          player.teaComfort = 100;
+          updateMetersUI();
+          spawnFloatingBurst(player.pos, 0xf59e0b, 16);
+          showToast('SERVED HOT & SPHERICAL 🧆', 'Savory truffle mac encased in a golden sphere!');
+          addChatLog('🧆 Monsieur Betterave served steaming <strong>Lava Lychee & Truffle Mac Spheres</strong>.', 'cozy');
+        }
+      },
+      {
+        label: 'Order Miso Ramen & Steamed Bao Spheres! 🍜🥟',
+        className: 'btn-primary',
+        onClick: () => {
+          closeDialogueModal();
+          CozyAudio.bistroChime();
+          player.warmth = 100;
+          updateMetersUI();
+          spawnFloatingBurst(player.pos, 0x38bdf8, 16);
+          showToast('SAVORY SPHERE FEAST 🍜', 'Miso broth suspended in delicate culinary pearl!');
+          addChatLog('🍜 Enjoyed <strong>Miso Ramen & Bao Spheres</strong> at the round mahogany table.', 'cozy');
+        }
+      },
+      {
+        label: 'Order Strawberry Mochi & Matcha Tiramisphere! 🍓🍵',
+        className: 'btn-secondary',
+        onClick: () => {
+          closeDialogueModal();
+          CozyAudio.bistroChime();
+          player.teaComfort = 100;
+          updateMetersUI();
+          spawnFloatingBurst(player.pos, 0xec4899, 16);
+          showToast('DELICATE DESSERT SPHERES 🍓', 'Velvety matcha & glazed strawberry mochi!');
+          addChatLog('🍓 Tasted <strong>Strawberry Mochi & Matcha Tiramisphere</strong>.', 'cozy');
+        }
+      }
+    ];
+
+    openDialogueModal({
+      speaker: 'Monsieur Betterave',
+      role: 'PROPRIÉTAIRE · SPHERICAL FOODS BISTRO',
+      portrait: 'assets/gallery/Spherical-Foods.png',
+      text: isWeek
+        ? '“Bienvenue, mes amis! It is the most auspicious week of the year—Helen’s Birthday on October 24th! By unanimous decree of our culinary brigade, no flat food or flat cake is permitted. Our grand feature today is Helen’s Celestial Birthday Bombe. What may I serve you at the round table?”'
+        : '“Bienvenue to Spherical Foods! Every dish here is handcrafted into a flawless sphere—from savory arancini to sweet melon pearls. What spherical delicacy tempts your palate?”',
+      actions: actions
+    });
+  }
+
   function openDialogueModal({ speaker, role, portrait, text, customHtml, actions }) {
     releasePointerLock();
     document.getElementById('dlg-speaker').textContent = speaker;
@@ -4645,6 +4920,8 @@
       floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      floorY = window.BlahajSphericalFoods.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
       floorY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getTerrainHeight === 'function') {
@@ -4705,6 +4982,8 @@
       window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
+    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
     }
@@ -4838,6 +5117,54 @@
 
         if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
           handleVolcanoTrapHit('Molten Lava Sea');
+        }
+      } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDirX = dirX / len;
+          const normDirZ = dirZ / len;
+
+          const nextX = player.pos.x + normDirX * speed * dt;
+          const nextZ = player.pos.z + normDirZ * speed * dt;
+
+          // Keep player inside the dining rotunda (Radius 13.5m) or south door threshold
+          const dCenter = Math.hypot(nextX, nextZ);
+          if (dCenter < 13.5 || (Math.abs(nextX) < 1.8 && nextZ < 13.8)) {
+            player.pos.x = nextX;
+            player.pos.z = nextZ;
+          }
+
+          const targetAngle = Math.atan2(normDirX, normDirZ);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          if (player.isGrounded) {
+            CozyAudio.footstep(false, false);
+          }
+        }
+
+        const floorY = window.BlahajSphericalFoods.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+        if (player.pos.y > floorY + 0.05) {
+          player.velY -= 22.0 * dt;
+          player.pos.y += player.velY * dt;
+          if (player.pos.y <= floorY) {
+            player.pos.y = floorY;
+            player.velY = 0;
+            player.isGrounded = true;
+          }
+        } else {
+          player.pos.y = floorY;
+          player.velY = 0;
+          player.isGrounded = true;
         }
       } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
         if (window.BlahajLaundromat.isSpinCycleActive()) {
@@ -5423,6 +5750,17 @@
         camX = lookTarget.x + Math.sin(camState.yaw) * horizDist * pullFactor;
         camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
       }
+    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      const ceilY = window.BlahajSphericalFoods.getCeilingY() || 7.5;
+      const roomRadius = 13.5;
+      const dFromCenter = Math.hypot(camX, camZ);
+      if (dFromCenter > roomRadius) {
+        const pull = roomRadius / dFromCenter;
+        camX *= pull;
+        camZ *= pull;
+      }
+      if (camY > ceilY - 0.5) camY = ceilY - 0.5;
+      if (camY < 0.6) camY = 0.6;
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       if (window.BlahajLaundromat.isSpinCycleActive()) {
         // Dramatic spin cycle camera directly framing Giant Washer #7 at Z = -16.8
@@ -5538,6 +5876,23 @@
       const hazard = window.BlahajVolcano.checkHazards(player.pos);
       if (hazard) {
         handleVolcanoTrapHit(hazard);
+      }
+      return;
+    }
+
+    // Inside the Spherical Foods Bistro Instance
+    if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      document.getElementById('hud-zone-name').textContent = 'Spherical Foods Bistro & Rotunda';
+      const sItems = window.BlahajSphericalFoods.getInteractables(player.pos);
+      if (sItems.length > 0) {
+        nearestInteractable = sItems[0];
+      }
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
       }
       return;
     }
@@ -5901,6 +6256,10 @@
     exitVolcanoTrial,
     enterLaundromat,
     exitLaundromat,
+    enterSphericalFoods,
+    exitSphericalFoods,
+    triggerHelensBirthdayCake,
+    openSphericalFoodsMenuModal,
     triggerLaundromatSpinCycle,
     mountLaundryCart,
     dismountLaundryCart,

@@ -153,8 +153,9 @@ window.BLAHAJ_LORE = {
       pos: { x: -48, z: 31, rotY: 0.75 },
       portrait: 'assets/gallery/Spherical-Foods.png',
       lines: [
-        '“Welcome to Spherical Foods on the Sunset Bluff! Today’s specials: Lava Lychee Sphere, Miso Ramen Sphere, and Artisanal Round Breb!”',
-        '“Even the Birbs on Blåhaj Island are delightfully spherical. Truly, nature understands our culinary philosophy.”',
+        '“Joyeux Anniversaire! Welcome to Spherical Foods! It is Helen’s Grand Birthday Week on Blåhaj Island—no flat food or flat cakes shall ever cross our threshold!”',
+        '“Step inside the grand dining rotunda to feast your eyes upon Helen’s Celestial Birthday Bombe, glazed in ruby-magenta mirror glass with edible gold stars!”',
+        '“Even the plump Birbs on Blåhaj Island are delightfully spherical. Truly, nature understands our culinary philosophy.”',
         '“Would you care for a pot of Volcanic Oolong with your Burrata Bombe?”'
       ]
     },
@@ -223,11 +224,11 @@ window.BLAHAJ_LORE = {
     },
     {
       id: 'spherical_foods',
-      name: 'Spherical Foods Café',
-      zoneTitle: 'Southwest Bluff · Spherical Foods',
-      pos: { x: -52, z: 34 },
-      radius: 14,
-      prompt: 'Order a Spherical Delicacy [E]',
+      name: 'Spherical Foods Bistro & Rotunda',
+      zoneTitle: 'Southwest Bluff · Spherical Foods Rotunda',
+      pos: { x: -47.7, z: 41.0 },
+      radius: 6.5,
+      prompt: 'Enter Spherical Foods Bistro [E] 🧆',
       type: 'spherical'
     },
     {

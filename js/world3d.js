@@ -700,32 +700,37 @@ window.BlahajWorld = (function () {
       }
     }
 
-    // 5. The Spherical Foods Bluff (x = -52, z = 34, rotY = 0.55)
+    // 5. The Spherical Foods Bluff & Rotunda Building (x = -52, z = 34, rotY = 0.55)
     const dSphere = Math.hypot(x - (-52), z - 34);
-    if (dSphere <= 9.5) {
+    if (dSphere <= 11.5) {
       const y0 = getTerrainHeight(-52, 34);
       let sphereSurfY = -999;
 
-      // Solid Climbable & Jumpable Pavilion Rooftop Canopy (Cone/Dome from y0 + 4.6 to y0 + 7.4, r <= 8.4)
-      if (dSphere <= 8.4 && refY !== null && refY >= y0 + 3.8) {
-        sphereSurfY = y0 + 4.6 + 2.8 * (1.0 - dSphere / 8.4);
-      } else if (dSphere <= 3.1) {
-        sphereSurfY = y0 + 1.75; // On top of the round food table
-      } else {
-        // Climbing Crates in local frame (rotY = 0.55)
-        const dxS = x - (-52);
-        const dzS = z - 34;
-        const cosS = Math.cos(-0.55);
-        const sinS = Math.sin(-0.55);
-        const lxS = dxS * cosS - dzS * sinS;
-        const lzS = dxS * sinS + dzS * cosS;
+      const dxS = x - (-52);
+      const dzS = z - 34;
+      const cosS = Math.cos(-0.55);
+      const sinS = Math.sin(-0.55);
+      const lxS = dxS * cosS - dzS * sinS;
+      const lzS = dxS * sinS + dzS * cosS;
 
-        if (lxS >= 5.2 && lxS <= 7.5 && lzS >= -4.0 && lzS <= 0.2) {
-          if (lzS < -2.6) sphereSurfY = y0 + 1.4;
-          else if (lzS < -1.4) sphereSurfY = y0 + 2.8;
-          else sphereSurfY = y0 + 4.2; // Top crate steps directly onto roof eaves!
+      // Solid Climbable & Jumpable Rooftop Dome (from y0 + 6.0 to y0 + 10.2, r <= 8.3)
+      if (dSphere <= 8.3 && refY !== null && refY >= y0 + 5.5) {
+        sphereSurfY = y0 + 6.0 + 3.8 * (1.0 - dSphere / 8.3);
+      } else if (lxS >= 5.6 && lxS <= 7.8 && lzS >= -4.2 && lzS <= 1.2) {
+        // Climbing Crates in local frame
+        if (lzS < -2.6) sphereSurfY = y0 + 1.4;
+        else if (lzS < -1.4) sphereSurfY = y0 + 2.8;
+        else if (lzS < -0.2) sphereSurfY = y0 + 4.2;
+        else sphereSurfY = y0 + 5.6; // Top crate steps onto dome cornice!
+      } else if (dSphere <= 10.4) {
+        // Entrance terrace & door landing
+        if (lzS >= 7.6) {
+          sphereSurfY = y0 + 0.70; // Front door entrance terrace landing
+        } else if (dSphere <= 8.2) {
+          // Solid rotunda walls: block entering the building wall at floor level
+          sphereSurfY = y0 + 5.8;
         } else {
-          sphereSurfY = y0 + 0.625; // On dining deck
+          sphereSurfY = y0 + 0.70; // Surrounding terrace
         }
       }
       if (refY === null || sphereSurfY <= refY + 2.8) {
@@ -2980,137 +2985,191 @@ window.BlahajWorld = (function () {
     group.position.set(-52, y0, 34);
     group.rotation.y = 0.55;
 
-    const boothMat = new THREE.MeshStandardMaterial({ color: 0x731d2c, roughness: 0.72 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x4d321e, roughness: 0.78 });
-    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.85 });
+    // Materials: Terracotta & Biscuit Sandstone, Aged Copper, Polished Brass
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xc87d55, roughness: 0.75 }); // Warm terracotta bistro walls
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xecd9c6, roughness: 0.6 });  // Biscuit limestone pilasters
+    const copperMat = new THREE.MeshStandardMaterial({ color: 0x3d7a6e, roughness: 0.55 }); // Aged verdigris copper dome
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.25, metalness: 0.85 }); // Polished brass
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3b1d11, roughness: 0.5 }); // Dark mahogany doors
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0x5a483e, roughness: 0.8 }); // Stone terrace
 
-    const deck = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 9.2, 0.65, 32), woodMat);
-    deck.position.y = 0.3;
-    group.add(deck);
+    // 1. Foundation Terrace & Stepped Circular Plinth
+    const terrace = new THREE.Mesh(new THREE.CylinderGeometry(9.6, 10.4, 0.7, 36), stepMat);
+    terrace.position.y = 0.35;
+    terrace.receiveShadow = true;
+    group.add(terrace);
 
-    const booth = new THREE.Mesh(
-      new THREE.CylinderGeometry(6.0, 6.0, 2.5, 32, 1, true, 0.75, Math.PI * 1.5),
-      boothMat
-    );
-    booth.position.y = 1.5;
-    booth.material.side = THREE.DoubleSide;
-    group.add(booth);
+    const terraceTrim = new THREE.Mesh(new THREE.TorusGeometry(9.6, 0.08, 8, 36), brassMat);
+    terraceTrim.rotation.x = Math.PI / 2;
+    terraceTrim.position.y = 0.7;
+    group.add(terraceTrim);
 
-    const table = new THREE.Mesh(new THREE.CylinderGeometry(3.1, 2.5, 1.2, 28), woodMat);
-    table.position.y = 1.15;
-    group.add(table);
-
-    // Upgraded Spherical Foods: Distinct culinary spherical treats served on fine porcelain saucers!
-    const plateMat = new THREE.MeshStandardMaterial({ color: 0xfaf6f0, roughness: 0.18, metalness: 0.08 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x34a853, roughness: 0.4 });
-    const garnishDark = new THREE.MeshStandardMaterial({ color: 0x24140e, roughness: 0.6 });
-
-    const sphericalRecipes = [
-      { name: 'Crispy Beetroot Arancini', color: 0xa83824, roughness: 0.85, top: 'leaf' },
-      { name: 'Steamed Bao Sphere', color: 0xfdfbf7, roughness: 0.5, top: 'pleat' },
-      { name: 'Strawberry Glazed Mochi', color: 0xec4899, roughness: 0.15, top: 'drizzle' },
-      { name: 'Golden Honey Brioche Ball', color: 0xf59e0b, roughness: 0.35, top: 'seed' },
-      { name: 'Dark Truffle Ganache', color: 0x3b1d11, roughness: 0.8, top: 'dust' },
-      { name: 'Sweet Melon Sphere', color: 0x10b981, roughness: 0.25, top: 'stem' },
-      { name: 'Glazed Takoyaki Ball', color: 0xd97706, roughness: 0.3, top: 'drizzle' },
-      { name: 'Vanilla Coconut Pearl', color: 0xffffff, roughness: 0.2, top: 'seed' },
-      { name: 'Savory Beet Caviar Sphere', color: 0x881337, roughness: 0.1, top: 'leaf' }
-    ];
-
-    sphericalRecipes.forEach((recipe, i) => {
-      const a = (i / sphericalRecipes.length) * Math.PI * 2;
-      const px = Math.cos(a) * 1.85;
-      const pz = Math.sin(a) * 1.85;
-
-      // Porcelain saucer
-      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.36, 0.05, 18), plateMat);
-      saucer.position.set(px, 1.77, pz);
-      group.add(saucer);
-
-      // Spherical culinary delicacy
-      const foodMat = new THREE.MeshStandardMaterial({ color: recipe.color, roughness: recipe.roughness });
-      const food = new THREE.Mesh(new THREE.SphereGeometry(0.32, 22, 18), foodMat);
-      food.position.set(px, 2.05, pz);
-      group.add(food);
-
-      // Distinct handcrafted garnish / culinary detailing
-      if (recipe.top === 'leaf' || recipe.top === 'stem') {
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.14, 8), leafMat);
-        stem.position.set(px, 2.38, pz);
-        group.add(stem);
-        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), leafMat);
-        leaf.scale.set(1.5, 0.4, 0.8);
-        leaf.position.set(px + 0.05, 2.42, pz);
-        group.add(leaf);
-      } else if (recipe.top === 'pleat') {
-        const pleat = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.08, 8), foodMat);
-        pleat.position.set(px, 2.37, pz);
-        group.add(pleat);
-      } else if (recipe.top === 'drizzle' || recipe.top === 'seed') {
-        const seed = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), garnishDark);
-        seed.scale.set(1.2, 0.5, 1.2);
-        seed.position.set(px, 2.36, pz);
-        group.add(seed);
-      }
-    });
-
-    const orbGroup = new THREE.Group();
-    orbGroup.position.set(0, 8.2, 0);
-    const orb = new THREE.Mesh(new THREE.SphereGeometry(1.15, 24, 22), brassMat);
-    const orbRing = new THREE.Mesh(new THREE.TorusGeometry(1.75, 0.08, 12, 32), brassMat);
-    orbRing.rotation.x = Math.PI * 0.38;
-    orbGroup.add(orb);
-    orbGroup.add(orbRing);
-    group.add(orbGroup);
-    animatedObjects.push({ mesh: orbGroup, type: 'spin_slow' });
-
-    // 6 Carved Cedar Columns supporting the Rooftop Canopy
-    for (let cIdx = 0; cIdx < 6; cIdx++) {
-      const ca = (cIdx / 6) * Math.PI * 2;
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 4.2, 10), woodMat);
-      col.position.set(Math.cos(ca) * 7.4, 2.4, Math.sin(ca) * 7.4);
-      col.castShadow = true;
-      group.add(col);
+    // Stepped Entrance Stairs in front (local +Z)
+    for (let s = 1; s <= 3; s++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(4.8 - s * 0.4, 0.22, 1.1), stepMat);
+      step.position.set(0, 0.7 - s * 0.2, 9.6 + s * 0.7);
+      step.receiveShadow = true;
+      group.add(step);
     }
 
-    // Domed Pavilion Rooftop (Conical / bell canopy with brass trim & culinary finial)
-    const roofFascia = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.5, 0.45, 32), woodMat);
-    roofFascia.position.y = 4.5;
-    group.add(roofFascia);
+    // 2. Solid Terracotta Rotunda Building Wall (Radius 8.2m, Height 5.2m)
+    const rotunda = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.2, 5.2, 36), wallMat);
+    rotunda.position.y = 3.3;
+    rotunda.castShadow = true;
+    rotunda.receiveShadow = true;
+    group.add(rotunda);
 
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: 0x822433,
-      roughness: 0.65,
-      side: THREE.DoubleSide
+    // Decorative Limestone Base Plinth & Cornice Frieze
+    const basePlinth = new THREE.Mesh(new THREE.CylinderGeometry(8.4, 8.5, 0.45, 36), trimMat);
+    basePlinth.position.y = 0.9;
+    group.add(basePlinth);
+
+    const cornice = new THREE.Mesh(new THREE.CylinderGeometry(8.6, 8.4, 0.55, 36), trimMat);
+    cornice.position.y = 5.8;
+    group.add(cornice);
+
+    const corniceTrim = new THREE.Mesh(new THREE.TorusGeometry(8.6, 0.08, 8, 36), brassMat);
+    corniceTrim.rotation.x = Math.PI / 2;
+    corniceTrim.position.y = 6.05;
+    group.add(corniceTrim);
+
+    // 8 Classical Fluted Limestone Pilasters around the perimeter
+    for (let p = 0; p < 8; p++) {
+      const pa = (p / 8) * Math.PI * 2;
+      // Skip the front entrance opening (p === 0 is +Z)
+      if (p === 0) continue;
+
+      const px = Math.cos(pa) * 8.25;
+      const pz = Math.sin(pa) * 8.25;
+
+      const pilaster = new THREE.Mesh(new THREE.BoxGeometry(0.55, 4.8, 0.35), trimMat);
+      pilaster.position.set(px, 3.3, pz);
+      pilaster.rotation.y = -pa + Math.PI / 2;
+      pilaster.castShadow = true;
+      group.add(pilaster);
+
+      // Porthole Window between pilasters (Brass Torus + Glowing Glass)
+      const wAngle = pa + (Math.PI / 8);
+      const wx = Math.cos(wAngle) * 8.28;
+      const wz = Math.sin(wAngle) * 8.28;
+
+      const pFrame = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.08, 10, 24), brassMat);
+      pFrame.position.set(wx, 3.5, wz);
+      pFrame.rotation.y = -wAngle + Math.PI / 2;
+      group.add(pFrame);
+
+      const pGlass = new THREE.Mesh(
+        new THREE.CircleGeometry(0.64, 20),
+        new THREE.MeshBasicMaterial({ color: 0xffe6a3 }) // Warm interior amber glow
+      );
+      pGlass.position.set(wx, 3.5, wz);
+      pGlass.rotation.y = -wAngle + Math.PI / 2;
+      group.add(pGlass);
+    }
+
+    // 3. Verdigris Copper Hemispherical Dome (R = 8.3m, Height = 4.2m)
+    const domeGeo = new THREE.SphereGeometry(8.3, 36, 18, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    const dome = new THREE.Mesh(domeGeo, copperMat);
+    dome.position.y = 6.0;
+    dome.castShadow = true;
+    dome.receiveShadow = true;
+    group.add(dome);
+
+    // Meridian Brass Ribs across the dome
+    for (let r = 0; r < 8; r++) {
+      const ra = (r / 8) * Math.PI * 2;
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 8.5), brassMat);
+      rib.position.set(0, 8.4, 0);
+      rib.rotation.y = ra;
+      rib.rotation.x = Math.PI * 0.24;
+      group.add(rib);
+    }
+
+    // 4. Giant Beacon: The Golden Illuminated Culinary Sphere atop the Dome!
+    const beaconGroup = new THREE.Group();
+    beaconGroup.position.set(0, 10.6, 0);
+
+    const goldenOrb = new THREE.Mesh(new THREE.SphereGeometry(1.35, 26, 22), brassMat);
+    beaconGroup.add(goldenOrb);
+
+    const orbRing = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.09, 12, 36), brassMat);
+    orbRing.rotation.x = Math.PI * 0.38;
+    beaconGroup.add(orbRing);
+
+    const beaconLight = new THREE.PointLight(0xffd166, 2.2, 42);
+    beaconLight.position.set(0, 0.2, 0);
+    beaconGroup.add(beaconLight);
+
+    group.add(beaconGroup);
+    animatedObjects.push({ mesh: beaconGroup, type: 'spin_slow' });
+
+    // 5. Grand Entrance Portico & Mahogany Double Doors (Front: local +Z)
+    const porticoGroup = new THREE.Group();
+    porticoGroup.position.set(0, 0, 8.2);
+
+    // Portico frame arch
+    const archMat = new THREE.MeshStandardMaterial({ color: 0x2e1a12, roughness: 0.4 });
+    const arch = new THREE.Mesh(new THREE.BoxGeometry(4.2, 5.0, 0.5), archMat);
+    arch.position.y = 3.2;
+    porticoGroup.add(arch);
+
+    // Double Mahogany Doors with circular portholes
+    [-1.0, 1.0].forEach((dx) => {
+      const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(1.8, 4.4, 0.15), doorMat);
+      doorPanel.position.set(dx, 2.9, 0.15);
+      porticoGroup.add(doorPanel);
+
+      const dPorthole = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.06, 12, 24), brassMat);
+      dPorthole.position.set(dx, 3.6, 0.25);
+      porticoGroup.add(dPorthole);
+
+      const dGlass = new THREE.Mesh(
+        new THREE.CircleGeometry(0.44, 20),
+        new THREE.MeshBasicMaterial({ color: 0xffdf96 })
+      );
+      dGlass.position.set(dx, 3.6, 0.25);
+      porticoGroup.add(dGlass);
+
+      // Brass Handles
+      const dHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 10), brassMat);
+      dHandle.position.set(dx + (dx > 0 ? -0.55 : 0.55), 2.9, 0.3);
+      porticoGroup.add(dHandle);
     });
-    const roofCanopy = new THREE.Mesh(new THREE.ConeGeometry(8.4, 2.8, 32, 1, true), roofMat);
-    roofCanopy.position.y = 5.9;
-    roofCanopy.castShadow = true;
-    roofCanopy.receiveShadow = true;
-    group.add(roofCanopy);
 
-    // Brass culinary finial sphere perched atop the roof apex
-    const roofFinial = new THREE.Mesh(new THREE.SphereGeometry(0.72, 20, 18), brassMat);
-    roofFinial.position.y = 7.6;
-    group.add(roofFinial);
+    // Engraved Brass Plaque above Door: "SPHERICAL FOODS · NO FLAT FOOD ALLOWED"
+    const plaqueMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.25, metalness: 0.85 });
+    const plaque = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.55, 0.1), plaqueMat);
+    plaque.position.set(0, 5.25, 0.35);
+    porticoGroup.add(plaque);
 
-    // Stepped climbing crates on the side (allows players to hop up onto the roof)
+    // Warm Hanging Lantern above Portico
+    const lantern = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffe082 }));
+    lantern.position.set(0, 4.6, 0.7);
+    porticoGroup.add(lantern);
+
+    const lanternLight = new THREE.PointLight(0xffbe6b, 2.0, 16, 1.2);
+    lanternLight.position.set(0, 4.6, 0.8);
+    porticoGroup.add(lanternLight);
+
+    group.add(porticoGroup);
+
+    // 6. Side Climbing Crates for Rooftop & Dome Exploration
     const crateMat = new THREE.MeshStandardMaterial({ color: 0x5a3e28, roughness: 0.85 });
     const crate1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 1.6), crateMat);
-    crate1.position.set(6.2, 0.7, -3.2);
+    crate1.position.set(6.4, 0.7, -3.2);
     group.add(crate1);
 
     const crate2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.4, 1.5), crateMat);
-    crate2.position.set(6.4, 2.1, -2.0);
+    crate2.position.set(6.6, 2.1, -2.0);
     group.add(crate2);
 
     const crate3 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), crateMat);
-    crate3.position.set(6.6, 3.5, -0.8);
+    crate3.position.set(6.8, 3.5, -0.8);
     group.add(crate3);
 
-    const light = new THREE.PointLight(0xffbe6b, 1.8, 28);
-    light.position.set(0, 4.8, 0);
-    group.add(light);
+    const crate4 = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.4, 1.3), crateMat);
+    crate4.position.set(7.0, 4.9, 0.4);
+    group.add(crate4);
 
     scene.add(group);
   }
