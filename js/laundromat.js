@@ -40,6 +40,9 @@ window.BlahajLaundromat = (function () {
   let steamParticles = null;
   let neonSignLight = null;
   let neonSignMat = null;
+  let portalSwirlMat = null;
+  let portalLight = null;
+  let portalRuneRing = null;
 
   // Gallery Posters List (10 featured wall-mounted artworks with museum sconces)
   const POSTERS = [
@@ -720,26 +723,87 @@ window.BlahajLaundromat = (function () {
     scn.add(createFoldingTable(9.0));
 
     // 10. FRONT ENTRANCE & AMENITIES (Z = +14 to +17)
-    // Return Portal centered near the front cosmic window
+    // Return Portal: Conformed to match the Volcano Trial & Island portals with brass ring & dynamic swirl shader
     const portalGroup = new THREE.Group();
     portalGroup.position.set(0, 0, 16.8);
 
-    const portalFrame = new THREE.Mesh(
-      new THREE.TorusGeometry(1.5, 0.18, 16, 24, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0x3d6b63, roughness: 0.4 })
-    );
-    portalFrame.position.y = 1.5;
-    portalGroup.add(portalFrame);
+    // Beveled Stepped Stone & Brass Plinth Base
+    const plinthMat = new THREE.MeshStandardMaterial({ color: 0x223548, roughness: 0.6 });
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.85, 0.28, 24), plinthMat);
+    plinth.position.y = 0.14;
+    plinth.receiveShadow = true;
+    portalGroup.add(plinth);
 
-    const portalVortex = new THREE.Mesh(
-      new THREE.CircleGeometry(1.35, 24),
-      new THREE.MeshBasicMaterial({ color: 0x52f29c, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-    );
-    portalVortex.position.y = 1.5;
+    const plinthTrim = new THREE.Mesh(new THREE.TorusGeometry(1.72, 0.06, 12, 32), brassMat);
+    plinthTrim.rotation.x = Math.PI / 2;
+    plinthTrim.position.y = 0.28;
+    portalGroup.add(plinthTrim);
+
+    // Freestanding Ornate Brass Outer Ring
+    const portalRing = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.18, 16, 44), brassMat);
+    portalRing.position.y = 1.85;
+    portalRing.castShadow = true;
+    portalGroup.add(portalRing);
+
+    // Ornate Runic Anchor Nodes at 3, 9, 12 o'clock
+    [
+      { x: -1.65, y: 1.85, z: 0 },
+      { x: 1.65, y: 1.85, z: 0 },
+      { x: 0, y: 3.5, z: 0 }
+    ].forEach((np) => {
+      const node = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), brassMat);
+      node.position.set(np.x, np.y, np.z);
+      portalGroup.add(node);
+    });
+
+    // Inner Counter-Rotating Brass Rune Ring
+    portalRuneRing = new THREE.Mesh(new THREE.TorusGeometry(1.50, 0.04, 12, 36), brassMat);
+    portalRuneRing.position.y = 1.85;
+    portalGroup.add(portalRuneRing);
+
+    // Animated Dynamic GLSL Swirling Starlight Vortex (matching the Volcano Trial portal shader!)
+    portalSwirlMat = new THREE.ShaderMaterial({
+      transparent: true,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uTime: { value: 0.0 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv * 2.0 - 1.0;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vUv;
+        void main() {
+          float r = length(vUv);
+          float a = atan(vUv.y, vUv.x);
+          float s1 = sin(a * 5.0 - r * 11.0 + uTime * 3.4);
+          float s2 = cos(a * 3.0 + r * 7.0 - uTime * 2.2);
+
+          vec3 colDeep = vec3(0.08, 0.38, 0.65);
+          vec3 colMid = vec3(0.32, 0.95, 0.62);
+          vec3 colCore = vec3(0.96, 0.99, 1.0);
+
+          vec3 col = mix(colDeep, colMid, 0.5 + 0.5 * s1);
+          col = mix(col, vec3(0.72, 0.42, 0.98), 0.25 + 0.25 * s2);
+          col = mix(colCore, col, smoothstep(0.0, 0.65, r));
+
+          float alpha = (1.0 - smoothstep(0.82, 1.0, r)) * 0.92;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `
+    });
+
+    const portalVortex = new THREE.Mesh(new THREE.CircleGeometry(1.48, 36), portalSwirlMat);
+    portalVortex.position.y = 1.85;
     portalGroup.add(portalVortex);
 
-    const portalLight = new THREE.PointLight(0x52f29c, 1.5, 8.0);
-    portalLight.position.set(0, 1.5, 0);
+    portalLight = new THREE.PointLight(0x52f29c, 1.8, 8.5);
+    portalLight.position.set(0, 1.85, 0.6);
     portalGroup.add(portalLight);
     scn.add(portalGroup);
 
@@ -834,6 +898,17 @@ window.BlahajLaundromat = (function () {
     if (neonSignLight && neonSignMat) {
       const flicker = 1.9 + Math.sin(elapsed * 24.0) * 0.12 + (Math.random() < 0.015 ? -0.7 : 0);
       neonSignLight.intensity = Math.max(0.6, flicker);
+    }
+
+    // Portal Shader Swirl & Counter-Rotating Rune Ring
+    if (portalSwirlMat) {
+      portalSwirlMat.uniforms.uTime.value = elapsed;
+    }
+    if (portalLight) {
+      portalLight.intensity = 1.6 + Math.sin(elapsed * 2.8) * 0.35;
+    }
+    if (portalRuneRing) {
+      portalRuneRing.rotation.z = -elapsed * 0.45;
     }
 
     // Mega Spin Cycle Animation Engine inside Master Washer #7
@@ -1089,7 +1164,7 @@ window.BlahajLaundromat = (function () {
 
     // 4. Return Portal (Front Center)
     const dPortal = Math.hypot(p.x - 0.0, p.z - 16.8);
-    if (dPortal < 3.2) {
+    if (dPortal < 4.2) {
       out.push({
         kind: 'laundromat_return',
         dist: dPortal,
