@@ -40,6 +40,10 @@ window.BlahajLaundromat = (function () {
   let bubblePopTex = null;
   const washerBubbles = [];
   let washerBubblesGroup = null;
+  let blurStreaksGroup = null;
+  const blurStreakMaterials = [];
+  let splatSoundPlayed = false;
+  let unstickSoundPlayed = false;
   let steamParticles = null;
   let neonSignLight = null;
   let neonSignMat = null;
@@ -813,6 +817,35 @@ window.BlahajLaundromat = (function () {
       fin.rotation.z = finAng;
       drumGroup.add(fin);
     }
+
+    // Motion Blur Streaks (Curved Ribbons of Plush Blue, Cyan & Foam White for High-Speed Centrifugal Spin)
+    blurStreaksGroup = new THREE.Group();
+    blurStreaksGroup.position.set(0, 0, 0.35);
+
+    const streakConfigs = [
+      { rInner: 0.70, rOuter: 0.95, color: 0x1d70b8, startA: 0.0, span: Math.PI * 0.95 },
+      { rInner: 0.78, rOuter: 0.92, color: 0xffffff, startA: Math.PI * 0.7, span: Math.PI * 0.75 },
+      { rInner: 0.65, rOuter: 0.88, color: 0x38bdf8, startA: Math.PI * 1.35, span: Math.PI * 0.80 },
+      { rInner: 0.75, rOuter: 0.98, color: 0x2563eb, startA: Math.PI * 0.4, span: Math.PI * 0.65 }
+    ];
+
+    blurStreakMaterials.length = 0;
+    streakConfigs.forEach((cfg) => {
+      const geo = new THREE.RingGeometry(cfg.rInner, cfg.rOuter, 32, 1, cfg.startA, cfg.span);
+      const mat = new THREE.MeshBasicMaterial({
+        color: cfg.color,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.NormalBlending
+      });
+      blurStreakMaterials.push(mat);
+      const mesh = new THREE.Mesh(geo, mat);
+      blurStreaksGroup.add(mesh);
+    });
+
+    drumGroup.add(blurStreaksGroup);
 
     mwGroup.add(drumGroup);
     masterWasher.drumMesh = drumGroup;
@@ -1775,6 +1808,8 @@ window.BlahajLaundromat = (function () {
     masterWasher.cycleActive = true;
     masterWasher.cyclePhase = 'closing';
     masterWasher.cycleTimer = 0.0;
+    splatSoundPlayed = false;
+    unstickSoundPlayed = false;
     onCompleteHandler = onFinished;
 
     if (window.CozyAudio && typeof window.CozyAudio.coinDrop === 'function') {
@@ -1832,19 +1867,19 @@ window.BlahajLaundromat = (function () {
         }
 
         if (playerMesh) {
-          const sx = masterWasher.x + Math.sin(sloshT * 3.8) * 0.45;
-          const sy = 1.15 + Math.abs(Math.sin(sloshT * 3.8)) * 0.25;
-          playerMesh.position.set(sx, sy, masterWasher.z + 0.3);
+          const sx = masterWasher.x + Math.sin(sloshT * 3.8) * 0.40;
+          const sy = 0.42 + Math.abs(Math.sin(sloshT * 3.8)) * 0.18;
+          playerMesh.position.set(sx, sy, masterWasher.z + 0.35);
           playerMesh.rotation.order = 'XYZ';
-          playerMesh.rotation.set(0, 0, Math.sin(sloshT * 3.8) * 0.45);
+          playerMesh.rotation.set(0.04, 0, Math.sin(sloshT * 3.8) * 0.35);
           if (playerPos) playerPos.copy(playerMesh.position);
         }
       }
-      // Phase 3: High-Speed Centrifugal Spin Cycle! (4.5s - 9.0s)
+      // Phase 3: High-Speed Centrifugal Spin Cycle with Comical Window Splats & Motion Blur! (4.5s - 9.0s)
       else if (t < 9.0) {
         masterWasher.cyclePhase = 'spin';
         const spinT = t - 4.5;
-        const targetSpeed = Math.min(22.0, 5.0 + spinT * 5.5);
+        const targetSpeed = Math.min(24.0, 6.0 + spinT * 5.5);
         masterWasher.drumSpeed = targetSpeed;
         masterWasher.drumAngle += masterWasher.drumSpeed * dt;
         masterWasher.drumMesh.rotation.z = masterWasher.drumAngle;
@@ -1855,13 +1890,81 @@ window.BlahajLaundromat = (function () {
           masterWasher.waterMesh.material.opacity = Math.max(0.02, 0.45 - spinT * 0.15);
         }
 
+        // Update Motion Blur Streak Opacity & Rotation
+        const streakAlpha = Math.min(0.68, spinT * 0.45);
+        blurStreakMaterials.forEach((mat) => {
+          mat.opacity = streakAlpha;
+        });
+
+        // Two distinct comical glass splat windows:
+        // Splat 1: t in [5.6s, 6.3s] (duration 0.70s)
+        // Splat 2: t in [7.4s, 8.1s] (duration 0.70s)
+        const isSplat1 = t >= 5.6 && t < 6.3;
+        const isSplat2 = t >= 7.4 && t < 8.1;
+
         if (playerMesh) {
-          const spinRadius = 0.85;
-          const sx = masterWasher.x + Math.cos(masterWasher.drumAngle) * spinRadius;
-          const sy = 1.85 + Math.sin(masterWasher.drumAngle) * spinRadius;
-          playerMesh.position.set(sx, sy, masterWasher.z + 0.3);
-          playerMesh.rotation.order = 'XYZ';
-          playerMesh.rotation.set(0, 0, masterWasher.drumAngle - Math.PI / 2);
+          if (isSplat1 || isSplat2) {
+            const splatWindow = isSplat1 ? (t - 5.6) / 0.70 : (t - 7.4) / 0.70;
+
+            // Trigger glass squeak / thud audio at start of splat
+            if (splatWindow < 0.08 && !splatSoundPlayed) {
+              splatSoundPlayed = true;
+              unstickSoundPlayed = false;
+              if (window.CozyAudio && typeof window.CozyAudio.glassSqueak === 'function') {
+                window.CozyAudio.glassSqueak();
+              }
+              spawnCartBumpParticles({ x: masterWasher.x, y: 1.85, z: masterWasher.z + 1.75 }, 0x9be0ff, 14);
+            }
+
+            // Comical face-on-glass: Snout, plush button eyes, felt teeth, and belly pressed flat against porthole glass!
+            // Slowly sliding down the soapy glass window
+            const slideDown = splatWindow * 0.18;
+            const splatX = isSplat1 ? 0.08 : -0.10;
+            // The shark face in local space is at Y ~ 2.05, Z ~ 0.82.
+            // With scaleY = 1.35, local Y * scaleY ~ 2.77.
+            // With scaleZ = 0.35, local Z * scaleZ ~ 0.29.
+            // Center of glass is at Y = 1.85, Z = masterWasher.z + 1.84.
+            // Setting playerMesh.position.y = (1.85 - 2.65) - slideDown places the snout/eyes at Y ~ 1.85 - slideDown!
+            const splatY = (1.85 - 2.65) - slideDown;
+            const splatZ = (masterWasher.z + 1.84) - (0.82 * 0.35) - 0.04;
+
+            playerMesh.position.set(splatX, splatY, splatZ);
+            playerMesh.rotation.order = 'YXZ';
+            // Facing camera (+Z), flat against glass, slight comical wobble tilt
+            playerMesh.rotation.set(-0.04, 0.0, isSplat1 ? 0.08 : -0.08);
+
+            // Squash & stretch: comically flattened against the glass window!
+            playerMesh.scale.set(1.48, 1.35, 0.35);
+
+            // Trigger suction release pop sound right before unstuck
+            if (splatWindow > 0.90 && !unstickSoundPlayed) {
+              unstickSoundPlayed = true;
+              splatSoundPlayed = false;
+              if (window.CozyAudio && typeof window.CozyAudio.suctionPop === 'function') {
+                window.CozyAudio.suctionPop();
+              }
+            }
+          } else {
+            // Normal dizzy centrifugal tumble around drum perimeter with blur streaks
+            splatSoundPlayed = false;
+            unstickSoundPlayed = false;
+            playerMesh.scale.set(1.0, 1.0, 1.0);
+
+            const spinR = 0.40;
+            const cx = masterWasher.x + Math.cos(masterWasher.drumAngle) * spinR;
+            const cy = 1.85 + Math.sin(masterWasher.drumAngle) * spinR;
+            const rotZ = masterWasher.drumAngle - Math.PI / 2;
+
+            // Offset from shark local origin (0, 0, 0) to center of mass (0, 1.15, 0)
+            const comDist = 1.15;
+            const offX = -Math.sin(rotZ) * comDist;
+            const offY = Math.cos(rotZ) * comDist;
+
+            playerMesh.position.set(cx - offX, cy - offY, masterWasher.z + 0.35);
+            playerMesh.rotation.order = 'XYZ';
+            playerMesh.rotation.set(0.10, 0, rotZ);
+          }
+
           if (playerPos) playerPos.copy(playerMesh.position);
         }
       }
@@ -1884,7 +1987,12 @@ window.BlahajLaundromat = (function () {
           }
         }
 
+        blurStreakMaterials.forEach((mat) => {
+          mat.opacity = Math.max(0, mat.opacity - dt * 2.0);
+        });
+
         if (playerMesh) {
+          playerMesh.scale.set(1.0, 1.0, 1.0);
           playerMesh.position.set(masterWasher.x, 0, masterWasher.z + 2.4);
           playerMesh.rotation.order = 'XYZ';
           playerMesh.rotation.set(0, 0, 0);
@@ -1898,6 +2006,11 @@ window.BlahajLaundromat = (function () {
         masterWasher.didDing = false;
         masterWasher.drumMesh.rotation.z = 0;
         if (masterWasher.waterMesh) masterWasher.waterMesh.material.opacity = 0;
+        blurStreakMaterials.forEach((mat) => { mat.opacity = 0; });
+
+        if (playerMesh) {
+          playerMesh.scale.set(1.0, 1.0, 1.0);
+        }
 
         washerBubbles.forEach((b) => {
           b.sprite.visible = false;
@@ -2216,14 +2329,8 @@ window.BlahajLaundromat = (function () {
 
     // 1. Giant Master Washer #7
     const dWasher = Math.hypot(p.x - masterWasher.x, p.z - (masterWasher.z + 0.8));
-    if (dWasher < 3.4) {
-      if (masterWasher.cycleActive) {
-        out.push({
-          kind: 'washer_running',
-          dist: dWasher,
-          prompt: 'Mega Spin Cycle in Progress! Sloshing & Tumbling... 🫧🌀'
-        });
-      } else if (Math.abs(p.x - masterWasher.x) < 1.4 && p.z < masterWasher.z + 1.2) {
+    if (dWasher < 3.4 && !masterWasher.cycleActive) {
+      if (Math.abs(p.x - masterWasher.x) < 1.4 && p.z < masterWasher.z + 1.2) {
         out.push({
           kind: 'washer_start',
           dist: dWasher,
@@ -2311,6 +2418,7 @@ window.BlahajLaundromat = (function () {
     getInteractables,
     startSpinCycle,
     isSpinCycleActive: () => masterWasher.cycleActive,
+    getMasterWasher: () => masterWasher,
     getPosters: () => POSTERS,
     getCarts: () => carts,
     getOccupiedCart: () => occupiedCart,

@@ -295,6 +295,26 @@
       this.playTone(freq, 0.035, 'sine', 0.065, freq + 380);
     },
 
+    glassSqueak() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Comical rubber glass thud followed by friction squeak
+      this.playTone(190, 0.07, 'triangle', 0.22, 70);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(960 + Math.random() * 120, 0.09, 'sine', 0.16, 1260);
+      }, 35);
+    },
+
+    suctionPop() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Comical suction release pop when unstuck from window
+      this.playTone(390, 0.05, 'sine', 0.18, 920);
+    },
+
     cartBump(intensity = 4.0) {
       if (gameSettings && !gameSettings.sfxVol) return;
       this.ensure();
@@ -2453,7 +2473,12 @@
     camState.pitch = 0.08;
     camState.heightOffset = 1.85;
 
-    showToast('SPIN CYCLE COMMENCED! 🫧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
+    showToast('SPIN CYCLE COMMENCED! 🧧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+      const banner = document.getElementById('toast-banner');
+      if (banner) banner.classList.add('hidden');
+    }, 1200);
     addChatLog('🌀 <strong>Giant Master Washer & Spin Dryer #7</strong> started! Soapy suds swirl around you.', 'cozy');
 
     window.BlahajLaundromat.startSpinCycle(player, () => {
@@ -5163,6 +5188,10 @@
     }
 
     if (player.mesh) {
+      if (currentZone === 'laundromat' && window.BlahajLaundromat && window.BlahajLaundromat.isSpinCycleActive()) {
+        // Player mesh position, rotation, and comical glass-squash scaling are driven entirely by laundromat spin cycle engine!
+        return;
+      }
       if (currentZone === 'laundromat' && !player.inCart) {
         const catHopY = player.laundromatBounceHop ? Math.abs(Math.sin(player.laundromatBounceHop * Math.PI)) * 0.08 : 0;
         player.mesh.position.set(player.pos.x, player.pos.y + catHopY, player.pos.z);
@@ -5398,13 +5427,14 @@
       if (window.BlahajLaundromat.isSpinCycleActive()) {
         // Dramatic spin cycle camera directly framing Giant Washer #7 at Z = -16.8
         const mwZ = -16.8;
-        lookTarget.set(0, 1.85, mwZ);
-        const spinDist = Math.max(2.8, Math.min(5.2, camState.distance));
-        const spinYaw = camState.yaw;
-        const spinPitch = Math.max(-0.25, Math.min(0.35, camState.pitch));
-        camX = lookTarget.x + Math.sin(spinYaw) * spinDist * Math.cos(spinPitch);
-        camZ = Math.max(mwZ + 1.8, lookTarget.z + Math.cos(spinYaw) * spinDist * Math.cos(spinPitch));
-        camY = Math.max(0.8, Math.min(4.2, lookTarget.y + spinDist * Math.sin(spinPitch) + 0.1));
+        // Aim camera at Y = 2.05 with spinDist = 4.8 to position circular porthole safely below top HUD banner!
+        lookTarget.set(0, 1.76, mwZ);
+        const spinDist = 4.6;
+        const spinYaw = 0.0; // Straight-on view looking North into washer door
+        const spinPitch = -0.01;
+        camX = lookTarget.x;
+        camZ = mwZ + spinDist * Math.cos(spinPitch);
+        camY = lookTarget.y + spinDist * Math.sin(spinPitch);
       } else {
         const ceilY = window.BlahajLaundromat.getCeilingY() || 5.2;
 
