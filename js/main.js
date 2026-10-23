@@ -2282,13 +2282,24 @@
   function triggerLaundromatSpinCycle() {
     if (!window.BlahajLaundromat || window.BlahajLaundromat.isSpinCycleActive()) return;
 
-    // Hop shark right inside the drum
-    player.pos.set(0, 0.45, -6.2);
+    // Hop shark right inside the drum facing the front porthole
+    player.pos.set(0, 0.45, -5.9);
+    player.rotY = 0;
     if (player.mesh) {
       player.mesh.position.copy(player.pos);
+      player.mesh.rotation.order = 'XYZ';
+      player.mesh.rotation.set(0, 0, 0);
+      player.mesh.visible = true;
     }
+
+    // Set camera to frame the front window of the washer clearly
+    camState.yaw = 0;
+    camState.distance = 4.2;
+    camState.pitch = 0.08;
+    camState.heightOffset = 1.85;
+
     showToast('SPIN CYCLE COMMENCED! 🫧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
-    addChatLog('🌀 <strong>Giant Master Washer #7</strong> started! Soapy suds swirl around you.', 'cozy');
+    addChatLog('🌀 <strong>Giant Master Washer & Spin Dryer #7</strong> started! Soapy suds swirl around you.', 'cozy');
 
     window.BlahajLaundromat.startSpinCycle(player, () => {
       // Upon cycle completion:
@@ -4042,7 +4053,7 @@
       activeScene.add(playerShadow);
     }
 
-    if (player.inBoat) {
+    if (player.inBoat || (currentZone === 'laundromat' && window.BlahajLaundromat && window.BlahajLaundromat.isSpinCycleActive())) {
       playerShadow.visible = false;
       return;
     }
@@ -4746,14 +4757,25 @@
         camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
       }
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
-      const ceilY = window.BlahajLaundromat.getCeilingY();
-      const floorAtCam = window.BlahajLaundromat.getFloorHeight(camX, camZ, player.pos.y);
-      const minCamY = Math.max(player.pos.y + 0.65, floorAtCam + 0.5);
-      const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
-      camY = Math.min(maxCamY, Math.max(minCamY, camY));
+      if (window.BlahajLaundromat.isSpinCycleActive()) {
+        // Dramatic, crystal-clear spin cycle camera view directly framing the spinning shark inside Giant Washer #7!
+        lookTarget.set(0, 1.85, -6.0);
+        const spinDist = Math.max(2.8, Math.min(5.2, camState.distance));
+        const spinYaw = camState.yaw;
+        const spinPitch = Math.max(-0.25, Math.min(0.35, camState.pitch));
+        camX = lookTarget.x + Math.sin(spinYaw) * spinDist * Math.cos(spinPitch);
+        camZ = Math.max(-4.2, lookTarget.z + Math.cos(spinYaw) * spinDist * Math.cos(spinPitch)); // keep in front of or at glass
+        camY = Math.max(0.8, Math.min(4.2, lookTarget.y + spinDist * Math.sin(spinPitch) + 0.1));
+      } else {
+        const ceilY = window.BlahajLaundromat.getCeilingY();
+        const floorAtCam = window.BlahajLaundromat.getFloorHeight(camX, camZ, player.pos.y);
+        const minCamY = Math.max(player.pos.y + 0.65, floorAtCam + 0.5);
+        const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
+        camY = Math.min(maxCamY, Math.max(minCamY, camY));
 
-      camX = Math.max(-11.2, Math.min(11.2, camX));
-      camZ = Math.max(-8.2, Math.min(8.2, camZ));
+        camX = Math.max(-11.2, Math.min(11.2, camX));
+        camZ = Math.max(-8.2, Math.min(8.2, camZ));
+      }
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
       camY = Math.max(minGround, camY);

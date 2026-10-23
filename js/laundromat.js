@@ -251,7 +251,7 @@ window.BlahajLaundromat = (function () {
     // 5. Standard Commercial Front-Load Washers along the back wall
     const washerMat = new THREE.MeshStandardMaterial({ color: 0xf5f3ee, roughness: 0.32, metalness: 0.15 });
     const chromeMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.15, metalness: 0.88 });
-    const drumInsideMat = new THREE.MeshStandardMaterial({ color: 0x99a3ad, roughness: 0.25, metalness: 0.75 });
+    const drumInsideMat = new THREE.MeshStandardMaterial({ color: 0xa8b2bc, roughness: 0.25, metalness: 0.75, side: THREE.DoubleSide });
 
     const standardWasherX = [-9.2, -6.8, -4.4, 4.4, 6.8, 9.2];
     standardWasherX.forEach((wx) => {
@@ -287,15 +287,67 @@ window.BlahajLaundromat = (function () {
       scn.add(wGroup);
     });
 
-    // 6. THE GIANT MASTER WASHER #7 (In Center X = 0, Z = -6.2)
+    // 6. THE GIANT MASTER WASHER & SPIN DRYER #7 (In Center X = 0, Z = -6.2)
     const mwGroup = new THREE.Group();
     mwGroup.position.set(masterWasher.x, 0, masterWasher.z);
 
-    // Giant Enamel Cabinet
-    const mwBody = new THREE.Mesh(new THREE.BoxGeometry(4.8, 4.2, 3.6), new THREE.MeshStandardMaterial({ color: 0xecf6f4, roughness: 0.28 }));
-    mwBody.position.y = 2.1;
-    mwBody.castShadow = true;
-    mwGroup.add(mwBody);
+    // Hollow Giant Enamel Cabinet (Allows complete interior visibility from all angles)
+    const cabinetMat = new THREE.MeshStandardMaterial({ color: 0xecf6f4, roughness: 0.28 });
+
+    // Left outer cabinet wall
+    const mwLeft = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4.2, 3.6), cabinetMat);
+    mwLeft.position.set(-2.275, 2.1, 0);
+    mwLeft.castShadow = true;
+    mwGroup.add(mwLeft);
+
+    // Right outer cabinet wall
+    const mwRight = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4.2, 3.6), cabinetMat);
+    mwRight.position.set(2.275, 2.1, 0);
+    mwRight.castShadow = true;
+    mwGroup.add(mwRight);
+
+    // Top roof panel
+    const mwTop = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.25, 3.6), cabinetMat);
+    mwTop.position.set(0, 4.075, 0);
+    mwTop.castShadow = true;
+    mwGroup.add(mwTop);
+
+    // Bottom base panel
+    const mwBottom = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.25, 3.6), cabinetMat);
+    mwBottom.position.set(0, 0.125, 0);
+    mwBottom.receiveShadow = true;
+    mwGroup.add(mwBottom);
+
+    // Back wall panel
+    const mwBack = new THREE.Mesh(new THREE.BoxGeometry(4.8, 4.2, 0.25), cabinetMat);
+    mwBack.position.set(0, 2.1, -1.675);
+    mwBack.castShadow = true;
+    mwGroup.add(mwBack);
+
+    // Front fascia header (above door)
+    const mwFrontHeader = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.75, 0.2), cabinetMat);
+    mwFrontHeader.position.set(0, 3.65, 1.7);
+    mwGroup.add(mwFrontHeader);
+
+    // Front kickplate (below door)
+    const mwFrontBottom = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.35, 0.2), cabinetMat);
+    mwFrontBottom.position.set(0, 0.175, 1.7);
+    mwGroup.add(mwFrontBottom);
+
+    // Front left pillar (flanking door)
+    const mwFrontLeft = new THREE.Mesh(new THREE.BoxGeometry(0.75, 2.9, 0.2), cabinetMat);
+    mwFrontLeft.position.set(-2.025, 1.85, 1.7);
+    mwGroup.add(mwFrontLeft);
+
+    // Front right pillar (flanking door)
+    const mwFrontRight = new THREE.Mesh(new THREE.BoxGeometry(0.75, 2.9, 0.2), cabinetMat);
+    mwFrontRight.position.set(2.025, 1.85, 1.7);
+    mwGroup.add(mwFrontRight);
+
+    // Interior Drum Spotlight - bathes the tumbling drum and spinning shark in bright, vivid light
+    const drumInteriorLight = new THREE.PointLight(0xbdf4ff, 2.4, 6.5, 1.2);
+    drumInteriorLight.position.set(0, 2.8, 0);
+    mwGroup.add(drumInteriorLight);
 
     // Front Fascia with Status LEDs & Controls
     const mwPanel = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.75, 0.12), new THREE.MeshStandardMaterial({ color: 0x1b2836, roughness: 0.4 }));
@@ -357,6 +409,7 @@ window.BlahajLaundromat = (function () {
       color: 0x82e2ff,
       transparent: true,
       opacity: 0.0, // starts invisible until wash cycle!
+      depthWrite: false,
       roughness: 0.15,
       metalness: 0.4
     });
@@ -378,9 +431,10 @@ window.BlahajLaundromat = (function () {
       new THREE.MeshStandardMaterial({
         color: 0x9be0ff,
         transparent: true,
-        opacity: 0.42,
-        roughness: 0.08,
-        metalness: 0.85
+        opacity: 0.22,
+        depthWrite: false,
+        roughness: 0.05,
+        metalness: 0.70
       })
     );
     doorGlass.position.set(1.68, 0, 0);
@@ -413,8 +467,9 @@ window.BlahajLaundromat = (function () {
       bubbleGeo,
       new THREE.PointsMaterial({
         color: 0xffffff,
-        size: 0.38,
+        size: 0.45,
         transparent: true,
+        depthWrite: false,
         opacity: 0.0, // active during wash cycle
         blending: THREE.AdditiveBlending
       })
@@ -571,6 +626,12 @@ window.BlahajLaundromat = (function () {
         const prog = t / 1.2;
         masterWasher.doorMesh.rotation.y = masterWasher.doorOpenAngle * (1.0 - prog);
         masterWasher.statusLed.material.color.setHex(0xf59e0b); // Orange / Wash
+        if (playerMesh) {
+          playerMesh.position.set(masterWasher.x, 0.45, masterWasher.z + 0.3);
+          playerMesh.rotation.order = 'XYZ';
+          playerMesh.rotation.set(0, 0, 0);
+          if (playerPos) playerPos.copy(playerMesh.position);
+        }
       }
       // Phase 2: Wash Slosh & Soap Foam (1.2s - 4.5s)
       else if (t < 4.5) {
@@ -582,7 +643,7 @@ window.BlahajLaundromat = (function () {
 
         // Water rises
         if (masterWasher.waterMesh) {
-          masterWasher.waterMesh.material.opacity = Math.min(0.65, sloshT * 0.35);
+          masterWasher.waterMesh.material.opacity = Math.min(0.55, sloshT * 0.3);
         }
         // Bubble particles active
         if (bubbleParticles) {
@@ -591,16 +652,20 @@ window.BlahajLaundromat = (function () {
 
         // Tumble player inside
         if (playerMesh) {
-          playerMesh.position.set(masterWasher.x + Math.sin(sloshT * 3.8) * 0.35, 1.2 + Math.cos(sloshT * 3.8) * 0.2, masterWasher.z);
-          playerMesh.rotation.z = Math.sin(sloshT * 3.8) * 0.55;
+          const sx = masterWasher.x + Math.sin(sloshT * 3.8) * 0.45;
+          const sy = 1.15 + Math.abs(Math.sin(sloshT * 3.8)) * 0.25;
+          playerMesh.position.set(sx, sy, masterWasher.z + 0.3);
+          playerMesh.rotation.order = 'XYZ';
+          playerMesh.rotation.set(0, 0, Math.sin(sloshT * 3.8) * 0.45);
+          if (playerPos) playerPos.copy(playerMesh.position);
         }
       }
       // Phase 3: High-Speed Centrifugal Spin Cycle! (4.5s - 9.0s)
       else if (t < 9.0) {
         masterWasher.cyclePhase = 'spin';
         const spinT = t - 4.5;
-        // Accelerate up to 20 rad/s (~190 RPM)
-        const targetSpeed = Math.min(22.0, 4.0 + spinT * 5.5);
+        // Accelerate up to 22 rad/s (~210 RPM)
+        const targetSpeed = Math.min(22.0, 5.0 + spinT * 5.5);
         masterWasher.drumSpeed = targetSpeed;
         masterWasher.drumAngle += masterWasher.drumSpeed * dt;
         masterWasher.drumMesh.rotation.z = masterWasher.drumAngle;
@@ -609,17 +674,18 @@ window.BlahajLaundromat = (function () {
 
         // Water drains out
         if (masterWasher.waterMesh) {
-          masterWasher.waterMesh.material.opacity = Math.max(0.1, 0.65 - spinT * 0.15);
+          masterWasher.waterMesh.material.opacity = Math.max(0.05, 0.55 - spinT * 0.15);
         }
 
         // Centrifugal roll: Shark spins in full 360 loops inside the drum!
         if (playerMesh) {
-          playerMesh.position.set(
-            masterWasher.x + Math.cos(masterWasher.drumAngle) * 0.75,
-            1.85 + Math.sin(masterWasher.drumAngle) * 0.75,
-            masterWasher.z
-          );
-          playerMesh.rotation.z = masterWasher.drumAngle + Math.PI / 2;
+          const spinRadius = 0.85;
+          const sx = masterWasher.x + Math.cos(masterWasher.drumAngle) * spinRadius;
+          const sy = 1.85 + Math.sin(masterWasher.drumAngle) * spinRadius;
+          playerMesh.position.set(sx, sy, masterWasher.z + 0.3);
+          playerMesh.rotation.order = 'XYZ';
+          playerMesh.rotation.set(0, 0, masterWasher.drumAngle - Math.PI / 2);
+          if (playerPos) playerPos.copy(playerMesh.position);
         }
       }
       // Phase 4: Spin Down & Ding! (9.0s - 10.5s)
@@ -646,7 +712,9 @@ window.BlahajLaundromat = (function () {
         // Return player to floor
         if (playerMesh) {
           playerMesh.position.set(masterWasher.x, 0, masterWasher.z + 2.4);
-          playerMesh.rotation.z = 0;
+          playerMesh.rotation.order = 'XYZ';
+          playerMesh.rotation.set(0, 0, 0);
+          if (playerPos) playerPos.copy(playerMesh.position);
         }
       }
       // Cycle Complete!
@@ -734,7 +802,7 @@ window.BlahajLaundromat = (function () {
         out.push({
           kind: 'washer_enter',
           dist: dWasher,
-          prompt: 'Hop Inside Giant Washer #7 for Delicate Cycle [Hop / E] 🧺'
+          prompt: 'Hop Inside Giant Washer & Spin Dryer #7 [Hop / E] 🧺'
         });
       }
     }
