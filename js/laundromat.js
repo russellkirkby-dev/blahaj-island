@@ -1344,7 +1344,7 @@ window.BlahajLaundromat = (function () {
     return cartObj;
   }
 
-  function updateCart(cart, dt, inputKeys) {
+  function updateCart(cart, dt, inputKeys, camState = null) {
     if (!cart) return;
 
     let moveFwd = 0;
@@ -1385,9 +1385,34 @@ window.BlahajLaundromat = (function () {
     // Steering: Cart front is local +Z (direction shark faces!)
     const isMoving = Math.abs(cart.speed) > 0.05;
     const speedRatio = Math.abs(cart.speed) / maxFwdSpeed;
-    const baseTurnSpeed = 3.3;
+    const baseTurnSpeed = 3.6;
 
-    if (steer !== 0) {
+    const isMouseEngaged = !!(camState && (camState.isPointerLocked || camState.isRightDragging));
+
+    // Follow camera direction with mouse / camera heading (matching how the shark normally steers on foot!)
+    if (cart.isOccupied && camState && (moveFwd > 0 || (isMoving && cart.speed > 0.2))) {
+      // Camera forward vector in world coordinates
+      const camFwdX = -Math.sin(camState.yaw);
+      const camFwdZ = -Math.cos(camState.yaw);
+      let targetHeading = Math.atan2(camFwdX, camFwdZ);
+
+      // A and D keys add manual steering bias relative to camera gaze
+      if (steer !== 0) {
+        targetHeading += steer * 0.45;
+      }
+
+      let diff = targetHeading - cart.rotY;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+
+      // Turning rate: extra crisp and responsive when moving with mouse engaged
+      const turnRate = isMouseEngaged ? (5.2 + speedRatio * 4.4) : (3.8 + speedRatio * 3.4);
+      cart.rotY += diff * Math.min(1.0, dt * turnRate);
+
+      const targetSteerAngle = Math.max(-0.55, Math.min(0.55, diff * 0.85 + steer * 0.35));
+      cart.steerAngle += (targetSteerAngle - cart.steerAngle) * Math.min(1.0, dt * 16.0);
+    } else if (steer !== 0) {
+      // Direct keyboard steering (when stationary, neutral gear or reversing)
       const dir = cart.speed >= 0 ? 1 : -1;
       const turnEff = isMoving ? (0.65 + speedRatio * 0.55) : 1.35;
       cart.rotY += steer * baseTurnSpeed * turnEff * dir * dt;
@@ -1570,9 +1595,9 @@ window.BlahajLaundromat = (function () {
     }
   }
 
-  function updateOccupiedCart(dt, inputKeys) {
+  function updateOccupiedCart(dt, inputKeys, camState = null) {
     if (!occupiedCart) return;
-    updateCart(occupiedCart, dt, inputKeys);
+    updateCart(occupiedCart, dt, inputKeys, camState);
   }
 
   function mountCart(cartId) {

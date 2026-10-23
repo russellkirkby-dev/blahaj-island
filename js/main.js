@@ -2515,7 +2515,7 @@
       player.inBoat = false;
       CozyAudio.shonk();
       if (CozyAudio.cartHop) CozyAudio.cartHop();
-      showToast('LAUNDRY CART RACER! 🛒💨', `Aboard ${cart.name}! [WASD] Steer & Drift · [Shift] Turbo Push · [Space] / [E] Hop Off`);
+      showToast('LAUNDRY CART RACER! 🛒💨', `Aboard ${cart.name}! [WASD] & Mouse Steer · [Shift] Turbo Push · [Space] / [E] Hop Off`);
       addChatLog(`🛒 Hopped into <strong>${cart.name}</strong>! Zooming through the laundromat!`, 'cozy');
     }
   }
@@ -4811,7 +4811,7 @@
 
         // Active Laundry Cart Racer handling
         if (player.inCart) {
-          window.BlahajLaundromat.updateOccupiedCart(dt, keys);
+          window.BlahajLaundromat.updateOccupiedCart(dt, keys, camState);
           const occ = window.BlahajLaundromat.getOccupiedCart();
           if (occ) {
             const bounceHopY = Math.abs(Math.sin(occ.bounceSpring * Math.PI)) * 0.05;
@@ -5861,6 +5861,7 @@
     triggerLaundromatSpinCycle,
     mountLaundryCart,
     dismountLaundryCart,
+    getKeys: () => keys,
     getOccupiedCart: () => window.BlahajLaundromat?.getOccupiedCart(),
     adjustSharkMange,
     setSharkMange,
