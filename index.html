@@ -404,6 +404,13 @@
           <span class="slot-name">Co-op</span>
           <span class="slot-power">NZ ↔ LA</span>
         </button>
+
+        <button class="action-slot util-slot" id="slot-o" title="[O / Esc] Island Settings & Audio Panel">
+          <span class="slot-key">O</span>
+          <div class="slot-emoji">⚙️</div>
+          <span class="slot-name">Settings</span>
+          <span class="slot-power">Audio &amp; Display</span>
+        </button>
       </div>
     </div>
   </div>
@@ -785,7 +792,309 @@
     </div>
   </div>
 
-  <!-- 5. INSTANCED DUNGEON LOADING / TRANSITION SCREEN -->
+  <!-- 5. ISLAND SETTINGS & AUDIO CONTROLS MODAL [O / Esc] -->
+  <div class="modal-backdrop hidden" id="settings-modal">
+    <div class="modal-card settings-card">
+      <button class="modal-close-x" id="close-settings-modal" title="Close Settings [Esc]">✕</button>
+
+      <div class="settings-header">
+        <span class="portal-badge">ISLAND PREFERENCES · AUDIO &amp; DISPLAY</span>
+        <h2>⚙️ Game Settings &amp; Audio Controls</h2>
+        <p>Fine-tune sound volumes, camera field of view, visuals, and interface options. Settings are automatically saved.</p>
+      </div>
+
+      <!-- Settings Navigation Tabs -->
+      <div class="settings-tabs" id="settings-tabs">
+        <button class="settings-tab active" data-tab="audio">🔊 Audio &amp; SFX</button>
+        <button class="settings-tab" data-tab="camera">🎥 Camera &amp; Look</button>
+        <button class="settings-tab" data-tab="display">✨ Visuals &amp; Graphics</button>
+        <button class="settings-tab" data-tab="hud">🖥️ HUD &amp; Interface</button>
+        <button class="settings-tab" data-tab="keybinds">⌨️ Keybindings</button>
+      </div>
+
+      <!-- Tab 1: Audio & SFX -->
+      <div class="settings-panel active" id="panel-audio">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Master Volume</span>
+            <span class="setting-desc">Overall audio output level for all sounds and ambience</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-master-vol" min="0" max="100" step="1" value="80" />
+            <span class="setting-val-badge" id="set-master-vol-val">80%</span>
+            <label class="setting-toggle-label">
+              <input type="checkbox" id="set-master-mute" />
+              <span>Mute</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Sound Effects (SFX) Volume</span>
+            <span class="setting-desc">Shonk squeaks, washer dings, coin drops, bounces, and splashes</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-sfx-vol" min="0" max="100" step="1" value="85" />
+            <span class="setting-val-badge" id="set-sfx-vol-val">85%</span>
+            <label class="setting-toggle-label">
+              <input type="checkbox" id="set-sfx-mute" />
+              <span>Mute SFX</span>
+            </label>
+            <button class="btn-secondary btn-sm" id="btn-test-sound" title="Play test shonk & chime">🔊 Test Sound</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Ocean Waves &amp; Wind Ambience</span>
+            <span class="setting-desc">Gentle procedural shoreline surf, mountain breezes, and sailing wakes</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-ambient-vol" min="0" max="100" step="1" value="65" />
+            <span class="setting-val-badge" id="set-ambient-vol-val">65%</span>
+            <label class="setting-toggle-label">
+              <input type="checkbox" id="set-ambient-mute" />
+              <span>Mute Ambience</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Plush Footsteps &amp; Water Splashes</span>
+            <span class="setting-desc">Soft rhythmic paw steps on grass, stone pavements, and shallows</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-footsteps" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Birb Calls &amp; Island Fauna</span>
+            <span class="setting-desc">Occasional gentle chirping from plump round island birbs</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-birbs" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Camera & Controls -->
+      <div class="settings-panel hidden" id="panel-camera">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Field of View (FOV)</span>
+            <span class="setting-desc">Camera wide-angle lens perspective (lower = zoomed in, higher = panoramic)</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-fov" min="45" max="90" step="1" value="60" />
+            <span class="setting-val-badge" id="set-fov-val">60°</span>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Third-Person Follow Distance</span>
+            <span class="setting-desc">Distance the camera orbits behind your plush shark</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-cam-dist" min="3.0" max="14.0" step="0.5" value="6.5" />
+            <span class="setting-val-badge" id="set-cam-dist-val">6.5m</span>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Camera Shoulder Perspective</span>
+            <span class="setting-desc">Offset camera to right shoulder, centered, or left shoulder</span>
+          </div>
+          <div class="setting-btn-group" id="group-shoulder">
+            <button class="btn-group-item active" data-shoulder="right">Right Shoulder</button>
+            <button class="btn-group-item" data-shoulder="center">Centered</button>
+            <button class="btn-group-item" data-shoulder="left">Left Shoulder</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Invert Vertical Pitch (Y-Axis)</span>
+            <span class="setting-desc">Invert vertical mouse look angle (flight-simulator controls)</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-invert-pitch" />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Mouse Look Sensitivity</span>
+            <span class="setting-desc">Speed of third-person free look rotation</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-mouse-sens" min="0.4" max="2.5" step="0.1" value="1.0" />
+            <span class="setting-val-badge" id="set-mouse-sens-val">1.0x</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Visuals & Graphics -->
+      <div class="settings-panel hidden" id="panel-display">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">UnrealBloom Glow &amp; Post-Processing</span>
+            <span class="setting-desc">Dreamy luminescence on glowing portals, molten lava, neon signs, and torches</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-bloom" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Plush Shark Landing Drop Shadow</span>
+            <span class="setting-desc">Soft ground shadow beneath player for precise jump and double-jump landing</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-shadows" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Dynamic Ocean Wave Swell &amp; Foam</span>
+            <span class="setting-desc">Multi-octave sine wave ocean cresting and floating foam ribbons</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-ocean-fx" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: HUD & Interface -->
+      <div class="settings-panel hidden" id="panel-hud">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Streamer / Screenshot Clean Mode</span>
+            <span class="setting-desc">Hide the entire HUD overlay for cinematic, clean photography</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-clean-mode" />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Top MMO Compass &amp; Zone Track</span>
+            <span class="setting-desc">Show heading tape and landmark indicators at the top of the screen</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-compass-vis" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">3D World Nametags &amp; Speech Bubbles</span>
+            <span class="setting-desc">Show overhead tags for co-op partner, NPC sharks, and landmark beacons</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-nametags-vis" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Quest Tracker &amp; Control Hints</span>
+            <span class="setting-desc">Display active island quests and key prompts on top-right</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-quest-vis" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Chat Log &amp; Emote Feed</span>
+            <span class="setting-desc">Show lore dialogue, partner notifications, and chat box on bottom-left</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-chat-vis" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Keybindings Reference -->
+      <div class="settings-panel hidden" id="panel-keybinds">
+        <div class="keybinds-table">
+          <div class="keybind-item"><span class="keybind-action">Move Shark</span><span class="keybind-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Arrows</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Jump / Double-Jump / Swim Up</span><span class="keybind-keys"><kbd>Space</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Sprint on Land / Dive Down in Water</span><span class="keybind-keys"><kbd>Shift</kbd> / <kbd>C</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Interact / Talk / Enter Machine / Board Boat</span><span class="keybind-keys"><kbd>E</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Switch Playable Shark (Hermes, Solomon, Hiram, Nimue)</span><span class="keybind-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Hiram's Master Builder Mode</span><span class="keybind-keys"><kbd>C</kbd> (when Hiram)</span></div>
+          <div class="keybind-item"><span class="keybind-action">Rotate Active Blueprint</span><span class="keybind-keys"><kbd>R</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Remove Nearest Built Structure</span><span class="keybind-keys"><kbd>X</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Toss Warm Breb Loaves for Birbs</span><span class="keybind-keys"><kbd>B</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Beep Noses With Other Sharks</span><span class="keybind-keys"><kbd>F</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Plush Hop &amp; "Shonk!" Emote</span><span class="keybind-keys"><kbd>G</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Cast Signature Relic Ability</span><span class="keybind-keys"><kbd>Q</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">MMO Character Sheet &amp; Inventory</span><span class="keybind-keys"><kbd>K</kbd> / <kbd>I</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Volcano Trial Upgrades Modal</span><span class="keybind-keys"><kbd>U</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Blåhaj Island Tapestry Gallery</span><span class="keybind-keys"><kbd>M</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Cross-Ocean Online Co-op Portal</span><span class="keybind-keys"><kbd>P</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Island Settings &amp; Audio Panel</span><span class="keybind-keys"><kbd>O</kbd> / <kbd>Esc</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Camera Orbit / Look</span><span class="keybind-keys"><kbd>Right-Click Drag</kbd> / <kbd>Click to Lock</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Camera Zoom Distance</span><span class="keybind-keys"><kbd>Mouse Scroll Wheel</kbd></span></div>
+        </div>
+      </div>
+
+      <!-- Settings Footer -->
+      <div class="settings-footer">
+        <button class="btn-secondary" id="btn-reset-settings" title="Restore all default settings">↺ Reset to Defaults</button>
+        <div class="settings-footer-right">
+          <span class="settings-saved-hint" id="settings-save-hint">✓ Preferences auto-saved</span>
+          <button class="btn-primary" id="btn-done-settings">Done [Esc]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. INSTANCED DUNGEON LOADING / TRANSITION SCREEN -->
   <div class="instance-loading hidden" id="instance-loading">
     <div class="instance-loading-card">
       <div class="instance-loading-icon">🌋</div>

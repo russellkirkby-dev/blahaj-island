@@ -6,9 +6,40 @@
 (function () {
   const LORE = window.BLAHAJ_LORE;
 
+  // --- Game Settings & Audio Preferences (Auto-saved in localStorage) ---
+  const SETTINGS_STORAGE_KEY = 'blahaj_island_settings_v1';
+  const DEFAULT_SETTINGS = {
+    masterVol: 80,
+    masterMute: false,
+    sfxVol: 85,
+    sfxMute: false,
+    ambientVol: 65,
+    ambientMute: false,
+    footsteps: true,
+    birbCalls: true,
+    fov: 60,
+    camDist: 6.5,
+    shoulder: 'right',
+    invertY: false,
+    mouseSens: 1.0,
+    bloom: true,
+    shadows: true,
+    oceanWaves: true,
+    streamerMode: false,
+    compassVis: true,
+    nametagsVis: true,
+    questVis: true,
+    chatVis: true
+  };
+  let gameSettings = Object.assign({}, DEFAULT_SETTINGS);
+  let bloomPassInstance = null;
+
   // --- Audio Synthesizer (Cozy WebAudio Chimes, Ambient Waves, Wind, Splashes & Footsteps) ---
   const CozyAudio = {
     ctx: null,
+    masterGain: null,
+    sfxGain: null,
+    ambientGain: null,
     noiseBuffer: null,
     surfNode: null,
     surfGain: null,
@@ -27,12 +58,39 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC) this.ctx = new AC();
       }
+      if (this.ctx && !this.masterGain) {
+        try {
+          this.masterGain = this.ctx.createGain();
+          this.sfxGain = this.ctx.createGain();
+          this.ambientGain = this.ctx.createGain();
+
+          this.sfxGain.connect(this.masterGain);
+          this.ambientGain.connect(this.masterGain);
+          this.masterGain.connect(this.ctx.destination);
+          this.syncVolumes();
+        } catch (e) {
+          console.warn('Audio gain routing error:', e);
+        }
+      }
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume();
       }
       if (this.ctx && !this.ambientInitialized) {
         this.initAmbientAudio();
       }
+    },
+
+    syncVolumes(settings = gameSettings) {
+      if (!this.ctx || !this.masterGain) return;
+      const now = this.ctx.currentTime;
+      const cfg = settings || DEFAULT_SETTINGS;
+      const mVol = cfg.masterMute ? 0.0001 : Math.max(0.0001, (cfg.masterVol ?? 80) / 100);
+      const sVol = cfg.sfxMute ? 0.0001 : Math.max(0.0001, (cfg.sfxVol ?? 85) / 100);
+      const aVol = cfg.ambientMute ? 0.0001 : Math.max(0.0001, (cfg.ambientVol ?? 65) / 100);
+
+      this.masterGain.gain.setTargetAtTime(mVol, now, 0.05);
+      this.sfxGain.gain.setTargetAtTime(sVol, now, 0.05);
+      this.ambientGain.gain.setTargetAtTime(aVol, now, 0.05);
     },
 
     getNoiseBuffer() {
@@ -73,7 +131,7 @@
       this.surfGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
       surfSrc.connect(this.surfFilter);
       this.surfFilter.connect(this.surfGain);
-      this.surfGain.connect(this.ctx.destination);
+      this.surfGain.connect(this.ambientGain || this.ctx.destination);
       surfSrc.start();
 
       // 2. Wind Breeze Ambience
@@ -88,7 +146,7 @@
       this.windGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
       windSrc.connect(this.windFilter);
       this.windFilter.connect(this.windGain);
-      this.windGain.connect(this.ctx.destination);
+      this.windGain.connect(this.ambientGain || this.ctx.destination);
       windSrc.start();
 
       // 3. Boat Hull & Wake Hiss
@@ -103,7 +161,7 @@
       this.boatGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
       boatSrc.connect(this.boatFilter);
       this.boatFilter.connect(this.boatGain);
-      this.boatGain.connect(this.ctx.destination);
+      this.boatGain.connect(this.ambientGain || this.ctx.destination);
       boatSrc.start();
     },
 
@@ -155,12 +213,13 @@
       gain.gain.setValueAtTime(gainVal, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.sfxGain || this.ctx.destination);
       osc.start(now);
       osc.stop(now + dur);
     },
 
     footstep(isShallowWater, isOnRoad) {
+      if (gameSettings && !gameSettings.footsteps) return;
       this.ensure();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
@@ -196,7 +255,7 @@
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
       src.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.sfxGain || this.ctx.destination);
       src.start(now);
       src.stop(now + duration);
 
@@ -221,7 +280,7 @@
       filter.frequency.setValueAtTime(320, now);
       osc.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(this.sfxGain || this.ctx.destination);
       osc.start(now);
       osc.stop(now + 0.22);
     },
@@ -234,6 +293,7 @@
       this.playTone(380, 0.12, 'triangle', 0.14, 620);
     },
     birbChirp() {
+      if (gameSettings && !gameSettings.birbCalls) return;
       const base = 960 + Math.random() * 120;
       this.playTone(base, 0.08, 'sine', 0.1, base + 420);
       setTimeout(() => this.playTone(base + 260, 0.09, 'sine', 0.09, base + 680), 65);
@@ -785,13 +845,14 @@
       renderPass = new THREE.RenderPass(scene, camera);
       composer.addPass(renderPass);
 
-      const bloomPass = new THREE.UnrealBloomPass(
+      bloomPassInstance = new THREE.UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
         0.26,
         0.5,
         0.91
       );
-      composer.addPass(bloomPass);
+      bloomPassInstance.enabled = !!(gameSettings.bloom);
+      composer.addPass(bloomPassInstance);
     }
 
     // 1. Build Expanded Blåhaj Archipelago (Main Island + 4 Outer Sanctuary Islands)
@@ -836,8 +897,11 @@
     spawnWorldCharacters();
 
     // 3. Setup Controls, UI, Builder Toolbar, Gallery, Upgrades & Co-op Networking
+    loadSettings();
     setupInputs();
     setupUI();
+    setupSettingsUI();
+    applyAllSettings();
     setupBuilderUI();
     setupNetwork();
     renderQuestList();
@@ -1202,8 +1266,10 @@
     window.addEventListener('mousemove', (e) => {
       if (isAnyModalOpen()) return;
       if (camState.isPointerLocked || camState.isRightDragging) {
-        camState.yaw -= e.movementX * 0.0032;
-        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + e.movementY * 0.0026));
+        const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
+        const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
+        camState.yaw -= e.movementX * 0.0032 * sens;
+        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + e.movementY * 0.0026 * sens * invert));
       }
     });
 
@@ -1221,6 +1287,11 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        const setModal = document.getElementById('settings-modal');
+        if (setModal && !setModal.classList.contains('hidden')) {
+          closeSettingsModal();
+          return;
+        }
         const csModal = document.getElementById('character-sheet-modal');
         if (csModal && !csModal.classList.contains('hidden')) {
           closeCharacterSheetModal();
@@ -1234,7 +1305,30 @@
         const vhudCard = document.getElementById('volcano-hud-card');
         if (vhudCard && !vhudCard.classList.contains('hidden')) {
           hideVolcanoHUDCard();
+          return;
         }
+        const dlgModal = document.getElementById('dialogue-modal');
+        if (dlgModal && !dlgModal.classList.contains('hidden')) {
+          dlgModal.classList.add('hidden');
+          return;
+        }
+        const pModal = document.getElementById('portal-modal');
+        if (pModal && !pModal.classList.contains('hidden')) {
+          pModal.classList.add('hidden');
+          return;
+        }
+        const gModal = document.getElementById('gallery-modal');
+        if (gModal && !gModal.classList.contains('hidden')) {
+          gModal.classList.add('hidden');
+          return;
+        }
+        const uModal = document.getElementById('upgrades-modal');
+        if (uModal && !uModal.classList.contains('hidden')) {
+          uModal.classList.add('hidden');
+          return;
+        }
+        toggleSettingsModal();
+        return;
       }
 
       const k = (e.key || '').toLowerCase();
@@ -1266,6 +1360,7 @@
       if (k === 'm') toggleGalleryModal();
       if (k === 'p') togglePortalModal();
       if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
+      if (k === 'o') toggleSettingsModal();
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
         if (player.inBoat) {
@@ -1321,9 +1416,12 @@
     const isSkyOpen = skyFlyout && !skyFlyout.classList.contains('hidden');
     const csModal = document.getElementById('character-sheet-modal');
     const isCSOpen = csModal && !csModal.classList.contains('hidden');
+    const setModal = document.getElementById('settings-modal');
+    const isSetOpen = setModal && !setModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
+      isSetOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -2984,9 +3082,346 @@
   // ==========================================================================
   // UI MODALS, GALLERY, UPGRADES, QUEST TRACKER & ENDLESS PIER NOTES
   // ==========================================================================
+
+  // ==========================================================================
+  // GAME SETTINGS, AUDIO & VISUAL PREFERENCES ENGINE
+  // ==========================================================================
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        Object.assign(gameSettings, DEFAULT_SETTINGS, parsed);
+      }
+    } catch (e) {
+      console.warn('Failed to load settings:', e);
+    }
+  }
+
+  function saveSettings() {
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(gameSettings));
+      const hint = document.getElementById('settings-save-hint');
+      if (hint) {
+        hint.classList.add('visible');
+        clearTimeout(hint._timer);
+        hint._timer = setTimeout(() => hint.classList.remove('visible'), 1600);
+      }
+    } catch (e) {
+      console.warn('Failed to save settings:', e);
+    }
+  }
+
+  function applySetting(key, val, shouldSave = true) {
+    gameSettings[key] = val;
+
+    // Audio volume & mutes
+    if (key === 'masterVol' || key === 'masterMute' || key === 'sfxVol' || key === 'sfxMute' || key === 'ambientVol' || key === 'ambientMute') {
+      CozyAudio.syncVolumes(gameSettings);
+    }
+
+    // Camera perspective
+    if (key === 'fov') {
+      if (camera) {
+        camera.fov = Number(val);
+        camera.updateProjectionMatrix();
+      }
+    }
+    if (key === 'camDist') {
+      camState.distance = Number(val);
+    }
+    if (key === 'shoulder') {
+      if (val === 'right') camState.shoulderRight = 0.85;
+      else if (val === 'left') camState.shoulderRight = -0.85;
+      else camState.shoulderRight = 0.0;
+    }
+
+    // Graphics & Visuals
+    if (key === 'bloom') {
+      if (bloomPassInstance) bloomPassInstance.enabled = !!val;
+    }
+    if (key === 'shadows') {
+      if (playerShadow) playerShadow.visible = !!val;
+    }
+    if (key === 'oceanWaves') {
+      if (window.BlahajWorld && window.BlahajWorld.setWaveState) {
+        window.BlahajWorld.setWaveState({ auto: !!val, amplitude: val ? 1.0 : 0.2 });
+      }
+    }
+
+    // HUD & Interface
+    if (key === 'streamerMode') {
+      document.body.classList.toggle('clean-streamer-mode', !!val);
+    }
+    if (key === 'compassVis') {
+      const el = document.getElementById('compass-strip');
+      if (el) el.style.display = val ? '' : 'none';
+    }
+    if (key === 'nametagsVis') {
+      const el = document.getElementById('world-labels');
+      if (el) el.style.display = val ? '' : 'none';
+    }
+    if (key === 'questVis') {
+      const el = document.getElementById('quest-tracker');
+      if (el) el.style.display = val ? '' : 'none';
+    }
+    if (key === 'chatVis') {
+      const el = document.querySelector('.hud-bottom-left');
+      if (el) el.style.display = val ? '' : 'none';
+    }
+
+    if (shouldSave) saveSettings();
+  }
+
+  function applyAllSettings() {
+    for (const [k, v] of Object.entries(gameSettings)) {
+      applySetting(k, v, false);
+    }
+    syncSettingsUI();
+  }
+
+  function syncSettingsUI() {
+    // Audio
+    const mVol = document.getElementById('set-master-vol');
+    if (mVol) mVol.value = gameSettings.masterVol;
+    const mVolVal = document.getElementById('set-master-vol-val');
+    if (mVolVal) mVolVal.textContent = `${gameSettings.masterVol}%`;
+    const mMute = document.getElementById('set-master-mute');
+    if (mMute) mMute.checked = !!gameSettings.masterMute;
+
+    const sVol = document.getElementById('set-sfx-vol');
+    if (sVol) sVol.value = gameSettings.sfxVol;
+    const sVolVal = document.getElementById('set-sfx-vol-val');
+    if (sVolVal) sVolVal.textContent = `${gameSettings.sfxVol}%`;
+    const sMute = document.getElementById('set-sfx-mute');
+    if (sMute) sMute.checked = !!gameSettings.sfxMute;
+
+    const aVol = document.getElementById('set-ambient-vol');
+    if (aVol) aVol.value = gameSettings.ambientVol;
+    const aVolVal = document.getElementById('set-ambient-vol-val');
+    if (aVolVal) aVolVal.textContent = `${gameSettings.ambientVol}%`;
+    const aMute = document.getElementById('set-ambient-mute');
+    if (aMute) aMute.checked = !!gameSettings.ambientMute;
+
+    const foot = document.getElementById('set-footsteps');
+    if (foot) foot.checked = !!gameSettings.footsteps;
+    const birbs = document.getElementById('set-birbs');
+    if (birbs) birbs.checked = !!gameSettings.birbCalls;
+
+    // Camera
+    const fov = document.getElementById('set-fov');
+    if (fov) fov.value = gameSettings.fov;
+    const fovVal = document.getElementById('set-fov-val');
+    if (fovVal) fovVal.textContent = `${gameSettings.fov}°`;
+
+    const cDist = document.getElementById('set-cam-dist');
+    if (cDist) cDist.value = gameSettings.camDist;
+    const cDistVal = document.getElementById('set-cam-dist-val');
+    if (cDistVal) cDistVal.textContent = `${Number(gameSettings.camDist).toFixed(1)}m`;
+
+    document.querySelectorAll('#group-shoulder .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.shoulder === gameSettings.shoulder);
+    });
+
+    const invY = document.getElementById('set-invert-y');
+    if (invY) invY.checked = !!gameSettings.invertY;
+
+    const mSens = document.getElementById('set-mouse-sens');
+    if (mSens) mSens.value = Math.round(gameSettings.mouseSens * 10);
+    const mSensVal = document.getElementById('set-mouse-sens-val');
+    if (mSensVal) mSensVal.textContent = `${Number(gameSettings.mouseSens).toFixed(1)}x`;
+
+    // Visuals
+    const bloom = document.getElementById('set-bloom');
+    if (bloom) bloom.checked = !!gameSettings.bloom;
+    const shdw = document.getElementById('set-shadows');
+    if (shdw) shdw.checked = !!gameSettings.shadows;
+    const ofw = document.getElementById('set-ocean-fx');
+    if (ofw) ofw.checked = !!gameSettings.oceanWaves;
+
+    // HUD
+    const cMode = document.getElementById('set-clean-mode');
+    if (cMode) cMode.checked = !!gameSettings.streamerMode;
+    const compVis = document.getElementById('set-compass-vis');
+    if (compVis) compVis.checked = !!gameSettings.compassVis;
+    const nameVis = document.getElementById('set-nametags-vis');
+    if (nameVis) nameVis.checked = !!gameSettings.nametagsVis;
+    const qVis = document.getElementById('set-quest-vis');
+    if (qVis) qVis.checked = !!gameSettings.questVis;
+    const cVis = document.getElementById('set-chat-vis');
+    if (cVis) cVis.checked = !!gameSettings.chatVis;
+  }
+
+  function openSettingsModal(defaultTab = 'audio') {
+    releasePointerLock();
+    clearAllMovementKeys();
+    const modal = document.getElementById('settings-modal');
+    if (modal) {
+      modal.classList.remove('hidden');
+      switchSettingsTab(defaultTab);
+      syncSettingsUI();
+    }
+  }
+
+  function closeSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function toggleSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeSettingsModal();
+    } else {
+      openSettingsModal();
+    }
+  }
+
+  function switchSettingsTab(tabName) {
+    const tabButtons = document.querySelectorAll('#settings-tabs .settings-tab');
+    tabButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+    const panels = document.querySelectorAll('#settings-modal .settings-panel');
+    panels.forEach(p => {
+      if (p.id === `panel-${tabName}`) {
+        p.classList.remove('hidden');
+        p.classList.add('active');
+      } else {
+        p.classList.add('hidden');
+        p.classList.remove('active');
+      }
+    });
+  }
+
+  function setupSettingsUI() {
+    // Tab switching
+    document.querySelectorAll('#settings-tabs .settings-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchSettingsTab(btn.getAttribute('data-tab'));
+      });
+    });
+
+    // Close buttons
+    document.getElementById('close-settings-modal')?.addEventListener('click', closeSettingsModal);
+    document.getElementById('btn-done-settings')?.addEventListener('click', closeSettingsModal);
+
+    // Reset Defaults button
+    document.getElementById('btn-reset-settings')?.addEventListener('click', () => {
+      Object.assign(gameSettings, DEFAULT_SETTINGS);
+      saveSettings();
+      applyAllSettings();
+      CozyAudio.shonk();
+      showToast('SETTINGS RESTORED', 'Default island preferences applied.');
+    });
+
+    // Test Sound button
+    document.getElementById('btn-test-sound')?.addEventListener('click', () => {
+      CozyAudio.ensure();
+      CozyAudio.shonk();
+      setTimeout(() => CozyAudio.laundromatDing(), 160);
+    });
+
+    // Audio sliders & toggles
+    document.getElementById('set-master-vol')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('set-master-vol-val').textContent = `${val}%`;
+      applySetting('masterVol', val);
+    });
+    document.getElementById('set-master-mute')?.addEventListener('change', (e) => {
+      applySetting('masterMute', e.target.checked);
+    });
+
+    document.getElementById('set-sfx-vol')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('set-sfx-vol-val').textContent = `${val}%`;
+      applySetting('sfxVol', val);
+    });
+    document.getElementById('set-sfx-mute')?.addEventListener('change', (e) => {
+      applySetting('sfxMute', e.target.checked);
+    });
+
+    document.getElementById('set-ambient-vol')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('set-ambient-vol-val').textContent = `${val}%`;
+      applySetting('ambientVol', val);
+    });
+    document.getElementById('set-ambient-mute')?.addEventListener('change', (e) => {
+      applySetting('ambientMute', e.target.checked);
+    });
+
+    document.getElementById('set-footsteps')?.addEventListener('change', (e) => {
+      applySetting('footsteps', e.target.checked);
+    });
+    document.getElementById('set-birbs')?.addEventListener('change', (e) => {
+      applySetting('birbCalls', e.target.checked);
+    });
+
+    // Camera & Controls
+    document.getElementById('set-fov')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('set-fov-val').textContent = `${val}°`;
+      applySetting('fov', val);
+    });
+    document.getElementById('set-cam-dist')?.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      document.getElementById('set-cam-dist-val').textContent = `${val.toFixed(1)}m`;
+      applySetting('camDist', val);
+    });
+
+    document.querySelectorAll('#group-shoulder .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-shoulder .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('shoulder', btn.dataset.shoulder);
+      });
+    });
+
+    document.getElementById('set-invert-y')?.addEventListener('change', (e) => {
+      applySetting('invertY', e.target.checked);
+    });
+    document.getElementById('set-mouse-sens')?.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value) / 10.0;
+      document.getElementById('set-mouse-sens-val').textContent = `${val.toFixed(1)}x`;
+      applySetting('mouseSens', val);
+    });
+
+    // Visuals & Graphics
+    document.getElementById('set-bloom')?.addEventListener('change', (e) => {
+      applySetting('bloom', e.target.checked);
+    });
+    document.getElementById('set-shadows')?.addEventListener('change', (e) => {
+      applySetting('shadows', e.target.checked);
+    });
+    document.getElementById('set-ocean-fx')?.addEventListener('change', (e) => {
+      applySetting('oceanWaves', e.target.checked);
+    });
+
+    // HUD & Interface
+    document.getElementById('set-clean-mode')?.addEventListener('change', (e) => {
+      applySetting('streamerMode', e.target.checked);
+    });
+    document.getElementById('set-compass-vis')?.addEventListener('change', (e) => {
+      applySetting('compassVis', e.target.checked);
+    });
+    document.getElementById('set-nametags-vis')?.addEventListener('change', (e) => {
+      applySetting('nametagsVis', e.target.checked);
+    });
+    document.getElementById('set-quest-vis')?.addEventListener('change', (e) => {
+      applySetting('questVis', e.target.checked);
+    });
+    document.getElementById('set-chat-vis')?.addEventListener('change', (e) => {
+      applySetting('chatVis', e.target.checked);
+    });
+  }
+
   function setupUI() {
     document.querySelectorAll('.shark-slot').forEach((btn) => {
       btn.addEventListener('click', () => spawnPlayerShark(btn.dataset.shark));
+    });
+    document.getElementById('slot-o')?.addEventListener('click', () => {
+      CozyAudio.ensure();
+      toggleSettingsModal();
     });
     document.getElementById('slot-q').addEventListener('click', triggerSignatureAbility);
     document.getElementById('slot-b').addEventListener('click', triggerFeedBreb);
@@ -4046,6 +4481,10 @@
   }
 
   function updatePlayerShadow() {
+    if (gameSettings && !gameSettings.shadows) {
+      if (playerShadow) playerShadow.visible = false;
+      return;
+    }
     if (!playerShadow) playerShadow = createPlayerShadow();
     const activeScene = getActiveScene();
     if (playerShadow.parent !== activeScene) {
@@ -5184,6 +5623,13 @@
   }
 
   window.__DEBUG__ = {
+    get gameSettings() { return gameSettings; },
+    openSettingsModal,
+    closeSettingsModal,
+    toggleSettingsModal,
+    applySetting,
+    applyAllSettings,
+    saveSettings,
     getPlayer: () => player,
     getWorldApi: () => worldApi,
     getCamera: () => camera,
