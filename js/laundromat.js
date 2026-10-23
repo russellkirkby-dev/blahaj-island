@@ -48,6 +48,7 @@ window.BlahajLaundromat = (function () {
   let brassMat = null;
   const carts = [];
   let occupiedCart = null;
+  const bumpBursts = [];
   let portalRuneRing = null;
 
   // Gallery Posters List (10 featured wall-mounted artworks with museum sconces)
@@ -1153,12 +1154,18 @@ window.BlahajLaundromat = (function () {
       pos: new THREE.Vector3(initialX, 0, initialZ),
       rotY: initialRotY,
       speed: 0,
+      bounceVx: 0,
+      bounceVz: 0,
+      bouncePitch: 0,
+      bounceRoll: 0,
+      bounceSpring: 0,
       steerAngle: 0,
       rollAngle: 0,
       wheelRotation: 0,
       isOccupied: false,
       cartWidth,
       cartLength,
+      collisionRadius: 1.15,
       wheelMeshes,
       frontForks
     };
@@ -1219,25 +1226,55 @@ window.BlahajLaundromat = (function () {
       cart.steerAngle *= Math.max(0, 1.0 - dt * 10.0);
     }
 
+    // Damped decay of bounce impulses & spring tilt
+    cart.bounceVx *= Math.max(0, 1.0 - dt * 6.5);
+    cart.bounceVz *= Math.max(0, 1.0 - dt * 6.5);
+    cart.bouncePitch *= Math.max(0, 1.0 - dt * 8.0);
+    cart.bounceRoll *= Math.max(0, 1.0 - dt * 8.0);
+    cart.bounceSpring *= Math.max(0, 1.0 - dt * 9.0);
+
     // Forward vector in world coordinates: pointing in local +Z (matching shark snout!)
     const fwdX = Math.sin(cart.rotY);
     const fwdZ = Math.cos(cart.rotY);
 
-    if (isMoving) {
+    const vx = fwdX * cart.speed + cart.bounceVx;
+    const vz = fwdZ * cart.speed + cart.bounceVz;
+    const speedMag = Math.hypot(vx, vz);
+
+    if (speedMag > 0.05) {
       const rawNext = {
-        x: cart.pos.x + fwdX * cart.speed * dt,
-        z: cart.pos.z + fwdZ * cart.speed * dt
+        x: cart.pos.x + vx * dt,
+        z: cart.pos.z + vz * dt
       };
       // Collision radius 0.92m for wide commercial cart
       const resolved = resolveMove(cart.pos, rawNext, true, 0.92);
       if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
-        const dx = resolved.x - cart.pos.x;
-        const dz = resolved.z - cart.pos.z;
-        const actualDist = Math.hypot(dx, dz);
-        const expectedDist = Math.abs(cart.speed * dt);
-        if (expectedDist > 0.01 && actualDist < expectedDist * 0.3) {
-          cart.speed *= 0.55;
+        const blockedX = Math.abs(resolved.x - rawNext.x) > 0.005;
+        const blockedZ = Math.abs(resolved.z - rawNext.z) > 0.005;
+
+        // Bouncy environmental collision against walls, folding tables, or chairs
+        if ((blockedX || blockedZ) && speedMag > 0.9) {
+          if (blockedX) {
+            cart.bounceVx = -Math.sign(vx) * Math.min(6.5, speedMag * 0.45);
+            cart.speed *= 0.35;
+            cart.bounceRoll = Math.sign(vx) * Math.min(0.20, speedMag * 0.022);
+          }
+          if (blockedZ) {
+            cart.bounceVz = -Math.sign(vz) * Math.min(6.5, speedMag * 0.45);
+            cart.speed *= 0.35;
+            cart.bouncePitch = -Math.sign(vz) * Math.min(0.20, speedMag * 0.022);
+          }
+          cart.bounceSpring = 1.0;
+
+          if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
+            window.CozyAudio.cartBump(speedMag);
+          }
+
+          const bumpX = blockedX ? resolved.x + Math.sign(vx) * 0.8 : resolved.x;
+          const bumpZ = blockedZ ? resolved.z + Math.sign(vz) * 0.8 : resolved.z;
+          spawnCartBumpParticles({ x: bumpX, y: 0.55, z: bumpZ }, 0x9be0ff, 12);
         }
+
         cart.pos.x = resolved.x;
         cart.pos.z = resolved.z;
       }
@@ -1257,10 +1294,110 @@ window.BlahajLaundromat = (function () {
     const targetRoll = -cart.steerAngle * Math.min(0.08, speedRatio * 0.07);
     cart.rollAngle += (targetRoll - cart.rollAngle) * Math.min(1.0, dt * 12.0);
 
-    // Sync 3D Mesh
-    cart.mesh.position.set(cart.pos.x, 0, cart.pos.z);
+    // Sync 3D Mesh with bouncy vertical spring and tilt pitch/roll
+    const bounceHopY = Math.abs(Math.sin(cart.bounceSpring * Math.PI)) * 0.05;
+    cart.mesh.position.set(cart.pos.x, bounceHopY, cart.pos.z);
+    cart.mesh.rotation.x = cart.bouncePitch;
     cart.mesh.rotation.y = cart.rotY;
-    cart.mesh.rotation.z = cart.rollAngle;
+    cart.mesh.rotation.z = cart.rollAngle + cart.bounceRoll;
+  }
+
+  // Particle helper for bouncy contact impacts
+  function spawnCartBumpParticles(pos, color = 0x9be0ff, count = 12) {
+    if (!scn) return;
+    const geom = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities = [];
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = pos.x + (Math.random() - 0.5) * 0.5;
+      positions[i * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.35;
+      positions[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.5;
+      velocities.push({
+        vx: (Math.random() - 0.5) * 4.2,
+        vy: 1.2 + Math.random() * 3.2,
+        vz: (Math.random() - 0.5) * 4.2
+      });
+    }
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color,
+      size: 0.18,
+      transparent: true,
+      opacity: 0.90,
+      depthWrite: false
+    });
+    const points = new THREE.Points(geom, mat);
+    scn.add(points);
+    bumpBursts.push({ points, geom, velocities, life: 0.60 });
+  }
+
+  // Cart-vs-Cart elastic bumper collisions
+  function checkCartCartCollisions(dt) {
+    if (carts.length < 2) return;
+    for (let i = 0; i < carts.length; i++) {
+      for (let j = i + 1; j < carts.length; j++) {
+        const c1 = carts[i];
+        const c2 = carts[j];
+
+        const dx = c2.pos.x - c1.pos.x;
+        const dz = c2.pos.z - c1.pos.z;
+        const dist = Math.hypot(dx, dz);
+        const minDist = 2.30; // 2 x 1.15m collision radius
+
+        if (dist < minDist && dist > 0.001) {
+          const overlap = minDist - dist;
+          const nx = dx / dist;
+          const nz = dz / dist;
+
+          // Push apart symmetrically
+          const sepA = resolveMove(c1.pos, { x: c1.pos.x - nx * overlap * 0.52, z: c1.pos.z - nz * overlap * 0.52 }, true, 0.92);
+          const sepB = resolveMove(c2.pos, { x: c2.pos.x + nx * overlap * 0.52, z: c2.pos.z + nz * overlap * 0.52 }, true, 0.92);
+          if (sepA) { c1.pos.x = sepA.x; c1.pos.z = sepA.z; }
+          if (sepB) { c2.pos.x = sepB.x; c2.pos.z = sepB.z; }
+
+          // Total velocity of both carts
+          const v1x = Math.sin(c1.rotY) * c1.speed + c1.bounceVx;
+          const v1z = Math.cos(c1.rotY) * c1.speed + c1.bounceVz;
+          const v2x = Math.sin(c2.rotY) * c2.speed + c2.bounceVx;
+          const v2z = Math.cos(c2.rotY) * c2.speed + c2.bounceVz;
+
+          // Relative velocity along collision normal
+          const relVx = v1x - v2x;
+          const relVz = v1z - v2z;
+          const relSpeedAlongNormal = relVx * nx + relVz * nz;
+
+          if (relSpeedAlongNormal > 0.08) {
+            // Elastic bumper collision with restitution e = 0.65
+            const e = 0.65;
+            const impulse = (1.0 + e) * relSpeedAlongNormal * 0.5;
+
+            c1.bounceVx -= nx * impulse;
+            c1.bounceVz -= nz * impulse;
+            c2.bounceVx += nx * impulse;
+            c2.bounceVz += nz * impulse;
+
+            c1.speed *= 0.45;
+            c2.speed *= 0.45;
+
+            // Chassis bounce pitch & roll
+            c1.bouncePitch = -Math.min(0.24, impulse * 0.035);
+            c2.bouncePitch = Math.min(0.24, impulse * 0.035);
+            c1.bounceRoll = (Math.random() - 0.5) * 0.18;
+            c2.bounceRoll = (Math.random() - 0.5) * 0.18;
+            c1.bounceSpring = 1.0;
+            c2.bounceSpring = 1.0;
+
+            if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
+              window.CozyAudio.cartBump(relSpeedAlongNormal);
+            }
+
+            const midX = (c1.pos.x + c2.pos.x) * 0.5;
+            const midZ = (c1.pos.z + c2.pos.z) * 0.5;
+            spawnCartBumpParticles({ x: midX, y: 0.65, z: midZ }, 0xfbcfe8, 16);
+          }
+        }
+      }
+    }
   }
 
   function updateOccupiedCart(dt, inputKeys) {
@@ -1451,42 +1588,85 @@ window.BlahajLaundromat = (function () {
       }
     }
 
-    // 12. Cart physics & mesh animation for unoccupied and occupied carts
+    // 12. Update bump spark & bubble particle bursts
+    for (let i = bumpBursts.length - 1; i >= 0; i--) {
+      const b = bumpBursts[i];
+      b.life -= dt;
+      if (b.life <= 0) {
+        scn.remove(b.points);
+        b.geom.dispose();
+        bumpBursts.splice(i, 1);
+        continue;
+      }
+      const posAttr = b.geom.getAttribute('position');
+      const arr = posAttr.array;
+      for (let j = 0; j < b.velocities.length; j++) {
+        const v = b.velocities[j];
+        v.vy -= 9.8 * dt;
+        arr[j * 3] += v.vx * dt;
+        arr[j * 3 + 1] = Math.max(0.1, arr[j * 3 + 1] + v.vy * dt);
+        arr[j * 3 + 2] += v.vz * dt;
+      }
+      posAttr.needsUpdate = true;
+      b.points.material.opacity = Math.max(0, b.life / 0.60);
+    }
+
+    // Cart-vs-Cart bouncy bumper collisions
+    checkCartCartCollisions(dt);
+
+    // Cart physics & mesh animation for unoccupied and occupied carts
     carts.forEach((c) => {
       if (!c.isOccupied) {
-        if (Math.abs(c.speed) > 0.02) {
+        // Decay bounce recoil
+        c.bounceVx *= Math.max(0, 1.0 - dt * 6.5);
+        c.bounceVz *= Math.max(0, 1.0 - dt * 6.5);
+        c.bouncePitch *= Math.max(0, 1.0 - dt * 8.0);
+        c.bounceRoll *= Math.max(0, 1.0 - dt * 8.0);
+        c.bounceSpring *= Math.max(0, 1.0 - dt * 9.0);
+
+        const vx = Math.sin(c.rotY) * c.speed + c.bounceVx;
+        const vz = Math.cos(c.rotY) * c.speed + c.bounceVz;
+        const curSpeedMag = Math.hypot(vx, vz);
+
+        if (curSpeedMag > 0.02) {
           c.speed *= Math.max(0, 1.0 - dt * 6.0);
-          const fwdX = Math.sin(c.rotY);
-          const fwdZ = Math.cos(c.rotY);
           const rawNext = {
-            x: c.pos.x + fwdX * c.speed * dt,
-            z: c.pos.z + fwdZ * c.speed * dt
+            x: c.pos.x + vx * dt,
+            z: c.pos.z + vz * dt
           };
           const resolved = resolveMove(c.pos, rawNext, true, 0.92);
           if (resolved) {
             c.pos.x = resolved.x;
             c.pos.z = resolved.z;
           }
-          c.wheelRotation += (c.speed * dt) / 0.10;
+          c.wheelRotation += (curSpeedMag * dt) / 0.10;
           c.wheelMeshes.forEach((w) => { w.rotation.x = c.wheelRotation; });
         } else {
           c.speed = 0;
         }
         c.steerAngle *= Math.max(0, 1.0 - dt * 8.0);
         c.rollAngle *= Math.max(0, 1.0 - dt * 10.0);
-        c.mesh.position.set(c.pos.x, 0, c.pos.z);
+        const bounceHopY = Math.abs(Math.sin(c.bounceSpring * Math.PI)) * 0.05;
+        c.mesh.position.set(c.pos.x, bounceHopY, c.pos.z);
+        c.mesh.rotation.x = c.bouncePitch;
         c.mesh.rotation.y = c.rotY;
-        c.mesh.rotation.z = c.rollAngle;
+        c.mesh.rotation.z = c.rollAngle + c.bounceRoll;
       }
     });
 
     if (occupiedCart) {
+      const bounceHopY = Math.abs(Math.sin(occupiedCart.bounceSpring * Math.PI)) * 0.05;
       if (playerPos) {
-        playerPos.set(occupiedCart.pos.x, 0.38, occupiedCart.pos.z);
+        playerPos.set(occupiedCart.pos.x, 0.38 + bounceHopY, occupiedCart.pos.z);
       }
       if (playerMesh) {
-        playerMesh.position.set(occupiedCart.pos.x, 0.38, occupiedCart.pos.z);
-        playerMesh.rotation.y = occupiedCart.rotY;
+        playerMesh.position.set(occupiedCart.pos.x, 0.38 + bounceHopY, occupiedCart.pos.z);
+        playerMesh.rotation.order = 'XYZ';
+        playerMesh.rotation.set(
+          occupiedCart.bouncePitch * 0.65,
+          occupiedCart.rotY,
+          occupiedCart.rollAngle + occupiedCart.bounceRoll * 0.65
+        );
       }
     }
   }
@@ -1704,6 +1884,8 @@ window.BlahajLaundromat = (function () {
     getPosters: () => POSTERS,
     getCarts: () => carts,
     getOccupiedCart: () => occupiedCart,
+    checkCartCartCollisions,
+    spawnCartBumpParticles,
     mountCart,
     dismountCart,
     updateOccupiedCart

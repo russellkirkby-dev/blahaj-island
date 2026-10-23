@@ -282,6 +282,25 @@
       this.playTone(520, 0.08, 'sine', 0.09, 720);
     },
 
+    cartBump(intensity = 4.0) {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastCartBumpTime || 0) < 0.16) return;
+      this.lastCartBumpTime = now;
+
+      const normInt = Math.min(1.0, Math.max(0.2, intensity / 8.0));
+      // 1. Rubber bumper hollow thud
+      this.playTone(125 + Math.random() * 25, 0.12, 'sine', 0.18 * normInt, 45);
+
+      // 2. Playful cartoon boing / spring chime
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(420 + Math.random() * 60, 0.15, 'triangle', 0.11 * normInt, 620);
+      }, 40);
+    },
+
     woodCreak() {
       this.ensure();
       if (!this.ctx) return;
