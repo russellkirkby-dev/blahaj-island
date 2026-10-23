@@ -282,6 +282,19 @@
       this.playTone(520, 0.08, 'sine', 0.09, 720);
     },
 
+    bubblePop() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastBubblePopTime || 0) < 0.12) return;
+      this.lastBubblePopTime = now;
+
+      // Soft, playful cartoon bubble pop chime
+      const freq = 820 + Math.random() * 450;
+      this.playTone(freq, 0.035, 'sine', 0.065, freq + 380);
+    },
+
     cartBump(intensity = 4.0) {
       if (gameSettings && !gameSettings.sfxVol) return;
       this.ensure();

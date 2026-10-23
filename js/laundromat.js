@@ -36,7 +36,10 @@ window.BlahajLaundromat = (function () {
     didDing: false
   };
 
-  let bubbleParticles = null;
+  let bubbleTex = null;
+  let bubblePopTex = null;
+  const washerBubbles = [];
+  let washerBubblesGroup = null;
   let steamParticles = null;
   let neonSignLight = null;
   let neonSignMat = null;
@@ -140,6 +143,110 @@ window.BlahajLaundromat = (function () {
 
   // Sound & Event hooks
   let onCompleteHandler = null;
+
+  // Procedural Cartoon Bubble Texture Generator (Glossy, Iridescent & Clear with Crescent Highlight)
+  function createCartoonBubbleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+    const r = 56;
+
+    // 1. Transparent glassy spherical body with iridescent pastel rim
+    const grad = ctx.createRadialGradient(cx - 14, cy - 14, 4, cx, cy, r);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 0.06)');
+    grad.addColorStop(0.5, 'rgba(215, 245, 255, 0.18)');
+    grad.addColorStop(0.85, 'rgba(185, 230, 255, 0.38)');
+    grad.addColorStop(0.96, 'rgba(255, 255, 255, 0.92)');
+    grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Crisp outer white rim ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 1.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 3. Curved cartoon crescent highlight on upper-left (classic cartoon shine!)
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI * 0.28);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.lineWidth = 4.8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 8, -Math.PI * 0.32, Math.PI * 0.12);
+    ctx.stroke();
+
+    // Inner softer secondary glow line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 14, -Math.PI * 0.22, Math.PI * 0.05);
+    ctx.stroke();
+    ctx.restore();
+
+    // 4. Secondary small reflection glint on lower-right
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.beginPath();
+    ctx.ellipse(cx + 26, cy + 26, 4.5, 2.5, Math.PI * 0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  // Cartoon Pop Starburst Texture Generator (Bursting Ring & Radiating Droplets)
+  function createCartoonBubblePopTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    const cx = 64;
+    const cy = 64;
+
+    // Expanding popped ring with broken cartoon arcs
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.94)';
+    ctx.lineWidth = 3.6;
+    ctx.lineCap = 'round';
+
+    for (let i = 0; i < 4; i++) {
+      const startA = (i * Math.PI) / 2 + 0.15;
+      const endA = startA + Math.PI * 0.22;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 46, startA, endA);
+      ctx.stroke();
+    }
+
+    // 4 radiating cartoon droplet sparks
+    for (let i = 0; i < 4; i++) {
+      const ang = (i * Math.PI) / 2 + Math.PI / 4;
+      const dx = cx + Math.cos(ang) * 52;
+      const dy = cy + Math.sin(ang) * 52;
+      ctx.fillStyle = 'rgba(225, 248, 255, 0.95)';
+      ctx.beginPath();
+      ctx.arc(dx, dy, 3.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Center sparkling twinkle
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
 
   // Procedural Community Notice Board canvas texture generator
   function createCorkboardTexture() {
@@ -752,28 +859,48 @@ window.BlahajLaundromat = (function () {
 
     scn.add(mwGroup);
 
-    // Laundry Suds & Bubble Particles
-    const bubbleGeo = new THREE.BufferGeometry();
-    const bubbleCount = 140;
-    const bubblePos = new Float32Array(bubbleCount * 3);
-    for (let i = 0; i < bubbleCount; i++) {
-      bubblePos[i * 3] = (Math.random() - 0.5) * 2.2;
-      bubblePos[i * 3 + 1] = 1.0 + Math.random() * 1.8;
-      bubblePos[i * 3 + 2] = masterWasher.z + (Math.random() - 0.5) * 1.8;
-    }
-    bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
-    bubbleParticles = new THREE.Points(
-      bubbleGeo,
-      new THREE.PointsMaterial({
-        color: 0xffffff,
-        size: 0.45,
+    // Dynamic Cartoon Laundry Bubbles & Suds (Forming, Swirling & Popping along Drum Perimeter)
+    bubbleTex = createCartoonBubbleTexture();
+    bubblePopTex = createCartoonBubblePopTexture();
+
+    washerBubblesGroup = new THREE.Group();
+    washerBubbles.length = 0;
+
+    const numBubbles = 48;
+    for (let i = 0; i < numBubbles; i++) {
+      const mat = new THREE.SpriteMaterial({
+        map: bubbleTex,
         transparent: true,
-        depthWrite: false,
         opacity: 0.0,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    scn.add(bubbleParticles);
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.visible = false;
+      washerBubblesGroup.add(sprite);
+
+      // Distribute bubbles around drum perimeter and bottom lather (leaving central corridor clear for shark visibility!)
+      const isPerimeter = Math.random() > 0.30;
+      const dist = isPerimeter ? (1.08 + Math.random() * 0.38) : (0.75 + Math.random() * 0.35);
+      const angle = isPerimeter ? (Math.random() * Math.PI * 2) : (-Math.PI * 0.8 + Math.random() * Math.PI * 0.6); // bottom pool
+
+      washerBubbles.push({
+        sprite,
+        baseSize: 0.24 + Math.random() * 0.22,
+        dist,
+        angle,
+        z: -1.0 + Math.random() * 2.0,
+        phase: 'forming',
+        timer: Math.random() * 0.5,
+        formDuration: 0.25 + Math.random() * 0.15,
+        life: 0.0,
+        maxLife: 0.9 + Math.random() * 1.6,
+        popDuration: 0.12,
+        wobbleSpeed: 4.5 + Math.random() * 3.5,
+        wobbleAmp: 0.07 + Math.random() * 0.08,
+        swirlRate: (Math.random() - 0.5) * 0.75
+      });
+    }
+    scn.add(washerBubblesGroup);
 
     // 9. CENTER ISLAND: FOLDING TABLES & BACK-TO-BACK RETRO SCOOP CHAIRS
     // Creates a continuous oval loop racetrack around the room!
@@ -1701,10 +1828,7 @@ window.BlahajLaundromat = (function () {
         masterWasher.drumMesh.rotation.z = Math.sin(sloshT * 3.8) * 0.45;
 
         if (masterWasher.waterMesh) {
-          masterWasher.waterMesh.material.opacity = Math.min(0.55, sloshT * 0.3);
-        }
-        if (bubbleParticles) {
-          bubbleParticles.material.opacity = Math.min(0.85, sloshT * 0.4);
+          masterWasher.waterMesh.material.opacity = Math.min(0.45, sloshT * 0.25);
         }
 
         if (playerMesh) {
@@ -1728,7 +1852,7 @@ window.BlahajLaundromat = (function () {
         masterWasher.statusLed.material.color.setHex(0xef4444); // Red / Max Spin
 
         if (masterWasher.waterMesh) {
-          masterWasher.waterMesh.material.opacity = Math.max(0.05, 0.55 - spinT * 0.15);
+          masterWasher.waterMesh.material.opacity = Math.max(0.02, 0.45 - spinT * 0.15);
         }
 
         if (playerMesh) {
@@ -1774,12 +1898,107 @@ window.BlahajLaundromat = (function () {
         masterWasher.didDing = false;
         masterWasher.drumMesh.rotation.z = 0;
         if (masterWasher.waterMesh) masterWasher.waterMesh.material.opacity = 0;
-        if (bubbleParticles) bubbleParticles.material.opacity = 0;
+
+        washerBubbles.forEach((b) => {
+          b.sprite.visible = false;
+          b.sprite.material.opacity = 0;
+        });
 
         if (typeof onCompleteHandler === 'function') {
           onCompleteHandler();
           onCompleteHandler = null;
         }
+      }
+
+      // --- ANIMATE DYNAMIC CARTOON BUBBLES IN DRUM ---
+      // Bubbles form, swirl with centrifugal force along drum walls, and cartoonishly pop!
+      // They are distributed along drum perimeter (R: 1.05m to 1.45m) so the shark in center remains 100% visible!
+      if (masterWasher.cycleActive && t >= 0.5 && t < 9.5) {
+        const isSpin = t >= 4.5 && t < 9.0;
+        const currentDrumSpeed = masterWasher.drumSpeed || (Math.cos((t - 1.2) * 3.8) * 1.8);
+
+        washerBubbles.forEach((b) => {
+          b.sprite.visible = true;
+
+          // Angular swirl matching washer drum rotation
+          b.angle += (currentDrumSpeed * 0.88 + b.swirlRate) * dt;
+
+          // Keep bubbles positioned along drum perimeter & lower lather basin
+          // Centrifugal force in spin phase pushes them further outward against the drum wall
+          const targetDist = isSpin ? (1.18 + Math.random() * 0.28) : b.dist;
+          const bx = masterWasher.x + Math.cos(b.angle) * targetDist;
+          const by = 1.85 + Math.sin(b.angle) * targetDist;
+          const bz = masterWasher.z + b.z;
+
+          // Keep central corridor (|bx| < 0.65m, |by - 1.85| < 0.65m in front of shark) clear!
+          const distFromCenter = Math.hypot(bx - masterWasher.x, by - 1.85);
+          if (distFromCenter < 0.72 && b.z > -0.2) {
+            // Push outwards away from shark center
+            const pushAng = Math.atan2(by - 1.85, bx - masterWasher.x);
+            b.angle = pushAng;
+            b.dist = Math.max(1.10, b.dist);
+          }
+
+          b.sprite.position.set(bx, by, bz);
+
+          // Phase Lifecycle: forming -> alive -> popping -> forming
+          b.timer += dt;
+
+          if (b.phase === 'forming') {
+            const formProg = Math.min(1.0, b.timer / b.formDuration);
+            // Cute cartoon elastic scale-up with overshoot
+            const scale = b.baseSize * Math.sin(formProg * Math.PI * 0.5) * (1.0 + 0.18 * (1.0 - formProg));
+            b.sprite.scale.set(scale, scale, 1);
+            b.sprite.material.opacity = Math.min(0.68, formProg * 0.68);
+            b.sprite.material.map = bubbleTex;
+
+            if (formProg >= 1.0) {
+              b.phase = 'alive';
+              b.timer = 0;
+            }
+          } else if (b.phase === 'alive') {
+            // Organic squash-and-stretch wobble while floating/swirling
+            const wobble = 1.0 + Math.sin(elapsed * b.wobbleSpeed + b.angle) * b.wobbleAmp;
+            const wobbleY = 1.0 - Math.sin(elapsed * b.wobbleSpeed + b.angle) * (b.wobbleAmp * 0.8);
+            b.sprite.scale.set(b.baseSize * wobble, b.baseSize * wobbleY, 1);
+            b.sprite.material.opacity = 0.62;
+            b.sprite.material.map = bubbleTex;
+
+            if (b.timer >= b.maxLife) {
+              b.phase = 'popping';
+              b.timer = 0;
+              b.sprite.material.map = bubblePopTex;
+
+              // Play subtle cartoon bubble pop chime
+              if (Math.random() < 0.28 && window.CozyAudio && typeof window.CozyAudio.bubblePop === 'function') {
+                window.CozyAudio.bubblePop();
+              }
+            }
+          } else if (b.phase === 'popping') {
+            const popProg = Math.min(1.0, b.timer / b.popDuration);
+            // Cartoon pop: rapid expansion and fade out
+            const popScale = b.baseSize * (1.0 + popProg * 0.75);
+            b.sprite.scale.set(popScale, popScale, 1);
+            b.sprite.material.opacity = Math.max(0, (1.0 - popProg) * 0.85);
+
+            if (popProg >= 1.0) {
+              // Recycle bubble: spawn anew from drum perimeter / wash water
+              b.phase = 'forming';
+              b.timer = 0;
+              b.sprite.material.map = bubbleTex;
+              b.angle = Math.random() * Math.PI * 2;
+              b.dist = 1.08 + Math.random() * 0.38;
+              b.z = -1.0 + Math.random() * 2.0;
+              b.baseSize = 0.22 + Math.random() * 0.24;
+              b.maxLife = 0.8 + Math.random() * 1.5;
+            }
+          }
+        });
+      } else if (!masterWasher.cycleActive && washerBubbles.length > 0) {
+        washerBubbles.forEach((b) => {
+          b.sprite.visible = false;
+          b.sprite.material.opacity = 0;
+        });
       }
     }
 
