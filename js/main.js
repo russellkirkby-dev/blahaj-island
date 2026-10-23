@@ -2299,7 +2299,7 @@
           }
           player.velY = 0;
           player.isGrounded = true;
-          camState.yaw = 0;
+          camState.yaw = Math.PI;
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
@@ -2502,6 +2502,18 @@
       spawnFloatingBurst(player.pos, 0xff7eb6, 12);
       showToast('VENDING MACHINE 🌸🍫', 'Dispensed a warm Lavender Soda & Fresh Scented Breb!');
       addChatLog('🍫 Purchased warm Lavender Soda from the 24/7 Laundromat Vending Machine.', 'cozy');
+      return;
+    }
+    if (item.kind === 'laundromat_poster') {
+      openGalleryArtwork(item.src, item.title, item.desc);
+      CozyAudio.shonk();
+      return;
+    }
+    if (item.kind === 'laundromat_tokens') {
+      CozyAudio.coinDrop();
+      setTimeout(() => CozyAudio.coinDrop(), 140);
+      showToast('LAUNDRY TOKENS 🪙 (+5 TOKENS)', 'Dispensed 5 shiny brass laundry tokens! Clink-clink!');
+      addChatLog('🪙 Inserted currency into the <strong>Change Machine</strong> and collected <strong>5 shiny laundry tokens</strong>!', 'cozy');
       return;
     }
     if (item.kind === 'laundromat_return') {
@@ -4138,6 +4150,18 @@
     m.classList.toggle('hidden');
   }
 
+  function openGalleryArtwork(src, title, desc) {
+    releasePointerLock();
+    clearAllMovementKeys();
+    const m = document.getElementById('gallery-modal');
+    if (m) {
+      if (src) document.getElementById('gallery-main-img').src = src;
+      if (title) document.getElementById('gallery-main-title').textContent = title;
+      if (desc) document.getElementById('gallery-main-desc').textContent = desc;
+      m.classList.remove('hidden');
+    }
+  }
+
   function toggleGalleryModal() {
     const m = document.getElementById('gallery-modal');
     const willOpen = m.classList.contains('hidden');
@@ -5639,6 +5663,8 @@
     applySteamingSpiritBuff,
     triggerFeedBreb,
     triggerBeepNose,
+    triggerInteract,
+    openGalleryArtwork,
     updateCamera,
     enterVolcanoTrial,
     exitVolcanoTrial,

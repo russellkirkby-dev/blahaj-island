@@ -3143,34 +3143,65 @@ window.BlahajWorld = (function () {
     group.add(astroGroup);
     animatedObjects.push({ mesh: astroGroup, type: 'spin_slow' });
 
-    const loader = new THREE.TextureLoader();
-    const featuredTapestries = [
-      'assets/gallery/Shark-Week-sunset.png',
-      'assets/gallery/Emergency-1.png',
-      'assets/gallery/repair-the-sky-seam.png',
-      'assets/gallery/Wedding-1.png',
-      'assets/gallery/Volcano-temple.png',
-      'assets/gallery/Spherical-Foods.png'
-    ];
-    featuredTapestries.forEach((imgUrl, idx) => {
-      const angle = (idx / featuredTapestries.length) * Math.PI * 2 + 0.3;
-      const frameGroup = new THREE.Group();
-      frameGroup.position.set(Math.cos(angle) * 6.8, 2.5, Math.sin(angle) * 6.8);
-      frameGroup.lookAt(52, y0 + 2.5, -48);
+    // 1. Ornate Brass Starlight Observatory Telescope (Pointing upward at night sky & sky seam)
+    const teleGroup = new THREE.Group();
+    teleGroup.position.set(0, 0.45, 5.0);
+    teleGroup.rotation.y = 0.35;
 
-      const border = new THREE.Mesh(new THREE.BoxGeometry(2.7, 3.3, 0.18), brassMat);
-      frameGroup.add(border);
+    for (let i = 0; i < 3; i++) {
+      const legAng = (i * Math.PI * 2) / 3;
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 2.6, 8), brassMat);
+      leg.position.set(Math.cos(legAng) * 0.7, 1.25, Math.sin(legAng) * 0.7);
+      leg.rotation.z = Math.cos(legAng) * 0.28;
+      leg.rotation.x = -Math.sin(legAng) * 0.28;
+      teleGroup.add(leg);
+    }
 
-      const tex = loader.load(imgUrl);
-      const canvasMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.4, 2.95),
-        new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
-      );
-      canvasMesh.position.z = 0.11;
-      frameGroup.add(canvasMesh);
+    const teleMount = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), brassMat);
+    teleMount.position.y = 2.4;
+    teleGroup.add(teleMount);
 
-      group.add(frameGroup);
-    });
+    const teleBarrel = new THREE.Group();
+    teleBarrel.position.set(0, 2.6, 0);
+    teleBarrel.rotation.x = -0.55; // Angled upward at 32 degrees toward the sky
+
+    const mainTube = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.16, 2.8, 16), brassMat);
+    mainTube.rotation.x = Math.PI / 2;
+    teleBarrel.add(mainTube);
+
+    const sunShade = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.22, 0.6, 16), brassMat);
+    sunShade.rotation.x = Math.PI / 2;
+    sunShade.position.z = 1.4;
+    teleBarrel.add(sunShade);
+
+    const lens = new THREE.Mesh(
+      new THREE.CircleGeometry(0.24, 16),
+      new THREE.MeshBasicMaterial({ color: 0x82e2ff, side: THREE.DoubleSide })
+    );
+    lens.position.z = 1.7;
+    teleBarrel.add(lens);
+
+    teleGroup.add(teleBarrel);
+    group.add(teleGroup);
+
+    // 2. Stone Reading Table with Glowing Celestial Star Map
+    const mapTable = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.85, 1.4), stoneMat);
+    mapTable.position.set(-4.5, 0.85, 0);
+    mapTable.rotation.y = 0.5;
+    group.add(mapTable);
+
+    const mapScroll = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.8, 1.0),
+      new THREE.MeshBasicMaterial({ color: 0xfff3d1, side: THREE.DoubleSide })
+    );
+    mapScroll.rotation.x = -Math.PI / 2;
+    mapScroll.position.set(-4.5, 1.29, 0);
+    mapScroll.rotation.z = 0.5;
+    group.add(mapScroll);
+
+    const lanternLight = new THREE.PointLight(0xffdf80, 1.2, 8);
+    lanternLight.position.set(-4.5, 1.6, 0);
+    group.add(lanternLight);
 
     const moonLight = new THREE.PointLight(0xc084fc, 2.0, 32);
     moonLight.position.set(0, 6.5, 0);

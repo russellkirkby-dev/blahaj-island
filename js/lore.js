@@ -236,7 +236,7 @@ window.BLAHAJ_LORE = {
       zoneTitle: 'Crust Cliffs · Observatory of Lost Constellations',
       pos: { x: 52, z: -48 },
       radius: 15,
-      prompt: 'View Sacred Blåhaj Tapestries [E]',
+      prompt: 'Look through Starlight Observatory Telescope [E] 🔭✨',
       type: 'library'
     },
     {
