@@ -141,6 +141,147 @@ window.BlahajLaundromat = (function () {
   // Sound & Event hooks
   let onCompleteHandler = null;
 
+  // Procedural Community Notice Board canvas texture generator
+  function createCorkboardTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 700;
+    const ctx = canvas.getContext('2d');
+
+    // 1. Natural cork stippled background
+    ctx.fillStyle = '#b3824f';
+    ctx.fillRect(0, 0, 1024, 700);
+
+    for (let i = 0; i < 4500; i++) {
+      const rx = Math.random() * 1024;
+      const ry = Math.random() * 700;
+      const rad = Math.random() * 2.8 + 0.6;
+      ctx.fillStyle = Math.random() > 0.45 ? 'rgba(110, 72, 38, 0.32)' : 'rgba(224, 186, 138, 0.38)';
+      ctx.beginPath();
+      ctx.arc(rx, ry, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Subtle dark border inner rim
+    ctx.strokeStyle = '#4a2c14';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, 1014, 690);
+
+    // Helper to draw realistic pinned notes with soft drop shadow and 3D pushpins
+    function drawNote(x, y, w, h, angle, bg, pinColor, title, lines) {
+      ctx.save();
+      ctx.translate(x + w / 2, y + h / 2);
+      ctx.rotate(angle);
+
+      // Drop shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 5;
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(-w / 2, -h / 2, w, h);
+      ctx.shadowColor = 'transparent';
+
+      // Title
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 20px "Courier New", monospace, sans-serif';
+      ctx.fillText(title, -w / 2 + 16, -h / 2 + 32);
+
+      // Lines
+      ctx.fillStyle = '#334155';
+      ctx.font = '15px "Segoe UI", Tahoma, sans-serif';
+      lines.forEach((l, idx) => {
+        ctx.fillText(l, -w / 2 + 16, -h / 2 + 60 + idx * 22);
+      });
+
+      // Pushpin
+      ctx.fillStyle = pinColor;
+      ctx.beginPath();
+      ctx.arc(0, -h / 2 + 12, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.beginPath();
+      ctx.arc(-2, -h / 2 + 10, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // Note 1: Sentimental Lost Sock (Top Left)
+    drawNote(40, 40, 290, 270, -0.04, '#fef08a', '#ef4444', 'LOST: ARGYLE SOCK', [
+      'Last seen spinning in',
+      'Commercial Dryer #4.',
+      'Extremely sentimental to',
+      'Hermes The Weary Guide.',
+      'REWARD: 2 Fresh Brebs!'
+    ]);
+
+    // Note 2: Cozy Laundromat Guidelines (Top Center)
+    drawNote(365, 42, 310, 275, 0.02, '#e0f2fe', '#0284c7', 'HOUSE GUIDELINES', [
+      '• 30°C Delicate for Plushies',
+      '• Sacred Biscuit Dunk: 3.5s MAX',
+      '• Please do not feed tokens',
+      '  to the local coastal Birbs',
+      '• Warm tea served 24/7'
+    ]);
+
+    // Note 3: Midnight Cart Racing League (Top Right)
+    drawNote(705, 45, 280, 270, 0.05, '#fce7f3', '#db2777', 'CART RACING LEAGUE', [
+      'Midnight Time Trials:',
+      'Track Loop: Aisle 1 & 2',
+      'Gentle rubber bumper',
+      'bumps only! No ramming!',
+      'Record: Turbo Fluff (14.2s)'
+    ]);
+
+    // Note 4: Pinned Polaroid Photo (Bottom Center)
+    ctx.save();
+    ctx.translate(450, 480);
+    ctx.rotate(-0.06);
+    ctx.shadowColor = 'rgba(0,0,0,0.38)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-120, -130, 240, 260);
+    ctx.shadowColor = 'transparent';
+
+    // Polaroid image area
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(-105, -115, 210, 185);
+
+    // Cute shark silhouette in photo
+    ctx.fillStyle = '#1d70b8';
+    ctx.beginPath();
+    ctx.ellipse(0, -20, 50, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.ellipse(0, -10, 40, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Polaroid caption
+    ctx.fillStyle = '#475569';
+    ctx.font = 'italic 16px "Brush Script MT", cursive, sans-serif';
+    ctx.fillText('First Day at Blahaj Laundromat ♥', -100, 105);
+
+    // Pushpin
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(0, -120, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.arc(-2, -122, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
   function createLinoleumTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -892,17 +1033,46 @@ window.BlahajLaundromat = (function () {
     vmGroup.add(vmMarquee);
     scn.add(vmGroup);
 
-    // Community Corkboard & Notices (X = +8.2, Z = +15.5)
+    // Community Corkboard & Notices (Mounted FLUSH against Right East Wall at X = 9.88, Z = +15.5)
     const cbGroup = new THREE.Group();
-    cbGroup.position.set(8.2, 2.3, 15.5);
-    cbGroup.rotation.y = -Math.PI / 2;
+    cbGroup.position.set(9.88, 2.4, 15.5);
+    cbGroup.rotation.y = -Math.PI / 2; // Facing West into room
 
-    const cbFrame = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 0.08), new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 }));
+    // Beveled pine wooden frame sitting flush on the wall wainscot
+    const cbFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 1.8, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x5a3418, roughness: 0.65 })
+    );
+    cbFrame.castShadow = true;
     cbGroup.add(cbFrame);
 
-    const cbCork = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.4), new THREE.MeshStandardMaterial({ color: 0xc49a6c, roughness: 0.9 }));
-    cbCork.position.z = 0.05;
+    // Detailed procedural cork canvas with warm stippled texture, colorful pinned notes & polaroid
+    const corkTex = createCorkboardTexture();
+    const cbCork = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.42, 1.62),
+      new THREE.MeshStandardMaterial({
+        map: corkTex,
+        roughness: 0.88,
+        metalness: 0.05
+      })
+    );
+    cbCork.position.z = 0.045;
     cbGroup.add(cbCork);
+
+    // Overhead Brass Picture Sconce illuminating the notice board
+    const cbSconceArm = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.40, 8), brassMat);
+    cbSconceArm.rotation.x = Math.PI / 2;
+    cbSconceArm.position.set(0, 1.8 / 2 + 0.12, 0.20);
+    cbGroup.add(cbSconceArm);
+
+    const cbSconceShade = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.10, 0.18), brassMat);
+    cbSconceShade.position.set(0, 1.8 / 2 + 0.15, 0.38);
+    cbGroup.add(cbSconceShade);
+
+    const cbSconceLight = new THREE.PointLight(0xfff1cf, 0.95, 4.2, 1.8);
+    cbSconceLight.position.set(0, 1.8 / 2 + 0.08, 0.40);
+    cbGroup.add(cbSconceLight);
+
     scn.add(cbGroup);
 
     // 11. ROLLING WIRE LAUNDRY CARTS (Controllable Racers!)
@@ -1671,7 +1841,7 @@ window.BlahajLaundromat = (function () {
     }
   }
 
-  // Furniture obstacles with exact bounds for smooth AABB sliding collision
+  // Furniture & Appliance obstacles with exact bounds for smooth sliding & bouncy bumper collision
   const FURNITURE_OBSTACLES = [
     // Table 1 (Back)
     { minX: -1.6, maxX: 1.6, minZ: -10.0, maxZ: -8.0, topY: 1.25 },
@@ -1685,7 +1855,13 @@ window.BlahajLaundromat = (function () {
     { minX: -1.6, maxX: 1.6, minZ: 8.0, maxZ: 10.0, topY: 1.25 },
     // Master Washer Cabinet Flanking Left & Right (outside door opening)
     { minX: -2.4, maxX: -1.2, minZ: -18.6, maxZ: -15.0, topY: 4.2 },
-    { minX: 1.2, maxX: 2.4, minZ: -18.6, maxZ: -15.0, topY: 4.2 }
+    { minX: 1.2, maxX: 2.4, minZ: -18.6, maxZ: -15.0, topY: 4.2 },
+    // Commercial Front-Load Washers (West Wall: X = -8.85, width 1.9 -> inner face at X = -7.90)
+    { minX: -9.85, maxX: -7.90, minZ: -17.0, maxZ: 11.0, topY: 2.3 },
+    // Commercial Tumble Dryers (East Wall: X = +8.85, width 1.9 -> inner face at X = +7.90)
+    { minX: 7.90, maxX: 9.85, minZ: -17.0, maxZ: 11.0, topY: 2.3 },
+    // Front Token Change & Snack Vending Machines (West Wall entrance: X: -9.0 to -7.4)
+    { minX: -9.0, maxX: -7.40, minZ: 11.5, maxZ: 17.2, topY: 3.2 }
   ];
 
   function getFloorHeight(x, z, y = 0) {
@@ -1845,6 +2021,16 @@ window.BlahajLaundromat = (function () {
         kind: 'laundromat_return',
         dist: dPortal,
         prompt: 'Return through Portal to Blåhaj Island [E] 🌀'
+      });
+    }
+
+    // 4.5. Community Corkboard & Notices (Front East Wall)
+    const dBoard = Math.hypot(p.x - 9.88, p.z - 15.5);
+    if (dBoard < 3.2) {
+      out.push({
+        kind: 'laundromat_notice_board',
+        dist: dBoard,
+        prompt: 'Read Laundromat Community Corkboard [E] 📌'
       });
     }
 

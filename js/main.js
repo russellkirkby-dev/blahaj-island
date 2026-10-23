@@ -2569,6 +2569,12 @@
       triggerLaundromatSpinCycle();
       return;
     }
+    if (item.kind === 'laundromat_notice_board') {
+      CozyAudio.playTone(520, 0.08, 'sine', 0.12, 740);
+      showToast('COMMUNITY NOTICE BOARD 📌', '“Lost: One sentimental Argyle Sock in Dryer #4. Reward: 2 Scented Brebs!” • “Sacred Biscuit Dunk: 3.5s max.”');
+      addChatLog('📌 Pinned on the Laundromat Corkboard: <em>“Lost: One sentimental Argyle Sock in Dryer #4 (return to Hermes). Guidelines: 30°C delicate cycle for plushies! Cart Racing League: Clean drifts only in Aisle 2!”</em>', 'cozy');
+      return;
+    }
     if (item.kind === 'laundromat_vending') {
       CozyAudio.coinDrop();
       player.warmth = 100;
@@ -4808,17 +4814,43 @@
           window.BlahajLaundromat.updateOccupiedCart(dt, keys);
           const occ = window.BlahajLaundromat.getOccupiedCart();
           if (occ) {
-            player.pos.set(occ.pos.x, 0.38, occ.pos.z);
+            const bounceHopY = Math.abs(Math.sin(occ.bounceSpring * Math.PI)) * 0.05;
+            player.pos.set(occ.pos.x, 0.38 + bounceHopY, occ.pos.z);
             player.rotY = occ.rotY;
             if (player.mesh) {
-              player.mesh.position.copy(player.pos);
-              player.mesh.rotation.y = player.rotY;
+              player.mesh.position.set(occ.pos.x, 0.38 + bounceHopY, occ.pos.z);
+              player.mesh.rotation.order = 'XYZ';
+              player.mesh.rotation.set(
+                occ.bouncePitch * 0.65,
+                occ.rotY,
+                occ.rollAngle + occ.bounceRoll * 0.65
+              );
             }
             if (Math.abs(occ.speed) > 0.4 && CozyAudio.cartRoll) {
               CozyAudio.cartRoll();
             }
           }
           return;
+        }
+
+        // --- CAT / SHARKITTY ON-FOOT BOUNCY COLLISION PHYSICS ---
+        // Decay cat bouncy recoil impulses, spring tilt, and hop
+        player.laundromatBounceVx = (player.laundromatBounceVx || 0) * Math.max(0, 1.0 - dt * 8.0);
+        player.laundromatBounceVz = (player.laundromatBounceVz || 0) * Math.max(0, 1.0 - dt * 8.0);
+        player.laundromatBounceHop = Math.max(0, (player.laundromatBounceHop || 0) - dt * 7.0);
+        player.laundromatBouncePitch = (player.laundromatBouncePitch || 0) * Math.max(0, 1.0 - dt * 9.0);
+
+        // Apply active bounce recoil to player position
+        if (Math.abs(player.laundromatBounceVx) > 0.05 || Math.abs(player.laundromatBounceVz) > 0.05) {
+          const rawBounceNext = {
+            x: player.pos.x + player.laundromatBounceVx * dt,
+            z: player.pos.z + player.laundromatBounceVz * dt
+          };
+          const bResolved = window.BlahajLaundromat.resolveMove(player.pos, rawBounceNext, player.isGrounded, 0.35);
+          if (bResolved) {
+            player.pos.x = bResolved.x;
+            player.pos.z = bResolved.z;
+          }
         }
 
         if (isMoving) {
@@ -4830,14 +4862,43 @@
           const dirX = fwdX * moveForward + rightX * moveRight;
           const dirZ = fwdZ * moveForward + rightZ * moveRight;
           const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDirX = dirX / len;
+          const normDirZ = dirZ / len;
 
           const rawNext = {
-            x: player.pos.x + (dirX / len) * speed * dt,
-            z: player.pos.z + (dirZ / len) * speed * dt
+            x: player.pos.x + normDirX * speed * dt,
+            z: player.pos.z + normDirZ * speed * dt
           };
 
-          const resolved = window.BlahajLaundromat.resolveMove(player.pos, rawNext, player.isGrounded);
+          const resolved = window.BlahajLaundromat.resolveMove(player.pos, rawNext, player.isGrounded, 0.35);
           if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
+            const blockedX = Math.abs(resolved.x - rawNext.x) > 0.005;
+            const blockedZ = Math.abs(resolved.z - rawNext.z) > 0.005;
+
+            // Gentle cartoon bumper bounce when cat runs into washing machines, dryers, tables, chairs or walls!
+            if ((blockedX || blockedZ) && speed > 2.2) {
+              const bounceSpeed = Math.min(4.2, speed * 0.48);
+              if (blockedX) {
+                player.laundromatBounceVx = -Math.sign(normDirX) * bounceSpeed;
+              }
+              if (blockedZ) {
+                player.laundromatBounceVz = -Math.sign(normDirZ) * bounceSpeed;
+              }
+              player.laundromatBounceHop = 1.0;
+              player.laundromatBouncePitch = -0.22;
+              player.velY = Math.max(player.velY, 2.8); // Playful plush hop
+
+              if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
+                window.CozyAudio.cartBump(speed * 0.45);
+              }
+
+              if (window.BlahajLaundromat && typeof window.BlahajLaundromat.spawnCartBumpParticles === 'function') {
+                const px = blockedX ? resolved.x + Math.sign(normDirX) * 0.35 : resolved.x;
+                const pz = blockedZ ? resolved.z + Math.sign(normDirZ) * 0.35 : resolved.z;
+                window.BlahajLaundromat.spawnCartBumpParticles({ x: px, y: player.pos.y + 0.45, z: pz }, 0x93c5fd, 9);
+              }
+            }
+
             player.pos.x = resolved.x;
             player.pos.z = resolved.z;
           }
@@ -5089,7 +5150,14 @@
     }
 
     if (player.mesh) {
-      player.mesh.position.copy(player.pos);
+      if (currentZone === 'laundromat' && !player.inCart) {
+        const catHopY = player.laundromatBounceHop ? Math.abs(Math.sin(player.laundromatBounceHop * Math.PI)) * 0.08 : 0;
+        player.mesh.position.set(player.pos.x, player.pos.y + catHopY, player.pos.z);
+        player.mesh.rotation.order = 'XYZ';
+        player.mesh.rotation.set(player.laundromatBouncePitch || 0, player.rotY, 0);
+      } else {
+        player.mesh.position.copy(player.pos);
+      }
       if (player.inBoat) {
         const boat = worldApi.getBoatMesh();
         if (boat) {
