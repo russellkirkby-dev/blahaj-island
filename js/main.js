@@ -245,6 +245,10 @@
     trapHit() {
       this.playTone(160, 0.32, 'sawtooth', 0.16, 65);
     },
+    groomBrush() {
+      this.playTone(540, 0.14, 'triangle', 0.12, 880);
+      setTimeout(() => this.playTone(880, 0.16, 'sine', 0.10, 660), 75);
+    },
     teaPour() {
       [440, 554.37, 659.25, 880].forEach((f, i) => {
         setTimeout(() => this.playTone(f, 0.28, 'sine', 0.1), i * 75);
@@ -334,10 +338,33 @@
         hudLabel.textContent = formatMangeLabel(pct);
       }
 
+      // Sync Character Sheet if open
+      const csSlider = document.getElementById('cs-mange-slider');
+      const csValText = document.getElementById('cs-mange-val-text');
+      if (csSlider && csValText && typeof selectedCSShark !== 'undefined' && selectedCSShark === sharkId) {
+        const pct = Math.round(val * 100);
+        csSlider.value = pct;
+        csValText.textContent = formatMangeLabel(pct);
+      }
+
       if (window.BlahajNetwork) {
         window.BlahajNetwork.send({ type: 'mange_sync', mange: val });
       }
     }
+  }
+
+  function adjustSharkMange(sharkId, delta, reason = '') {
+    const cur = getSharkMange(sharkId);
+    const next = Math.max(0.0, Math.min(1.0, cur + delta));
+    if (Math.abs(next - cur) >= 0.004) {
+      setSharkMange(sharkId, next);
+      if (player.sharkId === sharkId && reason) {
+        const isHeal = delta < 0;
+        const color = isHeal ? 0x77eeff : 0xd88866;
+        spawnFloatingBurst(player.pos, color, isHeal ? 16 : 10);
+      }
+    }
+    return next;
   }
 
   function getSharkAccessories(sharkId) {
@@ -1943,8 +1970,9 @@
     } else if (player.sharkId === 'nimue') {
       spawnFloatingBurst(player.pos, 0xc299ff, 14);
       mendNearbyRift(18);
-      showToast('NEEDLE OF RESTORATION', 'Nimue weaves starlight from the Lantern of Forgotten Stars!');
-      addChatLog('🪡 <strong>Nimue</strong> draws the Thread of Destiny across the twilight air.', 'system');
+      const mended = adjustSharkMange(player.sharkId, -0.15, 'Needle of Restoration');
+      showToast('NEEDLE OF RESTORATION 🪡', `Nimue stitches loose seams & grooms fleece! (-15% Mange · Now ${Math.round(mended * 100)}%)`);
+      addChatLog(`🪡 <strong>Nimue</strong> draws the Golden Needle, mending frayed seams (Mange: ${Math.round(mended * 100)}%).`, 'system');
     }
 
     window.BlahajNetwork.send({ type: 'emote', kind: 'ability', sharkId: player.sharkId });
@@ -2120,8 +2148,13 @@
     player.warmth = Math.max(0, player.warmth - dmg);
     updateMetersUI();
 
-    showToast(`TRAP STRUCK! (-${dmg}% COHERENCE)`, `${trapName}! Soft stuffing loosened!`);
-    addChatLog(`💥 Struck by <strong>${trapName}</strong> (-${dmg}% Stuffing Coherence). Respawning at checkpoint...`, 'danger');
+    // DYNAMIC MANGE DEGRADATION: Traps and molten lava singe seams and loosen stuffing!
+    const mangeIncrease = (trapName === 'Molten Lava Sea') ? 0.12 : 0.08;
+    const nextMange = adjustSharkMange(player.sharkId, mangeIncrease, trapName);
+    const mangePct = Math.round(nextMange * 100);
+
+    showToast(`TRAP STRUCK! (-${dmg}% COHERENCE)`, `${trapName}! Soft stuffing loosened! (+${Math.round(mangeIncrease * 100)}% Mange)`);
+    addChatLog(`💥 Struck by <strong>${trapName}</strong> (-${dmg}% Stuffing Coherence, Mange: ${mangePct}%). Respawning at checkpoint...`, 'danger');
 
     setTimeout(() => {
       player.pos.set(volcanoCheckpoint.x, volcanoCheckpoint.y, volcanoCheckpoint.z);
@@ -2415,11 +2448,12 @@
               player.stuffing = 100;
               player.trialPoints = (player.trialPoints || 0) + 1;
               player.teaSharedCount = (player.teaSharedCount || 0) + 1;
+              const cleaned = adjustSharkMange(player.sharkId, -0.20, 'Altar Blessing');
               updateMetersUI();
               CozyAudio.portalChime();
               spawnFloatingBurst(player.pos, 0xff7722, 26);
-              showToast('VOLCANO BLESSING GRANTED 🌋✨', 'Sacred offering placed upon the Altar! (+1 Trial Point · Tea Comfort Steaming)');
-              addChatLog('🌋 <strong>The Exoteric Volcano Shrine:</strong> You placed a sacred offering upon the Altar of the Core. The mountain rumbles with warm benevolence! (+1 Trial Point · Comfort Restored)', 'lore');
+              showToast('VOLCANO BLESSING GRANTED 🌋✨', `Sacred offering placed upon the Altar! (+1 Trial Point · Fleece Cleansed to ${Math.round(cleaned * 100)}%)`);
+              addChatLog(`🌋 <strong>The Exoteric Volcano Shrine:</strong> You placed a sacred offering upon the Altar of the Core. The mountain rumbles with warm benevolence! (+1 Trial Point · Coat Restored to ${Math.round(cleaned * 100)}%)`, 'lore');
             }
           },
           {
@@ -2580,6 +2614,7 @@
       player.teaComfort = 100;
       player.warmth = 100;
       player.teaSharedCount++;
+      const cleaned = adjustSharkMange(player.sharkId, -0.25, 'Tea House Bath');
       updateMetersUI();
       completeQuest('q-tea');
       completeQuest('q-em-biscuit');
@@ -2587,13 +2622,24 @@
         speaker: 'The Sacred Tea House',
         role: 'TEMPLE OF THE EVER-BOILING KETTLE',
         portrait: 'assets/gallery/Emergency-1.png',
-        text: 'The Golden Teapot steams gently beside the Eternal Biscuit Tin. You pour a fresh cup of Earl Grey of Enlightenment—and rescue the Biscuit of Impossible Dunking right at the safe dunking interval!',
+        text: `The Golden Teapot steams gently beside the Eternal Biscuit Tin. The warm herbal bath cleanses your plush coat and fluffs your seams (Mange reduced to ${Math.round(cleaned * 100)}%)! You pour a fresh cup of Earl Grey of Enlightenment—and rescue the Biscuit of Impossible Dunking right at the safe dunking interval!`,
         actions: [
           {
             label: 'Sip Steaming Tea (+100% Comfort & 5m Steaming Spirit Buff) 🍵',
             className: 'btn-primary',
             onClick: () => {
               applySteamingSpiritBuff();
+              closeDialogueModal();
+            }
+          },
+          {
+            label: 'Deep Groom & Brush Plush Coat (-20% Mange) 🪮',
+            className: 'btn-secondary',
+            onClick: () => {
+              CozyAudio.groomBrush();
+              const next = adjustSharkMange(player.sharkId, -0.20, 'Deep Grooming');
+              showToast('TEA HOUSE PLUSH GROOMING 🪮', `Fleece groomed and fluffed! (Mange: ${Math.round(next * 100)}%)`);
+              addChatLog(`🪮 Deep grooming at the Tea House brushed out loose threads and restored ${LORE.sharks[player.sharkId].name}'s coat (Mange: ${Math.round(next * 100)}%).`, 'success');
               closeDialogueModal();
             }
           }
@@ -2748,8 +2794,8 @@
     if (unitFrame) {
       unitFrame.style.cursor = 'pointer';
       unitFrame.addEventListener('click', (e) => {
-        // Do not trigger if clicking on the mange slider directly
-        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range'))) {
+        // Do not trigger if clicking on the mange slider or groom button directly
+        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range') || e.target.closest('#btn-groom-hud'))) {
           return;
         }
         openCharacterSheet(player.sharkId);
@@ -2796,6 +2842,21 @@
         const pct = parseFloat(e.target.value);
         setSharkMange(selectedCSShark, pct / 100);
         csMangeValText.textContent = formatMangeLabel(pct);
+      });
+    }
+
+    // Groom Plush Button inside Character Sheet
+    const btnCsGroom = document.getElementById('btn-cs-groom');
+    if (btnCsGroom) {
+      btnCsGroom.addEventListener('click', () => {
+        CozyAudio.groomBrush();
+        const targetShark = selectedCSShark || player.sharkId;
+        const next = adjustSharkMange(targetShark, -0.20, 'Plush Grooming');
+        const pct = Math.round(next * 100);
+        if (csMangeSlider) csMangeSlider.value = pct;
+        if (csMangeValText) csMangeValText.textContent = formatMangeLabel(pct);
+        showToast('PLUSH GROOMED 🪮', `Groomed and fluffed ${LORE.sharks[targetShark].name}'s coat! (Mange: ${pct}%)`);
+        addChatLog(`🪮 You groomed <strong>${LORE.sharks[targetShark].name}</strong>'s coat with a soft bristle brush (-20% Mange).`, 'info');
       });
     }
 
@@ -2861,6 +2922,17 @@
           if (csMangeSlider) csMangeSlider.value = pct;
           if (csMangeValText) csMangeValText.textContent = formatMangeLabel(pct);
         }
+      });
+    }
+
+    const btnGroomHud = document.getElementById('btn-groom-hud');
+    if (btnGroomHud) {
+      btnGroomHud.addEventListener('click', (e) => {
+        e.stopPropagation();
+        CozyAudio.groomBrush();
+        const next = adjustSharkMange(player.sharkId, -0.20, 'Plush Grooming');
+        showToast('PLUSH GROOMED 🪮', `Brushed and fluffed ${LORE.sharks[player.sharkId].name}'s coat! (Mange: ${Math.round(next * 100)}%)`);
+        addChatLog(`🪮 You groomed <strong>${LORE.sharks[player.sharkId].name}</strong>'s coat with a soft bristle brush (-20% Mange).`, 'info');
       });
     }
 
@@ -3916,6 +3988,11 @@
             player.velY -= 24.0 * dt;
             player.pos.y += player.velY * dt;
             if (player.pos.y <= floorY) {
+              if (player.velY < -15.0) {
+                const impactMange = Math.min(0.06, (-player.velY - 15.0) * 0.0035);
+                adjustSharkMange(player.sharkId, impactMange, 'Hard Fall');
+                spawnFloatingBurst(player.pos, 0xd0c4b8, 10);
+              }
               player.pos.y = floorY;
               player.velY = 0;
               player.isGrounded = true;
@@ -4070,6 +4147,17 @@
               spawnUnderwaterBubbles(player.pos, 2);
             }
 
+            // Marine Bathing / Ocean Saltwater Cleanse:
+            // Swimming in the clean ocean washes away soot & scuffs!
+            player.swimCleanseTimer = (player.swimCleanseTimer || 0) + dt;
+            if (player.swimCleanseTimer >= 10.0 && (!player.lastSwimCleanseTime || elapsed - player.lastSwimCleanseTime > 45.0)) {
+              player.lastSwimCleanseTime = elapsed;
+              const cleaned = adjustSharkMange(player.sharkId, -0.05, 'Ocean Bath');
+              CozyAudio.waterSplash(0.12, 0.35);
+              showToast('SALTWATER OCEAN CLEANSE 🌊', `Swimming in the clean sea washed away soot and groomed your fleece! (-5% Mange · Now ${Math.round(cleaned * 100)}%)`);
+              addChatLog(`🌊 Clean ocean waves refreshed <strong>${LORE.sharks[player.sharkId].name}</strong>'s fleece (Mange: ${Math.round(cleaned * 100)}%).`, 'success');
+            }
+
             // Check Pelagic Current (edge of charted deep ocean shelf)
             const dCoast = (worldApi && typeof worldApi.getDistanceToNearestCoast === 'function')
               ? worldApi.getDistanceToNearestCoast(player.pos.x, player.pos.z)
@@ -4094,6 +4182,11 @@
               player.velY -= 22.0 * dt;
               player.pos.y += player.velY * dt;
               if (player.pos.y <= groundY) {
+                if (player.velY < -15.0) {
+                  const impactMange = Math.min(0.06, (-player.velY - 15.0) * 0.0035);
+                  adjustSharkMange(player.sharkId, impactMange, 'Hard Fall');
+                  spawnFloatingBurst(player.pos, 0xd0c4b8, 10);
+                }
                 player.pos.y = groundY;
                 player.velY = 0;
                 player.isGrounded = true;
@@ -4115,6 +4208,17 @@
           }
         }
       }
+    }
+
+    // Gradual exploration wear-and-tear: active adventure gently scuffs plush coat over time
+    if (isMoving && !player.inBoat && player.teaBuffTimer <= 0) {
+      player.wearTimer = (player.wearTimer || 0) + dt;
+      if (player.wearTimer >= 150.0) {
+        player.wearTimer = 0;
+        adjustSharkMange(player.sharkId, 0.01, 'Wear & Tear');
+      }
+    } else if (!isMoving) {
+      player.wearTimer = Math.max(0, (player.wearTimer || 0) - dt * 0.5);
     }
 
     if (player.unlockedUpgrades.has('kevlar_stitching') && player.warmth < 100) {
@@ -4747,7 +4851,12 @@
     triggerBeepNose,
     updateCamera,
     enterVolcanoTrial,
-    exitVolcanoTrial
+    exitVolcanoTrial,
+    adjustSharkMange,
+    setSharkMange,
+    getSharkMange,
+    handleVolcanoTrapHit,
+    triggerSignatureAbility
   };
 
   window.addEventListener('DOMContentLoaded', init);

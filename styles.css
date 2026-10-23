@@ -387,6 +387,39 @@ body, html {
   cursor: pointer;
 }
 
+.btn-groom-hud {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: linear-gradient(180deg, rgba(82, 242, 156, 0.22) 0%, rgba(34, 197, 94, 0.14) 100%);
+  border: 1px solid rgba(82, 242, 156, 0.45);
+  border-radius: 6px;
+  color: #a7f3d0;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.btn-groom-hud:hover {
+  background: linear-gradient(180deg, rgba(82, 242, 156, 0.38) 0%, rgba(34, 197, 94, 0.26) 100%);
+  border-color: #52f29c;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(82, 242, 156, 0.3);
+}
+
+.btn-groom-hud:active {
+  transform: translateY(0);
+}
+
 /* Party / Co-op Frame */
 .party-frame {
   display: flex;
@@ -2378,6 +2411,36 @@ body.has-volcano-notice #toast-banner {
   color: var(--parchment-muted);
   line-height: 1.3;
   margin-top: 4px;
+}
+
+.btn-groom-cs {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(82, 242, 156, 0.22) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border: 1px solid rgba(82, 242, 156, 0.45);
+  border-radius: 7px;
+  color: #a7f3d0;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.16s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.btn-groom-cs:hover {
+  background: linear-gradient(180deg, rgba(82, 242, 156, 0.38) 0%, rgba(34, 197, 94, 0.26) 100%);
+  border-color: #52f29c;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(82, 242, 156, 0.25);
+}
+
+.btn-groom-cs:active {
+  transform: translateY(0);
 }
 
 .cs-accessories-toggles {
