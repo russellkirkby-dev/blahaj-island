@@ -249,6 +249,15 @@
       this.playTone(540, 0.14, 'triangle', 0.12, 880);
       setTimeout(() => this.playTone(880, 0.16, 'sine', 0.10, 660), 75);
     },
+    coinDrop() {
+      this.playTone(880, 0.08, 'sine', 0.14, 1320);
+      setTimeout(() => this.playTone(1320, 0.12, 'triangle', 0.16, 660), 65);
+    },
+    laundromatDing() {
+      [1046.5, 2093.0].forEach((f, i) => {
+        setTimeout(() => this.playTone(f, 0.75, 'sine', 0.18), i * 30);
+      });
+    },
     teaPour() {
       [440, 554.37, 659.25, 880].forEach((f, i) => {
         setTimeout(() => this.playTone(f, 0.28, 'sine', 0.1), i * 75);
@@ -326,7 +335,7 @@
       player.mesh = window.BlahajModels.createPlushShark(cfg, val, acc);
       player.mesh.position.copy(player.pos);
       player.mesh.rotation.y = player.rotY;
-      const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+      const activeScene = getActiveScene();
       activeScene.add(player.mesh);
 
       // Sync HUD slider
@@ -614,6 +623,8 @@
     trapCooldown: 0,
     dungeonPortalCooldown: 0,
     teaBuffTimer: 0,
+    launderedBuffTimer: 0,
+    launderedShieldHits: 0,
     lastNoseBeepTime: 0,
     lastSharedTeaTime: 0
   };
@@ -633,11 +644,21 @@
   // Sanctuary Island Claims (Synced across Co-op)
   const islandClaims = JSON.parse(localStorage.getItem('blahaj_island_claims_v1') || '{}');
 
-  // Volcano Instance State
-  let currentZone = 'island'; // 'island' | 'volcano'
+  // Instance & Dimension State
+  let currentZone = 'island'; // 'island' | 'volcano' | 'laundromat'
   let volcanoCheckpoint = { x: 0, y: 0, z: -2, rotY: Math.PI };
   let isTransitioningZone = false;
   let lastNearestInteractableKey = null;
+
+  function getActiveScene() {
+    if (currentZone === 'volcano' && window.BlahajVolcano) {
+      return window.BlahajVolcano.getScene();
+    }
+    if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+      return window.BlahajLaundromat.getScene();
+    }
+    return scene;
+  }
 
   function saveBuiltStructuresToStorage() {
     if (!worldApi) return;
@@ -843,7 +864,7 @@
     player.mesh = window.BlahajModels.createPlushShark(cfg, individualMange, individualAcc);
     player.mesh.position.copy(player.pos);
     player.mesh.rotation.y = player.rotY;
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     activeScene.add(player.mesh);
 
     updateBlueSharkVisibility();
@@ -1000,7 +1021,7 @@
   }
 
   function spawnFloatingBurst(originPos, colorHex = 0xff7eb6, count = 7) {
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(
         new THREE.OctahedronGeometry(0.18, 0),
@@ -1021,7 +1042,7 @@
   }
 
   function spawnUnderwaterBubbles(originPos, count = 4) {
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     for (let i = 0; i < count; i++) {
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.12 + Math.random() * 0.08, 6, 6),
@@ -1259,7 +1280,8 @@
             player.mesh.userData.flipTimer = 0.28;
           }
         } else if (player.isGrounded || player.coyoteTimer > 0) {
-          const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
+          const launderedSpring = (player.launderedBuffTimer > 0) ? 1.25 : 1.0;
+          const jumpBoost = (player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0) * launderedSpring;
           player.velY = 8.8 * jumpBoost;
           player.isGrounded = false;
           player.coyoteTimer = 0;
@@ -1273,7 +1295,8 @@
           // Double jump: mid-air tail swish / plush flutter!
           player.doubleJumped = true;
           player.canDoubleJump = false;
-          const jumpBoost = player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0;
+          const launderedSpring = (player.launderedBuffTimer > 0) ? 1.25 : 1.0;
+          const jumpBoost = (player.unlockedUpgrades.has('super_plush_hop') ? 1.45 : 1.0) * launderedSpring;
           player.velY = 8.4 * jumpBoost;
           CozyAudio.shonk();
           CozyAudio.bounceBoing();
@@ -2137,8 +2160,170 @@
     }, 90);
   }
 
+  function enterLaundromat() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'The Midnight Liminal Laundromat';
+    subEl.textContent = 'Folding cosmic space to the 24/7 coin-op between worlds… 🌙🫧';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(async () => {
+          currentZone = 'laundromat';
+          if (window.BlahajLaundromat) {
+            await window.BlahajLaundromat.build();
+            window.BlahajLaundromat.setActive(true);
+            const start = window.BlahajLaundromat.getStart();
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajLaundromat.getScene().add(player.mesh);
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+          camState.yaw = 0;
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('THE MIDNIGHT LAUNDROMAT 🧺🌙', 'Delicate Cycle · Open 24/7. Step inside Giant Washer #7 [E]!');
+          addChatLog('🧺 Stepped inside <strong>The Midnight Cosmic Laundromat</strong>. Fluorescent tubes hum softly over seafoam linoleum.', 'lore');
+          updateCoopPartnerVisibility();
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'laundromat'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function exitLaundromat() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'Returning to Blåhaj Island';
+    subEl.textContent = 'Stepping through the soap-bubble vortex back to East Cape… 🫧';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (window.BlahajLaundromat) {
+            window.BlahajLaundromat.setActive(false);
+          }
+
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+
+          const spawnX = 58.0;
+          const spawnZ = -10.0;
+          const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
+          player.pos.set(spawnX, sy, spawnZ);
+          player.rotY = -Math.PI / 2;
+          camState.yaw = -Math.PI / 2;
+
+          if (player.mesh) {
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('RETURNED TO BLÅHAJ ISLAND', 'Emerged outside the Great Portal Gate on East Cape!');
+          updateCoopPartnerVisibility();
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'island'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
+  function triggerLaundromatSpinCycle() {
+    if (!window.BlahajLaundromat || window.BlahajLaundromat.isSpinCycleActive()) return;
+
+    // Hop shark right inside the drum
+    player.pos.set(0, 0.45, -6.2);
+    if (player.mesh) {
+      player.mesh.position.copy(player.pos);
+    }
+    showToast('SPIN CYCLE COMMENCED! 🫧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
+    addChatLog('🌀 <strong>Giant Master Washer #7</strong> started! Soapy suds swirl around you.', 'cozy');
+
+    window.BlahajLaundromat.startSpinCycle(player, () => {
+      // Upon cycle completion:
+      // 1. Reduce Mange factor by -50% (or down to mint condition 0%)
+      const nextMange = adjustSharkMange(player.sharkId, -0.50, 'Master Washer #7 Spin Cycle');
+      const mangePct = Math.round(nextMange * 100);
+
+      // 2. Max warmth & coherence
+      player.warmth = 100;
+      updateMetersUI();
+
+      // 3. Grant "Freshly Laundered & Tumble-Fluffed" Buff
+      player.launderedBuffTimer = 600.0; // 10 minutes
+      player.launderedShieldHits = 2; // 2 trap hits absorbed
+
+      spawnFloatingBurst(player.pos, 0x82e2ff, 25);
+      showToast('✨ FRESHLY LAUNDERED & TUMBLE-FLUFFED! ✨', `Mange reduced to ${mangePct}%! +25% Jump Springiness & 2-Hit Shield (10m)`);
+      addChatLog(`✨ DING! Cycle complete! Emerged fresh and scented. Mange: <strong>${mangePct}%</strong>. +25% Jump & 2-Hit Shield active!`, 'lore');
+    });
+  }
+
   function handleVolcanoTrapHit(trapName) {
     if (player.trapCooldown > 0) return;
+
+    // Freshly Laundered Shield: Absorbs up to 2 trap strikes without fluff damage!
+    if (player.launderedShieldHits > 0) {
+      player.launderedShieldHits--;
+      player.trapCooldown = 1.2;
+      CozyAudio.bounceBoing();
+      spawnFloatingBurst(player.pos, 0x82e2ff, 18);
+      showToast('SHIELD ABSORBED TRAP! 🫧🛡️', `Freshly Laundered fluff cushion absorbed ${trapName}! (${player.launderedShieldHits} shield hit${player.launderedShieldHits === 1 ? '' : 's'} remain)`);
+      addChatLog(`🛡️ Your freshly fluffed coat absorbed the strike from <strong>${trapName}</strong> without unraveling!`, 'cozy');
+      return;
+    }
+
     player.trapCooldown = 1.8;
     CozyAudio.trapHit();
     spawnFloatingBurst(player.pos, 0xff4500, 18);
@@ -2192,6 +2377,26 @@
     if (item.kind === 'v_tea') {
       applySteamingSpiritBuff();
       player.teaSharedCount++;
+      return;
+    }
+
+    // Laundromat Instance specific interactables
+    if (item.kind === 'washer_start' || item.kind === 'washer_enter') {
+      triggerLaundromatSpinCycle();
+      return;
+    }
+    if (item.kind === 'laundromat_vending') {
+      CozyAudio.coinDrop();
+      player.warmth = 100;
+      player.teaComfort = 100;
+      updateMetersUI();
+      spawnFloatingBurst(player.pos, 0xff7eb6, 12);
+      showToast('VENDING MACHINE 🌸🍫', 'Dispensed a warm Lavender Soda & Fresh Scented Breb!');
+      addChatLog('🍫 Purchased warm Lavender Soda from the 24/7 Laundromat Vending Machine.', 'cozy');
+      return;
+    }
+    if (item.kind === 'laundromat_return') {
+      exitLaundromat();
       return;
     }
 
@@ -2560,6 +2765,14 @@
         text: 'The Great Portal Gate links Los Angeles and New Zealand across the Great Seam—and also folds space directly out to the 4 Outer Buildable Sanctuary Islands surrounding Blåhaj Island!',
         actions: [
           {
+            label: '🌙 The Midnight Cosmic Laundromat 🧺🫧',
+            className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              enterLaundromat();
+            }
+          },
+          {
             label: 'East Island: Hermes’ Starlight Atoll 🌀',
             className: 'btn-primary',
             onClick: () => {
@@ -2716,6 +2929,14 @@
         portrait: 'assets/gallery/Whirlings.png',
         text: '“Not of the sea, but of change. You will emerge softer, wiser, more yourself.” Under the vigilant gaze of the Pink Guard, the warm cycle purges every fabric snag and restores your plush density!',
         actions: [
+          {
+            label: 'Enter Midnight Laundromat (Mega Washer #7) 🧺🫧',
+            className: 'btn-accent',
+            onClick: () => {
+              closeDialogueModal();
+              enterLaundromat();
+            }
+          },
           {
             label: 'Trust the Spin ✨ (100% Stuffing Coherence)',
             className: 'btn-primary',
@@ -3741,7 +3962,7 @@
         coopPartner.labelEl.style.opacity = '0';
       }
     }
-    const currentScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const currentScene = getActiveScene();
     if (coopPartner.mesh.parent !== currentScene) {
       if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
       currentScene.add(coopPartner.mesh);
@@ -3761,7 +3982,7 @@
     coopPartner.mesh = window.BlahajModels.createPlushShark(cfg, mVal);
     coopPartner.mesh.position.copy(coopPartner.targetPos);
     
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     activeScene.add(coopPartner.mesh);
 
     if (!coopPartner.labelEl) {
@@ -3815,7 +4036,7 @@
 
   function updatePlayerShadow() {
     if (!playerShadow) playerShadow = createPlayerShadow();
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     if (playerShadow.parent !== activeScene) {
       if (playerShadow.parent) playerShadow.parent.remove(playerShadow);
       activeScene.add(playerShadow);
@@ -3829,6 +4050,8 @@
     let floorY = -9999;
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+      floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
       floorY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getTerrainHeight === 'function') {
@@ -3882,11 +4105,13 @@
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
 
-    const activeScene = (currentZone === 'volcano' && window.BlahajVolcano) ? window.BlahajVolcano.getScene() : scene;
+    const activeScene = getActiveScene();
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       const activeActors = [player.pos];
       if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
       window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
+    } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+      window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
     }
@@ -3945,6 +4170,9 @@
       const onRoad = !player.inBoat && currentZone === 'island' && worldApi.isOnIslandRoad && worldApi.isOnIslandRoad(player.pos.x, player.pos.z);
       const roadBoost = onRoad ? 1.18 : 1.0;
       const teaAgilityBoost = (player.teaBuffTimer > 0) ? 1.15 : 1.0;
+      if (player.launderedBuffTimer > 0) {
+        player.launderedBuffTimer = Math.max(0, player.launderedBuffTimer - dt);
+      }
       const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost * teaAgilityBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
@@ -4017,6 +4245,73 @@
 
         if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
           handleVolcanoTrapHit('Molten Lava Sea');
+        }
+      } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+        if (window.BlahajLaundromat.isSpinCycleActive()) {
+          // Inside spinning drum - mesh and position driven by laundromat animation engine
+          player.velY = 0;
+          player.isGrounded = true;
+          return;
+        }
+
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+
+          const rawNext = {
+            x: player.pos.x + (dirX / len) * speed * dt,
+            z: player.pos.z + (dirZ / len) * speed * dt
+          };
+
+          const resolved = window.BlahajLaundromat.resolveMove(player.pos, rawNext, player.isGrounded);
+          if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
+            player.pos.x = resolved.x;
+            player.pos.z = resolved.z;
+          }
+
+          const targetAngle = Math.atan2(dirX / len, dirZ / len);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          if (player.isGrounded) {
+            CozyAudio.footstep(false, true);
+          }
+        }
+
+        const floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+        if (player.pos.y >= floorY - 0.45) {
+          if (!player.isGrounded || player.pos.y > floorY + 0.05) {
+            player.velY -= 24.0 * dt;
+            player.pos.y += player.velY * dt;
+            if (player.pos.y <= floorY) {
+              player.pos.y = floorY;
+              player.velY = 0;
+              player.isGrounded = true;
+              player.canDoubleJump = true;
+              player.doubleJumped = false;
+              player.coyoteTimer = 0.15;
+            }
+          } else {
+            player.pos.y = floorY;
+            player.velY = 0;
+            player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
+          }
+        } else {
+          player.velY -= 24.0 * dt;
+          player.pos.y += player.velY * dt;
+          player.isGrounded = false;
+          player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
       } else {
         if (isMoving) {
@@ -4450,6 +4745,15 @@
         camX = lookTarget.x + Math.sin(camState.yaw) * horizDist * pullFactor;
         camZ = lookTarget.z + Math.cos(camState.yaw) * horizDist * pullFactor;
       }
+    } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+      const ceilY = window.BlahajLaundromat.getCeilingY();
+      const floorAtCam = window.BlahajLaundromat.getFloorHeight(camX, camZ, player.pos.y);
+      const minCamY = Math.max(player.pos.y + 0.65, floorAtCam + 0.5);
+      const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
+      camY = Math.min(maxCamY, Math.max(minCamY, camY));
+
+      camX = Math.max(-11.2, Math.min(11.2, camX));
+      camZ = Math.max(-8.2, Math.min(8.2, camZ));
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
       camY = Math.max(minGround, camY);
@@ -4459,7 +4763,7 @@
     camera.lookAt(lookTarget);
 
     // Dynamic underwater marine turquoise fog when camera is submerged below ocean wave surface
-    if (scene && scene.fog && currentZone !== 'volcano') {
+    if (scene && scene.fog && currentZone === 'island') {
       const waterAtCam = (worldApi && typeof worldApi.getWaveHeight === 'function')
         ? worldApi.getWaveHeight(camX, camZ, elapsed)
         : 0.22;
@@ -4518,6 +4822,24 @@
       const hazard = window.BlahajVolcano.checkHazards(player.pos);
       if (hazard) {
         handleVolcanoTrapHit(hazard);
+      }
+      return;
+    }
+
+    // Inside the Laundromat Instance: Giant Master Washer #7, Vending & Return Portal
+    if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+      document.getElementById('hud-zone-name').textContent = 'The Midnight Cosmic Laundromat (24/7)';
+      const lItems = window.BlahajLaundromat.getInteractables(player.pos);
+      if (lItems.length > 0) {
+        nearestInteractable = lItems[0];
+      }
+
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
       }
       return;
     }
@@ -4852,6 +5174,9 @@
     updateCamera,
     enterVolcanoTrial,
     exitVolcanoTrial,
+    enterLaundromat,
+    exitLaundromat,
+    triggerLaundromatSpinCycle,
     adjustSharkMange,
     setSharkMange,
     getSharkMange,
