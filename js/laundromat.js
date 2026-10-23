@@ -668,47 +668,89 @@ window.BlahajLaundromat = (function () {
       const cg = new THREE.Group();
       cg.position.set(0, 0, cz);
 
-      // Center divider bar
+      // Center divider bar between the two back-to-back chair rows
+      const dividerMat = new THREE.MeshStandardMaterial({ color: 0x223242, roughness: 0.5 });
       const divider = new THREE.Mesh(
-        new THREE.BoxGeometry(0.12, 1.1, 2.8),
-        new THREE.MeshStandardMaterial({ color: 0x223242, roughness: 0.5 })
+        new THREE.BoxGeometry(0.10, 0.95, 2.7),
+        dividerMat
       );
-      divider.position.set(0, 0.65, 0);
+      divider.position.set(0, 0.72, 0);
+      divider.castShadow = true;
       cg.add(divider);
 
-      // 3 Chairs facing Left (West towards washers)
-      [-1.0, 0.0, 1.0].forEach((zOff, i) => {
-        const chair = new THREE.Group();
-        chair.position.set(-0.65, 0, zOff);
-        chair.rotation.y = -Math.PI / 2;
+      // Tandem tubular chrome support rails under each seat bank
+      [-0.62, 0.62].forEach((rx) => {
+        const rail = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.032, 0.032, 2.5, 8),
+          chromeMat
+        );
+        rail.rotation.x = Math.PI / 2;
+        rail.position.set(rx, 0.28, 0);
+        cg.add(rail);
+      });
 
-        const col = chairColors[i % chairColors.length];
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.09, 0.68), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
-        seat.position.y = 0.65;
+      // Cross struts tying the tandem beams to the central divider
+      [-0.9, 0.0, 0.9].forEach((sz) => {
+        const cross = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.028, 0.028, 1.26, 8),
+          chromeMat
+        );
+        cross.rotation.z = Math.PI / 2;
+        cross.position.set(0, 0.28, sz);
+        cg.add(cross);
+      });
+
+      function buildRetroChair(col) {
+        const chair = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.35 });
+
+        // Molded retro scoop seat base
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.08, 0.62), mat);
+        seat.position.y = 0.58;
+        seat.castShadow = true;
         chair.add(seat);
 
-        const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.08), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
-        back.position.set(0, 1.05, 0.32);
+        // Reclined scoop backrest (local +Z is the back)
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.58, 0.08), mat);
+        back.position.set(0, 0.86, 0.27);
+        back.rotation.x = 0.10; // angled slightly back toward the divider
+        back.castShadow = true;
         chair.add(back);
 
+        // Molded contour side bolsters
+        [-0.32, 0.32].forEach((sx) => {
+          const rim = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.14, 0.44), mat);
+          rim.position.set(sx, 0.63, 0.05);
+          chair.add(rim);
+        });
+
+        // Tubular chrome pedestal & floor anchor plate
+        const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.54, 8), chromeMat);
+        pedestal.position.set(0, 0.27, 0);
+        chair.add(pedestal);
+
+        const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.03, 12), chromeMat);
+        foot.position.set(0, 0.015, 0);
+        chair.add(foot);
+
+        return chair;
+      }
+
+      // 3 Chairs facing OUTWARD towards Left (West wall washers)
+      // With local back at +Z, rotation.y = +PI/2 places back towards divider (+X) and seat facing West (-X)
+      [-0.9, 0.0, 0.9].forEach((zOff, i) => {
+        const chair = buildRetroChair(chairColors[i % chairColors.length]);
+        chair.position.set(-0.62, 0, zOff);
+        chair.rotation.y = Math.PI / 2;
         cg.add(chair);
       });
 
-      // 3 Chairs facing Right (East towards dryers)
-      [-1.0, 0.0, 1.0].forEach((zOff, i) => {
-        const chair = new THREE.Group();
-        chair.position.set(0.65, 0, zOff);
-        chair.rotation.y = Math.PI / 2;
-
-        const col = chairColors[(i + 1) % chairColors.length];
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.09, 0.68), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
-        seat.position.y = 0.65;
-        chair.add(seat);
-
-        const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.08), new THREE.MeshStandardMaterial({ color: col, roughness: 0.4 }));
-        back.position.set(0, 1.05, 0.32);
-        chair.add(back);
-
+      // 3 Chairs facing OUTWARD towards Right (East wall dryers)
+      // With local back at +Z, rotation.y = -PI/2 places back towards divider (-X) and seat facing East (+X)
+      [-0.9, 0.0, 0.9].forEach((zOff, i) => {
+        const chair = buildRetroChair(chairColors[(i + 1) % chairColors.length]);
+        chair.position.set(0.62, 0, zOff);
+        chair.rotation.y = -Math.PI / 2;
         cg.add(chair);
       });
 
@@ -1050,8 +1092,8 @@ window.BlahajLaundromat = (function () {
     }
     // Chair seats in center spine (Z = -4.5, +4.5)
     if (Math.abs(x) <= 1.2) {
-      if (Math.abs(z - (-4.5)) <= 1.3 || Math.abs(z - 4.5) <= 1.3) {
-        if (y >= 0.45) return 0.65;
+      if (Math.abs(z - (-4.5)) <= 1.35 || Math.abs(z - 4.5) <= 1.35) {
+        if (y >= 0.38) return 0.58;
       }
     }
     // Tops of commercial washers / dryers along walls
