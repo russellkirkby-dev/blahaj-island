@@ -263,6 +263,25 @@
       this.playTone(750 + Math.random() * 250, 0.08, 'sine', vol * 0.6, 400);
     },
 
+    cartRoll() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastCartSound || 0) < 0.14) return;
+      this.lastCartSound = now;
+      // Commercial caster rattle on tile floor
+      this.playTone(310 + Math.random() * 90, 0.038, 'triangle', 0.045, 170 + Math.random() * 50);
+      if (Math.random() < 0.22) {
+        this.playTone(1100 + Math.random() * 300, 0.045, 'sine', 0.025, 850);
+      }
+    },
+
+    cartHop() {
+      this.ensure();
+      this.playTone(520, 0.08, 'sine', 0.09, 720);
+    },
+
     woodCreak() {
       this.ensure();
       if (!this.ctx) return;
@@ -664,6 +683,7 @@
     doubleJumped: false,
     coyoteTimer: 0,
     inBoat: false,
+    inCart: false,
     inWater: false,
     isSwimming: false,
     waterSurfaceY: 0.22,
@@ -1363,7 +1383,10 @@
       if (k === 'o') toggleSettingsModal();
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
-        if (player.inBoat) {
+        if (player.inCart) {
+          dismountLaundryCart();
+          return;
+        } else if (player.inBoat) {
           disembarkBoatAtCurrentLocation();
         } else if (player.isSwimming) {
           // Underwater swim paddle stroke & breach jump!
@@ -2317,6 +2340,7 @@
   }
 
   function exitLaundromat() {
+    if (player.inCart) dismountLaundryCart();
     if (isTransitioningZone) return;
     isTransitioningZone = true;
 
@@ -2378,6 +2402,7 @@
   }
 
   function triggerLaundromatSpinCycle() {
+    if (player.inCart) dismountLaundryCart();
     if (!window.BlahajLaundromat || window.BlahajLaundromat.isSpinCycleActive()) return;
 
     // Hop shark right inside the drum facing the front porthole
@@ -2462,6 +2487,29 @@
     }, 200);
   }
 
+  function mountLaundryCart(cartId) {
+    if (!window.BlahajLaundromat) return;
+    const cart = window.BlahajLaundromat.mountCart(cartId);
+    if (cart) {
+      player.inCart = true;
+      player.ridingWithPartner = false;
+      player.inBoat = false;
+      CozyAudio.shonk();
+      if (CozyAudio.cartHop) CozyAudio.cartHop();
+      showToast('LAUNDRY CART RACER! 🛒💨', `Aboard ${cart.name}! [WASD] Steer & Drift · [Shift] Turbo Push · [Space] / [E] Hop Off`);
+      addChatLog(`🛒 Hopped into <strong>${cart.name}</strong>! Zooming through the laundromat!`, 'cozy');
+    }
+  }
+
+  function dismountLaundryCart() {
+    if (!window.BlahajLaundromat) return;
+    window.BlahajLaundromat.dismountCart(player);
+    player.inCart = false;
+    CozyAudio.shonk();
+    showToast('HOPPED OFF CART 🛒', 'Parked your Laundry Cart.');
+    addChatLog('🛒 Stepped out of the Laundry Cart.', 'cozy');
+  }
+
   function triggerInteract() {
     if (isAnyModalOpen()) return;
 
@@ -2490,6 +2538,14 @@
     }
 
     // Laundromat Instance specific interactables
+    if (item.kind === 'laundromat_cart_mount') {
+      mountLaundryCart(item.cartId);
+      return;
+    }
+    if (item.kind === 'laundromat_cart_dismount') {
+      dismountLaundryCart();
+      return;
+    }
     if (item.kind === 'washer_start' || item.kind === 'washer_enter') {
       triggerLaundromatSpinCycle();
       return;
@@ -4728,6 +4784,24 @@
           return;
         }
 
+        // Active Laundry Cart Racer handling
+        if (player.inCart) {
+          window.BlahajLaundromat.updateOccupiedCart(dt, keys);
+          const occ = window.BlahajLaundromat.getOccupiedCart();
+          if (occ) {
+            player.pos.set(occ.pos.x, 0.44, occ.pos.z);
+            player.rotY = occ.rotY;
+            if (player.mesh) {
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+            if (Math.abs(occ.speed) > 0.4 && CozyAudio.cartRoll) {
+              CozyAudio.cartRoll();
+            }
+          }
+          return;
+        }
+
         if (isMoving) {
           const fwdX = -Math.sin(camState.yaw);
           const fwdZ = -Math.cos(camState.yaw);
@@ -5012,7 +5086,7 @@
         player.mesh.rotation.order = 'XYZ';
         player.mesh.rotation.set(0, player.rotY, 0);
       }
-      window.BlahajModels.animateShark(player.mesh, dt, isMoving && !player.inBoat && !player.ridingWithPartner, elapsed, player.isSwimming, player.velY);
+      window.BlahajModels.animateShark(player.mesh, dt, isMoving && !player.inBoat && !player.inCart && !player.ridingWithPartner, elapsed, player.isSwimming, player.velY);
     }
 
     worldActors.forEach((act) => {
@@ -5033,6 +5107,7 @@
         rotY: player.rotY,
         isMoving,
         inBoat: player.inBoat,
+        inCart: player.inCart,
         zone: currentZone,
         mange: window.__BLAHAJ_MANGE__
       });
@@ -5697,6 +5772,9 @@
     enterLaundromat,
     exitLaundromat,
     triggerLaundromatSpinCycle,
+    mountLaundryCart,
+    dismountLaundryCart,
+    getOccupiedCart: () => window.BlahajLaundromat?.getOccupiedCart(),
     adjustSharkMange,
     setSharkMange,
     getSharkMange,
