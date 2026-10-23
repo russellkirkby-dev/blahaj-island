@@ -50,6 +50,23 @@
     boatNode: null,
     boatGain: null,
     boatFilter: null,
+    laundromatNode: null,
+    laundromatGain: null,
+    laundromatFilter: null,
+    laundromatHumOsc1: null,
+    laundromatHumOsc2: null,
+    laundromatHumGain: null,
+    cartRollGain: null,
+    cartRollFilter: null,
+    cartRollDist: 0,
+    nextGroutClick: 1.2,
+    nextCartSqueakDist: 7.0,
+    washerMotorOsc: null,
+    washerMotorHarmonic: null,
+    washerWobbleOsc: null,
+    washerMotorGain: null,
+    washerWobbleGain: null,
+    washerMotorFilter: null,
     lastFootstepTime: 0,
     ambientInitialized: false,
 
@@ -163,11 +180,59 @@
       this.boatFilter.connect(this.boatGain);
       this.boatGain.connect(this.ambientGain || this.ctx.destination);
       boatSrc.start();
+
+      // 4. Laundromat Interior Atmosphere: 60Hz/120Hz transformer hum + gentle duct air
+      const laundromatSrc = this.ctx.createBufferSource();
+      laundromatSrc.buffer = noise;
+      laundromatSrc.loop = true;
+      this.laundromatFilter = this.ctx.createBiquadFilter();
+      this.laundromatFilter.type = 'bandpass';
+      this.laundromatFilter.frequency.setValueAtTime(420, this.ctx.currentTime);
+      this.laundromatFilter.Q.setValueAtTime(1.8, this.ctx.currentTime);
+      this.laundromatGain = this.ctx.createGain();
+      this.laundromatGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+      laundromatSrc.connect(this.laundromatFilter);
+      this.laundromatFilter.connect(this.laundromatGain);
+      this.laundromatGain.connect(this.ambientGain || this.ctx.destination);
+      laundromatSrc.start();
+
+      try {
+        const humOsc1 = this.ctx.createOscillator();
+        const humOsc2 = this.ctx.createOscillator();
+        this.laundromatHumGain = this.ctx.createGain();
+        this.laundromatHumGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        humOsc1.type = 'sine';
+        humOsc1.frequency.setValueAtTime(60, this.ctx.currentTime);
+        humOsc2.type = 'triangle';
+        humOsc2.frequency.setValueAtTime(120, this.ctx.currentTime);
+        humOsc1.connect(this.laundromatHumGain);
+        humOsc2.connect(this.laundromatHumGain);
+        this.laundromatHumGain.connect(this.ambientGain || this.ctx.destination);
+        humOsc1.start();
+        humOsc2.start();
+        this.laundromatHumOsc1 = humOsc1;
+        this.laundromatHumOsc2 = humOsc2;
+      } catch (e) {
+        console.warn('Laundromat hum oscillator init:', e);
+      }
     },
 
-    updateAmbient(elapsed, playerPos, inBoat, isMoving, camHeight) {
+    updateAmbient(zone, elapsed, playerPos, inBoat, isMoving, camHeight) {
       if (!this.ctx || !this.ambientInitialized) return;
       const now = this.ctx.currentTime;
+
+      if (zone === 'laundromat') {
+        // Inside Laundromat: fade outdoor surf and wind, fade in interior electric hum and duct breeze
+        if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.022, now, 0.35);
+        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.016, now, 0.35);
+        return;
+      } else {
+        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.0001, now, 0.25);
+      }
 
       // Distance to nearest sea level / ocean
       const distFromCenter = Math.hypot(playerPos.x, playerPos.z);
@@ -177,25 +242,25 @@
       // Surf rhythmic wave swelling
       const swell = (Math.sin(elapsed * 1.6) * 0.5 + 0.5);
       const targetCutoff = 220 + swell * 280;
-      this.surfGain.gain.setTargetAtTime(oceanTargetVol * (0.6 + swell * 0.6), now, 0.15);
-      this.surfFilter.frequency.setTargetAtTime(targetCutoff, now, 0.2);
+      if (this.surfGain) this.surfGain.gain.setTargetAtTime(oceanTargetVol * (0.6 + swell * 0.6), now, 0.15);
+      if (this.surfFilter) this.surfFilter.frequency.setTargetAtTime(targetCutoff, now, 0.2);
 
       // Wind intensity increases with altitude or sailing
       const altitude = Math.max(0, playerPos.y);
       const windTargetVol = 0.012 + Math.min(0.05, (altitude / 65) * 0.045) + (inBoat ? 0.02 : 0);
       const windFrequency = 350 + Math.sin(elapsed * 0.8) * 120 + (altitude * 8);
-      this.windGain.gain.setTargetAtTime(windTargetVol, now, 0.25);
-      this.windFilter.frequency.setTargetAtTime(windFrequency, now, 0.3);
+      if (this.windGain) this.windGain.gain.setTargetAtTime(windTargetVol, now, 0.25);
+      if (this.windFilter) this.windFilter.frequency.setTargetAtTime(windFrequency, now, 0.3);
 
       // Boat sailing wake sound
       if (inBoat && isMoving) {
-        this.boatGain.gain.setTargetAtTime(0.045, now, 0.2);
-        this.boatFilter.frequency.setTargetAtTime(550 + Math.sin(elapsed * 4.0) * 180, now, 0.1);
+        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.045, now, 0.2);
+        if (this.boatFilter) this.boatFilter.frequency.setTargetAtTime(550 + Math.sin(elapsed * 4.0) * 180, now, 0.1);
         if (Math.random() < 0.012) {
           this.woodCreak();
         }
       } else {
-        this.boatGain.gain.setTargetAtTime(0.0001, now, 0.35);
+        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.35);
       }
     },
 
@@ -353,23 +418,453 @@
       }, 90);
     },
 
-    cartBump(intensity = 4.0) {
+    // =========================================================================
+    // LAUNDROMAT & MASTER WASHER #7 AUDIO SUITE
+    // =========================================================================
+    washerDoorLatch() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // 1. Heavy industrial rubber gasket compression thud
+      this.playTone(85, 0.12, 'sine', 0.22, 38);
+      // 2. High-tensile spring latch snap click
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(1350, 0.035, 'square', 0.14, 520);
+        this.playTone(720, 0.05, 'triangle', 0.16, 260);
+      }, 25);
+    },
+
+    washerDoorOpen() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Spring pop release click and handle snap
+      this.playTone(920, 0.04, 'triangle', 0.12, 1280);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(280, 0.08, 'sine', 0.15, 140);
+      }, 20);
+    },
+
+    washerFill() {
       if (gameSettings && !gameSettings.sfxVol) return;
       this.ensure();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      if (now - (this.lastCartBumpTime || 0) < 0.16) return;
+      const dur = 1.6;
+      // High-pressure water inrush: bandpass swept pink noise
+      const noise = this.getNoiseBuffer();
+      const src = this.ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(850, now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + dur);
+      filter.Q.setValueAtTime(2.2, now);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.09, now + 0.2);
+      gain.gain.setValueAtTime(0.09, now + dur - 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      src.start(now);
+      src.stop(now + dur);
+
+      // Bubbling inrush droplet plinks
+      for (let i = 0; i < 4; i++) {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(650 + Math.random() * 350, 0.06, 'sine', 0.035, 380);
+        }, 180 + i * 260);
+      }
+    },
+
+    washerSlosh(intensity = 0.5) {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastWasherSloshTime || 0) < 0.22) return;
+      this.lastWasherSloshTime = now;
+
+      const dur = 0.38;
+      // Soapy water swoosh & foam squish
+      const noise = this.getNoiseBuffer();
+      const src = this.ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(320 + Math.random() * 120, now);
+      filter.frequency.linearRampToValueAtTime(680, now + dur * 0.4);
+      filter.frequency.exponentialRampToValueAtTime(240, now + dur);
+      const gain = this.ctx.createGain();
+      const vol = Math.min(0.12, 0.06 * intensity);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      src.start(now);
+      src.stop(now + dur);
+
+      // Suds squelch & bubble chime
+      this.playTone(240 + Math.random() * 80, 0.12, 'sine', vol * 0.8, 140);
+      if (Math.random() < 0.45) {
+        this.playTone(720 + Math.random() * 280, 0.04, 'sine', vol * 0.5, 960);
+      }
+    },
+
+    updateWasherSpin(spinT, totalSpinDuration = 4.5) {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const prog = Math.min(1.0, Math.max(0, spinT / totalSpinDuration));
+
+      if (!this.washerMotorOsc) {
+        try {
+          // Main motor induction whine (triangle wave)
+          this.washerMotorOsc = this.ctx.createOscillator();
+          this.washerMotorOsc.type = 'triangle';
+          this.washerMotorOsc.frequency.setValueAtTime(65, now);
+
+          // 2x Harmonic whine (sine wave)
+          this.washerMotorHarmonic = this.ctx.createOscillator();
+          this.washerMotorHarmonic.type = 'sine';
+          this.washerMotorHarmonic.frequency.setValueAtTime(130, now);
+
+          // Sub-bass drum wobble rumble (sine 32Hz)
+          this.washerWobbleOsc = this.ctx.createOscillator();
+          this.washerWobbleOsc.type = 'sine';
+          this.washerWobbleOsc.frequency.setValueAtTime(32, now);
+
+          this.washerMotorGain = this.ctx.createGain();
+          this.washerMotorGain.gain.setValueAtTime(0.001, now);
+
+          this.washerMotorFilter = this.ctx.createBiquadFilter();
+          this.washerMotorFilter.type = 'lowpass';
+          this.washerMotorFilter.frequency.setValueAtTime(450, now);
+
+          this.washerMotorOsc.connect(this.washerMotorFilter);
+          this.washerMotorHarmonic.connect(this.washerMotorFilter);
+          this.washerMotorFilter.connect(this.washerMotorGain);
+          this.washerMotorGain.connect(this.sfxGain || this.ctx.destination);
+
+          this.washerWobbleGain = this.ctx.createGain();
+          this.washerWobbleGain.gain.setValueAtTime(0.001, now);
+          this.washerWobbleOsc.connect(this.washerWobbleGain);
+          this.washerWobbleGain.connect(this.sfxGain || this.ctx.destination);
+
+          this.washerMotorOsc.start(now);
+          this.washerMotorHarmonic.start(now);
+          this.washerWobbleOsc.start(now);
+        } catch (e) {
+          console.warn('Washer spin synth init:', e);
+        }
+      }
+
+      if (this.washerMotorOsc && this.washerMotorGain) {
+        // Frequency ramps from 65Hz up to 290Hz (centrifuge high RPM)
+        const targetFreq = 65 + Math.pow(prog, 1.2) * 225;
+        this.washerMotorOsc.frequency.setTargetAtTime(targetFreq, now, 0.08);
+        if (this.washerMotorHarmonic) {
+          this.washerMotorHarmonic.frequency.setTargetAtTime(targetFreq * 2.0, now, 0.08);
+        }
+        if (this.washerMotorFilter) {
+          this.washerMotorFilter.frequency.setTargetAtTime(350 + prog * 550, now, 0.08);
+        }
+        const motorVol = 0.015 + prog * 0.055;
+        this.washerMotorGain.gain.setTargetAtTime(motorVol, now, 0.08);
+
+        // Subwoofer drum wobble: pulsates with uncentered drum RPM
+        if (this.washerWobbleOsc && this.washerWobbleGain) {
+          const wobbleFreq = 26 + prog * 22;
+          this.washerWobbleOsc.frequency.setTargetAtTime(wobbleFreq, now, 0.08);
+          const wobbleVol = (0.02 + prog * 0.05) * (0.6 + 0.4 * Math.sin(now * wobbleFreq * 0.5));
+          this.washerWobbleGain.gain.setTargetAtTime(wobbleVol, now, 0.05);
+        }
+      }
+    },
+
+    updateWasherDecel(finishT, totalDecelDuration = 1.5) {
+      if (!this.ctx || !this.washerMotorGain) return;
+      const now = this.ctx.currentTime;
+      const prog = Math.min(1.0, Math.max(0, finishT / totalDecelDuration));
+      const targetFreq = Math.max(30, 290 * (1.0 - prog));
+      if (this.washerMotorOsc) {
+        this.washerMotorOsc.frequency.setTargetAtTime(targetFreq, now, 0.1);
+      }
+      if (this.washerMotorHarmonic) {
+        this.washerMotorHarmonic.frequency.setTargetAtTime(targetFreq * 2.0, now, 0.1);
+      }
+      const motorVol = 0.07 * (1.0 - prog);
+      this.washerMotorGain.gain.setTargetAtTime(Math.max(0.0001, motorVol), now, 0.1);
+      if (this.washerWobbleGain) {
+        this.washerWobbleGain.gain.setTargetAtTime(Math.max(0.0001, 0.05 * (1.0 - prog)), now, 0.1);
+      }
+      if (prog >= 0.98) {
+        this.stopWasherAudio();
+      }
+    },
+
+    stopWasherAudio() {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (this.washerMotorGain) {
+        this.washerMotorGain.gain.setTargetAtTime(0.0001, now, 0.05);
+      }
+      if (this.washerWobbleGain) {
+        this.washerWobbleGain.gain.setTargetAtTime(0.0001, now, 0.05);
+      }
+      setTimeout(() => {
+        try {
+          if (this.washerMotorOsc) { this.washerMotorOsc.stop(); this.washerMotorOsc.disconnect(); }
+          if (this.washerMotorHarmonic) { this.washerMotorHarmonic.stop(); this.washerMotorHarmonic.disconnect(); }
+          if (this.washerWobbleOsc) { this.washerWobbleOsc.stop(); this.washerWobbleOsc.disconnect(); }
+        } catch (e) {}
+        this.washerMotorOsc = null;
+        this.washerMotorHarmonic = null;
+        this.washerWobbleOsc = null;
+        this.washerMotorGain = null;
+        this.washerWobbleGain = null;
+        this.washerMotorFilter = null;
+      }, 100);
+    },
+
+    washerGlassSplat() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Comical rubbery suction thud followed by wet friction squeak
+      this.playTone(190, 0.07, 'triangle', 0.22, 70);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(960 + Math.random() * 120, 0.09, 'sine', 0.16, 1260);
+      }, 35);
+    },
+
+    washerSuctionPop() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Comical suction release pop when unstuck from window
+      this.playTone(390, 0.05, 'sine', 0.18, 920);
+    },
+
+    washerDrain() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastWasherDrainTime || 0) < 0.4) return;
+      this.lastWasherDrainTime = now;
+      const dur = 0.55;
+      const noise = this.getNoiseBuffer();
+      const src = this.ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(280, now);
+      filter.exponentialRampToValueAtTime(140, now + dur);
+      filter.Q.setValueAtTime(3.0, now);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.05, now + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      src.start(now);
+      src.stop(now + dur);
+      // Gurgle bubble plink
+      this.playTone(340, 0.08, 'sine', 0.04, 210);
+    },
+
+    // =========================================================================
+    // LAUNDRY CARTS AUDIO SUITE
+    // =========================================================================
+    updateCartRoll(speed, dt) {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const absSpeed = Math.abs(speed || 0);
+
+      if (!this.cartRollGain) {
+        const noise = this.getNoiseBuffer();
+        const src = this.ctx.createBufferSource();
+        src.buffer = noise;
+        src.loop = true;
+        this.cartRollFilter = this.ctx.createBiquadFilter();
+        this.cartRollFilter.type = 'bandpass';
+        this.cartRollFilter.frequency.setValueAtTime(220, now);
+        this.cartRollFilter.Q.setValueAtTime(1.8, now);
+        this.cartRollGain = this.ctx.createGain();
+        this.cartRollGain.gain.setValueAtTime(0.0001, now);
+        src.connect(this.cartRollFilter);
+        this.cartRollFilter.connect(this.cartRollGain);
+        this.cartRollGain.connect(this.sfxGain || this.ctx.destination);
+        src.start();
+        this.cartRollDist = 0;
+        this.nextCartSqueakDist = 7.0;
+      }
+
+      if (absSpeed > 0.35) {
+        const norm = Math.min(1.0, absSpeed / 9.0);
+        const targetVol = 0.02 + norm * 0.055;
+        const targetFreq = 180 + norm * 260;
+        this.cartRollGain.gain.setTargetAtTime(targetVol, now, 0.06);
+        this.cartRollFilter.frequency.setTargetAtTime(targetFreq, now, 0.08);
+
+        // Tile grout seams click: every ~1.2m traveled
+        this.cartRollDist = (this.cartRollDist || 0) + absSpeed * dt;
+        if (this.cartRollDist >= (this.nextGroutClick || 1.2)) {
+          this.nextGroutClick = (this.nextGroutClick || 1.2) + 1.2 + Math.random() * 0.4;
+          this.playTone(380 + Math.random() * 60, 0.025, 'triangle', 0.03 * norm, 240);
+        }
+
+        // Periodic playful caster wheel squeak
+        if (this.cartRollDist >= (this.nextCartSqueakDist || 7.0)) {
+          this.nextCartSqueakDist = this.cartRollDist + 6.0 + Math.random() * 7.0;
+          this.playTone(1180 + Math.random() * 240, 0.055, 'sine', 0.045, 1420);
+        }
+      } else {
+        this.cartRollGain.gain.setTargetAtTime(0.0001, now, 0.12);
+      }
+    },
+
+    stopCartRoll() {
+      if (this.cartRollGain && this.ctx) {
+        this.cartRollGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.05);
+      }
+    },
+
+    cartMount() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Spring bounce dip & metallic wire frame clank
+      this.playTone(160, 0.14, 'triangle', 0.16, 280);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(680, 0.08, 'triangle', 0.12, 420);
+        this.playTone(1850, 0.04, 'sine', 0.06, 1400);
+      }, 35);
+    },
+
+    cartDismount() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // Wire spring release rattle + light floor landing
+      this.playTone(320, 0.08, 'triangle', 0.10, 480);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(190, 0.06, 'sine', 0.09, 90);
+      }, 40);
+    },
+
+    cartBump(intensity = 4.0, obstacleType = 'wall') {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastCartBumpTime || 0) < 0.14) return;
       this.lastCartBumpTime = now;
 
       const normInt = Math.min(1.0, Math.max(0.2, intensity / 8.0));
-      // 1. Rubber bumper hollow thud
-      this.playTone(125 + Math.random() * 25, 0.12, 'sine', 0.18 * normInt, 45);
 
-      // 2. Playful cartoon boing / spring chime
+      if (obstacleType === 'cart') {
+        // Metallic wire basket clang: dual dissonant ringing tones with basket shudder
+        this.playTone(540 + Math.random() * 40, 0.18, 'triangle', 0.16 * normInt, 320);
+        this.playTone(880 + Math.random() * 60, 0.15, 'sine', 0.12 * normInt, 640);
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(1450, 0.08, 'sine', 0.08 * normInt, 1100);
+        }, 25);
+      } else if (obstacleType === 'washer') {
+        // Enamel sheet-metal washing machine panel thud + wire shudder
+        this.playTone(110 + Math.random() * 20, 0.15, 'triangle', 0.20 * normInt, 45);
+        this.playTone(310, 0.12, 'square', 0.07 * normInt, 160);
+      } else {
+        // Wall rubber bumper hollow thud + cartoon spring boing
+        this.playTone(125 + Math.random() * 25, 0.12, 'sine', 0.18 * normInt, 45);
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(420 + Math.random() * 60, 0.15, 'triangle', 0.11 * normInt, 620);
+        }, 40);
+      }
+    },
+
+    catBounce(intensity = 2.5) {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (now - (this.lastCatBounceTime || 0) < 0.22) return;
+      this.lastCatBounceTime = now;
+
+      const norm = Math.min(1.0, Math.max(0.3, intensity / 4.0));
+      // Soft plush squelch + cute cartoon boing + soft playful squeak
+      this.playTone(280, 0.12, 'sine', 0.16 * norm, 140);
       setTimeout(() => {
         if (!this.ctx) return;
-        this.playTone(420 + Math.random() * 60, 0.15, 'triangle', 0.11 * normInt, 620);
-      }, 40);
+        this.playTone(460, 0.14, 'triangle', 0.12 * norm, 780);
+      }, 35);
+      if (Math.random() < 0.65) {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(860 + Math.random() * 120, 0.09, 'sine', 0.08 * norm, 1020);
+        }, 90);
+      }
+    },
+
+    // =========================================================================
+    // LAUNDROMAT AMBIENT & INTERACTABLES
+    // =========================================================================
+    vendingPurchase() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      this.coinDrop();
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(210, 0.32, 'sawtooth', 0.06, 195);
+      }, 150);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(95, 0.14, 'triangle', 0.22, 40);
+        this.playTone(680, 0.06, 'sine', 0.10, 320);
+      }, 520);
+    },
+
+    paperRustle() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const dur = 0.14;
+      const noise = this.getNoiseBuffer();
+      const src = this.ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1450, now);
+      filter.Q.setValueAtTime(1.4, now);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.06, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      src.start(now);
+      src.stop(now + dur);
+      this.playTone(2200, 0.02, 'sine', 0.04);
     },
 
     woodCreak() {
@@ -423,8 +918,21 @@
       setTimeout(() => this.playTone(1320, 0.12, 'triangle', 0.16, 660), 65);
     },
     laundromatDing() {
-      [1046.5, 2093.0].forEach((f, i) => {
-        setTimeout(() => this.playTone(f, 0.75, 'sine', 0.18), i * 30);
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // 3-bell cheerful commercial electronic washer chime: E5 -> G#5 -> B5
+      const notes = [
+        { f: 659.25, d: 0.35, g: 0.15, delay: 0 },
+        { f: 830.61, d: 0.40, g: 0.16, delay: 140 },
+        { f: 987.77, d: 0.75, g: 0.18, delay: 280 }
+      ];
+      notes.forEach((n) => {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(n.f, n.d, 'sine', n.g);
+          this.playTone(n.f * 2, n.d * 0.6, 'sine', n.g * 0.35);
+        }, n.delay);
       });
     },
     teaPour() {
@@ -446,6 +954,7 @@
       this.playTone(220, 0.36, 'sine', 0.18, 880);
     }
   };
+  window.CozyAudio = CozyAudio;
 
   // Bridge to allow world updates to trigger positional audio events
   window.CozyAudioTrigger = {
@@ -2558,6 +3067,8 @@
 
   function exitLaundromat() {
     if (player.inCart) dismountLaundryCart();
+    if (CozyAudio.stopWasherAudio) CozyAudio.stopWasherAudio();
+    if (CozyAudio.stopCartRoll) CozyAudio.stopCartRoll();
     if (isTransitioningZone) return;
     isTransitioningZone = true;
 
@@ -2623,7 +3134,7 @@
     if (!window.BlahajLaundromat || window.BlahajLaundromat.isSpinCycleActive()) return;
 
     // Hop shark right inside the drum facing the front porthole
-    player.pos.set(0, 0.45, -5.9);
+    player.pos.set(0, 0.45, -16.5);
     player.rotY = 0;
     if (player.mesh) {
       player.mesh.position.copy(player.pos);
@@ -2636,7 +3147,7 @@
     camState.yaw = 0;
     camState.distance = 4.2;
     camState.pitch = 0.08;
-    camState.heightOffset = 1.85;
+    camState.heightOffset = 1.35;
 
     showToast('SPIN CYCLE COMMENCED! 🧧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
     clearTimeout(showToast._t);
@@ -2717,7 +3228,7 @@
       player.ridingWithPartner = false;
       player.inBoat = false;
       CozyAudio.shonk();
-      if (CozyAudio.cartHop) CozyAudio.cartHop();
+      if (CozyAudio.cartMount) CozyAudio.cartMount();
       showToast('LAUNDRY CART RACER! 🛒💨', `Aboard ${cart.name}! [WASD] & Mouse Steer · [Shift] Turbo Push · [Space] / [E] Hop Off`);
       addChatLog(`🛒 Hopped into <strong>${cart.name}</strong>! Zooming through the laundromat!`, 'cozy');
     }
@@ -2728,6 +3239,8 @@
     window.BlahajLaundromat.dismountCart(player);
     player.inCart = false;
     CozyAudio.shonk();
+    if (CozyAudio.cartDismount) CozyAudio.cartDismount();
+    if (CozyAudio.stopCartRoll) CozyAudio.stopCartRoll();
     showToast('HOPPED OFF CART 🛒', 'Parked your Laundry Cart.');
     addChatLog('🛒 Stepped out of the Laundry Cart.', 'cozy');
   }
@@ -2773,13 +3286,15 @@
       return;
     }
     if (item.kind === 'laundromat_notice_board') {
-      CozyAudio.playTone(520, 0.08, 'sine', 0.12, 740);
+      if (CozyAudio.paperRustle) CozyAudio.paperRustle();
+      else CozyAudio.playTone(520, 0.08, 'sine', 0.12, 740);
       showToast('COMMUNITY NOTICE BOARD 📌', '“Lost: One sentimental Argyle Sock in Dryer #4. Reward: 2 Scented Brebs!” • “Sacred Biscuit Dunk: 3.5s max.”');
       addChatLog('📌 Pinned on the Laundromat Corkboard: <em>“Lost: One sentimental Argyle Sock in Dryer #4 (return to Hermes). Guidelines: 30°C delicate cycle for plushies! Cart Racing League: Clean drifts only in Aisle 2!”</em>', 'cozy');
       return;
     }
     if (item.kind === 'laundromat_vending') {
-      CozyAudio.coinDrop();
+      if (CozyAudio.vendingPurchase) CozyAudio.vendingPurchase();
+      else CozyAudio.coinDrop();
       player.warmth = 100;
       player.teaComfort = 100;
       updateMetersUI();
@@ -4995,9 +5510,9 @@
       renderer.render(activeScene, camera);
     }
 
-    // Update real-time procedural ocean, wind, sailing audio and occasional birb calls
-    if (currentZone === 'island') {
-      CozyAudio.updateAmbient(elapsed, player.pos, player.inBoat, keys['w'] || keys['s'] || keys['a'] || keys['d'], camState.distance);
+    // Update real-time procedural ocean, wind, sailing audio and laundromat interior soundscape
+    CozyAudio.updateAmbient(currentZone, elapsed, player.pos, player.inBoat, keys['w'] || keys['s'] || keys['a'] || keys['d'], camState.distance);
+    if (currentZone === 'island' || currentZone === 'overworld') {
       if (Math.random() < 0.003) {
         const distToBirbs = Math.hypot(player.pos.x - 0, player.pos.z - 15);
         if (distToBirbs < 60) {
@@ -5191,8 +5706,8 @@
                 occ.rollAngle + occ.bounceRoll * 0.65
               );
             }
-            if (Math.abs(occ.speed) > 0.4 && CozyAudio.cartRoll) {
-              CozyAudio.cartRoll();
+            if (CozyAudio.updateCartRoll) {
+              CozyAudio.updateCartRoll(occ.speed, dt);
             }
           }
           return;
@@ -5253,7 +5768,9 @@
               player.laundromatBouncePitch = -0.22;
               player.velY = Math.max(player.velY, 2.8); // Playful plush hop
 
-              if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
+              if (window.CozyAudio && typeof window.CozyAudio.catBounce === 'function') {
+                window.CozyAudio.catBounce(speed * 0.45);
+              } else if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
                 window.CozyAudio.cartBump(speed * 0.45);
               }
 

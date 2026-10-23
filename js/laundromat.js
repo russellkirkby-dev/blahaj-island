@@ -1622,7 +1622,8 @@ window.BlahajLaundromat = (function () {
           cart.bounceSpring = 1.0;
 
           if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
-            window.CozyAudio.cartBump(speedMag);
+            const obsType = Math.abs(resolved.x) > 6.8 ? 'washer' : 'wall';
+            window.CozyAudio.cartBump(speedMag, obsType);
           }
 
           const bumpX = blockedX ? resolved.x + Math.sign(vx) * 0.8 : resolved.x;
@@ -1743,7 +1744,7 @@ window.BlahajLaundromat = (function () {
             c2.bounceSpring = 1.0;
 
             if (window.CozyAudio && typeof window.CozyAudio.cartBump === 'function') {
-              window.CozyAudio.cartBump(relSpeedAlongNormal);
+              window.CozyAudio.cartBump(relSpeedAlongNormal, 'cart');
             }
 
             const midX = (c1.pos.x + c2.pos.x) * 0.5;
@@ -1775,6 +1776,9 @@ window.BlahajLaundromat = (function () {
     }
     target.isOccupied = true;
     occupiedCart = target;
+    if (window.CozyAudio && typeof window.CozyAudio.cartMount === 'function') {
+      window.CozyAudio.cartMount();
+    }
     return target;
   }
 
@@ -1799,6 +1803,12 @@ window.BlahajLaundromat = (function () {
     cart.isOccupied = false;
     cart.speed = 0;
     occupiedCart = null;
+    if (window.CozyAudio && typeof window.CozyAudio.cartDismount === 'function') {
+      window.CozyAudio.cartDismount();
+    }
+    if (window.CozyAudio && typeof window.CozyAudio.stopCartRoll === 'function') {
+      window.CozyAudio.stopCartRoll();
+    }
     return safeLanding;
   }
 
@@ -1808,6 +1818,10 @@ window.BlahajLaundromat = (function () {
     masterWasher.cycleActive = true;
     masterWasher.cyclePhase = 'closing';
     masterWasher.cycleTimer = 0.0;
+    masterWasher.didDing = false;
+    masterWasher.doorLatchPlayed = false;
+    masterWasher.fillSoundPlayed = false;
+    masterWasher.doorOpenPlayed = false;
     splatSoundPlayed = false;
     unstickSoundPlayed = false;
     onCompleteHandler = onFinished;
@@ -1848,6 +1862,20 @@ window.BlahajLaundromat = (function () {
         const prog = t / 1.2;
         masterWasher.doorMesh.rotation.y = masterWasher.doorOpenAngle * (1.0 - prog);
         masterWasher.statusLed.material.color.setHex(0xf59e0b); // Orange / Wash
+
+        if (t >= 1.05 && !masterWasher.doorLatchPlayed) {
+          masterWasher.doorLatchPlayed = true;
+          if (window.CozyAudio && typeof window.CozyAudio.washerDoorLatch === 'function') {
+            window.CozyAudio.washerDoorLatch();
+          }
+        }
+        if (t >= 1.15 && !masterWasher.fillSoundPlayed) {
+          masterWasher.fillSoundPlayed = true;
+          if (window.CozyAudio && typeof window.CozyAudio.washerFill === 'function') {
+            window.CozyAudio.washerFill();
+          }
+        }
+
         if (playerMesh) {
           playerMesh.position.set(masterWasher.x, 0.45, masterWasher.z + 0.3);
           playerMesh.rotation.order = 'XYZ';
@@ -1861,6 +1889,14 @@ window.BlahajLaundromat = (function () {
         masterWasher.doorMesh.rotation.y = 0;
         const sloshT = t - 1.2;
         masterWasher.drumMesh.rotation.z = Math.sin(sloshT * 3.8) * 0.45;
+
+        // Slosh swoosh at drum directional reversals
+        const sloshCos = Math.cos(sloshT * 3.8);
+        if (Math.abs(sloshCos) > 0.88) {
+          if (window.CozyAudio && typeof window.CozyAudio.washerSlosh === 'function') {
+            window.CozyAudio.washerSlosh(Math.abs(sloshCos));
+          }
+        }
 
         if (masterWasher.waterMesh) {
           masterWasher.waterMesh.material.opacity = Math.min(0.45, sloshT * 0.25);
@@ -1883,6 +1919,18 @@ window.BlahajLaundromat = (function () {
         masterWasher.drumSpeed = targetSpeed;
         masterWasher.drumAngle += masterWasher.drumSpeed * dt;
         masterWasher.drumMesh.rotation.z = masterWasher.drumAngle;
+
+        // Dynamic electric centrifuge motor whine & drum wobble sub-bass
+        if (window.CozyAudio && typeof window.CozyAudio.updateWasherSpin === 'function') {
+          window.CozyAudio.updateWasherSpin(spinT, 4.5);
+        }
+
+        // Drain pump gurgle toward end of spin
+        if (spinT >= 2.7 && spinT <= 4.2 && Math.random() < 0.25) {
+          if (window.CozyAudio && typeof window.CozyAudio.washerDrain === 'function') {
+            window.CozyAudio.washerDrain();
+          }
+        }
 
         masterWasher.statusLed.material.color.setHex(0xef4444); // Red / Max Spin
 
@@ -1976,6 +2024,11 @@ window.BlahajLaundromat = (function () {
         masterWasher.drumAngle += masterWasher.drumSpeed * dt;
         masterWasher.drumMesh.rotation.z = masterWasher.drumAngle;
 
+        // Dynamic motor deceleration whine
+        if (window.CozyAudio && typeof window.CozyAudio.updateWasherDecel === 'function') {
+          window.CozyAudio.updateWasherDecel(finishT, 1.5);
+        }
+
         const openProg = Math.min(1.0, finishT / 1.0);
         masterWasher.doorMesh.rotation.y = masterWasher.doorOpenAngle * openProg;
         masterWasher.statusLed.material.color.setHex(0x52f29c); // Green / Ready
@@ -1984,6 +2037,13 @@ window.BlahajLaundromat = (function () {
           masterWasher.didDing = true;
           if (window.CozyAudio && typeof window.CozyAudio.laundromatDing === 'function') {
             window.CozyAudio.laundromatDing();
+          }
+        }
+
+        if (finishT >= 0.22 && !masterWasher.doorOpenPlayed) {
+          masterWasher.doorOpenPlayed = true;
+          if (window.CozyAudio && typeof window.CozyAudio.washerDoorOpen === 'function') {
+            window.CozyAudio.washerDoorOpen();
           }
         }
 
@@ -2004,6 +2064,12 @@ window.BlahajLaundromat = (function () {
         masterWasher.cycleActive = false;
         masterWasher.cyclePhase = 'idle';
         masterWasher.didDing = false;
+        masterWasher.doorLatchPlayed = false;
+        masterWasher.fillSoundPlayed = false;
+        masterWasher.doorOpenPlayed = false;
+        if (window.CozyAudio && typeof window.CozyAudio.stopWasherAudio === 'function') {
+          window.CozyAudio.stopWasherAudio();
+        }
         masterWasher.drumMesh.rotation.z = 0;
         if (masterWasher.waterMesh) masterWasher.waterMesh.material.opacity = 0;
         blurStreakMaterials.forEach((mat) => { mat.opacity = 0; });
@@ -2408,7 +2474,13 @@ window.BlahajLaundromat = (function () {
     build,
     isBuilt: () => built,
     isActive: () => active,
-    setActive: (v) => { active = v; },
+    setActive: (v) => {
+      active = v;
+      if (!v && window.CozyAudio) {
+        if (typeof window.CozyAudio.stopWasherAudio === 'function') window.CozyAudio.stopWasherAudio();
+        if (typeof window.CozyAudio.stopCartRoll === 'function') window.CozyAudio.stopCartRoll();
+      }
+    },
     getScene: () => scn,
     getStart: () => START,
     update,
