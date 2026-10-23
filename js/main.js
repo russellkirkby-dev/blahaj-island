@@ -4789,7 +4789,7 @@
           window.BlahajLaundromat.updateOccupiedCart(dt, keys);
           const occ = window.BlahajLaundromat.getOccupiedCart();
           if (occ) {
-            player.pos.set(occ.pos.x, 0.44, occ.pos.z);
+            player.pos.set(occ.pos.x, 0.38, occ.pos.z);
             player.rotY = occ.rotY;
             if (player.mesh) {
               player.mesh.position.copy(player.pos);

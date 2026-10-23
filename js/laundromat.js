@@ -908,50 +908,85 @@ window.BlahajLaundromat = (function () {
     // Oval loop track: West aisle (X = -4.2) and East aisle (X = +4.2)
     carts.length = 0;
     occupiedCart = null;
-    createLaundryCart('cart-1', -4.2, 11.5, 0.0, 0x38bdf8, 'The Turbo Fluff');
-    createLaundryCart('cart-2', 4.2, -11.5, Math.PI, 0xfb923c, 'The Centrifugal Cruiser');
+    // Cart 1 in West aisle: facing North (rotY = Math.PI, local +Z points North -Z)
+    createLaundryCart('cart-1', -4.5, 11.5, Math.PI, 0x38bdf8, 'The Turbo Fluff');
+    // Cart 2 in East aisle: facing South (rotY = 0.0, local +Z points South +Z)
+    createLaundryCart('cart-2', 4.5, -11.5, 0.0, 0xfb923c, 'The Centrifugal Cruiser');
 
     built = true;
     return scn;
   }
 
   // =========================================================================
-  // COMMERCIAL WIRE LAUNDRY CARTS (CONTROLLABLE RACERS)
+  // COMMERCIAL WIRE LAUNDRY CARTS (CONTROLLABLE RACERS) - LARGE & NO LIDS
   // =========================================================================
   function createLaundryCart(id, initialX, initialZ, initialRotY, accentColor = 0x38bdf8, name = 'Laundry Cart') {
     const cg = new THREE.Group();
     cg.position.set(initialX, 0, initialZ);
     cg.rotation.y = initialRotY;
 
-    const cartWidth = 1.05;   // X
-    const cartLength = 1.45;  // Z
+    // Spacious dimensions: comfortably accommodates the entire plush shark body inside!
+    const cartWidth = 2.20;   // X
+    const cartLength = 2.80;  // Z
     const basketBottomY = 0.28;
-    const basketTopY = 0.96;
+    const basketTopY = 1.35;
     const basketHeight = basketTopY - basketBottomY;
+
+    // Helper: Hollow perimeter tube frame (NO SOLID LID!)
+    function createPerimeterRim(w, l, y, tubeRadius, material) {
+      const rimGroup = new THREE.Group();
+      rimGroup.position.y = y;
+
+      // Front & Back bars (along X)
+      [-l * 0.5, l * 0.5].forEach((pz) => {
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(tubeRadius, tubeRadius, w - tubeRadius * 2, 8), material);
+        bar.rotation.z = Math.PI / 2;
+        bar.position.set(0, 0, pz);
+        bar.castShadow = true;
+        rimGroup.add(bar);
+      });
+
+      // Left & Right bars (along Z)
+      [-w * 0.5, w * 0.5].forEach((px) => {
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(tubeRadius, tubeRadius, l - tubeRadius * 2, 8), material);
+        bar.rotation.x = Math.PI / 2;
+        bar.position.set(px, 0, 0);
+        bar.castShadow = true;
+        rimGroup.add(bar);
+      });
+
+      // 4 Corner spherical rounded joints
+      [-w * 0.5, w * 0.5].forEach((px) => {
+        [-l * 0.5, l * 0.5].forEach((pz) => {
+          const sphere = new THREE.Mesh(new THREE.SphereGeometry(tubeRadius * 1.25, 8, 8), material);
+          sphere.position.set(px, 0, pz);
+          rimGroup.add(sphere);
+        });
+      });
+
+      return rimGroup;
+    }
 
     // 1. Lower Tubular Chrome Chassis
     const basePlate = new THREE.Mesh(
-      new THREE.BoxGeometry(cartWidth - 0.12, 0.04, cartLength - 0.12),
+      new THREE.BoxGeometry(cartWidth - 0.20, 0.04, cartLength - 0.20),
       new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.6 })
     );
     basePlate.position.y = 0.22;
     basePlate.castShadow = true;
     cg.add(basePlate);
 
-    const bumperMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.3 });
-    const bumper = new THREE.Mesh(
-      new THREE.BoxGeometry(cartWidth + 0.04, 0.06, cartLength + 0.04),
-      bumperMat
-    );
-    bumper.position.y = 0.22;
-    cg.add(bumper);
+    const bumperMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.4 });
+    const lowerBumper = createPerimeterRim(cartWidth + 0.06, cartLength + 0.06, 0.22, 0.032, bumperMat);
+    cg.add(lowerBumper);
 
-    // 2. 4 Swivel Caster Wheels
+    // 2. 4 Heavy-Duty Swivel Caster Wheels
+    // Front is +Z (where shark faces!), Rear is -Z (where push handle is!)
     const casterPositions = [
-      { x: -(cartWidth * 0.5 - 0.12), z: -(cartLength * 0.5 - 0.14), isFront: true },
-      { x:  (cartWidth * 0.5 - 0.12), z: -(cartLength * 0.5 - 0.14), isFront: true },
-      { x: -(cartWidth * 0.5 - 0.12), z:  (cartLength * 0.5 - 0.14), isFront: false },
-      { x:  (cartWidth * 0.5 - 0.12), z:  (cartLength * 0.5 - 0.14), isFront: false }
+      { x: -(cartWidth * 0.5 - 0.22), z:  (cartLength * 0.5 - 0.28), isFront: true },
+      { x:  (cartWidth * 0.5 - 0.22), z:  (cartLength * 0.5 - 0.28), isFront: true },
+      { x: -(cartWidth * 0.5 - 0.22), z: -(cartLength * 0.5 - 0.28), isFront: false },
+      { x:  (cartWidth * 0.5 - 0.22), z: -(cartLength * 0.5 - 0.28), isFront: false }
     ];
 
     const wheelMeshes = [];
@@ -962,27 +997,27 @@ window.BlahajLaundromat = (function () {
       const forkGroup = new THREE.Group();
       forkGroup.position.set(cp.x, 0.20, cp.z);
 
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.08, 8), chromeMat);
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.09, 8), chromeMat);
       stem.position.y = -0.02;
       forkGroup.add(stem);
 
-      const forkLeft = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.10, 0.06), chromeMat);
-      forkLeft.position.set(-0.035, -0.07, 0);
+      const forkLeft = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.08), chromeMat);
+      forkLeft.position.set(-0.045, -0.08, 0);
       forkGroup.add(forkLeft);
 
-      const forkRight = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.10, 0.06), chromeMat);
-      forkRight.position.set(0.035, -0.07, 0);
+      const forkRight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.08), chromeMat);
+      forkRight.position.set(0.045, -0.08, 0);
       forkGroup.add(forkRight);
 
       const wheelGroup = new THREE.Group();
-      wheelGroup.position.set(0, -0.10, 0);
+      wheelGroup.position.set(0, -0.11, 0);
 
-      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.045, 14), tireMat);
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.06, 14), tireMat);
       tire.rotation.z = Math.PI / 2;
       tire.castShadow = true;
       wheelGroup.add(tire);
 
-      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.048, 12), chromeMat);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.065, 12), chromeMat);
       hub.rotation.z = Math.PI / 2;
       wheelGroup.add(hub);
 
@@ -995,41 +1030,37 @@ window.BlahajLaundromat = (function () {
       }
     });
 
-    // 3. Heavy Wire Basket
+    // 3. Heavy Wire Basket - COMPLETELY OPEN TOP (NO LID!)
+    // 4 Corner vertical chrome tubes
     [-0.5, 0.5].forEach((sx) => {
       [-0.5, 0.5].forEach((sz) => {
         const post = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.022, 0.022, basketHeight + 0.06, 8),
+          new THREE.CylinderGeometry(0.03, 0.03, basketHeight + 0.06, 8),
           chromeMat
         );
-        post.position.set(sx * (cartWidth - 0.08), basketBottomY + basketHeight * 0.5, sz * (cartLength - 0.08));
+        post.position.set(sx * (cartWidth - 0.10), basketBottomY + basketHeight * 0.5, sz * (cartLength - 0.10));
         cg.add(post);
       });
     });
 
-    const topRim = new THREE.Mesh(
-      new THREE.BoxGeometry(cartWidth, 0.045, cartLength),
-      new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.35, metalness: 0.5 })
-    );
-    topRim.position.y = basketTopY;
-    topRim.castShadow = true;
+    // Top Perimeter Bumper Rim: Hollow tubular frame, OPEN TOP, NO LID!
+    const topRimMat = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.35, metalness: 0.5 });
+    const topRim = createPerimeterRim(cartWidth, cartLength, basketTopY, 0.038, topRimMat);
     cg.add(topRim);
 
-    [basketBottomY + 0.22, basketBottomY + 0.45].forEach((by) => {
-      const band = new THREE.Mesh(
-        new THREE.BoxGeometry(cartWidth - 0.02, 0.02, cartLength - 0.02),
-        chromeMat
-      );
-      band.position.y = by;
-      cg.add(band);
-    });
+    // Intermediate perimeter reinforcing wire bands (Hollow frames!)
+    const band1 = createPerimeterRim(cartWidth - 0.02, cartLength - 0.02, basketBottomY + 0.35, 0.016, chromeMat);
+    cg.add(band1);
+    const band2 = createPerimeterRim(cartWidth - 0.02, cartLength - 0.02, basketBottomY + 0.72, 0.016, chromeMat);
+    cg.add(band2);
 
-    const numSideSlats = 9;
+    // Wire grid slats along Long Sides (Left & Right)
+    const numSideSlats = 14;
     for (let i = 0; i < numSideSlats; i++) {
-      const zSlat = -(cartLength * 0.5 - 0.12) + (i / (numSideSlats - 1)) * (cartLength - 0.24);
+      const zSlat = -(cartLength * 0.5 - 0.16) + (i / (numSideSlats - 1)) * (cartLength - 0.32);
       [-1, 1].forEach((side) => {
         const slat = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.008, 0.008, basketHeight - 0.04, 6),
+          new THREE.CylinderGeometry(0.010, 0.010, basketHeight - 0.04, 6),
           chromeMat
         );
         slat.position.set(side * (cartWidth * 0.5 - 0.04), basketBottomY + basketHeight * 0.5, zSlat);
@@ -1037,12 +1068,13 @@ window.BlahajLaundromat = (function () {
       });
     }
 
-    const numEndSlats = 7;
+    // Wire grid slats along Front & Back
+    const numEndSlats = 11;
     for (let i = 0; i < numEndSlats; i++) {
-      const xSlat = -(cartWidth * 0.5 - 0.12) + (i / (numEndSlats - 1)) * (cartWidth - 0.24);
+      const xSlat = -(cartWidth * 0.5 - 0.16) + (i / (numEndSlats - 1)) * (cartWidth - 0.32);
       [-1, 1].forEach((end) => {
         const slat = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.008, 0.008, basketHeight - 0.04, 6),
+          new THREE.CylinderGeometry(0.010, 0.010, basketHeight - 0.04, 6),
           chromeMat
         );
         slat.position.set(xSlat, basketBottomY + basketHeight * 0.5, end * (cartLength * 0.5 - 0.04));
@@ -1050,51 +1082,52 @@ window.BlahajLaundromat = (function () {
       });
     }
 
-    // 4. Rear Push Handle
+    // 4. Rear Push Handle (Mounted at local -Z, BEHIND the rider!)
     const handleGroup = new THREE.Group();
-    handleGroup.position.set(0, basketTopY, cartLength * 0.5 - 0.04);
+    handleGroup.position.set(0, basketTopY, -(cartLength * 0.5 - 0.04));
 
-    [-0.38, 0.38].forEach((hx) => {
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.26, 8), chromeMat);
-      arm.position.set(hx, 0.11, 0.06);
-      arm.rotation.x = -0.32;
+    [-0.55, 0.55].forEach((hx) => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.32, 8), chromeMat);
+      arm.position.set(hx, 0.14, -0.08);
+      arm.rotation.x = 0.36;
       handleGroup.add(arm);
     });
 
-    const handleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.80, 10), chromeMat);
+    const handleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.20, 10), chromeMat);
     handleBar.rotation.z = Math.PI / 2;
-    handleBar.position.set(0, 0.20, 0.11);
+    handleBar.position.set(0, 0.25, -0.15);
     handleGroup.add(handleBar);
 
     const grip = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.028, 0.028, 0.40, 12),
+      new THREE.CylinderGeometry(0.034, 0.034, 0.60, 12),
       new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 })
     );
     grip.rotation.z = Math.PI / 2;
-    grip.position.set(0, 0.20, 0.11);
+    grip.position.set(0, 0.25, -0.15);
     handleGroup.add(grip);
     cg.add(handleGroup);
 
-    // 5. Cozy Pile of Warm Folded Towels inside basket
-    const towelColors = [0x7ec8b5, 0xf6ad55, 0x90cdf4, 0xd6bcfa, 0xf687b3];
+    // 5. Generous, Cozy Bed of Warm Folded Blankets & Towels at bottom of basket
+    const towelColors = [0x7ec8b5, 0xf6ad55, 0x90cdf4, 0xd6bcfa, 0xf687b3, 0xfde047];
     const towelPile = new THREE.Group();
-    towelPile.position.set(0, basketBottomY + 0.06, 0);
+    towelPile.position.set(0, basketBottomY + 0.04, 0);
 
     const pad = new THREE.Mesh(
-      new THREE.BoxGeometry(cartWidth - 0.18, 0.12, cartLength - 0.22),
+      new THREE.BoxGeometry(cartWidth - 0.22, 0.14, cartLength - 0.24),
       new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.9 })
     );
-    pad.position.y = 0.06;
+    pad.position.y = 0.07;
     towelPile.add(pad);
 
     [
-      { x: -0.22, y: 0.16, z: -0.25, c: towelColors[0], sx: 0.44, sz: 0.48 },
-      { x:  0.22, y: 0.16, z: -0.25, c: towelColors[1], sx: 0.44, sz: 0.48 },
-      { x: -0.20, y: 0.18, z:  0.26, c: towelColors[2], sx: 0.46, sz: 0.48 },
-      { x:  0.20, y: 0.18, z:  0.26, c: towelColors[3], sx: 0.46, sz: 0.48 }
+      { x: -0.50, y: 0.18, z: -0.65, c: towelColors[0], sx: 0.85, sz: 0.95 },
+      { x:  0.50, y: 0.18, z: -0.65, c: towelColors[1], sx: 0.85, sz: 0.95 },
+      { x: -0.50, y: 0.20, z:  0.65, c: towelColors[2], sx: 0.85, sz: 0.95 },
+      { x:  0.50, y: 0.20, z:  0.65, c: towelColors[3], sx: 0.85, sz: 0.95 },
+      { x:  0.00, y: 0.24, z:  0.00, c: towelColors[4], sx: 1.10, sz: 1.10 }
     ].forEach((td) => {
       const tMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(td.sx, 0.11, td.sz),
+        new THREE.BoxGeometry(td.sx, 0.13, td.sz),
         new THREE.MeshStandardMaterial({ color: td.c, roughness: 0.85 })
       );
       tMesh.position.set(td.x, td.y, td.z);
@@ -1103,12 +1136,12 @@ window.BlahajLaundromat = (function () {
     });
     cg.add(towelPile);
 
-    // 6. Laundry Ticket Clip on front
+    // 6. Laundry Ticket Clip on Front (Mounted at local +Z, AHEAD of rider!)
     const ticket = new THREE.Mesh(
-      new THREE.BoxGeometry(0.18, 0.22, 0.01),
+      new THREE.BoxGeometry(0.24, 0.30, 0.01),
       new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
     );
-    ticket.position.set(0, basketTopY - 0.04, -(cartLength * 0.5 + 0.01));
+    ticket.position.set(0, basketTopY - 0.06, (cartLength * 0.5 + 0.02));
     cg.add(ticket);
 
     scn.add(cg);
@@ -1124,6 +1157,8 @@ window.BlahajLaundromat = (function () {
       rollAngle: 0,
       wheelRotation: 0,
       isOccupied: false,
+      cartWidth,
+      cartLength,
       wheelMeshes,
       frontForks
     };
@@ -1141,8 +1176,8 @@ window.BlahajLaundromat = (function () {
     if (cart.isOccupied && inputKeys) {
       if (inputKeys['w'] || inputKeys['arrowup']) moveFwd += 1;
       if (inputKeys['s'] || inputKeys['arrowdown']) moveFwd -= 1;
-      if (inputKeys['a'] || inputKeys['arrowleft']) steer += 1; // Left
-      if (inputKeys['d'] || inputKeys['arrowright']) steer -= 1; // Right
+      if (inputKeys['a'] || inputKeys['arrowleft']) steer += 1; // Steer Left
+      if (inputKeys['d'] || inputKeys['arrowright']) steer -= 1; // Steer Right
     }
 
     const isTurbo = !!(inputKeys && (inputKeys['shift'] || inputKeys['ShiftLeft'] || inputKeys['ShiftRight']));
@@ -1151,7 +1186,7 @@ window.BlahajLaundromat = (function () {
     const accelRate = isTurbo ? 28.0 : 18.0;
     const decelRate = 12.0;
 
-    // Acceleration / Deceleration
+    // Acceleration & Braking: W drives forward (+Z), S reverses (-Z)
     if (moveFwd > 0) {
       if (cart.speed < maxFwdSpeed) {
         cart.speed = Math.min(maxFwdSpeed, cart.speed + accelRate * dt);
@@ -1170,7 +1205,7 @@ window.BlahajLaundromat = (function () {
       }
     }
 
-    // Steering & Swivel
+    // Steering: Cart front is local +Z (direction shark faces!)
     const isMoving = Math.abs(cart.speed) > 0.05;
     const speedRatio = Math.abs(cart.speed) / maxFwdSpeed;
     const baseTurnSpeed = 3.3;
@@ -1184,16 +1219,17 @@ window.BlahajLaundromat = (function () {
       cart.steerAngle *= Math.max(0, 1.0 - dt * 10.0);
     }
 
-    // Movement: cart forward vector in local -Z
-    const fwdX = -Math.sin(cart.rotY);
-    const fwdZ = -Math.cos(cart.rotY);
+    // Forward vector in world coordinates: pointing in local +Z (matching shark snout!)
+    const fwdX = Math.sin(cart.rotY);
+    const fwdZ = Math.cos(cart.rotY);
 
     if (isMoving) {
       const rawNext = {
         x: cart.pos.x + fwdX * cart.speed * dt,
         z: cart.pos.z + fwdZ * cart.speed * dt
       };
-      const resolved = resolveMove(cart.pos, rawNext, true, 0.52);
+      // Collision radius 0.92m for wide commercial cart
+      const resolved = resolveMove(cart.pos, rawNext, true, 0.92);
       if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
         const dx = resolved.x - cart.pos.x;
         const dz = resolved.z - cart.pos.z;
@@ -1209,7 +1245,7 @@ window.BlahajLaundromat = (function () {
 
     // Visual Wheel Spin & Caster Swivel
     const distTraveled = cart.speed * dt;
-    cart.wheelRotation += distTraveled / 0.08;
+    cart.wheelRotation += distTraveled / 0.10;
     cart.wheelMeshes.forEach((w) => {
       w.rotation.x = cart.wheelRotation;
     });
@@ -1256,8 +1292,8 @@ window.BlahajLaundromat = (function () {
     const rightX = Math.cos(cart.rotY);
     const rightZ = -Math.sin(cart.rotY);
     const rawLanding = {
-      x: cart.pos.x + rightX * 1.25,
-      z: cart.pos.z + rightZ * 1.25
+      x: cart.pos.x + rightX * (cart.cartWidth * 0.5 + 0.85),
+      z: cart.pos.z + rightZ * (cart.cartWidth * 0.5 + 0.85)
     };
     const safeLanding = resolveMove(cart.pos, rawLanding, true, 0.35);
 
@@ -1420,18 +1456,18 @@ window.BlahajLaundromat = (function () {
       if (!c.isOccupied) {
         if (Math.abs(c.speed) > 0.02) {
           c.speed *= Math.max(0, 1.0 - dt * 6.0);
-          const fwdX = -Math.sin(c.rotY);
-          const fwdZ = -Math.cos(c.rotY);
+          const fwdX = Math.sin(c.rotY);
+          const fwdZ = Math.cos(c.rotY);
           const rawNext = {
             x: c.pos.x + fwdX * c.speed * dt,
             z: c.pos.z + fwdZ * c.speed * dt
           };
-          const resolved = resolveMove(c.pos, rawNext, true, 0.52);
+          const resolved = resolveMove(c.pos, rawNext, true, 0.92);
           if (resolved) {
             c.pos.x = resolved.x;
             c.pos.z = resolved.z;
           }
-          c.wheelRotation += (c.speed * dt) / 0.08;
+          c.wheelRotation += (c.speed * dt) / 0.10;
           c.wheelMeshes.forEach((w) => { w.rotation.x = c.wheelRotation; });
         } else {
           c.speed = 0;
@@ -1446,10 +1482,10 @@ window.BlahajLaundromat = (function () {
 
     if (occupiedCart) {
       if (playerPos) {
-        playerPos.set(occupiedCart.pos.x, 0.44, occupiedCart.pos.z);
+        playerPos.set(occupiedCart.pos.x, 0.38, occupiedCart.pos.z);
       }
       if (playerMesh) {
-        playerMesh.position.set(occupiedCart.pos.x, 0.44, occupiedCart.pos.z);
+        playerMesh.position.set(occupiedCart.pos.x, 0.38, occupiedCart.pos.z);
         playerMesh.rotation.y = occupiedCart.rotY;
       }
     }
