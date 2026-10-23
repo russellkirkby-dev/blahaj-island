@@ -15,7 +15,7 @@ window.BlahajLaundromat = (function () {
   let active = false;
 
   // Entrance at front end near the cosmic window & portal (facing -Z down the hall)
-  const START = { x: 0.0, y: 0.0, z: 15.0, rotY: Math.PI };
+  const START = { x: -4.5, y: 0.0, z: 14.5, rotY: Math.PI };
 
   // Master Washer State & Spin Cycle Engine (Anchored at far back wall)
   const masterWasher = {
@@ -945,7 +945,24 @@ window.BlahajLaundromat = (function () {
     }
   }
 
-  function getFloorHeight(x, z, y) {
+  // Furniture obstacles with exact bounds for smooth AABB sliding collision
+  const FURNITURE_OBSTACLES = [
+    // Table 1 (Back)
+    { minX: -1.6, maxX: 1.6, minZ: -10.0, maxZ: -8.0, topY: 1.25 },
+    // Chairs 1
+    { minX: -1.2, maxX: 1.2, minZ: -5.7, maxZ: -3.3, topY: 0.95 },
+    // Table 2 (Center)
+    { minX: -1.6, maxX: 1.6, minZ: -1.0, maxZ: 1.0, topY: 1.25 },
+    // Chairs 2
+    { minX: -1.2, maxX: 1.2, minZ: 3.3, maxZ: 5.7, topY: 0.95 },
+    // Table 3 (Front)
+    { minX: -1.6, maxX: 1.6, minZ: 8.0, maxZ: 10.0, topY: 1.25 },
+    // Master Washer Cabinet Flanking Left & Right (outside door opening)
+    { minX: -2.4, maxX: -1.2, minZ: -18.6, maxZ: -15.0, topY: 4.2 },
+    { minX: 1.2, maxX: 2.4, minZ: -18.6, maxZ: -15.0, topY: 4.2 }
+  ];
+
+  function getFloorHeight(x, z, y = 0) {
     // Inside giant washer drum
     if (Math.abs(x - masterWasher.x) <= 1.4 && z >= masterWasher.z - 1.4 && z <= masterWasher.z + 1.4) {
       return 0.45;
@@ -953,7 +970,13 @@ window.BlahajLaundromat = (function () {
     // Folding table surfaces in center spine (Z = -9, 0, +9)
     if (Math.abs(x) <= 1.6) {
       if (Math.abs(z - (-9.0)) <= 1.0 || Math.abs(z - 0.0) <= 1.0 || Math.abs(z - 9.0) <= 1.0) {
-        if (y >= 1.0) return 1.25;
+        if (y >= 0.8) return 1.25;
+      }
+    }
+    // Chair seats in center spine (Z = -4.5, +4.5)
+    if (Math.abs(x) <= 1.2) {
+      if (Math.abs(z - (-4.5)) <= 1.3 || Math.abs(z - 4.5) <= 1.3) {
+        if (y >= 0.45) return 0.65;
       }
     }
     // Tops of commercial washers / dryers along walls
@@ -967,35 +990,52 @@ window.BlahajLaundromat = (function () {
     let nx = next.x;
     let nz = next.z;
 
-    // Outer Room Boundaries: 20m wide x 38m deep
-    const minX = -9.2;
-    const maxX = 9.2;
-    const minZ = -18.2;
-    const maxZ = 18.2;
+    // Room boundaries (walkable room is X: -8.8 to +8.8, Z: -17.8 to +17.8)
+    const minX = -8.8;
+    const maxX = 8.8;
+    const minZ = -17.8;
+    const maxZ = 17.8;
 
     nx = Math.max(minX, Math.min(maxX, nx));
     nz = Math.max(minZ, Math.min(maxZ, nz));
 
-    // Master Washer Front & Cabinet Collision at far back wall
-    const mwXMin = masterWasher.x - 2.4;
-    const mwXMax = masterWasher.x + 2.4;
-    const mwZFront = masterWasher.z + 1.8;
-    const mwZBack = masterWasher.z - 1.8;
+    // Master Washer Door: When cycle is active or door is closed, prevent walking into drum
+    if (masterWasher.cycleActive && nz < -15.0 && Math.abs(nx - masterWasher.x) < 1.4) {
+      nz = Math.max(nz, -14.9);
+    }
 
-    if (nx > mwXMin && nx < mwXMax && nz > mwZBack && nz < mwZFront) {
-      if (masterWasher.cycleActive || Math.abs(nx - masterWasher.x) > 1.2) {
-        if (current.z >= mwZFront) nz = Math.max(nz, mwZFront + 0.1);
+    // AABB Sliding Collision:
+    // When walking on floor, resolve X and Z separately so player slides smoothly along table and chair edges!
+    const curY = current.y || 0;
+    const radius = 0.35;
+
+    // 1. Resolve X movement
+    let canMoveX = true;
+    for (const obs of FURNITURE_OBSTACLES) {
+      if (curY < obs.topY - 0.25) {
+        const inX = (nx + radius > obs.minX) && (nx - radius < obs.maxX);
+        const inZ = (current.z + radius > obs.minZ) && (current.z - radius < obs.maxZ);
+        if (inX && inZ) {
+          canMoveX = false;
+          break;
+        }
       }
     }
+    if (!canMoveX) nx = current.x;
 
-    // Center Island Collision Deflection (Spine at X: -1.7 to +1.7, Z: -10.5 to +10.5)
-    // When on the floor, deflecting around the central island keeps the loop track wide and clear!
-    if (Math.abs(nx) < 1.65 && nz > -10.5 && nz < 10.5) {
-      if (current.x <= -1.65) nx = -1.65;
-      else if (current.x >= 1.65) nx = 1.65;
-      else if (current.z <= -10.5) nz = -10.5;
-      else if (current.z >= 10.5) nz = 10.5;
+    // 2. Resolve Z movement
+    let canMoveZ = true;
+    for (const obs of FURNITURE_OBSTACLES) {
+      if (curY < obs.topY - 0.25) {
+        const inX = (nx + radius > obs.minX) && (nx - radius < obs.maxX);
+        const inZ = (nz + radius > obs.minZ) && (nz - radius < obs.maxZ);
+        if (inX && inZ) {
+          canMoveZ = false;
+          break;
+        }
+      }
     }
+    if (!canMoveZ) nz = current.z;
 
     return { x: nx, z: nz };
   }

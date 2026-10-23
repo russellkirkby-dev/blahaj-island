@@ -5221,23 +5221,49 @@
       }
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       if (window.BlahajLaundromat.isSpinCycleActive()) {
-        // Dramatic, crystal-clear spin cycle camera view directly framing the spinning shark inside Giant Washer #7!
-        lookTarget.set(0, 1.85, -6.0);
+        // Dramatic spin cycle camera directly framing Giant Washer #7 at Z = -16.8
+        const mwZ = -16.8;
+        lookTarget.set(0, 1.85, mwZ);
         const spinDist = Math.max(2.8, Math.min(5.2, camState.distance));
         const spinYaw = camState.yaw;
         const spinPitch = Math.max(-0.25, Math.min(0.35, camState.pitch));
         camX = lookTarget.x + Math.sin(spinYaw) * spinDist * Math.cos(spinPitch);
-        camZ = Math.max(-4.2, lookTarget.z + Math.cos(spinYaw) * spinDist * Math.cos(spinPitch)); // keep in front of or at glass
+        camZ = Math.max(mwZ + 1.8, lookTarget.z + Math.cos(spinYaw) * spinDist * Math.cos(spinPitch));
         camY = Math.max(0.8, Math.min(4.2, lookTarget.y + spinDist * Math.sin(spinPitch) + 0.1));
       } else {
-        const ceilY = window.BlahajLaundromat.getCeilingY();
+        const ceilY = window.BlahajLaundromat.getCeilingY() || 5.2;
+
+        // Interior bounds of 20m x 38m room (X: -10 to +10, Z: -19 to +19)
+        const roomMinX = -8.8;
+        const roomMaxX = 8.8;
+        const roomMinZ = -17.8;
+        const roomMaxZ = 17.8;
+
+        // Smooth ray-to-wall distance clipping so camera zooms in naturally when near walls
+        const dx = camX - lookTarget.x;
+        const dz = camZ - lookTarget.z;
+        let wallScale = 1.0;
+
+        if (camX > roomMaxX && dx > 0) wallScale = Math.min(wallScale, (roomMaxX - lookTarget.x) / dx);
+        if (camX < roomMinX && dx < 0) wallScale = Math.min(wallScale, (roomMinX - lookTarget.x) / dx);
+        if (camZ > roomMaxZ && dz > 0) wallScale = Math.min(wallScale, (roomMaxZ - lookTarget.z) / dz);
+        if (camZ < roomMinZ && dz < 0) wallScale = Math.min(wallScale, (roomMinZ - lookTarget.z) / dz);
+
+        wallScale = Math.max(0.2, Math.min(1.0, wallScale));
+        camX = lookTarget.x + dx * wallScale;
+        camZ = lookTarget.z + dz * wallScale;
+
+        // Ceiling clearance
+        if (vertDist > 0 && lookTarget.y + vertDist > ceilY - 0.45) {
+          const ceilScale = Math.max(0.3, Math.min(1.0, (ceilY - lookTarget.y - 0.45) / vertDist));
+          camX = lookTarget.x + dx * wallScale * ceilScale;
+          camZ = lookTarget.z + dz * wallScale * ceilScale;
+        }
+
         const floorAtCam = window.BlahajLaundromat.getFloorHeight(camX, camZ, player.pos.y);
         const minCamY = Math.max(player.pos.y + 0.65, floorAtCam + 0.5);
         const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
         camY = Math.min(maxCamY, Math.max(minCamY, camY));
-
-        camX = Math.max(-11.2, Math.min(11.2, camX));
-        camZ = Math.max(-8.2, Math.min(8.2, camZ));
       }
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
