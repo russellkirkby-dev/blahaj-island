@@ -1056,7 +1056,6 @@ window.BlahajWorld = (function () {
   function createPlushTuftGeometry() {
     const geom = new THREE.BufferGeometry();
     const positions = [];
-    const normals = [];
     const uvs = [];
 
     const numBlades = 3;
@@ -1093,47 +1092,124 @@ window.BlahajWorld = (function () {
 
       for (let i = 0; i < bladeVerts.length; i += 3) {
         positions.push(bladeVerts[i], bladeVerts[i + 1], bladeVerts[i + 2]);
-        normals.push(0, 1, 0);
         uvs.push(0.5, bladeVerts[i + 1] / bladeH);
       }
     }
 
     geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geom.computeVertexNormals();
     return geom;
   }
 
+  // Authoritative helper: verify if the terrain at (x, z) is green meadow terrain
+  // Strictly excludes rare earth, volcanic caldera rock, basalt, lava streams, roads, beaches and wharf
+  function isUnderlyingTerrainGreen(x, z) {
+    const vy = getExteriorMountainHeight(x, z);
+    const dVol = Math.hypot(x - -28, z - -148);
+
+    // 1. Caldera lava, volcanic basalt mountain, lava streams, overlook rock (NOT green)
+    if (dVol < 24 && vy > 24) return false;
+    if (dVol < 78 && vy > 5.0) return false;
+
+    // 2. Approach to obsidian shrine, ceremonial stairs and dais north of z = -65 (NOT green)
+    if (z < -65) return false;
+
+    // 3. Shoreline, beach sand band, and ocean seabed (NOT green)
+    if (vy < 1.18) return false;
+    if (isInCleanBeachSandBand(x, z)) return false;
+
+    // 4. Cobblestone roads and pathways (NOT green)
+    if (isOnIslandRoad(x, z)) return false;
+
+    // 5. Crust Cliffs rare earth / brown rock (0x9e7446) (NOT green)
+    if (x > 28 && z < -25 && vy > 5.5) return false;
+
+    // 6. Tea Plaza center / ring
+    if (Math.hypot(x, z - 10) < 11.5) return false;
+
+    // 7. Rear wharf and north sulfur shore
+    if (z <= -165) return false;
+
+    // 8. Far ocean
+    if (Math.hypot(x, z) > 360) return false;
+
+    return true;
+  }
+
   // ==========================================================================
   // DENSE, PLUSH ASTROTURF & MEADOW CARPET (FULL TERRAIN COVERAGE, ZERO GAPS)
-  // Covers Main Island, Volcano Base Foothills, Isthmus, and Outer Sanctuaries!
+  // Strictly on green meadow terrain, with nocturnal darkening & distance fade
   // ==========================================================================
   function buildInstancedMeadowGrass(scene) {
-    const tuftCount = 25000;
+    const tuftCount = 20000;
     const tuftGeo = createPlushTuftGeometry();
 
-    grassUniforms = { uTime: { value: 0 } };
+    grassUniforms = {
+      uTime: { value: 0 },
+      uNightFactor: { value: 0 }
+    };
+
     const tuftMat = new THREE.MeshStandardMaterial({
-      color: 0x38a169, // Warm spring plush green
-      roughness: 0.82,
-      metalness: 0.02,
+      color: 0x489f64, // Soft, natural spring grass green
+      roughness: 0.95, // High roughness for velvety fabric/turf texture (zero shiny specular glints)
+      metalness: 0.0,
       side: THREE.DoubleSide
     });
 
     tuftMat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = grassUniforms.uTime;
+      shader.uniforms.uNightFactor = grassUniforms.uNightFactor;
+
       shader.vertexShader =
         `uniform float uTime;\n` +
+        `uniform float uNightFactor;\n` +
         shader.vertexShader.replace(
           '#include <begin_vertex>',
           `
           #include <begin_vertex>
-          float worldX = instanceMatrix[3][0];
-          float worldZ = instanceMatrix[3][2];
-          float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * position.y;
+          vec3 instWorldPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+          float worldX = instWorldPos.x;
+          float worldZ = instWorldPos.z;
+
+          // Distance from camera to grass instance:
+          float distToCam = distance(cameraPosition, instWorldPos);
+
+          // Smooth distance fade:
+          // Close up (<30m): full 3D plush astroturf tufts
+          // Mid-range (30m - 70m): smoothly scale down height, seamlessly sinking into ground texture
+          // Far (>70m): completely flattened into terrain (transformed.y = 0), zero aliased sparkling dots!
+          float distFade = clamp(1.0 - (distToCam - 30.0) / 40.0, 0.0, 1.0);
+          distFade = distFade * distFade * (3.0 - 2.0 * distFade);
+
+          // Wind sway only affects blades standing upright near camera
+          float swayY = position.y * distFade;
+          float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * swayY;
           transformed.x += sway;
-          transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * position.y;
+          transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * swayY;
+
+          // Scale height to blend into ground texture:
+          transformed.y *= distFade;
+          transformed.xz *= (0.35 + 0.65 * distFade);
+          `
+        ).replace(
+          '#include <color_vertex>',
+          `
+          #include <color_vertex>
+          #ifdef USE_INSTANCING_COLOR
+            // Underlying meadow green terrain base color (matches terrain vertex color)
+            vec3 terrainMeadow = vec3(0.21, 0.44, 0.27);
+
+            // Nighttime darkening response:
+            // uNightFactor goes from 0.0 (day) to 1.0 (midnight)
+            // At night, tones down bright daytime saturation into deep shadowy moss:
+            vec3 nightGrass = vec3(0.05, 0.11, 0.07);
+            vec3 litGrass = mix(vColor.rgb, nightGrass, uNightFactor * 0.82);
+            vec3 litTerrain = mix(terrainMeadow, vec3(0.04, 0.08, 0.05), uNightFactor * 0.82);
+
+            // Distance blur: blend grass color seamlessly into underlying ground texture
+            vColor.rgb = mix(litTerrain, litGrass, distFade);
+          #endif
           `
         );
     };
@@ -1143,107 +1219,94 @@ window.BlahajWorld = (function () {
     const color = new THREE.Color();
     let placed = 0;
 
-    // 1. Place 15,000 Astroturf Tufts across the Main Island Meadow & Highlands
-    for (let attempt = 0; attempt < 38000 && placed < 15000; attempt++) {
-      const gx = (Math.random() - 0.5) * 170;
-      const gz = (Math.random() - 0.5) * 155 + 10;
-      const gy = getTerrainHeight(gx, gz);
+    // 1. Place 15,000 Astroturf Tufts across Main Island Meadows & Highlands (Strictly Green Surfaces Only)
+    for (let attempt = 0; attempt < 42000 && placed < 15000; attempt++) {
+      const gx = (Math.random() - 0.5) * 165;
+      const gz = (Math.random() - 0.5) * 150 + 10;
 
-      const dTea = Math.hypot(gx, gz - 10);
-      const dVol = Math.hypot(gx - -28, gz - -148);
-      const dRoad = getDistanceToIslandRoad(gx, gz);
-
-      if (gy > 1.45 && gy < 11.5 && dTea > 11.5 && dVol > 68 && gz > -36 && dRoad > 0.4) {
-        dummy.position.set(gx, gy - 0.02, gz);
-        dummy.rotation.set(
-          (Math.random() - 0.5) * 0.15,
-          Math.random() * Math.PI * 2,
-          (Math.random() - 0.5) * 0.15
-        );
-
-        // Near road edges: neater, clipped astroturf border (0.24m). Out in hills/trees: fluffier (0.42m).
-        const s = dRoad < 2.5
-          ? (0.65 + Math.random() * 0.20)
-          : (0.90 + Math.random() * 0.38);
-        dummy.scale.set(s, s, s);
-        dummy.updateMatrix();
-        instMesh.setMatrixAt(placed, dummy.matrix);
-
-        // Warm cozy plush gradient
-        color.setHSL(0.32 + (Math.random() - 0.5) * 0.05, 0.56, 0.34 + Math.random() * 0.12);
-        instMesh.setColorAt(placed, color);
-        placed++;
-      }
-    }
-
-    // 2. Place 5,000 Astroturf Tufts around the Volcano Base Foothills & Isthmus!
-    const targetVolcano = placed + 5000;
-    for (let attempt = 0; attempt < 16000 && placed < targetVolcano && placed < tuftCount; attempt++) {
-      let gx = 0, gz = 0;
-      if (Math.random() < 0.45) {
-        // Green Isthmus Spine
-        gz = -34 - Math.random() * 70;
-        const tIsth = (-gz - 32) / 73;
-        const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
-        gx = spineX + (Math.random() - 0.5) * 22.0;
-      } else {
-        // Volcano Base green foothills (dVol in [36, 74])
-        const th = Math.random() * Math.PI * 2;
-        const r = 36 + Math.random() * 38;
-        gx = -28 + Math.cos(th) * r;
-        gz = -148 + Math.sin(th) * r;
-      }
+      if (!isUnderlyingTerrainGreen(gx, gz)) continue;
 
       const gy = getTerrainHeight(gx, gz);
       const dRoad = getDistanceToIslandRoad(gx, gz);
 
-      // Only on the green foothill meadows (exclude rear sulfur beach at z < -176 or high caldera rock gy > 14)
-      if (gy > 1.45 && gy < 14.0 && gz > -175 && dRoad > 0.5) {
-        dummy.position.set(gx, gy - 0.02, gz);
-        dummy.rotation.set(
-          (Math.random() - 0.5) * 0.15,
-          Math.random() * Math.PI * 2,
-          (Math.random() - 0.5) * 0.15
-        );
-        const s = dRoad < 2.5
-          ? (0.70 + Math.random() * 0.18)
-          : (0.95 + Math.random() * 0.42);
-        dummy.scale.set(s, s, s);
-        dummy.updateMatrix();
-        instMesh.setMatrixAt(placed, dummy.matrix);
+      dummy.position.set(gx, gy - 0.02, gz);
+      dummy.rotation.set(
+        (Math.random() - 0.5) * 0.15,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.15
+      );
 
-        // Rich mossy green foothills
-        color.setHSL(0.33 + (Math.random() - 0.5) * 0.04, 0.58, 0.32 + Math.random() * 0.10);
-        instMesh.setColorAt(placed, color);
-        placed++;
-      }
+      // Near road edges: neater, clipped astroturf border (0.24m). Out in hills/trees: fluffier (0.40m).
+      const s = dRoad < 2.5
+        ? (0.65 + Math.random() * 0.20)
+        : (0.88 + Math.random() * 0.35);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      instMesh.setMatrixAt(placed, dummy.matrix);
+
+      // Warm cozy plush gradient
+      color.setHSL(0.32 + (Math.random() - 0.5) * 0.04, 0.54, 0.32 + Math.random() * 0.10);
+      instMesh.setColorAt(placed, color);
+      placed++;
     }
 
-    // 3. Place 5,000 Astroturf Tufts across the 4 Outer Buildable Sanctuary Islands!
+    // 2. Place 1,500 Astroturf Tufts on the Green Isthmus Spine Ridge (Strictly Green Surfaces Only)
+    const targetIsthmus = placed + 1500;
+    for (let attempt = 0; attempt < 8000 && placed < targetIsthmus && placed < tuftCount; attempt++) {
+      const gz = -33 - Math.random() * 29; // gz in [-33, -62]
+      const tIsth = (-gz - 32) / 73;
+      const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+      const gx = spineX + (Math.random() - 0.5) * 16.0;
+
+      if (!isUnderlyingTerrainGreen(gx, gz)) continue;
+
+      const gy = getTerrainHeight(gx, gz);
+      const dRoad = getDistanceToIslandRoad(gx, gz);
+
+      dummy.position.set(gx, gy - 0.02, gz);
+      dummy.rotation.set(
+        (Math.random() - 0.5) * 0.15,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.15
+      );
+      const s = dRoad < 2.5
+        ? (0.68 + Math.random() * 0.18)
+        : (0.90 + Math.random() * 0.35);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      instMesh.setMatrixAt(placed, dummy.matrix);
+
+      color.setHSL(0.33 + (Math.random() - 0.5) * 0.04, 0.55, 0.30 + Math.random() * 0.09);
+      instMesh.setColorAt(placed, color);
+      placed++;
+    }
+
+    // 3. Place 3,500 Astroturf Tufts across the 4 Outer Sanctuary Islands (Strictly Green Surfaces Only)
     OUTER_ISLANDS.forEach((isl, idx) => {
-      const targetForIsl = placed + 1250;
-      for (let attempt = 0; attempt < 5000 && placed < targetForIsl && placed < tuftCount; attempt++) {
-        const r = Math.sqrt(Math.random()) * (isl.radius * 0.85);
+      const targetForIsl = placed + 875;
+      for (let attempt = 0; attempt < 4500 && placed < targetForIsl && placed < tuftCount; attempt++) {
+        const r = Math.sqrt(Math.random()) * (isl.radius * 0.82);
         const th = Math.random() * Math.PI * 2;
         const gx = isl.x + Math.cos(th) * r;
         const gz = isl.z + Math.sin(th) * r;
-        const gy = getTerrainHeight(gx, gz);
-        if (gy > 1.55) {
-          dummy.position.set(gx, gy - 0.02, gz);
-          dummy.rotation.set(
-            (Math.random() - 0.5) * 0.15,
-            Math.random() * Math.PI * 2,
-            (Math.random() - 0.5) * 0.15
-          );
-          const s = 0.85 + Math.random() * 0.38;
-          dummy.scale.set(s, s, s);
-          dummy.updateMatrix();
-          instMesh.setMatrixAt(placed, dummy.matrix);
 
-          color.setHSL(0.31 + idx * 0.012 + (Math.random() - 0.5) * 0.04, 0.54, 0.35 + Math.random() * 0.12);
-          instMesh.setColorAt(placed, color);
-          placed++;
-        }
+        if (!isUnderlyingTerrainGreen(gx, gz)) continue;
+
+        const gy = getTerrainHeight(gx, gz);
+        dummy.position.set(gx, gy - 0.02, gz);
+        dummy.rotation.set(
+          (Math.random() - 0.5) * 0.15,
+          Math.random() * Math.PI * 2,
+          (Math.random() - 0.5) * 0.15
+        );
+        const s = 0.80 + Math.random() * 0.35;
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(placed, dummy.matrix);
+
+        color.setHSL(0.31 + idx * 0.012 + (Math.random() - 0.5) * 0.04, 0.52, 0.32 + Math.random() * 0.10);
+        instMesh.setColorAt(placed, color);
+        placed++;
       }
     });
 
@@ -1912,6 +1975,13 @@ window.BlahajWorld = (function () {
       const deepDay = new THREE.Color(0x051b33);
       const deepBlend = sunY > 0 ? deepDay : deepNight;
       waterUniforms.uWaterDeepCol.value.copy(deepBlend);
+    }
+
+    // Update Meadow Grass Day/Night & Lighting Response
+    if (grassUniforms && grassUniforms.uNightFactor) {
+      // 0.0 at bright day (sunIntensity ~ 1.28), smoothly rising to 1.0 at midnight (sunIntensity ~ 0.35)
+      const nf = Math.max(0.0, Math.min(1.0, (0.90 - state.sunIntensity) / 0.58));
+      grassUniforms.uNightFactor.value = nf;
     }
 
     return state;
@@ -4605,7 +4675,9 @@ window.BlahajWorld = (function () {
     getSkyKeyframes: () => SKY_KEYFRAMES,
     setWaveState,
     getWaveState,
-    getWaveAmplitude: () => currentWaveAmp
+    getWaveAmplitude: () => currentWaveAmp,
+    isUnderlyingTerrainGreen: (x, z) => isUnderlyingTerrainGreen(x, z),
+    getGrassUniforms: () => grassUniforms
   };
 })();
 
