@@ -69,6 +69,8 @@ window.BlahajVolcano = (function () {
   const surfaces = [];
   const pendulums = [];
   const geysers = [];
+  const flameJets = [];
+  const floorSpikes = [];
   const platforms = [];
   const flames = [];
   const carrots = [];
@@ -278,6 +280,18 @@ window.BlahajVolcano = (function () {
     mats.glow = new THREE.MeshBasicMaterial({ color: 0xff7a2a });
     mats.flame = new THREE.MeshBasicMaterial({ color: 0xffa24a });
     mats.blade = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.2, metalness: 0.9 });
+    mats.obsidian = new THREE.MeshStandardMaterial({
+      color: 0x0f1117, roughness: 0.12, metalness: 0.85
+    });
+    mats.charredIron = new THREE.MeshStandardMaterial({
+      color: 0x1e242c, roughness: 0.65, metalness: 0.75
+    });
+    mats.magmaVein = new THREE.MeshStandardMaterial({
+      color: 0xff4500, emissive: 0xff3b00, emissiveIntensity: 0.95, roughness: 0.4
+    });
+    mats.sulfur = new THREE.MeshStandardMaterial({
+      color: 0xeab308, roughness: 0.8, metalness: 0.1
+    });
     return mats;
   }
 
@@ -491,6 +505,7 @@ window.BlahajVolcano = (function () {
   // --------------------------------------------------------------------------
   // TRAPS & MECHANISMS
   // --------------------------------------------------------------------------
+  // Detailed Swinging Obsidian Battleaxe (Guillotine Pendulum)
   function addPendulum(z, phase, speed) {
     const m = getMats();
     const pivotY = 14;
@@ -498,47 +513,460 @@ window.BlahajVolcano = (function () {
     const pivot = new THREE.Group();
     pivot.position.set(0, pivotY, z);
 
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, len, 10), m.brass);
-    rod.position.y = -len / 2;
-    pivot.add(rod);
-    const blade = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 0.3, 24), m.blade);
-    blade.rotation.x = Math.PI / 2;
-    blade.position.y = -len;
-    pivot.add(blade);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.72, 0.09, 10, 28), m.glow);
-    rim.position.y = -len;
-    pivot.add(rim);
-    scn.add(pivot);
-
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(24, 1, 1.6), m.basalt);
-    beam.position.set(0, pivotY + 0.8, z);
+    // Heavy overhead gantry beam spanning the vault
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(26, 1.4, 2.2), m.basalt);
+    beam.position.set(0, pivotY + 0.9, z);
     scn.add(beam);
 
-    pendulums.push({ pivot, len, pivotY, z, phase, speed, hit: new THREE.Vector3(0, pivotY - len, z) });
+    // Forged iron gantry flanges with bolts
+    [-11, 11].forEach((bx) => {
+      const gBrace = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 2.4), m.charredIron);
+      gBrace.position.set(bx, pivotY + 1.2, z);
+      scn.add(gBrace);
+    });
+
+    // Massive Iron Swivel Hub with Brass Teeth Cog
+    const cogHub = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.8, 20), m.charredIron);
+    cogHub.rotation.x = Math.PI / 2;
+    pivot.add(cogHub);
+
+    const brassCog = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.35, 12), m.brass);
+    brassCog.rotation.x = Math.PI / 2;
+    pivot.add(brassCog);
+
+    const hubCore = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), m.magmaVein);
+    pivot.add(hubCore);
+
+    // Heavy Dual-Strut Reinforced Truss Shaft
+    [-0.28, 0.28].forEach((ox) => {
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, len, 8), m.charredIron);
+      strut.position.set(ox, -len / 2, 0);
+      pivot.add(strut);
+    });
+
+    // Cross-bracing diamond plates and runic collars along the shaft
+    for (let k = 1; k <= 3; k++) {
+      const cy = (-len * k) / 4;
+      const collar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.35, 0.45), m.brass);
+      collar.position.set(0, cy, 0);
+      pivot.add(collar);
+
+      const runeStitch = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.48), m.magmaVein);
+      runeStitch.position.set(0, cy, 0);
+      pivot.add(runeStitch);
+    }
+
+    // Heavy wrought iron suspension chains flanking the shaft
+    [-0.65, 0.65].forEach((cx) => {
+      const chainRod = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, len * 0.75, 6), m.brass);
+      chainRod.position.set(cx, -len * 0.45, 0);
+      pivot.add(chainRod);
+    });
+
+    // The Massive Double-Bearded Obsidian Battleaxe Cleaver
+    const axeHead = new THREE.Group();
+    axeHead.position.set(0, -len, 0);
+
+    // Heavy socket eye collar with brass studs
+    const socket = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 0.7), m.charredIron);
+    axeHead.add(socket);
+
+    const socketRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.12, 8, 24), m.brass);
+    socketRing.rotation.y = Math.PI / 2;
+    axeHead.add(socketRing);
+
+    // Glassy Pitch-Black Obsidian Crescent Blades (Left & Right Wings)
+    [-1, 1].forEach((side) => {
+      const bladeWing = new THREE.Group();
+      bladeWing.scale.x = side;
+
+      // Curved crescent blade body
+      const c1 = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.22, 24, 1, false, -0.65, 1.3), m.obsidian);
+      c1.rotation.z = Math.PI / 2;
+      c1.position.set(1.5, 0, 0);
+      bladeWing.add(c1);
+
+      // Razor-sharp glowing molten cutting edge inlay
+      const edge = new THREE.Mesh(new THREE.TorusGeometry(1.92, 0.08, 8, 28, 1.3), m.magmaVein);
+      edge.rotation.z = -0.65;
+      edge.position.set(1.5, 0, 0);
+      bladeWing.add(edge);
+
+      // Serrated obsidian horn spike at upper tip
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.95, 6), m.obsidian);
+      horn.rotation.z = -1.1;
+      horn.position.set(2.8, 1.1, 0);
+      bladeWing.add(horn);
+
+      // Lower beard hook spike
+      const beardSpike = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.85, 6), m.obsidian);
+      beardSpike.rotation.z = 1.2;
+      beardSpike.position.set(2.7, -1.0, 0);
+      bladeWing.add(beardSpike);
+
+      // Runic glyph plate on blade face
+      const glyph = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, 0.26), m.glow);
+      glyph.position.set(1.4, 0, 0);
+      bladeWing.add(glyph);
+
+      axeHead.add(bladeWing);
+    });
+
+    // Bottom Piercing Obsidian Stiletto Spike
+    const bottomSpike = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.4, 6), m.obsidian);
+    bottomSpike.rotation.x = Math.PI;
+    bottomSpike.position.set(0, -1.3, 0);
+    axeHead.add(bottomSpike);
+
+    // Glowing motion-blur kinetic trail crescent (flares at high swing velocity)
+    const trail = new THREE.Mesh(
+      new THREE.RingGeometry(2.4, 3.1, 24, 1, -0.7, 1.4),
+      new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0, side: THREE.DoubleSide })
+    );
+    trail.position.set(0, 0, 0);
+    axeHead.add(trail);
+
+    pivot.add(axeHead);
+    scn.add(pivot);
+
+    pendulums.push({
+      pivot, len, pivotY, z, phase, speed,
+      trail,
+      hit: new THREE.Vector3(0, pivotY - len, z)
+    });
   }
 
-  function addGeyser(x, y, z, phase) {
+  // Realistic Volcanic Fumarole Crags & Multi-Layered Plumes
+  function addGeyser(x, y, z, phase, isLavaSea = false) {
     const m = getMats();
-    const vent = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.25, 0.4, 18), m.brass);
-    vent.position.set(x, y + 0.1, z);
-    scn.add(vent);
+    const group = new THREE.Group();
+    group.position.set(x, y, z);
 
+    // Conical Volcanic Fumarole Crag Mound
+    const cragRadius = isLavaSea ? 2.5 : 1.7;
+    const cragHeight = isLavaSea ? 1.6 : 0.65;
+    const cragBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(cragRadius * 0.72, cragRadius, cragHeight, 14),
+      m.basalt
+    );
+    cragBase.position.y = cragHeight * 0.5;
+    group.add(cragBase);
+
+    // Encrusted Sulfur & Magma Mineral Ridges
+    for (let r = 0; r < 6; r++) {
+      const ang = (r / 6) * Math.PI * 2;
+      const rockRadius = cragRadius * 0.78;
+      const rx = Math.sin(ang) * rockRadius;
+      const rz = Math.cos(ang) * rockRadius;
+      const sulfurMat = (r % 2 === 0) ? m.sulfur : m.basalt;
+      const rimRock = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.35 + (r % 3) * 0.12, 0),
+        sulfurMat
+      );
+      rimRock.position.set(rx, cragHeight + 0.15, rz);
+      rimRock.rotation.set(r * 0.5, r * 1.1, r * 0.3);
+      group.add(rimRock);
+    }
+
+    // Heavy Forged Iron Throat Ring with Rivets
+    const ironRing = new THREE.Mesh(
+      new THREE.TorusGeometry(cragRadius * 0.62, 0.12, 8, 20),
+      m.charredIron
+    );
+    ironRing.rotation.x = Math.PI / 2;
+    ironRing.position.y = cragHeight + 0.08;
+    group.add(ironRing);
+
+    // Glowing Magma Throat (Molten core cavity deep inside the vent)
+    const throatCore = new THREE.Mesh(
+      new THREE.CircleGeometry(cragRadius * 0.58, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff3b00 })
+    );
+    throatCore.rotation.x = -Math.PI / 2;
+    throatCore.position.y = cragHeight + 0.06;
+    group.add(throatCore);
+
+    // Dynamic Warning / Telegraph Hot Glow Circle
     const warn = new THREE.Mesh(
-      new THREE.CircleGeometry(1.7, 24),
-      new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0 })
+      new THREE.RingGeometry(cragRadius * 0.6, cragRadius * 1.5, 24),
+      new THREE.MeshBasicMaterial({ color: 0xff5a14, transparent: true, opacity: 0, side: THREE.DoubleSide })
     );
     warn.rotation.x = -Math.PI / 2;
-    warn.position.set(x, y + 0.06, z);
-    scn.add(warn);
+    warn.position.y = cragHeight + 0.07;
+    group.add(warn);
 
-    const plume = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.85, 0.5, 6.5, 16),
-      new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.88 })
+    // Multi-Layered Realistic Eruption Plume Group
+    const plume = new THREE.Group();
+    plume.position.set(0, cragHeight + 0.1, 0);
+
+    // Layer A: Intense Superheated Core Plasma Jet (White-Gold, high velocity center)
+    const plumeCore = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.45, 0.25, 7.2, 14),
+      new THREE.MeshBasicMaterial({ color: 0xfffbeb, transparent: true, opacity: 0.95 })
     );
-    plume.visible = false;
-    scn.add(plume);
+    plumeCore.position.y = 3.6;
+    plume.add(plumeCore);
 
-    geysers.push({ x, y, z, phase, period: 4.4, active: false, plume, warn });
+    // Layer B: Swirling Orange-Red Magma Column (Billowing fire mantle)
+    const plumeMantle = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2, 0.65, 6.8, 16),
+      new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.82 })
+    );
+    plumeMantle.position.y = 3.4;
+    plume.add(plumeMantle);
+
+    // Layer C: Billowing Ash & Smoke Head at the summit (charcoal cloud puffs)
+    const smokeGroup = new THREE.Group();
+    smokeGroup.position.y = 6.8;
+    for (let c = 0; c < 5; c++) {
+      const ang = (c / 5) * Math.PI * 2;
+      const sMesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.95 + (c % 2) * 0.25, 1),
+        new THREE.MeshBasicMaterial({ color: (c % 2 === 0) ? 0x334155 : 0x1e293b, transparent: true, opacity: 0.78 })
+      );
+      sMesh.position.set(Math.sin(ang) * 0.75, (c % 3) * 0.35, Math.cos(ang) * 0.75);
+      smokeGroup.add(sMesh);
+    }
+    plume.add(smokeGroup);
+
+    // Layer D: Flying Lava Droplets / Volcanic Sparks
+    const sparks = [];
+    for (let sp = 0; sp < 6; sp++) {
+      const sparkMesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.18, 0),
+        new THREE.MeshBasicMaterial({ color: 0xfbbf24 })
+      );
+      sparkMesh.position.set((Math.random() - 0.5) * 1.2, 2.0 + sp * 0.8, (Math.random() - 0.5) * 1.2);
+      plume.add(sparkMesh);
+      sparks.push(sparkMesh);
+    }
+
+    plume.visible = false;
+    group.add(plume);
+
+    // Dedicated Dynamic Point Light for geyser flashes
+    const light = new THREE.PointLight(0xff6a00, 0, 18);
+    light.position.set(0, cragHeight + 2.0, 0);
+    group.add(light);
+
+    scn.add(group);
+
+    geysers.push({
+      x, y, z, phase,
+      period: 4.6,
+      active: false,
+      group,
+      plume,
+      plumeCore,
+      plumeMantle,
+      smokeGroup,
+      sparks,
+      warn,
+      light,
+      cragHeight
+    });
+  }
+
+  // NEW SPIRAL TRAP 1: ANCIENT DRAGON GARGOYLE FLAMETHROWER
+  function addFlameJet(x, y, z, dirX, dirZ, phase, length = 7.5) {
+    const m = getMats();
+    const group = new THREE.Group();
+    group.position.set(x, y, z);
+
+    const dirNorm = new THREE.Vector3(dirX, 0, dirZ).normalize();
+    const angle = Math.atan2(dirNorm.x, dirNorm.z);
+    group.rotation.y = angle;
+
+    // Carved Volcanic Basalt Dragon Gargoyle Head Mount
+    const mount = new THREE.Group();
+
+    // Heavy iron mounting bracket
+    const bracket = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.8, 1.0), m.charredIron);
+    bracket.position.set(0, 0, -0.4);
+    mount.add(bracket);
+
+    // Bronze pressure canister with pressure gauge
+    const canister = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.4, 14), m.brass);
+    canister.rotation.x = Math.PI / 2;
+    canister.position.set(0, 0.4, -0.6);
+    mount.add(canister);
+
+    // Copper fuel pipes running into rock
+    [-0.5, 0.5].forEach((px) => {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.6, 8), m.brass);
+      pipe.rotation.x = Math.PI / 3;
+      pipe.position.set(px, -0.3, -0.7);
+      mount.add(pipe);
+    });
+
+    // Sculpted Basalt Dragon Skull Snout
+    const skull = new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.8, 6), m.basalt);
+    skull.rotation.x = Math.PI / 2;
+    skull.position.set(0, 0, 0.4);
+    mount.add(skull);
+
+    // Curved Brass Dragon Horns
+    [-1, 1].forEach((side) => {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.1, 6), m.brass);
+      horn.rotation.set(-0.4, 0, side * 0.7);
+      horn.position.set(side * 0.55, 0.55, -0.1);
+      mount.add(horn);
+    });
+
+    // Glowing Magma Eye Sockets (Telegraph beacon)
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3b00 });
+    [-0.32, 0.32].forEach((ex) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), eyeMat);
+      eye.position.set(ex, 0.28, 0.6);
+      mount.add(eye);
+    });
+
+    // Open Maw / Flamethrower Nozzle
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 0.5, 12), m.charredIron);
+    nozzle.rotation.x = Math.PI / 2;
+    nozzle.position.set(0, -0.1, 1.25);
+    mount.add(nozzle);
+
+    group.add(mount);
+
+    // Multi-Layer Horizontal Fire Jet (Length ~7.5m across stairs)
+    const flameGroup = new THREE.Group();
+    flameGroup.position.set(0, -0.1, 1.3);
+
+    // Core high-temp plasma jet (white-gold)
+    const coreCone = new THREE.Mesh(
+      new THREE.ConeGeometry(0.42, length, 12),
+      new THREE.MeshBasicMaterial({ color: 0xfffbeb, transparent: true, opacity: 0.95 })
+    );
+    coreCone.rotation.x = -Math.PI / 2;
+    coreCone.position.z = length * 0.5;
+    flameGroup.add(coreCone);
+
+    // Swirling orange-red fire cone envelope
+    const fireCone = new THREE.Mesh(
+      new THREE.ConeGeometry(1.2, length * 1.05, 16),
+      new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.78 })
+    );
+    fireCone.rotation.x = -Math.PI / 2;
+    fireCone.position.z = length * 0.5;
+    flameGroup.add(fireCone);
+
+    // Outer flame wisps & smoke puffs
+    const smokePuffs = [];
+    for (let p = 0; p < 4; p++) {
+      const sMesh = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(0.65 + p * 0.15, 1),
+        new THREE.MeshBasicMaterial({ color: (p % 2 === 0) ? 0xef4444 : 0x334155, transparent: true, opacity: 0.65 })
+      );
+      sMesh.position.set((Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.3, length * 0.4 + p * 1.2);
+      flameGroup.add(sMesh);
+      smokePuffs.push(sMesh);
+    }
+
+    flameGroup.visible = false;
+    group.add(flameGroup);
+
+    // Warning Pilot Flame / Heat Shimmer
+    const pilot = new THREE.Mesh(
+      new THREE.ConeGeometry(0.16, 0.65, 8),
+      new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0 })
+    );
+    pilot.rotation.x = -Math.PI / 2;
+    pilot.position.set(0, -0.1, 1.4);
+    group.add(pilot);
+
+    // Dynamic firelight casting on stairs
+    const light = new THREE.PointLight(0xff5500, 0, 16);
+    light.position.set(0, 0.4, 2.8);
+    group.add(light);
+
+    scn.add(group);
+
+    flameJets.push({
+      x, y, z,
+      dir: dirNorm,
+      length,
+      phase,
+      period: 4.8,
+      active: false,
+      flameGroup,
+      coreCone,
+      fireCone,
+      smokePuffs,
+      pilot,
+      light,
+      eyeMat
+    });
+  }
+
+  // NEW SPIRAL TRAP 2: RUNIC OBSIDIAN FLOOR SPIKES
+  function addFloorSpikes(x, y, z, stairAngle, phase) {
+    const m = getMats();
+    const group = new THREE.Group();
+    group.position.set(x, y + 0.05, z);
+    group.rotation.y = stairAngle;
+
+    // Bronze and Basalt Step Grate Plate
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.15, 2.6), m.basalt);
+    base.position.y = 0.05;
+    group.add(base);
+
+    // Glowing Runic Warning Border
+    const runeBorder = new THREE.Mesh(
+      new THREE.BoxGeometry(2.85, 0.18, 2.65),
+      new THREE.MeshBasicMaterial({ color: 0xff4500, transparent: true, opacity: 0.25 })
+    );
+    runeBorder.position.y = 0.05;
+    group.add(runeBorder);
+
+    // Grate slits
+    for (let sl = -1; sl <= 1; sl++) {
+      const slit = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.2, 2.1), m.charredIron);
+      slit.position.set(sl * 0.75, 0.06, 0);
+      group.add(slit);
+    }
+
+    // Thrusting Obsidian Spikes Cluster
+    const spikeGroup = new THREE.Group();
+    spikeGroup.position.y = -1.2; // Retracted below step surface
+
+    const spikeMat = m.obsidian;
+    const spikePositions = [
+      [0, 0],
+      [-0.75, -0.6], [0.75, -0.6],
+      [-0.75, 0.6], [0.75, 0.6],
+      [-0.75, 0], [0.75, 0]
+    ];
+
+    spikePositions.forEach(([sx, sz]) => {
+      const spike = new THREE.Mesh(
+        new THREE.ConeGeometry(0.16, 1.85, 6),
+        spikeMat
+      );
+      spike.position.set(sx, 0.92, sz);
+      spikeGroup.add(spike);
+
+      // Glowing molten tip
+      const tip = new THREE.Mesh(
+        new THREE.ConeGeometry(0.08, 0.45, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff3b00 })
+      );
+      tip.position.set(sx, 1.62, sz);
+      spikeGroup.add(tip);
+    });
+
+    group.add(spikeGroup);
+    scn.add(group);
+
+    floorSpikes.push({
+      x, y, z,
+      radius: 1.85,
+      phase,
+      period: 4.4,
+      extended: false,
+      spikeGroup,
+      runeBorder
+    });
   }
 
   function makePlate(x, z, color) {
@@ -898,6 +1326,11 @@ window.BlahajVolcano = (function () {
     brazier(-7.5, 0, -250);
     brazier(7.5, 0, -250);
     brazier(-3.6, 0, -266);
+
+    // Majestic Volcanic Fumarole Geysers erupting out of the Molten Lava Sea
+    addGeyser(-18, LAVA_Y, -125, 0.8, true);
+    addGeyser(18, LAVA_Y, -142, 2.4, true);
+    addGeyser(-16, LAVA_Y, -215, 1.6, true);
     brazier(3.6, 0, -266);
   }
 
@@ -1019,12 +1452,30 @@ window.BlahajVolcano = (function () {
     collar.position.set(SPIRAL.x, -5, SPIRAL.z);
     scn.add(collar);
 
-    // Ember geysers along the climb.
-    [0.6, 1.5, 2.4].forEach((t, i) => {
+    // Traps along the Ember Spiral climb:
+    // 1. Runic Obsidian Floor Spikes on the stairs (lower curve and upper curve)
+    [0.55, 1.85].forEach((t, i) => {
       const th = t * Math.PI;
-      const gy = (th / thetaMax) * SPIRAL.rise;
-      addGeyser(SPIRAL.x + Math.sin(th) * R * 1.0, gy, SPIRAL.z + Math.cos(th) * R * 1.0, i * 1.7);
+      const sy = (th / thetaMax) * SPIRAL.rise;
+      const sx = SPIRAL.x + Math.sin(th) * R;
+      const sz = SPIRAL.z + Math.cos(th) * R;
+      addFloorSpikes(sx, sy, sz, th, i * 2.2);
     });
+
+    // 2. Ancient Dragon Gargoyle Flamethrowers
+    // Flamethrower A: Mounted on central pillar sweeping outward across stairs at mid-climb
+    const thA = 1.15 * Math.PI;
+    const fyA = (thA / thetaMax) * SPIRAL.rise + 1.1;
+    const fxA = SPIRAL.x + Math.sin(thA) * (R - 3.8);
+    const fzA = SPIRAL.z + Math.cos(thA) * (R - 3.8);
+    addFlameJet(fxA, fyA, fzA, Math.sin(thA), Math.cos(thA), 0.6, 7.5);
+
+    // Flamethrower B: Mounted on outer rock wall sweeping inward across stairs near the summit
+    const thB = 2.45 * Math.PI;
+    const fyB = (thB / thetaMax) * SPIRAL.rise + 1.1;
+    const fxB = SPIRAL.x + Math.sin(thB) * (R + 3.8);
+    const fzB = SPIRAL.z + Math.cos(thB) * (R + 3.8);
+    addFlameJet(fxB, fyB, fzB, -Math.sin(thB), -Math.cos(thB), 2.4, 7.5);
 
     // Rest landing at the top with a warm tea nook.
     const top = SPIRAL.rise;
@@ -1232,6 +1683,28 @@ window.BlahajVolcano = (function () {
     brazier(9, BALCONY.y, -349);
     brazier(-9, BALCONY.y, -349);
 
+    // Twin Ancient Obsidian Gargoyles perched on the Crater Overlook balustrade
+    [-BALCONY.hw + 1.5, BALCONY.hw - 1.5].forEach((gx, idx) => {
+      const gGroup = new THREE.Group();
+      gGroup.position.set(gx, BALCONY.y + 1.1, BALCONY.cz - BALCONY.hd + 0.8);
+      const gPedestal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 1.2), m.basalt);
+      gGroup.add(gPedestal);
+      const gStatue = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 1), m.obsidian);
+      gStatue.position.y = 1.2;
+      gGroup.add(gStatue);
+      const gHorns = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 6), m.brass);
+      gHorns.position.set(0, 1.9, 0);
+      gGroup.add(gHorns);
+      const gEyeMat = new THREE.MeshBasicMaterial({ color: 0xff3b00 });
+      [-0.22, 0.22].forEach((ex) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), gEyeMat);
+        eye.position.set(ex, 1.35, 0.7);
+        gGroup.add(eye);
+      });
+      gGroup.rotation.y = idx === 0 ? 0.35 : -0.35;
+      scn.add(gGroup);
+    });
+
     // Eight volunteer carrots along the front edge.
     const colors = [0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x3b82f6, 0xec4899, 0x14b8a6, 0xf97316];
     colors.forEach((color, i) => {
@@ -1395,25 +1868,113 @@ window.BlahajVolcano = (function () {
     });
     if (camPos) skyMesh.position.copy(camPos);
 
-    // Pendulums.
+    // Pendulums: kinetic trail flares up at high velocity.
     pendulums.forEach((p) => {
       const a = Math.sin(t * p.speed + p.phase) * 0.92;
       p.pivot.rotation.z = a;
       p.hit.set(Math.sin(a) * p.len, p.pivotY - Math.cos(a) * p.len, p.z);
+      if (p.trail) {
+        const velMag = Math.abs(Math.cos(t * p.speed + p.phase));
+        p.trail.material.opacity = Math.pow(velMag, 3.0) * 0.65;
+      }
     });
 
-    // Geysers: telegraph, erupt, rest.
+    // Realistic Geysers: telegraph warning, erupt with billowing ash & light, rest.
     geysers.forEach((g) => {
       const c = ((t + g.phase) % g.period) / g.period;
       g.active = c >= 0.28 && c < 0.62;
       const warning = c < 0.28 && c > 0.08;
-      g.warn.material.opacity = warning ? 0.25 + 0.3 * Math.sin(t * 14) : 0;
+
+      g.warn.material.opacity = warning ? 0.3 + 0.4 * Math.sin(t * 16) : 0;
       g.plume.visible = g.active;
-      if (g.active) {
+
+      if (warning) {
+        if (g.light) g.light.intensity = 0.4 + 0.3 * Math.sin(t * 14);
+      } else if (g.active) {
         const s = Math.sin(((c - 0.28) / 0.34) * Math.PI);
-        const sy = 0.35 + s * 0.65;
-        g.plume.scale.set(1, sy, 1);
-        g.plume.position.set(g.x, g.y + 3.25 * sy, g.z);
+        const sy = 0.4 + s * 0.68;
+        g.plume.scale.set(0.85 + s * 0.25, sy, 0.85 + s * 0.25);
+        if (g.light) g.light.intensity = 2.8 + Math.sin(t * 24) * 0.8;
+
+        // Billowing mushroom ash head
+        if (g.smokeGroup) {
+          g.smokeGroup.rotation.y += dt * 3.5;
+          g.smokeGroup.scale.setScalar(1.0 + s * 0.55);
+        }
+        // Animated lava droplet sparks
+        if (g.sparks) {
+          g.sparks.forEach((sp, idx) => {
+            sp.position.y = 2.0 + idx * 0.9 + Math.sin(t * 15 + idx) * 0.8;
+            sp.rotation.x += dt * 6;
+            sp.rotation.z += dt * 8;
+          });
+        }
+      } else {
+        if (g.light) g.light.intensity = 0;
+      }
+    });
+
+    // Dragon Gargoyle Flamethrowers on the Spiral
+    flameJets.forEach((fj) => {
+      const c = ((t + fj.phase) % fj.period) / fj.period;
+      fj.active = c >= 0.32 && c < 0.65;
+      const warning = c < 0.32 && c > 0.10;
+
+      if (warning) {
+        const warnPulse = 0.4 + 0.6 * Math.abs(Math.sin(t * 16));
+        fj.pilot.material.opacity = warnPulse;
+        fj.eyeMat.color.setHex(0xff3b00);
+        fj.light.intensity = warnPulse * 0.8;
+      } else if (fj.active) {
+        fj.pilot.material.opacity = 0;
+        fj.eyeMat.color.setHex(0xffffff);
+      } else {
+        fj.pilot.material.opacity = 0;
+        fj.eyeMat.color.setHex(0x7c1d06);
+        fj.light.intensity = 0;
+      }
+
+      fj.flameGroup.visible = fj.active;
+      if (fj.active) {
+        const blastProgress = (c - 0.32) / 0.33;
+        const blastFactor = Math.sin(blastProgress * Math.PI);
+        const curScale = 0.5 + blastFactor * 0.55;
+        fj.flameGroup.scale.set(curScale, curScale, 0.85 + blastFactor * 0.25);
+        fj.light.intensity = 2.5 + Math.sin(t * 22) * 0.8;
+
+        fj.smokePuffs.forEach((puff, idx) => {
+          puff.rotation.x += dt * 4;
+          puff.rotation.z += dt * 5;
+          puff.position.z = fj.length * 0.4 + idx * 1.1 + Math.sin(t * 12 + idx) * 0.4;
+        });
+      }
+    });
+
+    // Runic Obsidian Floor Spikes on the Spiral
+    floorSpikes.forEach((sp) => {
+      const c = ((t + sp.phase) % sp.period) / sp.period;
+      sp.extended = c >= 0.30 && c < 0.60;
+      const warning = c < 0.30 && c > 0.10;
+
+      if (warning) {
+        sp.runeBorder.material.opacity = 0.25 + 0.6 * Math.abs(Math.sin(t * 18));
+      } else {
+        sp.runeBorder.material.opacity = sp.extended ? 0.95 : 0.12;
+      }
+
+      if (sp.extended) {
+        const extProgress = (c - 0.30) / 0.30;
+        let lift = 0;
+        if (extProgress < 0.15) {
+          lift = extProgress / 0.15;
+        } else if (extProgress > 0.85) {
+          lift = (1.0 - extProgress) / 0.15;
+        } else {
+          lift = 1.0;
+        }
+        sp.spikeGroup.position.y = -1.2 + lift * 1.35;
+      } else {
+        sp.spikeGroup.position.y = -1.2;
       }
     });
 
@@ -1558,14 +2119,41 @@ window.BlahajVolcano = (function () {
   // PUBLIC: GAMEPLAY QUERIES
   // --------------------------------------------------------------------------
   function checkHazards(p) {
+    // 1. Swinging Obsidian Battleaxes
     for (let i = 0; i < pendulums.length; i++) {
       const h = pendulums[i].hit;
-      if (Math.hypot(h.x - p.x, h.y - (p.y + 1.3), h.z - p.z) < 2.3) return 'Swinging Obsidian Pendulum';
+      if (Math.hypot(h.x - p.x, h.y - (p.y + 1.3), h.z - p.z) < 2.5) {
+        return 'Swinging Obsidian Pendulum';
+      }
     }
+    // 2. Realistic Erupting Lava Geysers
     for (let i = 0; i < geysers.length; i++) {
       const g = geysers[i];
-      if (g.active && Math.hypot(g.x - p.x, g.z - p.z) < 1.8 && p.y - g.y > -0.5 && p.y - g.y < 4.5) {
+      if (g.active && Math.hypot(g.x - p.x, g.z - p.z) < 2.2 && p.y - g.y > -0.5 && p.y - g.y < 6.0) {
         return 'Erupting Lava Geyser';
+      }
+    }
+    // 3. Dragon Gargoyle Flamethrowers on the Spiral
+    for (let i = 0; i < flameJets.length; i++) {
+      const fj = flameJets[i];
+      if (fj.active) {
+        const dx = p.x - fj.x;
+        const dy = (p.y + 0.8) - fj.y;
+        const dz = p.z - fj.z;
+        const dot = dx * fj.dir.x + dz * fj.dir.z;
+        if (dot >= 0 && dot <= fj.length && Math.abs(dy) < 1.9) {
+          const perpDist = Math.abs(dx * (-fj.dir.z) + dz * fj.dir.x);
+          if (perpDist < 1.7) {
+            return 'Dragon Gargoyle Flamethrower';
+          }
+        }
+      }
+    }
+    // 4. Runic Obsidian Floor Spikes on the Spiral
+    for (let i = 0; i < floorSpikes.length; i++) {
+      const sp = floorSpikes[i];
+      if (sp.extended && Math.hypot(sp.x - p.x, sp.z - p.z) < sp.radius && Math.abs(p.y - sp.y) < 1.8) {
+        return 'Runic Obsidian Spikes';
       }
     }
     return null;
@@ -1619,6 +2207,7 @@ window.BlahajVolcano = (function () {
     getInteractables,
     getCarrots: () => carrots,
     knockCarrot,
+    getTraps: () => ({ pendulums, geysers, flameJets, floorSpikes }),
     constants: { LAVA_Y, BALCONY }
   };
 })();
