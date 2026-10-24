@@ -1108,30 +1108,28 @@ window.BlahajWorld = (function () {
     const vy = getExteriorMountainHeight(x, z);
     const dVol = Math.hypot(x - -28, z - -148);
 
-    // 1. Caldera lava, volcanic basalt mountain, lava streams, overlook rock (NOT green)
+    // 1. Shoreline, beach sand band, and ocean seabed (NOT green)
+    if (vy < 1.15) return false;
+    if (isInCleanBeachSandBand(x, z)) return false;
+
+    // 2. High volcanic cone, caldera interior, lava streams, and sheer basalt cliffs (vy > 5.0 on mountain)
+    // Green foothills belt (dVol < 78 && vy <= 5.0) IS green meadow and is permitted!
     if (dVol < 24 && vy > 24) return false;
     if (dVol < 78 && vy > 5.0) return false;
 
-    // 2. Approach to obsidian shrine, ceremonial stairs and dais north of z = -65 (NOT green)
-    if (z < -65) return false;
-
-    // 3. Shoreline, beach sand band, and ocean seabed (NOT green)
-    if (vy < 1.18) return false;
-    if (isInCleanBeachSandBand(x, z)) return false;
-
-    // 4. Cobblestone roads and pathways (NOT green)
+    // 3. Cobblestone roads and pathways (NOT green)
     if (isOnIslandRoad(x, z)) return false;
 
-    // 5. Crust Cliffs rare earth / brown rock (0x9e7446) (NOT green)
+    // 4. Crust Cliffs rare earth / brown rock (0x9e7446) (NOT green)
     if (x > 28 && z < -25 && vy > 5.5) return false;
 
-    // 6. Tea Plaza center / ring
+    // 5. Tea Plaza center / ring
     if (Math.hypot(x, z - 10) < 11.5) return false;
 
-    // 7. Rear wharf and north sulfur shore
-    if (z <= -165) return false;
+    // 6. Rear wharf and north sulfur shore
+    if (z <= -168) return false;
 
-    // 8. Far ocean
+    // 7. Far ocean
     if (Math.hypot(x, z) > 360) return false;
 
     return true;
@@ -1139,10 +1137,11 @@ window.BlahajWorld = (function () {
 
   // ==========================================================================
   // DENSE, PLUSH ASTROTURF & MEADOW CARPET (FULL TERRAIN COVERAGE, ZERO GAPS)
-  // Strictly on green meadow terrain, with nocturnal darkening & distance fade
+  // Strictly on green meadow terrain, with nocturnal darkening & distant fade
+  // Covers Main Island Meadows, Volcano Base Foothills, Isthmus, and Outer Sanctuaries!
   // ==========================================================================
   function buildInstancedMeadowGrass(scene) {
-    const tuftCount = 20000;
+    const tuftCount = 25000;
     const tuftGeo = createPlushTuftGeometry();
 
     grassUniforms = {
@@ -1168,7 +1167,7 @@ window.BlahajWorld = (function () {
           '#include <begin_vertex>',
           `
           #include <begin_vertex>
-          vec3 instWorldPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+          vec3 instWorldPos = vec3(instanceMatrix[3].x, instanceMatrix[3].y, instanceMatrix[3].z);
           float worldX = instWorldPos.x;
           float worldZ = instWorldPos.z;
 
@@ -1176,21 +1175,21 @@ window.BlahajWorld = (function () {
           float distToCam = distance(cameraPosition, instWorldPos);
 
           // Smooth distance fade:
-          // Close up (<30m): full 3D plush astroturf tufts
-          // Mid-range (30m - 70m): smoothly scale down height, seamlessly sinking into ground texture
-          // Far (>70m): completely flattened into terrain (transformed.y = 0), zero aliased sparkling dots!
-          float distFade = clamp(1.0 - (distToCam - 30.0) / 40.0, 0.0, 1.0);
+          // Near & mid-range (0m - 90m): 100% full plush 3D astroturf tufts
+          // Distant range (90m - 175m): smoothly scales down height, merging into ground texture
+          // Far (> 175m): completely flattened into ground texture (zero sparkling / aliased artifacts)
+          float distFade = clamp(1.0 - (distToCam - 90.0) / 85.0, 0.0, 1.0);
           distFade = distFade * distFade * (3.0 - 2.0 * distFade);
 
-          // Wind sway only affects blades standing upright near camera
+          // Wind sway only affects blades standing upright
           float swayY = position.y * distFade;
           float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * swayY;
           transformed.x += sway;
           transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * swayY;
 
-          // Scale height to blend into ground texture:
+          // Scale height smoothly in distance:
           transformed.y *= distFade;
-          transformed.xz *= (0.35 + 0.65 * distFade);
+          transformed.xz *= (0.45 + 0.55 * distFade);
           `
         ).replace(
           '#include <color_vertex>',
@@ -1200,12 +1199,12 @@ window.BlahajWorld = (function () {
             // Underlying meadow green terrain base color (matches terrain vertex color)
             vec3 terrainMeadow = vec3(0.21, 0.44, 0.27);
 
-            // Nighttime darkening response:
+            // Nighttime velvety darkening response:
             // uNightFactor goes from 0.0 (day) to 1.0 (midnight)
-            // At night, tones down bright daytime saturation into deep shadowy moss:
-            vec3 nightGrass = vec3(0.05, 0.11, 0.07);
-            vec3 litGrass = mix(vColor.rgb, nightGrass, uNightFactor * 0.82);
-            vec3 litTerrain = mix(terrainMeadow, vec3(0.04, 0.08, 0.05), uNightFactor * 0.82);
+            // At night, tones down saturation into deep velvety moss so it never glows like green diamonds:
+            vec3 nightGrass = vec3(0.04, 0.09, 0.05);
+            vec3 litGrass = mix(vColor.rgb, nightGrass, uNightFactor * 0.88);
+            vec3 litTerrain = mix(terrainMeadow, vec3(0.03, 0.06, 0.04), uNightFactor * 0.88);
 
             // Distance blur: blend grass color seamlessly into underlying ground texture
             vColor.rgb = mix(litTerrain, litGrass, distFade);
@@ -1220,7 +1219,7 @@ window.BlahajWorld = (function () {
     let placed = 0;
 
     // 1. Place 15,000 Astroturf Tufts across Main Island Meadows & Highlands (Strictly Green Surfaces Only)
-    for (let attempt = 0; attempt < 42000 && placed < 15000; attempt++) {
+    for (let attempt = 0; attempt < 45000 && placed < 15000; attempt++) {
       const gx = (Math.random() - 0.5) * 165;
       const gz = (Math.random() - 0.5) * 150 + 10;
 
@@ -1250,13 +1249,44 @@ window.BlahajWorld = (function () {
       placed++;
     }
 
-    // 2. Place 1,500 Astroturf Tufts on the Green Isthmus Spine Ridge (Strictly Green Surfaces Only)
-    const targetIsthmus = placed + 1500;
-    for (let attempt = 0; attempt < 8000 && placed < targetIsthmus && placed < tuftCount; attempt++) {
-      const gz = -33 - Math.random() * 29; // gz in [-33, -62]
+    // 2. Place 3,500 Astroturf Tufts around the Volcano Base Foothills (Strictly Green Surfaces Only)
+    const targetVolcano = placed + 3500;
+    for (let attempt = 0; attempt < 12000 && placed < targetVolcano && placed < tuftCount; attempt++) {
+      const r = 58 + Math.random() * 18; // dVol between 35 and 76
+      const th = Math.random() * Math.PI * 2;
+      const gx = -28 + Math.cos(th) * r;
+      const gz = -148 + Math.sin(th) * r;
+
+      if (!isUnderlyingTerrainGreen(gx, gz)) continue;
+
+      const gy = getTerrainHeight(gx, gz);
+      const dRoad = getDistanceToIslandRoad(gx, gz);
+
+      dummy.position.set(gx, gy - 0.02, gz);
+      dummy.rotation.set(
+        (Math.random() - 0.5) * 0.15,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.15
+      );
+      const s = dRoad < 2.5
+        ? (0.68 + Math.random() * 0.18)
+        : (0.90 + Math.random() * 0.35);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      instMesh.setMatrixAt(placed, dummy.matrix);
+
+      color.setHSL(0.33 + (Math.random() - 0.5) * 0.04, 0.56, 0.30 + Math.random() * 0.09);
+      instMesh.setColorAt(placed, color);
+      placed++;
+    }
+
+    // 3. Place 2,000 Astroturf Tufts on the Green Isthmus Spine Ridge (Strictly Green Surfaces Only)
+    const targetIsthmus = placed + 2000;
+    for (let attempt = 0; attempt < 9000 && placed < targetIsthmus && placed < tuftCount; attempt++) {
+      const gz = -33 - Math.random() * 42; // gz in [-33, -75]
       const tIsth = (-gz - 32) / 73;
       const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
-      const gx = spineX + (Math.random() - 0.5) * 16.0;
+      const gx = spineX + (Math.random() - 0.5) * 18.0;
 
       if (!isUnderlyingTerrainGreen(gx, gz)) continue;
 
@@ -1281,11 +1311,11 @@ window.BlahajWorld = (function () {
       placed++;
     }
 
-    // 3. Place 3,500 Astroturf Tufts across the 4 Outer Sanctuary Islands (Strictly Green Surfaces Only)
+    // 4. Place 4,500 Astroturf Tufts across the 4 Outer Sanctuary Islands (Strictly Green Surfaces Only)
     OUTER_ISLANDS.forEach((isl, idx) => {
-      const targetForIsl = placed + 875;
-      for (let attempt = 0; attempt < 4500 && placed < targetForIsl && placed < tuftCount; attempt++) {
-        const r = Math.sqrt(Math.random()) * (isl.radius * 0.82);
+      const targetForIsl = placed + 1125;
+      for (let attempt = 0; attempt < 5000 && placed < targetForIsl && placed < tuftCount; attempt++) {
+        const r = Math.sqrt(Math.random()) * (isl.radius * 0.84);
         const th = Math.random() * Math.PI * 2;
         const gx = isl.x + Math.cos(th) * r;
         const gz = isl.z + Math.sin(th) * r;

@@ -2135,15 +2135,17 @@
       }
     });
 
-    let pointerLockCooldown = 0;
     let lastClientX = null;
     let lastClientY = null;
+    let prevPointerDx = 0;
+    let prevPointerDy = 0;
 
     document.addEventListener('pointerlockchange', () => {
       camState.isPointerLocked = document.pointerLockElement === canvas;
-      pointerLockCooldown = 3; // Discard first 3 frames after pointer lock transition
       lastClientX = null;
       lastClientY = null;
+      prevPointerDx = 0;
+      prevPointerDy = 0;
       if (!camState.isPointerLocked) {
         clearAllMovementKeys();
       }
@@ -2178,6 +2180,8 @@
       camState.isRightDragging = false;
       lastClientX = null;
       lastClientY = null;
+      prevPointerDx = 0;
+      prevPointerDy = 0;
     });
 
     window.addEventListener('contextmenu', (e) => {
@@ -2188,42 +2192,44 @@
     window.addEventListener('mousemove', (e) => {
       if (isAnyModalOpen()) return;
 
-      if (pointerLockCooldown > 0) {
-        pointerLockCooldown--;
-        lastClientX = e.clientX;
-        lastClientY = e.clientY;
-        return;
-      }
-
       if (camState.isPointerLocked || camState.isRightDragging) {
         let dx = 0;
         let dy = 0;
 
         if (camState.isPointerLocked) {
-          dx = (typeof e.movementX === 'number' && Number.isFinite(e.movementX)) ? e.movementX : 0;
-          dy = (typeof e.movementY === 'number' && Number.isFinite(e.movementY)) ? e.movementY : 0;
+          const rawDx = (typeof e.movementX === 'number' && Number.isFinite(e.movementX)) ? e.movementX : 0;
+          const rawDy = (typeof e.movementY === 'number' && Number.isFinite(e.movementY)) ? e.movementY : 0;
+
+          // REJECT SYNTHETIC OS RECENTER WARP GLITCHES:
+          // Chromium's Pointer Lock on Windows occasionally fires a single synthetic event (typically 300-1200px)
+          // when the Windows virtual cursor hits the desktop margin and is reset by SetCursorPos.
+          // Real human mouse turns never reach 280px in a single frame with a sudden reverse direction.
+          const isRecenterWarpX = Math.abs(rawDx) > 280 && (Math.abs(rawDx - prevPointerDx) > 220 || Math.sign(rawDx) !== Math.sign(prevPointerDx));
+          const isRecenterWarpY = Math.abs(rawDy) > 280 && (Math.abs(rawDy - prevPointerDy) > 220 || Math.sign(rawDy) !== Math.sign(prevPointerDy));
+
+          if (isRecenterWarpX || isRecenterWarpY) {
+            return; // Discard synthetic OS recenter warp glitch!
+          }
+
+          prevPointerDx = rawDx;
+          prevPointerDy = rawDy;
+
+          // Generous safe clamping allows fast, fluid turns (up to ~22°/event) while stopping runaway jumps
+          dx = Math.max(-120, Math.min(120, rawDx));
+          dy = Math.max(-90, Math.min(90, rawDy));
         } else {
-          // In drag mode without pointer lock, use client coordinate delta to eliminate browser movementX spikes
+          // Drag mode: compute delta using smooth client coordinates
           if (lastClientX !== null && lastClientY !== null) {
             dx = e.clientX - lastClientX;
             dy = e.clientY - lastClientY;
           }
           lastClientX = e.clientX;
           lastClientY = e.clientY;
-        }
 
-        // 1. REJECT OS CURSOR RECENTER / WARP SPIKES:
-        // Chromium's Pointer Lock on Windows periodically resets the virtual cursor when it travels
-        // to the screen margin (typically every 15-20s of camera rotation). This synthetic recenter
-        // event generates a massive delta (100-300px), causing sudden 20-40° jump cuts.
-        // Genuine hand mouse movement at 60Hz never exceeds 50px per event.
-        if (Math.abs(dx) > 65 || Math.abs(dy) > 65) {
-          return; // Discard recenter warp glitch!
+          // Generous safe clamping for smooth click-and-drag turns
+          dx = Math.max(-100, Math.min(100, dx));
+          dy = Math.max(-80, Math.min(80, dy));
         }
-
-        // 2. Safe delta clamping: limits max angular velocity per event to ~5.5°
-        dx = Math.max(-30, Math.min(30, dx));
-        dy = Math.max(-30, Math.min(30, dy));
 
         const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
         const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
