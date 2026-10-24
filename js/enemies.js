@@ -2,14 +2,17 @@
 // BLÅHAJ ISLAND — ENEMIES & BOOP ATTACK SYSTEM
 // ============================================================================
 // Featuring:
-// 1. Barnacle Brine Star (Evil Starfish)
-// 2. Rowdy Gray Fin (Mean Shark)
-// 3. Prickly Kelp Urchin (Mischievous Puffball)
+// 1. Rowdy Gray Fin (Mean Shark · Grand Archipelago Rover)
+// 2. Barnacle Chomp (Mean Shark · Hermes Strait Raider)
+// 3. Scurvy Snout (Mean Shark · Hiram Sound Marauder)
+// 4. Barnacle Brine Star (Evil Starfish · Moody Spike)
+// 5. Prickly Kelp Urchin (Mischievous Puffball · Soft Spines)
 //
 // Core Philosophy:
 // - Hit points = Mange.
 // - There is NO dying in this game!
 // - Enemies cannot die: hitting them enough sends them flying into the stratosphere / another dimension!
+// - Mean sharks cruise along continuous oceanic patrol routes around the islands!
 // ============================================================================
 
 window.BlahajEnemies = (function () {
@@ -94,15 +97,25 @@ window.BlahajEnemies = (function () {
     return group;
   }
 
-  // B. Rowdy Gray Fin (Mean Shark)
-  function createMeanSharkMesh() {
+  // B. Mean Sharks Mesh Builder (With Personality Options!)
+  function createMeanSharkMesh(opts = {}) {
+    const {
+      bodyColor = 0x475569, // Heather slate gray
+      bellyColor = 0xe2e8f0,
+      eyeColor = 0xfde047,  // Grumpy yellow eye
+      hasGoldTooth = false,
+      hasScars = false,
+      hasEarring = false
+    } = opts;
+
     const group = new THREE.Group();
-    const bodyMat = createMat(0x475569, 0.82); // Slate gray
-    const bellyMat = createMat(0xe2e8f0, 0.9);
+    const bodyMat = createMat(bodyColor, 0.82);
+    const bellyMat = createMat(bellyColor, 0.9);
     const teethMat = createMat(0xffffff, 0.6);
+    const goldMat = createMat(0xf59e0b, 0.4, 0.6);
     const patchMat = createMat(0x0f172a, 0.9); // Black eyepatch
     const strapMat = createMat(0x1e293b, 0.9);
-    const eyeMat = createMat(0xfde047, 0.5); // Grumpy yellow eye
+    const eyeMat = createMat(eyeColor, 0.5);
 
     // Main torso
     const body = new THREE.Mesh(new THREE.SphereGeometry(0.75, 14, 12), bodyMat);
@@ -146,6 +159,31 @@ window.BlahajEnemies = (function () {
     const teeth = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.08, 0.24), teethMat);
     teeth.position.set(0, 0.58, 0.92);
     group.add(teeth);
+
+    if (hasGoldTooth) {
+      const goldTooth = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.10, 0.12), goldMat);
+      goldTooth.position.set(0.18, 0.56, 1.02);
+      group.add(goldTooth);
+    }
+
+    if (hasEarring) {
+      const earring = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.024, 6, 14), goldMat);
+      earring.position.set(0.28, 1.45, -0.05);
+      earring.rotation.y = 0.4;
+      group.add(earring);
+    }
+
+    if (hasScars) {
+      const scarMat = createMat(0xf472b6, 0.9); // Pale pink stitched battle scars
+      const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.035, 0.03), scarMat);
+      s1.position.set(0.30, 0.82, 1.15);
+      s1.rotation.set(0.2, 0.3, 0.4);
+      const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.035, 0.03), scarMat);
+      s2.position.set(0.30, 0.82, 1.15);
+      s2.rotation.set(0.2, 0.3, -0.4);
+      group.add(s1);
+      group.add(s2);
+    }
 
     // Left Eyepatch & Strap
     const eyepatch = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), patchMat);
@@ -269,7 +307,55 @@ window.BlahajEnemies = (function () {
   }
 
   // --------------------------------------------------------------------------
-  // 3. INITIALIZATION
+  // 3. OCEAN PATROL CIRCUITS FOR MEAN SHARKS
+  // --------------------------------------------------------------------------
+  // Route 1: Grand Archipelago Ocean Highway (Circumnavigating East Cape, North Sea & Solomon Straits)
+  const ROUTE_GRAND_ARCHIPELAGO = [
+    { name: 'East Cape Anchorage', x: 82, z: 18 },
+    { name: 'Northeast Reef Channel', x: 88, z: 45 },
+    { name: 'Outer Northeast Waters', x: 85, z: 80 },
+    { name: 'North Channel Far East', x: 50, z: 92 },
+    { name: 'North Pier Deep Passage', x: 0, z: 92 },
+    { name: 'North Channel West', x: -50, z: 90 },
+    { name: 'Solomon Bay Sound', x: -85, z: 75 },
+    { name: 'Solomon Passage Deep', x: -110, z: 65 },
+    { name: 'West Sound Central', x: -115, z: 25 },
+    { name: 'Hiram Isle North Waters', x: -115, z: -15 },
+    { name: 'Hiram Sound Deep', x: -120, z: -55 },
+    { name: 'Hiram Sound Turning Basin', x: -115, z: -70 },
+    { name: 'Hiram Isle East Passage', x: -105, z: -40 },
+    { name: 'West Sound Turning Basin', x: -100, z: 0 },
+    { name: 'Solomon Sound Approach', x: -95, z: 45 },
+    { name: 'Solomon Approach Return', x: -75, z: 75 },
+    { name: 'North Channel Return', x: 0, z: 95 },
+    { name: 'North East High Water', x: 75, z: 75 }
+  ];
+
+  // Route 2: Hermes Atoll & Eastern Strait Circuit
+  const ROUTE_HERMES_STRAIT = [
+    { name: 'East Cape Anchorage', x: 82, z: 18 },
+    { name: 'Hermes Approach North', x: 105, z: 35 },
+    { name: 'Hermes Atoll West Channel', x: 125, z: 5 },
+    { name: 'Hermes Sound Mid', x: 115, z: -15 },
+    { name: 'Hermes Sound South', x: 105, z: -25 },
+    { name: 'Hermes Outer Strait', x: 105, z: -5 },
+    { name: 'East Cape South Approach', x: 100, z: 15 }
+  ];
+
+  // Route 3: West Archipelago Channel (Between Solomon Cay, Hiram Isle & Western Shallows)
+  const ROUTE_WEST_ARCHIPELAGO = [
+    { name: 'Solomon South Passage', x: -110, z: 65 },
+    { name: 'Solomon-Hiram Mid-Strait', x: -115, z: 25 },
+    { name: 'Hiram Isle North Waters', x: -115, z: -15 },
+    { name: 'Hiram Sound Deep', x: -120, z: -55 },
+    { name: 'Hiram Sound Turn', x: -115, z: -70 },
+    { name: 'Hiram Isle East Passage', x: -105, z: -40 },
+    { name: 'West Sound Central Channel', x: -100, z: 0 },
+    { name: 'Solomon Sound Approach', x: -95, z: 45 }
+  ];
+
+  // --------------------------------------------------------------------------
+  // 4. INITIALIZATION
   // --------------------------------------------------------------------------
   function init(sceneRef, worldApiRef) {
     scene = sceneRef;
@@ -281,13 +367,43 @@ window.BlahajEnemies = (function () {
         id: 'shark_1',
         type: 'shark',
         title: 'Rowdy Gray Fin 🦈',
-        tag: 'MEAN SHARK · RUFFIAN OF SHALLOWS',
+        tag: 'MEAN SHARK · ARCHIPELAGO ROVER',
         isWaterBased: true,
-        // Cruising underwater in the East Cape coastal waters (depth ~1.45m underwater)
-        homePos: new THREE.Vector3(78.0, -0.65, 18.0),
-        builder: createMeanSharkMesh,
+        homePos: new THREE.Vector3(82.0, -0.65, 18.0),
+        builder: () => createMeanSharkMesh({ bodyColor: 0x475569, eyeColor: 0xfde047 }),
+        speed: 5.0,
+        patrolSpeedMult: 0.75,
+        aggroDist: 11.0,
+        patrolRoute: ROUTE_GRAND_ARCHIPELAGO,
+        routeIdx: 0
+      },
+      {
+        id: 'shark_2',
+        type: 'shark',
+        title: 'Barnacle Chomp 🦈',
+        tag: 'MEAN SHARK · HERMES STRAIT RAIDER',
+        isWaterBased: true,
+        homePos: new THREE.Vector3(125.0, -0.65, 5.0),
+        builder: () => createMeanSharkMesh({ bodyColor: 0x1e3a8a, eyeColor: 0xf97316, hasScars: true, hasEarring: true }),
+        speed: 4.6,
+        patrolSpeedMult: 0.72,
+        aggroDist: 10.5,
+        patrolRoute: ROUTE_HERMES_STRAIT,
+        routeIdx: 2
+      },
+      {
+        id: 'shark_3',
+        type: 'shark',
+        title: 'Scurvy Snout 🦈',
+        tag: 'MEAN SHARK · HIRAM SOUND MARAUDER',
+        isWaterBased: true,
+        homePos: new THREE.Vector3(-115.0, -0.65, -15.0),
+        builder: () => createMeanSharkMesh({ bodyColor: 0x0f766e, eyeColor: 0xa3e635, hasGoldTooth: true }),
         speed: 4.8,
-        aggroDist: 10.5
+        patrolSpeedMult: 0.74,
+        aggroDist: 10.5,
+        patrolRoute: ROUTE_WEST_ARCHIPELAGO,
+        routeIdx: 2
       },
       {
         id: 'starfish_1',
@@ -295,11 +411,11 @@ window.BlahajEnemies = (function () {
         title: 'Barnacle Brine Star 🌟',
         tag: 'EVIL STARFISH · MOODY SPIKE',
         isWaterBased: true,
-        // Submerged on the sandy seabed/reef floor in East Cape tidal channel (depth ~1.28m underwater)
         homePos: new THREE.Vector3(74.0, -0.95, 26.0),
         builder: createStarfishMesh,
         speed: 2.2,
-        aggroDist: 8.0
+        aggroDist: 8.0,
+        patrolRoute: null
       },
       {
         id: 'urchin_1',
@@ -307,11 +423,11 @@ window.BlahajEnemies = (function () {
         title: 'Prickly Kelp Urchin 🦔',
         tag: 'MISCHIEVOUS PUFFBALL · SOFT SPINES',
         isWaterBased: false,
-        // Grassy East Meadow near spawn on land
         homePos: new THREE.Vector3(38.0, 1.5, -12.0),
         builder: createKelpUrchinMesh,
         speed: 2.8,
-        aggroDist: 7.0
+        aggroDist: 7.0,
+        patrolRoute: null
       }
     ];
 
@@ -351,6 +467,7 @@ window.BlahajEnemies = (function () {
         rotY: 0,
         rotVel: new THREE.Vector3(),
         speed: def.speed,
+        patrolSpeedMult: def.patrolSpeedMult || 0.75,
         aggroDist: def.aggroDist,
         mange: 0.0,
         mesh,
@@ -360,6 +477,9 @@ window.BlahajEnemies = (function () {
         respawnTimer: 0,
         animPhase: Math.random() * Math.PI * 2,
         state: 'idle',
+        isChasing: false,
+        patrolRoute: def.patrolRoute || null,
+        waypointIdx: def.routeIdx || 0,
         takeBoop(dmg, knockDir) {
           handleEnemyBoop(this, dmg, knockDir);
         }
@@ -369,11 +489,11 @@ window.BlahajEnemies = (function () {
       enemies.push(eObj);
     });
 
-    console.log(`[BlahajEnemies] Initialized ${enemies.length} cozy enemies!`);
+    console.log(`[BlahajEnemies] Initialized ${enemies.length} cozy enemies across island territories!`);
   }
 
   // --------------------------------------------------------------------------
-  // 4. BOOP ATTACK RESOLUTION & FLYING FINISHER
+  // 5. BOOP ATTACK RESOLUTION & FLYING FINISHER
   // --------------------------------------------------------------------------
   function handleEnemyBoop(enemy, dmg = 0.35, knockDir) {
     if (enemy.isFlying) return;
@@ -509,7 +629,7 @@ window.BlahajEnemies = (function () {
   }
 
   // --------------------------------------------------------------------------
-  // 5. UPDATE LOOP (AI, PHYSICS, PARACHUTE RESPAWN)
+  // 6. UPDATE LOOP (AI, ROUTE NAVIGATION, PHYSICS & PROXIMITY HUD)
   // --------------------------------------------------------------------------
   function update(dt, elapsed, playerPos, playerMesh) {
     if (!scene) return;
@@ -529,7 +649,7 @@ window.BlahajEnemies = (function () {
     }
 
     // 2. Update each enemy
-    enemies.forEach((enemy) => {
+    enemies.forEach((enemy, enemyIdx) => {
       enemy.animPhase += dt * 4.0;
 
       // Special eyeball spin for urchin
@@ -538,9 +658,29 @@ window.BlahajEnemies = (function () {
         enemy.mesh.userData.rightPupil.rotation.z += dt * 5.0;
       }
 
-      // Special tail wag for mean shark
+      // Special tail wag for mean sharks
       if (enemy.mesh && enemy.mesh.userData.tailGroup) {
-        enemy.mesh.userData.tailGroup.rotation.y = Math.sin(enemy.animPhase * 1.6) * 0.35;
+        const wagSpeed = enemy.isChasing ? 3.6 : 2.2;
+        const wagAmp = enemy.isChasing ? 0.45 : 0.32;
+        enemy.mesh.userData.tailGroup.rotation.y = Math.sin(enemy.animPhase * wagSpeed) * wagAmp;
+      }
+
+      // Soft bumper repulsion between enemies to prevent stacking
+      for (let j = enemyIdx + 1; j < enemies.length; j++) {
+        const other = enemies[j];
+        if (other.isFlying || enemy.isFlying) continue;
+        const sepX = other.pos.x - enemy.pos.x;
+        const sepZ = other.pos.z - enemy.pos.z;
+        const sepD = Math.hypot(sepX, sepZ);
+        if (sepD < 2.4 && sepD > 0.001) {
+          const push = (2.4 - sepD) * 0.5 * Math.min(1.0, dt * 5.0);
+          const nx = sepX / sepD;
+          const nz = sepZ / sepD;
+          enemy.pos.x -= nx * push;
+          enemy.pos.z -= nz * push;
+          other.pos.x += nx * push;
+          other.pos.z += nz * push;
+        }
       }
 
       // STATE A: FLYING IN THE STRATOSPHERE!
@@ -569,7 +709,26 @@ window.BlahajEnemies = (function () {
           enemy.isFlying = false;
           enemy.vel.set(0, 0, 0);
           enemy.rotVel.set(0, 0, 0);
-          enemy.pos.copy(enemy.homePos);
+
+          if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
+            // Pick closest waypoint to splashdown location so shark smoothly resumes route
+            let bestIdx = 0;
+            let bestD = Infinity;
+            for (let i = 0; i < enemy.patrolRoute.length; i++) {
+              const wp = enemy.patrolRoute[i];
+              const d = Math.hypot(wp.x - enemy.pos.x, wp.z - enemy.pos.z);
+              if (d < bestD) {
+                bestD = d;
+                bestIdx = i;
+              }
+            }
+            enemy.waypointIdx = bestIdx;
+            const targetWp = enemy.patrolRoute[bestIdx];
+            enemy.pos.set(targetWp.x, enemy.pos.y, targetWp.z);
+          } else {
+            enemy.pos.copy(enemy.homePos);
+          }
+
           enemy.mesh.position.copy(enemy.pos);
           enemy.mesh.rotation.set(0, enemy.rotY, 0);
           enemy.mange = 0.0; // Fully refreshed & calmed down!
@@ -617,17 +776,22 @@ window.BlahajEnemies = (function () {
         enemy.vel.multiplyScalar(Math.max(0, 1 - dt * 6.0));
       }
 
-      // STATE C: AI BEHAVIOR (IDLE / PATROL / CHASE)
+      // STATE C: AI BEHAVIOR (IDLE / PATROL ROUTE / CHASE)
       const distToPlayer = playerPos ? enemy.pos.distanceTo(playerPos) : 999;
 
       if (distToPlayer < enemy.aggroDist) {
+        enemy.isChasing = true;
+
         // Turn towards player
         const dir = new THREE.Vector3().subVectors(playerPos, enemy.pos);
         dir.y = 0;
         dir.normalize();
 
         const targetRotY = Math.atan2(dir.x, dir.z);
-        enemy.rotY += (targetRotY - enemy.rotY) * Math.min(1.0, dt * 6.0);
+        let diffRot = targetRotY - enemy.rotY;
+        while (diffRot < -Math.PI) diffRot += Math.PI * 2;
+        while (diffRot > Math.PI) diffRot -= Math.PI * 2;
+        enemy.rotY += diffRot * Math.min(1.0, dt * 5.5);
         enemy.mesh.rotation.y = enemy.rotY;
 
         // Move toward player, obeying strict water/land boundaries!
@@ -657,7 +821,6 @@ window.BlahajEnemies = (function () {
                 if (tryWaveY - tryZOnlyGround >= 0.55) {
                   enemy.pos.z = tryZ;
                 }
-                // If cornered against land, shark patrols/circles in place in the water
               }
             }
           } else if (!enemy.isWaterBased && worldApi) {
@@ -682,12 +845,81 @@ window.BlahajEnemies = (function () {
           enemy.vel.addScaledVector(dir, -3.5);
         }
       } else {
-        // Return leisurely towards home territory
-        const dHome = enemy.pos.distanceTo(enemy.homePos);
-        if (dHome > 2.0) {
-          const homeDir = new THREE.Vector3().subVectors(enemy.homePos, enemy.pos).normalize();
-          enemy.pos.addScaledVector(homeDir, enemy.speed * 0.45 * dt);
-          enemy.mesh.rotation.y = Math.atan2(homeDir.x, homeDir.z);
+        // Player has escaped or is far away
+        if (enemy.isChasing) {
+          if (distToPlayer > enemy.aggroDist * 1.3) {
+            enemy.isChasing = false;
+            // Pick closest waypoint to resume route smoothly
+            if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
+              let closestIdx = 0;
+              let closestDist = Infinity;
+              for (let i = 0; i < enemy.patrolRoute.length; i++) {
+                const wp = enemy.patrolRoute[i];
+                const d = Math.hypot(wp.x - enemy.pos.x, wp.z - enemy.pos.z);
+                if (d < closestDist) {
+                  closestDist = d;
+                  closestIdx = i;
+                }
+              }
+              enemy.waypointIdx = closestIdx;
+            }
+          }
+        }
+
+        if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
+          // PATROL ROUTE NAVIGATION ALONG THE ISLANDS
+          const targetWp = enemy.patrolRoute[enemy.waypointIdx];
+          const toWpX = targetWp.x - enemy.pos.x;
+          const toWpZ = targetWp.z - enemy.pos.z;
+          const distToWp = Math.hypot(toWpX, toWpZ);
+
+          // Once within 4.5m of current waypoint, smoothly advance to the next waypoint on circuit
+          if (distToWp < 4.5) {
+            enemy.waypointIdx = (enemy.waypointIdx + 1) % enemy.patrolRoute.length;
+          }
+
+          const moveDir = new THREE.Vector3(toWpX, 0, toWpZ).normalize();
+          const targetRotY = Math.atan2(moveDir.x, moveDir.z);
+
+          let diffRot = targetRotY - enemy.rotY;
+          while (diffRot < -Math.PI) diffRot += Math.PI * 2;
+          while (diffRot > Math.PI) diffRot -= Math.PI * 2;
+          enemy.rotY += diffRot * Math.min(1.0, dt * 2.5);
+          enemy.mesh.rotation.y = enemy.rotY;
+
+          // Cruise forward at steady swimming patrol speed
+          const cruiseSpeed = enemy.speed * (enemy.patrolSpeedMult || 0.75);
+          const fwdX = Math.sin(enemy.rotY) * cruiseSpeed * dt;
+          const fwdZ = Math.cos(enemy.rotY) * cruiseSpeed * dt;
+
+          const tryX = enemy.pos.x + fwdX;
+          const tryZ = enemy.pos.z + fwdZ;
+
+          if (enemy.isWaterBased && worldApi) {
+            const tryGroundY = worldApi.getGroundAndStructureHeight(tryX, tryZ);
+            const tryWaveY = worldApi.getWaveHeight(tryX, tryZ, elapsed);
+            if (tryWaveY - tryGroundY >= 0.55) {
+              enemy.pos.x = tryX;
+              enemy.pos.z = tryZ;
+            } else {
+              enemy.pos.x += moveDir.x * cruiseSpeed * dt;
+              enemy.pos.z += moveDir.z * cruiseSpeed * dt;
+            }
+          } else {
+            enemy.pos.x = tryX;
+            enemy.pos.z = tryZ;
+          }
+
+          // Gentle banking into turns
+          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 1.5) * 0.08 - diffRot * 0.22;
+        } else {
+          // Stationary / Territorial creatures return leisurely towards home territory
+          const dHome = enemy.pos.distanceTo(enemy.homePos);
+          if (dHome > 2.0) {
+            const homeDir = new THREE.Vector3().subVectors(enemy.homePos, enemy.pos).normalize();
+            enemy.pos.addScaledVector(homeDir, enemy.speed * 0.45 * dt);
+            enemy.mesh.rotation.y = Math.atan2(homeDir.x, homeDir.z);
+          }
         }
       }
 
@@ -702,11 +934,13 @@ window.BlahajEnemies = (function () {
       // Vertical positioning & animations
       if (enemy.isWaterBased) {
         if (enemy.type === 'shark') {
-          // Mean Shark swims fully underwater in the water column!
-          // Depth fluctuates gently, with dorsal fin slicing near the water surface
+          // Mean Shark swims submerged in the water column!
+          // Depth fluctuates gently with swimming stroke, with dorsal fin slicing near the water surface
           const targetSwimY = Math.min(finalWaveY - 0.32, Math.max(finalGroundY + 0.55, finalWaveY - 0.68 + Math.sin(enemy.animPhase * 1.5) * 0.16));
           enemy.mesh.position.y = targetSwimY;
-          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 1.5) * 0.09;
+          if (!enemy.patrolRoute) {
+            enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 1.5) * 0.09;
+          }
         } else if (enemy.type === 'starfish') {
           // Starfish crawls on the underwater seabed / reef floor
           enemy.mesh.position.y = finalGroundY + 0.14 + Math.abs(Math.sin(enemy.animPhase * 2.2)) * 0.12;
@@ -752,7 +986,7 @@ window.BlahajEnemies = (function () {
   }
 
   // --------------------------------------------------------------------------
-  // 6. BOOP ATTACK HIT CHECK
+  // 7. BOOP ATTACK HIT CHECK
   // --------------------------------------------------------------------------
   function checkBoopHit(playerPos, playerRotY) {
     if (!playerPos) return false;
