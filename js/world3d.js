@@ -974,7 +974,6 @@ window.BlahajWorld = (function () {
     buildGreatPortalGateHeadland(scene);
     buildSphericalFoodsBluff(scene);
     buildQuietLibraryAndCrustCliffs(scene);
-    buildLaundryShrineRidge(scene);
     buildTeaDocksAndRegattaBoat(scene);
     buildEndlessPierToErf(scene);
     buildOuterSanctuaryIslands(scene);
@@ -1572,7 +1571,7 @@ window.BlahajWorld = (function () {
         x: -36.0,
         z: 12.0,
         title: '🪧 Artisans & Café Junction',
-        directions: '↙️ Spherical Foods Café (26m) | ↖️ Spin-Dryer Laundry Ridge (34m) | ➡️ Tea House',
+        directions: '↙️ Spherical Foods Café (26m) | ↖️ Western Sunset Ridge (34m) | ➡️ Tea House',
         arrows: [Math.PI * 0.3, Math.PI * 0.75, -Math.PI * 0.5]
       },
       {
@@ -3463,45 +3462,7 @@ window.BlahajWorld = (function () {
     scene.add(group);
   }
 
-  function buildLaundryShrineRidge(scene) {
-    const group = new THREE.Group();
-    const y0 = getTerrainHeight(-64, -14);
-    group.position.set(-64, y0, -14);
-    group.rotation.y = 0.7;
-
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x6e7785, roughness: 0.35, metalness: 0.7 });
-    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.3, metalness: 0.82 });
-
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.8, 6.2), brassMat);
-    plinth.position.y = 0.4;
-    group.add(plinth);
-
-    const machine = new THREE.Mesh(new THREE.BoxGeometry(4.8, 5.8, 3.6), metalMat);
-    machine.position.y = 3.3;
-    machine.castShadow = true;
-    group.add(machine);
-
-    const doorRing = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.25, 16, 36), brassMat);
-    doorRing.position.set(0, 3.1, 1.85);
-    group.add(doorRing);
-
-    const whirlGroup = new THREE.Group();
-    whirlGroup.position.set(0, 3.1, 1.82);
-    const swirlDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(1.55, 28),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-    );
-    whirlGroup.add(swirlDisc);
-    const spiralBar = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.28, 0.08),
-      new THREE.MeshBasicMaterial({ color: 0xfff5d6 })
-    );
-    whirlGroup.add(spiralBar);
-    group.add(whirlGroup);
-    animatedObjects.push({ mesh: whirlGroup, type: 'portal_spin' });
-
-    scene.add(group);
-  }
+  // Outdoor island spin dryer removed in favor of the full indoor laundromat zone.
 
   function createRegattaSailboatMesh(woodMat, sailColorHex, lanternColorHex) {
     const sailMat = new THREE.MeshStandardMaterial({

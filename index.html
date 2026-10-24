@@ -174,10 +174,13 @@
           <span data-deg="135">SE · ENDLESS PIER</span>
           <span data-deg="180" class="c-cardinal">S · TEA DOCKS &amp; HARBOUR</span>
           <span data-deg="225">SW · SPHERICAL FOODS &amp; SOLOMON CAY</span>
-          <span data-deg="270" class="c-cardinal">W · LAUNDRY SHRINE</span>
+          <span data-deg="270" class="c-cardinal">W · WESTERN SUNSET RIDGE</span>
           <span data-deg="315">NW · VOLCANO &amp; HIRAM ISLE</span>
         </div>
         <div class="compass-needle">▼</div>
+      </div>
+      <div style="text-align: center;">
+        <button type="button" class="hud-declutter-btn" id="btn-hud-declutter" title="Toggle Minimal Zen HUD Mode [V] (Hides side panels, keeps navigation compass)">👁️ Minimal Mode [V]</button>
       </div>
       <div class="island-meters">
         <div class="meter-pill volcano-pill" title="Honor the Volcano with offerings at the Temple!">
@@ -214,10 +217,11 @@
       <div class="quest-tracker" id="quest-tracker">
         <div class="quest-header">
           <span class="quest-icon">📜</span>
-          <div>
+          <div style="flex:1;">
             <h3 id="quest-module-title">Island Sandbox &amp; Trials</h3>
             <p id="quest-module-sub">Explore Blåhaj Island, feed Birbs &amp; brave the Volcano</p>
           </div>
+          <button type="button" class="btn-hud-minimize" id="btn-toggle-quest-tracker" title="Toggle Quest Tracker [Click to collapse/expand]">▼</button>
         </div>
         <ul class="quest-list" id="quest-list"></ul>
         <div class="controls-hint">
@@ -376,11 +380,11 @@
           <span class="slot-power">Feed Birbs</span>
         </button>
 
-        <button class="action-slot ability-slot" id="slot-f" title="[F] Beep Noses with soft side fins!">
+        <button class="action-slot ability-slot" id="slot-f" title="[F] Boop Attack! Friendly nose beep on allies, or boops enemies to send them flying!">
           <span class="slot-key">F</span>
-          <div class="slot-emoji">🦈💕</div>
-          <span class="slot-name">Beep Nose</span>
-          <span class="slot-power">Be Nice</span>
+          <div class="slot-emoji" id="slot-f-icon">🦈💥</div>
+          <span class="slot-name">Boop Attack</span>
+          <span class="slot-power">Knockback [F]</span>
         </button>
 
         <button class="action-slot ability-slot" id="slot-g" title="[G] Exclaim 'Shonk!' or 'Sharkitty?' with a plush hop">
@@ -1187,6 +1191,7 @@
   <script src="js/sphericalFoods.js?v=2.2"></script>
   <script src="js/network.js?v=2.2"></script>
   <script src="js/inventory.js?v=2.2"></script>
+  <script src="js/enemies.js?v=2.2"></script>
   <script src="js/main.js?v=2.2"></script>
 </body>
 </html>

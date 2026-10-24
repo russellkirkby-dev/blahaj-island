@@ -1117,6 +1117,19 @@
       this.playTone(base, 0.08, 'sine', 0.1, base + 420);
       setTimeout(() => this.playTone(base + 260, 0.09, 'sine', 0.09, base + 680), 65);
     },
+    boopAttack() {
+      this.playTone(320, 0.12, 'triangle', 0.18, 580);
+      setTimeout(() => this.playTone(580, 0.15, 'sine', 0.15, 240), 60);
+    },
+    boopHit() {
+      this.playTone(180, 0.16, 'sawtooth', 0.22, 90);
+      setTimeout(() => this.playTone(540, 0.20, 'triangle', 0.20, 880), 40);
+    },
+    boopLaunch() {
+      this.playTone(180, 0.65, 'sawtooth', 0.25, 1200);
+      setTimeout(() => this.playTone(1760, 0.45, 'sine', 0.28, 2640), 550);
+      setTimeout(() => this.playTone(3520, 0.60, 'triangle', 0.22), 700);
+    },
     carrotBoop() {
       this.playTone(300, 0.18, 'triangle', 0.16, 680);
       setTimeout(() => this.playTone(680, 0.22, 'sine', 0.12, 220), 90);
@@ -1504,6 +1517,28 @@
       updateCelestialClockHUD();
     }
   };
+
+  // ==========================================================================
+  // HUD DECLUTTERING & MINIMAL ZEN MODE
+  // ==========================================================================
+  let minimalHudActive = false;
+
+  function toggleMinimalHUD() {
+    minimalHudActive = !minimalHudActive;
+    document.body.classList.toggle('minimal-hud', minimalHudActive);
+    const declutterBtn = document.getElementById('btn-hud-declutter');
+    if (declutterBtn) {
+      declutterBtn.classList.toggle('active', minimalHudActive);
+      declutterBtn.textContent = minimalHudActive ? '🧭 Minimal Mode [V] (Active)' : '👁️ Minimal Mode [V]';
+    }
+    if (minimalHudActive) {
+      CozyAudio.shonk();
+      showToast('ZEN EXPLORATION MODE 🧭', 'Minimal HUD active! Side panels hidden, compass ribbon preserved. Press [V] to toggle full HUD.');
+    } else {
+      CozyAudio.shonk();
+      showToast('FULL HUD RESTORED 🗺️', 'All panels and trackers restored.');
+    }
+  }
 
   // ==========================================================================
   // ACTIVE HELD ITEM & FIN DELIGHT SYSTEM (COCKTAILS, FOOD, TOOLS & TOYS)
@@ -2016,6 +2051,10 @@
     // 2. Spawn High-Polygon Player Shark & All Island Characters
     spawnPlayerShark('hermes');
     spawnWorldCharacters();
+
+    if (window.BlahajEnemies && typeof window.BlahajEnemies.init === 'function') {
+      window.BlahajEnemies.init(scene);
+    }
 
     // 3. Setup Controls, UI, Builder Toolbar, Gallery, Upgrades & Co-op Networking
     loadSettings();
@@ -2547,7 +2586,13 @@
       if (k === '4') spawnPlayerShark('nimue');
 
       if (k === 'c') toggleBuilderMode();
-      if (k === 'v' && builderState.active) toggleFreeBuild();
+      if (k === 'v') {
+        if (builderState.active) {
+          toggleFreeBuild();
+        } else {
+          toggleMinimalHUD();
+        }
+      }
       if (k === 'r' && builderState.active) {
         builderState.rotOffset += Math.PI / 4;
         CozyAudio.shonk();
@@ -3350,10 +3395,24 @@
   }
 
   function triggerBeepNose() {
-    CozyAudio.beepNose();
     if (player.mesh && player.mesh.userData) {
       player.mesh.userData.beepTimer = 0.9;
     }
+
+    // 1. Check for nearby enemy to execute Boop Attack!
+    if (window.BlahajEnemies && typeof window.BlahajEnemies.checkBoopHit === 'function') {
+      const hit = window.BlahajEnemies.checkBoopHit(player.pos, player.rotY);
+      if (hit) {
+        // Player snout forward recoil
+        const fwd = new THREE.Vector3(-Math.sin(player.rotY), 0, -Math.cos(player.rotY));
+        player.pos.addScaledVector(fwd, 0.35);
+        spawnFloatingBurst(player.pos, 0xf43f5e, 12);
+        return;
+      }
+    }
+
+    // 2. If no enemy struck, perform friendly nose-beep on ally sharks
+    CozyAudio.beepNose();
     spawnFloatingBurst(player.pos, 0xff7eb6, 8);
 
     let closestActor = null;
@@ -6502,7 +6561,17 @@
         }
       },
       onData(data) {
-        if (data.type === 'held_item_sync') {
+        if (data.type === 'enemy_boop') {
+          if (window.BlahajEnemies) {
+            const enemy = window.BlahajEnemies.getEnemies().find(e => e.id === data.enemyId);
+            if (enemy) {
+              enemy.mange = data.mange;
+              if (data.isFlying && !enemy.isFlying) {
+                window.BlahajEnemies.launchEnemyIntoStratosphere(enemy, new THREE.Vector3(0, 1, 0));
+              }
+            }
+          }
+        } else if (data.type === 'held_item_sync') {
           coopPartner.heldItemId = data.heldItemId || null;
           if (coopPartner.mesh && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
             window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
@@ -6911,6 +6980,10 @@
 
     if (playerHeldItem && playerHeldItem.isTimed && playerHeldItem.id) {
       updateHeldItemSavoring(dt);
+    }
+
+    if (currentZone === 'island' && window.BlahajEnemies && typeof window.BlahajEnemies.update === 'function') {
+      window.BlahajEnemies.update(dt, elapsed, player.pos, player.mesh);
     }
 
     const curQuarter = Math.floor(elapsed * 4.0);
@@ -8192,7 +8265,7 @@
       worldApi.getSignposts().forEach((sp) => {
         if (sp.labelEl) {
           const d = sp.pos.distanceTo(player.pos);
-          if (d < 42) {
+          if (d < 18) {
             projectLabel(sp.pos, sp.labelEl, 0.35);
           } else {
             sp.labelEl.style.opacity = '0';
@@ -8293,18 +8366,26 @@
     const p = worldPos.clone();
     p.y += heightOffset;
     const dist = p.distanceTo(camera.position);
-    if (dist > 85) {
+
+    // Proximity Fade: Smoothly fade between 8m and 18m. Completely hidden beyond 18m!
+    if (dist > 18.0) {
       domEl.style.opacity = '0';
+      domEl.style.display = 'none';
       return;
     }
+
     p.project(camera);
     if (p.z > 1) {
       domEl.style.opacity = '0';
+      domEl.style.display = 'none';
       return;
     }
+
     const x = (p.x * 0.5 + 0.5) * window.innerWidth;
     const y = (-(p.y * 0.5) + 0.5) * window.innerHeight;
-    domEl.style.opacity = '1';
+    domEl.style.display = '';
+    const opacity = dist <= 8.0 ? 1.0 : Math.max(0, (18.0 - dist) / 10.0);
+    domEl.style.opacity = opacity.toFixed(2);
     domEl.style.left = `${x}px`;
     domEl.style.top = `${y}px`;
   }
@@ -8421,6 +8502,8 @@
     savorHeldItem,
     toggleHeldItem,
     getPlayerHeldItem: () => playerHeldItem,
+    toggleMinimalHUD,
+    triggerBoopAttack: triggerBeepNose,
     getWorldPickups: () => worldPickups,
     getSolomonBreadOven: () => solomonBreadOven,
     getCommunityTrunk: () => communityTrunk,

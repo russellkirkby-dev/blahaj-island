@@ -3370,3 +3370,157 @@ body.clean-streamer-mode #world-labels {
   box-shadow: 0 0 18px rgba(245, 205, 121, 0.55), inset 0 0 10px rgba(245, 205, 121, 0.25);
   background: rgba(45, 38, 70, 0.95);
 }
+
+/* ==========================================================================
+   ENEMY LABELS, MANGE GAUGES & COMIC FLOATING COMBAT TEXT
+   ========================================================================== */
+.world-label.enemy-label {
+  pointer-events: none;
+  z-index: 10;
+}
+
+.world-label .enemy-tag {
+  background: rgba(136, 19, 55, 0.92);
+  color: #fde047;
+  border: 1px solid rgba(253, 224, 71, 0.6);
+  letter-spacing: 0.09em;
+}
+
+.world-label .enemy-name {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+  margin-top: 2px;
+}
+
+.enemy-mange-bar-wrap {
+  width: 140px;
+  height: 12px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(212, 166, 86, 0.7);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 4px auto 0;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.enemy-mange-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #f59e0b);
+  border-radius: 99px;
+  transition: width 0.15s ease, background 0.3s ease;
+}
+
+.enemy-mange-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  letter-spacing: 0.5px;
+}
+
+/* Floating Comic Combat Text */
+.floating-combat-text {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 900;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 14px rgba(244, 63, 94, 0.65);
+  z-index: 100;
+  white-space: nowrap;
+  letter-spacing: 0.8px;
+}
+
+/* ==========================================================================
+   HUD MINIMIZATION & DECLUTTERING CONTROLS
+   ========================================================================== */
+.btn-hud-minimize {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(212, 166, 86, 0.4);
+  color: var(--brass-bright);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+.btn-hud-minimize:hover {
+  background: rgba(245, 205, 121, 0.25);
+  border-color: var(--brass-bright);
+}
+
+.quest-tracker.minimized .quest-list,
+.quest-tracker.minimized .controls-hint,
+.quest-tracker.minimized .quest-header p {
+  display: none !important;
+}
+.quest-tracker.minimized {
+  padding: 8px 12px;
+  width: auto;
+  min-width: 210px;
+}
+.quest-tracker.minimized .quest-header {
+  margin-bottom: 0 !important;
+}
+
+.player-unit-frame.minimized .unit-quote,
+.player-unit-frame.minimized .mange-slider-container,
+.player-unit-frame.minimized .btn-open-charsheet-hud {
+  display: none !important;
+}
+.player-unit-frame.minimized {
+  padding-bottom: 8px;
+}
+
+/* Minimal Zen Mode (Hotkey [V] & Declutter Button) */
+body.minimal-hud .hud-top-right,
+body.minimal-hud .island-meters,
+body.minimal-hud .party-frame {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+body.minimal-hud .compass-strip {
+  /* Navigation Compass Ribbon stays prominent, centered, and pristine! */
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.hud-declutter-btn {
+  background: rgba(14, 21, 35, 0.85);
+  border: 1.5px solid var(--brass);
+  color: var(--brass-bright);
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  margin-top: 6px;
+  transition: all 0.2s ease;
+}
+.hud-declutter-btn:hover {
+  background: rgba(212, 166, 86, 0.25);
+  border-color: var(--brass-bright);
+}
+.hud-declutter-btn.active {
+  background: rgba(56, 189, 248, 0.35);
+  border-color: #38bdf8;
+  color: #ffffff;
+}

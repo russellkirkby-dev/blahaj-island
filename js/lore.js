@@ -241,15 +241,6 @@ window.BLAHAJ_LORE = {
       type: 'library'
     },
     {
-      id: 'laundry_shrine',
-      name: 'Laundry of Initiation',
-      zoneTitle: 'Western Ridge · Shrine of the First Whirlings',
-      pos: { x: -64, z: -14 },
-      radius: 14,
-      prompt: 'Spin · Rinse · Remember (Refresh Stuffing) [E]',
-      type: 'laundry'
-    },
-    {
       id: 'endless_pier',
       name: 'Endless Pier to Erf',
       zoneTitle: 'Endless Pier ("Different Shores, Same Ocean")',
