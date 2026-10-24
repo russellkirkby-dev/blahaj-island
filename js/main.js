@@ -594,6 +594,45 @@
       });
     },
 
+    birthdayHorn() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      try {
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(460, now + 0.18);
+        osc.frequency.linearRampToValueAtTime(425, now + 0.38);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1450, now);
+        filter.Q.setValueAtTime(3.8, now);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.22, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.44);
+
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(1760.0, 0.45, 'triangle', 0.12, 2640.0);
+          this.playTone(2200.0, 0.40, 'sine', 0.09);
+        }, 150);
+      } catch (e) {
+        this.playTone(587.33, 0.35, 'triangle', 0.18, 1174.66);
+      }
+    },
+
     // =========================================================================
     // LAUNDROMAT & MASTER WASHER #7 AUDIO SUITE
     // =========================================================================
@@ -3511,6 +3550,10 @@
     }
 
     // Spherical Foods Instance specific interactables
+    if (item.kind === 'pop_birthday_cracker') {
+      popBirthdayCracker(item.boothIndex);
+      return;
+    }
     if (item.kind === 'eat_served_dish') {
       eatServedDish(item.boothIndex);
       return;
@@ -5205,6 +5248,20 @@
     addChatLog(`🛎️ Ordered <strong>${name}</strong>. Monsieur Betterave is wheeling the trolley over to your booth table!`, 'cozy');
   }
 
+  function popBirthdayCracker(boothIndex) {
+    if (!window.BlahajSphericalFoods) return;
+    window.BlahajSphericalFoods.popBirthdayCracker(player.pos);
+    CozyAudio.birthdayHorn();
+    spawnFloatingBurst(player.pos, 0xfbbf24, 32);
+    spawnFloatingBurst(player.pos, 0xec4899, 24);
+
+    player.teaComfort = 100;
+    updateMetersUI();
+
+    showToast("JOYEUX ANNIVERSAIRE, HÉLÈNE! 🎉✨", "Party cracker popped with golden streamers & confetti!");
+    addChatLog("🎉 <em>Happy Birthday Helen!</em> You popped a festive golden party cracker at Spherical Foods! Confetti and golden streamers fill the room!", 'cozy');
+  }
+
   function eatServedDish(boothIndex) {
     if (!window.BlahajSphericalFoods) return;
     if (boothIndex === undefined || boothIndex === null || boothIndex < 0) {
@@ -6743,6 +6800,12 @@
             boothIndex: player.seatedBoothIndex,
             prompt: `🍴 Feast on ${dish.title} [E] · [M] Menu · [WASD / Space] Stand Up`
           };
+        } else if (window.BlahajSphericalFoods.isHelensBirthdayWeek()) {
+          nearestInteractable = {
+            kind: 'pop_birthday_cracker',
+            boothIndex: player.seatedBoothIndex,
+            prompt: "🎉 Pop Helen's Birthday Cracker [E] · [M] Menu · [WASD / Space] Stand Up"
+          };
         } else {
           nearestInteractable = {
             kind: 'seated_booth_menu',
@@ -7130,6 +7193,7 @@
     openSphericalFoodsMenuModal,
     orderSphericalDish,
     eatServedDish,
+    popBirthdayCracker,
     sitInBooth,
     standUpFromBooth,
     openSphericalPaintingModal,

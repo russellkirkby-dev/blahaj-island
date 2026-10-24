@@ -1,7 +1,8 @@
 // =============================================================================
-// SPHERICAL FOODS BISTRO & ROTUNDA (DEDICATED INTERIOR INSTANCE) - PASS 26
+// SPHERICAL FOODS BISTRO & ROTUNDA (DEDICATED INTERIOR INSTANCE) - PASS 27
 // "Everything is better in a sphere — No flat food allowed!"
 // Propriétaire: Monsieur Betterave · Est. October 24
+// HELEN'S BIRTHDAY CELEBRATION EXTRAVAGANZA EDITION
 // =============================================================================
 
 window.BlahajSphericalFoods = (function () {
@@ -23,6 +24,13 @@ window.BlahajSphericalFoods = (function () {
   const kitchenSteamParticles = [];
   const balloonMeshes = [];
 
+  // Birthday Celebration Decor System (Week of Oct 24)
+  let birthdayDecorGroup = null;
+  const fairyLightMeshes = [];
+  const ambientConfetti = [];
+  let betteravePartyHat = null;
+  let birbPartyHat = null;
+
   // Waiter & Trolley system
   let waiterParentGroup = null;
   let betteraveMesh = null;
@@ -38,11 +46,11 @@ window.BlahajSphericalFoods = (function () {
     facingAngle: 0,
     timer: 0,
     walkProgress: 0,
-    walkDuration: 3.5,
+    walkDuration: 3.2,
     trolleyDishMesh: null
   };
 
-  // Sparkle particle system for feasting
+  // Sparkle particle system for feasting & party poppers
   const activeSparkles = [];
 
   // Interaction coordinates inside the bistro rotunda
@@ -128,6 +136,17 @@ window.BlahajSphericalFoods = (function () {
       orderKey: "mochi_spheres"
     }
   ];
+
+  // Helen's Birthday Week Date Check
+  function isHelensBirthdayWeek() {
+    if (typeof window !== 'undefined' && window.__FORCE_HELENS_BIRTHDAY__) {
+      return true;
+    }
+    const now = new Date();
+    const month = now.getMonth();
+    const day = now.getDate();
+    return (month === 9 && day >= 21 && day <= 27);
+  }
 
   // Helper: Procedural Oil Painting Texture Generator for Wall Art
   function createPaintingTexture(config) {
@@ -222,15 +241,57 @@ window.BlahajSphericalFoods = (function () {
     return texture;
   }
 
-  // Helen's Birthday Week Date Check
-  function isHelensBirthdayWeek() {
-    if (typeof window !== 'undefined' && window.__FORCE_HELENS_BIRTHDAY__) {
-      return true;
-    }
-    const now = new Date();
-    const month = now.getMonth();
-    const day = now.getDate();
-    return (month === 9 && day >= 21 && day <= 27);
+  // Helper: Grand Birthday Celebration Banner Canvas Texture
+  function createBirthdayBannerTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Rich royal purple & magenta velvet background
+    const grad = ctx.createLinearGradient(0, 0, 1024, 0);
+    grad.addColorStop(0, '#4a044e');
+    grad.addColorStop(0.2, '#831843');
+    grad.addColorStop(0.5, '#9f1239');
+    grad.addColorStop(0.8, '#831843');
+    grad.addColorStop(1, '#4a044e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 1024, 256);
+
+    // Gilded double borders
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(10, 10, 1004, 236);
+
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(18, 18, 988, 220);
+
+    // Festive Headline
+    ctx.font = 'bold 54px serif';
+    ctx.fillStyle = '#fef08a';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+    ctx.shadowBlur = 16;
+    ctx.fillText('✨ JOYEUX ANNIVERSAIRE, HÉLÈNE! ✨', 512, 105);
+
+    // Subtitle
+    ctx.font = 'italic bold 26px sans-serif';
+    ctx.fillStyle = '#fce7f3';
+    ctx.shadowBlur = 8;
+    ctx.fillText('LA GRANDE FÊTE DU 24 OCTOBRE · VIVE LA SPHÈRE!', 512, 165);
+
+    // Golden stars & party confetti accents
+    ctx.fillStyle = '#fbbf24';
+    [50, 95, 140, 884, 929, 974].forEach((sx, i) => {
+      ctx.beginPath();
+      ctx.arc(sx, 75 + (i % 2) * 45, 11, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.generateMipmaps = true;
+    return texture;
   }
 
   // Helen's Celestial Birthday Bombe (Centerpiece Alcove Cake)
@@ -411,7 +472,7 @@ window.BlahajSphericalFoods = (function () {
       group.add(bowWing);
     });
 
-    // Waiter Arm Extensions pushing the trolley handle
+    // Arms pushing trolley
     const armMat = skinMat;
     [-0.32, 0.32].forEach((ax) => {
       const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.52, 10), armMat);
@@ -419,7 +480,6 @@ window.BlahajSphericalFoods = (function () {
       arm.rotation.x = Math.PI * 0.35;
       group.add(arm);
 
-      // White Maitre D' Glove
       const glove = new THREE.Mesh(
         new THREE.SphereGeometry(0.065, 8, 8),
         new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
@@ -427,6 +487,37 @@ window.BlahajSphericalFoods = (function () {
       glove.position.set(ax, 0.82, 0.72);
       group.add(glove);
     });
+
+    // Monsieur Betterave Festive Birthday Party Hat
+    betteravePartyHat = new THREE.Group();
+    betteravePartyHat.position.set(0.08, 2.38, 0.05);
+    betteravePartyHat.rotation.z = -0.18;
+    betteravePartyHat.rotation.x = 0.10;
+
+    const hatMat = new THREE.MeshStandardMaterial({
+      color: 0xec4899,
+      metalness: 0.3,
+      roughness: 0.25
+    });
+    const hatCone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.52, 18), hatMat);
+    hatCone.position.y = 0.26;
+    betteravePartyHat.add(hatCone);
+
+    // Golden metallic spiral stripes on hat
+    const goldHatMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 });
+    [0.12, 0.28, 0.42].forEach((hy, i) => {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.20 - i * 0.045, 0.016, 6, 20), goldHatMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = hy;
+      betteravePartyHat.add(ring);
+    });
+
+    // Fluffy Golden Pom-Pom
+    const pomPom = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), goldHatMat);
+    pomPom.position.y = 0.54;
+    betteravePartyHat.add(pomPom);
+
+    group.add(betteravePartyHat);
 
     return group;
   }
@@ -473,7 +564,7 @@ window.BlahajSphericalFoods = (function () {
     runner.position.set(0, 0.845, 0);
     group.add(runner);
 
-    // 3. Four Turned Brass Legs with Guardrails
+    // 3. Four Turned Brass Legs with Caster Wheels
     const legPositions = [
       { x: -0.38, z: -0.24 },
       { x: 0.38, z: -0.24 },
@@ -490,7 +581,6 @@ window.BlahajSphericalFoods = (function () {
       finial.position.set(pos.x, 0.87, pos.z);
       group.add(finial);
 
-      // Caster Fork & Wheel
       const casterFork = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 8), brassMat);
       casterFork.position.set(pos.x, 0.07, pos.z);
       group.add(casterFork);
@@ -511,8 +601,7 @@ window.BlahajSphericalFoods = (function () {
     });
 
     // Guardrail Wire around Top Shelf
-    const railX = [-0.25, 0.25];
-    railX.forEach((rz) => {
+    [-0.25, 0.25].forEach((rz) => {
       const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.78, 8), brassMat);
       rail.rotation.z = Math.PI / 2;
       rail.position.set(0, 0.88, rz);
@@ -532,13 +621,36 @@ window.BlahajSphericalFoods = (function () {
       group.add(hArm);
     });
 
+    // Trolley Balloons (Trailing celebration balloons tied to trolley handle!)
+    const trolleyBalloonColors = [0xfbbf24, 0xec4899];
+    trolleyBalloonColors.forEach((bCol, bIdx) => {
+      const bSign = bIdx === 0 ? -1 : 1;
+      const bGroup = new THREE.Group();
+      bGroup.position.set(bSign * 0.35, 1.85 + bIdx * 0.15, -0.32);
+      bGroup.userData = { seed: bIdx * 2.5, basePos: { x: bSign * 0.35, y: 1.85 + bIdx * 0.15, z: -0.32 } };
+
+      const bMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.24, 16, 14),
+        new THREE.MeshStandardMaterial({ color: bCol, roughness: 0.18, metalness: 0.15 })
+      );
+      bMesh.scale.set(1.0, 1.18, 1.0);
+      bGroup.add(bMesh);
+
+      const bRibbon = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.92, 6), brassMat);
+      bRibbon.position.y = -0.46;
+      bGroup.add(bRibbon);
+
+      balloonMeshes.push(bGroup);
+      group.add(bGroup);
+    });
+
     // 5. Domed Cloche Group (Can lift and close smoothly)
     trolleyClocheGroup = new THREE.Group();
     trolleyClocheGroup.position.set(0, 0.85, 0);
 
     const clochePlatter = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.025, 24), chromeMat);
     clochePlatter.position.y = 0.01;
-    group.add(clochePlatter); // Platter stays on trolley runner
+    group.add(clochePlatter);
 
     const clocheDome = new THREE.Mesh(
       new THREE.SphereGeometry(0.25, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
@@ -568,7 +680,6 @@ window.BlahajSphericalFoods = (function () {
     const slateMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.75 });
 
     if (dishKey === 'helen_cake') {
-      // Miniature La Bombe Céleste d'Hélène
       const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.035, 24), brassMat);
       stand.position.y = 0.018;
       dishGroup.add(stand);
@@ -592,7 +703,6 @@ window.BlahajSphericalFoods = (function () {
         dishGroup.add(star);
       }
 
-      // Lit Birthday Candle
       const candle = new THREE.Mesh(
         new THREE.CylinderGeometry(0.015, 0.015, 0.12, 10),
         new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.3 })
@@ -613,7 +723,6 @@ window.BlahajSphericalFoods = (function () {
       dishGroup.add(cLight);
 
     } else if (dishKey === 'ramen_spheres') {
-      // Tonkotsu Miso Broth Spheres & Bao
       const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.16, 0.065, 24), chinaWhiteMat);
       bowl.position.y = 0.032;
       dishGroup.add(bowl);
@@ -635,14 +744,12 @@ window.BlahajSphericalFoods = (function () {
         dishGroup.add(pearl);
       });
 
-      // Steamed Bao Pearl
       const baoMat = new THREE.MeshStandardMaterial({ color: 0xfdfaf7, roughness: 0.85 });
       const bao = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 12), baoMat);
       bao.scale.set(1.1, 0.8, 1.1);
       bao.position.set(0, 0.085, 0.05);
       dishGroup.add(bao);
 
-      // Scallion Curls
       const scallionMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 });
       for (let sc = 0; sc < 4; sc++) {
         const scm = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6), scallionMat);
@@ -653,7 +760,6 @@ window.BlahajSphericalFoods = (function () {
       }
 
     } else if (dishKey === 'mochi_spheres') {
-      // Strawberry Mochi & Matcha Tiramisphere
       const platter = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.025, 0.24), slateMat);
       platter.position.y = 0.012;
       dishGroup.add(platter);
@@ -673,7 +779,6 @@ window.BlahajSphericalFoods = (function () {
         dishGroup.add(sSphere);
       });
 
-      // Gold Flakes
       const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 });
       for (let g = 0; g < 6; g++) {
         const gf = new THREE.Mesh(new THREE.SphereGeometry(0.01, 6, 6), goldMat);
@@ -682,7 +787,6 @@ window.BlahajSphericalFoods = (function () {
       }
 
     } else {
-      // Lava Lychee & Truffle Mac Spheres (mac_spheres)
       const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.025, 24), slateMat);
       plate.position.y = 0.012;
       dishGroup.add(plate);
@@ -709,6 +813,33 @@ window.BlahajSphericalFoods = (function () {
     }
 
     return dishGroup;
+  }
+
+  // Miniature Party Favor Cracker on Booth Tables
+  function createPartyFavorMesh() {
+    const favorGroup = new THREE.Group();
+
+    const foilGoldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.25 });
+    const foilRubyMat = new THREE.MeshStandardMaterial({ color: 0xec4899, metalness: 0.6, roughness: 0.3 });
+
+    // Center Cracker Cylinder
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.16, 12), foilGoldMat);
+    body.rotation.z = Math.PI / 2;
+    favorGroup.add(body);
+
+    // Twisted Ends
+    [-1, 1].forEach((dir) => {
+      const twist = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.06, 10), foilRubyMat);
+      twist.rotation.z = -dir * Math.PI / 2;
+      twist.position.x = dir * 0.11;
+      favorGroup.add(twist);
+
+      const bow = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.008, 6, 12), foilRubyMat);
+      bow.position.x = dir * 0.085;
+      favorGroup.add(bow);
+    });
+
+    return favorGroup;
   }
 
   // Construct a High-End Luxury Channel-Tufted Velvet Banquette Booth
@@ -851,7 +982,7 @@ window.BlahajSphericalFoods = (function () {
       tableGroup.add(roll);
     });
 
-    // Warm Amber Candle Lamp Centerpiece
+    // Amber Candle Lamp Centerpiece
     const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.12, 14), brassMat);
     lampBase.position.set(0, 0.87, 0.05);
     tableGroup.add(lampBase);
@@ -873,11 +1004,16 @@ window.BlahajSphericalFoods = (function () {
     flame.position.set(0, 0.99, 0.05);
     tableGroup.add(flame);
 
-    // Warm Romantic Candlelight Glow
     const candleLight = new THREE.PointLight(0xffa040, 1.15, 5.2, 1.3);
     candleLight.position.set(0, 1.05, 0.05);
     tableCandleLights.push(candleLight);
     tableGroup.add(candleLight);
+
+    // Festive Birthday Party Cracker on Table
+    const favorMesh = createPartyFavorMesh();
+    favorMesh.position.set(0.28, 0.82, 0.22);
+    favorMesh.rotation.y = 0.45;
+    tableGroup.add(favorMesh);
 
     // Container for food served directly onto the booth table
     const tableDishContainer = new THREE.Group();
@@ -885,6 +1021,32 @@ window.BlahajSphericalFoods = (function () {
     tableGroup.add(tableDishContainer);
 
     bg.add(tableGroup);
+
+    // Floating Balloon Bouquet Tied to Booth
+    const boothBalloonGroup = new THREE.Group();
+    boothBalloonGroup.position.set(0, 1.55, -arcRadius * 0.95);
+
+    const boothColors = [0xfbbf24, 0xec4899, 0xa855f7];
+    boothColors.forEach((col, bIdx) => {
+      const bRad = 0.22;
+      const bAngle = (bIdx / 3) * Math.PI * 2;
+      const bY = 1.15 + (bIdx % 2) * 0.35;
+      const bMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(bRad, 16, 14),
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.15, metalness: 0.18 })
+      );
+      bMesh.scale.set(1.0, 1.2, 1.0);
+      bMesh.position.set(Math.cos(bAngle) * 0.28, bY, Math.sin(bAngle) * 0.28);
+      boothBalloonGroup.add(bMesh);
+
+      const bRibbon = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, bY, 6), brassMat);
+      bRibbon.position.set(Math.cos(bAngle) * 0.28, bY * 0.5, Math.sin(bAngle) * 0.28);
+      boothBalloonGroup.add(bRibbon);
+    });
+
+    boothBalloonGroup.userData = { seed: boothIndex * 1.8, basePos: { x: 0, y: 1.55, z: -arcRadius * 0.95 } };
+    balloonMeshes.push(boothBalloonGroup);
+    bg.add(boothBalloonGroup);
 
     // Served dish state tracking for this booth
     let currentServedDish = null;
@@ -1086,17 +1248,187 @@ window.BlahajSphericalFoods = (function () {
       toqueTop.position.y = 0.72;
       sousChefBirbMesh.add(toqueTop);
 
+      // Mini Party Hat for Sous-Chef Birb
+      birbPartyHat = new THREE.Group();
+      birbPartyHat.position.set(0.14, 0.98, 0.05);
+      birbPartyHat.rotation.z = -0.32;
+
+      const birbHatMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.4, roughness: 0.3 });
+      const bCone = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.26, 12), birbHatMat);
+      bCone.position.y = 0.13;
+      birbPartyHat.add(bCone);
+
+      const bPom = new THREE.Mesh(
+        new THREE.SphereGeometry(0.038, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.3 })
+      );
+      bPom.position.y = 0.27;
+      birbPartyHat.add(bPom);
+
+      sousChefBirbMesh.add(birbPartyHat);
       kitchenGroup.add(sousChefBirbMesh);
     }
 
     return kitchenGroup;
   }
 
-  // Create Sparkle Particle Burst for Feasting
-  function triggerSparkleBurst(pos, primaryColor) {
+  // Create Lavish Helen's Birthday Week Decorations
+  function createBirthdayCelebrationDecorations(floorRadius, wallHeight) {
+    const decorGroup = new THREE.Group();
+    fairyLightMeshes.length = 0;
+    ambientConfetti.length = 0;
+
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.85, roughness: 0.22 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.8, roughness: 0.2 });
+
+    // 1. Grand Curved Illuminated Birthday Banner ("JOYEUX ANNIVERSAIRE, HÉLÈNE!")
+    // Positioned over the South Entrance archway (Z = 12.8, Y = 4.8)
+    const bannerGroup = new THREE.Group();
+    bannerGroup.position.set(0, 4.8, 12.6);
+    bannerGroup.rotation.y = Math.PI; // Face North into dining room
+
+    const bannerTexture = createBirthdayBannerTexture();
+    const bannerMat = new THREE.MeshBasicMaterial({ map: bannerTexture, side: THREE.DoubleSide });
+    const bannerMesh = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 1.3), bannerMat);
+    bannerGroup.add(bannerMesh);
+
+    // Gilded Frame around banner
+    const bannerBorder = new THREE.Mesh(new THREE.BoxGeometry(5.35, 1.45, 0.06), brassMat);
+    bannerBorder.position.z = -0.04;
+    bannerGroup.add(bannerBorder);
+
+    // Festive Fairy Light Festoon across Banner
+    const numFairyLights = 18;
+    for (let f = 0; f < numFairyLights; f++) {
+      const t = (f / (numFairyLights - 1)) - 0.5;
+      const lx = t * 4.9;
+      const ly = -0.65 - Math.sin((f / (numFairyLights - 1)) * Math.PI) * 0.22; // Sagging catenary
+
+      const bulbMat = new THREE.MeshBasicMaterial({ color: (f % 2 === 0) ? 0xfef08a : 0xf43f5e });
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), bulbMat);
+      bulb.position.set(lx, ly, 0.06);
+      bannerGroup.add(bulb);
+      fairyLightMeshes.push({ mesh: bulb, baseColor: bulbMat.color.getHex(), phase: f * 0.65 });
+
+      // Triangular Pennant Bunting hanging below
+      if (f < numFairyLights - 1) {
+        const flagX = lx + 0.14;
+        const flagMat = new THREE.MeshStandardMaterial({
+          color: [0xf59e0b, 0xec4899, 0xa855f7, 0x10b981, 0x38bdf8][f % 5],
+          roughness: 0.4
+        });
+        const flag = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 3), flagMat);
+        flag.rotation.x = Math.PI;
+        flag.rotation.y = Math.PI / 6;
+        flag.position.set(flagX, ly - 0.16, 0.05);
+        bannerGroup.add(flag);
+      }
+    }
+
+    decorGroup.add(bannerGroup);
+
+    // 2. Entrance Balloon Pillars (Left & Right of South Door)
+    const pillarPositions = [-2.4, 2.4];
+    pillarPositions.forEach((px) => {
+      const colGroup = new THREE.Group();
+      colGroup.position.set(px, 0, 12.8);
+
+      const spiralColors = [0x9f1239, 0xfbbf24, 0xfce7f3, 0xd97706];
+      const numTiers = 9;
+      for (let t = 0; t < numTiers; t++) {
+        const ty = 0.35 + t * 0.38;
+        const baseAngle = t * 0.65;
+        for (let b = 0; b < 4; b++) {
+          const ba = baseAngle + (b / 4) * Math.PI * 2;
+          const col = spiralColors[(t + b) % spiralColors.length];
+          const bMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.20, 12, 10),
+            new THREE.MeshStandardMaterial({ color: col, roughness: 0.15, metalness: 0.2 })
+          );
+          bMesh.position.set(Math.cos(ba) * 0.28, ty, Math.sin(ba) * 0.28);
+          colGroup.add(bMesh);
+        }
+      }
+
+      // Giant Golden Star Balloon on top of pillar
+      const starTop = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.38, 0),
+        new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.88, roughness: 0.15 })
+      );
+      starTop.position.y = 3.95;
+      colGroup.add(starTop);
+
+      decorGroup.add(colGroup);
+    });
+
+    // 3. Radial Catenary Ceiling Streamers (Chandelier to Perimeter Walls)
+    const numStreamers = 12;
+    const streamerColors = [0xf59e0b, 0xec4899, 0xa855f7, 0x10b981, 0x38bdf8, 0xf43f5e];
+
+    for (let s = 0; s < numStreamers; s++) {
+      const sa = (s / numStreamers) * Math.PI * 2;
+      const sCol = streamerColors[s % streamerColors.length];
+      const sMat = new THREE.MeshStandardMaterial({ color: sCol, roughness: 0.45, side: THREE.DoubleSide });
+
+      // Catenary curve points
+      const pInner = new THREE.Vector3(Math.cos(sa) * 4.2, 6.2, Math.sin(sa) * 4.2);
+      const pOuter = new THREE.Vector3(Math.cos(sa) * 13.6, 4.4, Math.sin(sa) * 13.6);
+      const pMid = new THREE.Vector3(Math.cos(sa) * 8.8, 3.8 + (s % 2) * 0.4, Math.sin(sa) * 8.8);
+
+      const curve = new THREE.QuadraticBezierCurve3(pInner, pMid, pOuter);
+      const geom = new THREE.TubeGeometry(curve, 16, 0.035, 6, false);
+      const streamerMesh = new THREE.Mesh(geom, sMat);
+      decorGroup.add(streamerMesh);
+
+      // Hanging metallic tassel ribbons at the wall anchor
+      const tassel = new THREE.Mesh(
+        new THREE.ConeGeometry(0.08, 0.45, 8),
+        new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 })
+      );
+      tassel.position.set(pOuter.x * 0.98, pOuter.y - 0.22, pOuter.z * 0.98);
+      decorGroup.add(tassel);
+    }
+
+    // 4. Ambient Floating Metallic Confetti Flakes (Persistent celebration atmosphere)
+    const confettiColors = [0xfbbf24, 0xec4899, 0x38bdf8, 0xa855f7, 0x10b981, 0xffffff];
+    const confettiCount = 48;
+
+    for (let c = 0; c < confettiCount; c++) {
+      const col = confettiColors[c % confettiColors.length];
+      const cMat = new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide });
+
+      const cGeom = (c % 3 === 0)
+        ? new THREE.OctahedronGeometry(0.04, 0)
+        : new THREE.PlaneGeometry(0.055, 0.08);
+
+      const cMesh = new THREE.Mesh(cGeom, cMat);
+
+      // Random position inside rotunda dining room
+      const rad = Math.random() * 11.5;
+      const angle = Math.random() * Math.PI * 2;
+      const cy = 1.0 + Math.random() * 5.2;
+
+      cMesh.position.set(Math.cos(angle) * rad, cy, Math.sin(angle) * rad);
+      cMesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+      ambientConfetti.push({
+        mesh: cMesh,
+        speedY: 0.25 + Math.random() * 0.45,
+        rotSpeedX: (Math.random() - 0.5) * 3.5,
+        rotSpeedY: (Math.random() - 0.5) * 4.5,
+        swayPhase: Math.random() * Math.PI * 2
+      });
+
+      decorGroup.add(cMesh);
+    }
+
+    return decorGroup;
+  }
+
+  // Create Sparkle Particle Burst for Feasting & Party Poppers
+  function triggerSparkleBurst(pos, primaryColor, count = 28) {
     if (!scene) return;
-    const colors = [0xfbbf24, 0xffffff, 0xf43f5e, 0x38bdf8, primaryColor || 0xf59e0b];
-    const count = 28;
+    const colors = [0xfbbf24, 0xffffff, 0xf43f5e, 0x38bdf8, 0xa855f7, primaryColor || 0xf59e0b];
 
     for (let i = 0; i < count; i++) {
       const col = colors[i % colors.length];
@@ -1107,28 +1439,28 @@ window.BlahajSphericalFoods = (function () {
       });
 
       const geom = (i % 2 === 0)
-        ? new THREE.OctahedronGeometry(0.045 + Math.random() * 0.035, 0)
-        : new THREE.SphereGeometry(0.035 + Math.random() * 0.025, 6, 6);
+        ? new THREE.OctahedronGeometry(0.045 + Math.random() * 0.04, 0)
+        : new THREE.SphereGeometry(0.035 + Math.random() * 0.03, 6, 6);
 
       const spark = new THREE.Mesh(geom, sparkMat);
       spark.position.set(
-        pos.x + (Math.random() - 0.5) * 0.25,
-        pos.y + 0.1 + Math.random() * 0.2,
-        pos.z + (Math.random() - 0.5) * 0.25
+        pos.x + (Math.random() - 0.5) * 0.35,
+        pos.y + 0.1 + Math.random() * 0.25,
+        pos.z + (Math.random() - 0.5) * 0.35
       );
 
       const angle = Math.random() * Math.PI * 2;
-      const speed = 0.8 + Math.random() * 1.6;
-      const upward = 1.4 + Math.random() * 2.2;
+      const speed = 1.0 + Math.random() * 2.2;
+      const upward = 1.8 + Math.random() * 2.5;
 
       activeSparkles.push({
         mesh: spark,
         vx: Math.cos(angle) * speed,
         vy: upward,
         vz: Math.sin(angle) * speed,
-        rotSpeed: (Math.random() - 0.5) * 12,
+        rotSpeed: (Math.random() - 0.5) * 14,
         life: 0,
-        maxLife: 1.1 + Math.random() * 0.5
+        maxLife: 1.2 + Math.random() * 0.6
       });
 
       scene.add(spark);
@@ -1141,7 +1473,7 @@ window.BlahajSphericalFoods = (function () {
     if (built) return Promise.resolve();
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0e0911); // Dark intimate indigo evening background
+    scene.background = new THREE.Color(0x0e0911);
 
     rotundaGroup = new THREE.Group();
     banquetteBooths.length = 0;
@@ -1207,7 +1539,7 @@ window.BlahajSphericalFoods = (function () {
       rotundaGroup.add(rib);
     }
 
-    // 4. Luminous Spheres Chandelier (Dimmed for moody ambiance)
+    // 4. Luminous Spheres Chandelier
     chandelierGroup = new THREE.Group();
     chandelierGroup.position.set(0, wallHeight + 1.2, 0);
 
@@ -1238,7 +1570,6 @@ window.BlahajSphericalFoods = (function () {
       }
     });
 
-    // Dimmer Chandelier Point Light (Intimate 1.35 intensity instead of 2.8)
     chandelierLight = new THREE.PointLight(0xffe8ca, 1.35, 24, 1.3);
     chandelierLight.position.set(0, -0.5, 0);
     chandelierGroup.add(chandelierLight);
@@ -1280,7 +1611,7 @@ window.BlahajSphericalFoods = (function () {
     cakeGroup.position.set(0, 0.24, 0);
     helenAlcoveGroup.add(cakeGroup);
 
-    const balloonColors = [0xf43f5e, 0xfbbf24, 0xa855f7, 0x10b981, 0xec4899, 0x38bdf8];
+    const balloonColors = [0xf43f5e, 0xfbbf24, 0xa855f7, 0x10b981, 0xec4899, 0x38bdf8, 0xfde047, 0xf472b6];
     balloonMeshes.length = 0;
 
     balloonColors.forEach((col, idx) => {
@@ -1296,7 +1627,7 @@ window.BlahajSphericalFoods = (function () {
 
       const bSphere = new THREE.Mesh(
         new THREE.SphereGeometry(0.38, 18, 16),
-        new THREE.MeshStandardMaterial({ color: col, roughness: 0.15, metalness: 0.08 })
+        new THREE.MeshStandardMaterial({ color: col, roughness: 0.15, metalness: 0.12 })
       );
       bSphere.scale.set(1.0, 1.15, 1.0);
       bg.add(bSphere);
@@ -1376,13 +1707,18 @@ window.BlahajSphericalFoods = (function () {
     doorGroup.add(exitLight);
     rotundaGroup.add(doorGroup);
 
-    // 11. Dimmer Romantic Candlelight Lighting (Intimate French Bistro Glow)
-    const ambientLight = new THREE.AmbientLight(0xffe6cf, 0.32); // Dimmer ambient
+    // 11. Lavish Helen's Birthday Celebration Decorations (Active during birthday week!)
+    birthdayDecorGroup = createBirthdayCelebrationDecorations(floorRadius, wallHeight);
+    birthdayDecorGroup.visible = isHelensBirthdayWeek();
+    rotundaGroup.add(birthdayDecorGroup);
+
+    // 12. Dimmer Romantic Candlelight Lighting
+    const ambientLight = new THREE.AmbientLight(0xffe6cf, 0.32);
     scene.add(ambientLight);
 
     for (let s = 0; s < 8; s++) {
       const sa = (s / 8) * Math.PI * 2;
-      const sconceLight = new THREE.PointLight(0xffb86c, 0.45, 9.5, 1.4); // Subtle wall sconces
+      const sconceLight = new THREE.PointLight(0xffb86c, 0.45, 9.5, 1.4);
       sconceLight.position.set(Math.cos(sa) * 13.2, 3.6, Math.sin(sa) * 13.2);
       scene.add(sconceLight);
     }
@@ -1400,16 +1736,12 @@ window.BlahajSphericalFoods = (function () {
     const booth = banquetteBooths[boothIndex];
     if (!booth) return false;
 
-    // Delivery waypoint positioned nicely in front of the booth table
     const angle = booth.config.angle;
     const waiterStopRadius = booth.config.radius - 2.1;
     const targetX = Math.cos(angle) * waiterStopRadius;
     const targetZ = Math.sin(angle) * waiterStopRadius;
-
-    // Waiter should face outward towards the table
     const tableAngle = Math.atan2(Math.cos(angle) * booth.config.radius - targetX, Math.sin(angle) * booth.config.radius - targetZ);
 
-    // Create dish on trolley under cloche
     if (waiterState.trolleyDishMesh && trolleyClocheGroup) {
       trolleyClocheGroup.remove(waiterState.trolleyDishMesh);
     }
@@ -1432,7 +1764,7 @@ window.BlahajSphericalFoods = (function () {
     };
 
     if (trolleyClocheGroup) {
-      trolleyClocheGroup.position.y = 0.85; // Cloche down
+      trolleyClocheGroup.position.y = 0.85;
     }
 
     return true;
@@ -1447,9 +1779,8 @@ window.BlahajSphericalFoods = (function () {
 
     dish.eaten = true;
     const wp = booth.getTableWorldPos();
-    triggerSparkleBurst(wp, 0xfbbf24);
+    triggerSparkleBurst(wp, 0xfbbf24, 32);
 
-    // Shrink dish mesh smoothly
     if (dish.mesh) {
       let shrinkT = 0;
       const initialScale = dish.mesh.scale.x;
@@ -1472,10 +1803,33 @@ window.BlahajSphericalFoods = (function () {
     };
   }
 
+  // Interactive Party Popper Cracker Trigger
+  function popBirthdayCracker(pos) {
+    const burstPos = pos || (waiterParentGroup ? waiterParentGroup.position : { x: 0, y: 1.2, z: 0 });
+    triggerSparkleBurst(burstPos, 0xfbbf24, 36);
+
+    if (window.CozyAudio && typeof window.CozyAudio.birthdayHorn === 'function') {
+      window.CozyAudio.birthdayHorn();
+    }
+    return true;
+  }
+
   function update(dt, elapsed, playerPos, playerMesh) {
     if (!active || !built) return;
 
-    // Chandelier rotation & subtle shimmer
+    // Check & update birthday decor visibility dynamically
+    const isBirthdayWeek = isHelensBirthdayWeek();
+    if (birthdayDecorGroup) {
+      birthdayDecorGroup.visible = isBirthdayWeek;
+    }
+    if (betteravePartyHat) {
+      betteravePartyHat.visible = isBirthdayWeek;
+    }
+    if (birbPartyHat) {
+      birbPartyHat.visible = isBirthdayWeek;
+    }
+
+    // Chandelier rotation
     if (chandelierGroup) {
       chandelierGroup.rotation.y = elapsed * 0.045;
       if (chandelierLight) {
@@ -1488,6 +1842,32 @@ window.BlahajSphericalFoods = (function () {
       const f = Math.sin(elapsed * 14.0 + idx * 3.1) * 0.05 + Math.cos(elapsed * 27.0 + idx * 1.7) * 0.03;
       lamp.intensity = 1.15 + f * 0.6;
     });
+
+    // Fairy lights pulse on birthday banner
+    if (isBirthdayWeek && fairyLightMeshes.length > 0) {
+      fairyLightMeshes.forEach((fl) => {
+        const pulse = 0.5 + 0.5 * Math.sin(elapsed * 5.0 + fl.phase);
+        fl.mesh.scale.setScalar(0.85 + pulse * 0.3);
+      });
+    }
+
+    // Ambient floating metallic confetti drift
+    if (isBirthdayWeek && ambientConfetti.length > 0) {
+      ambientConfetti.forEach((c) => {
+        c.mesh.position.y -= c.speedY * dt;
+        c.mesh.rotation.x += c.rotSpeedX * dt;
+        c.mesh.rotation.y += c.rotSpeedY * dt;
+        c.mesh.position.x += Math.sin(elapsed * 1.8 + c.swayPhase) * 0.008;
+
+        if (c.mesh.position.y < 0.2) {
+          c.mesh.position.y = 6.2 + Math.random() * 0.8;
+          const rad = Math.random() * 11.5;
+          const angle = Math.random() * Math.PI * 2;
+          c.mesh.position.x = Math.cos(angle) * rad;
+          c.mesh.position.z = Math.sin(angle) * rad;
+        }
+      });
+    }
 
     // Helen's Birthday Cake Candle Flame & Glow
     if (candleFlameMesh && candleLight) {
@@ -1506,7 +1886,7 @@ window.BlahajSphericalFoods = (function () {
       bg.position.x = bg.userData.basePos.x + sway;
     });
 
-    // Sous-Chef Birb in show kitchen
+    // Sous-Chef Birb
     if (sousChefBirbMesh) {
       sousChefBirbMesh.rotation.y = Math.PI * 0.15 + Math.sin(elapsed * 2.5) * 0.18;
       sousChefBirbMesh.position.y = 1.28 + Math.abs(Math.sin(elapsed * 4.0)) * 0.035;
@@ -1531,7 +1911,7 @@ window.BlahajSphericalFoods = (function () {
       sp.mesh.position.x += sp.vx * dt;
       sp.mesh.position.y += sp.vy * dt;
       sp.mesh.position.z += sp.vz * dt;
-      sp.vy -= 4.2 * dt; // Gravity
+      sp.vy -= 4.2 * dt;
       sp.mesh.rotation.x += sp.rotSpeed * dt;
       sp.mesh.rotation.y += sp.rotSpeed * dt;
 
@@ -1548,7 +1928,6 @@ window.BlahajSphericalFoods = (function () {
     // Waiter Monsieur Betterave & Serving Trolley State Machine
     if (waiterParentGroup) {
       if (waiterState.mode === 'idle') {
-        // Subtle resting idle breathing wobble
         waiterParentGroup.position.set(MAITRE_D_POS.x, 0, MAITRE_D_POS.z);
         waiterParentGroup.rotation.y = 0;
         if (betteraveMesh) {
@@ -1562,18 +1941,15 @@ window.BlahajSphericalFoods = (function () {
       } else if (waiterState.mode === 'delivering') {
         waiterState.walkProgress += dt / waiterState.walkDuration;
         const p = Math.min(1.0, waiterState.walkProgress);
-        // Smooth cubic ease-in-out
         const ease = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
 
         const curX = waiterState.startPos.x + (waiterState.targetPos.x - waiterState.startPos.x) * ease;
         const curZ = waiterState.startPos.z + (waiterState.targetPos.z - waiterState.startPos.z) * ease;
         waiterParentGroup.position.set(curX, 0, curZ);
 
-        // Turn facing direction of motion
         const moveAngle = Math.atan2(waiterState.targetPos.x - waiterState.startPos.x, waiterState.targetPos.z - waiterState.startPos.z);
         waiterParentGroup.rotation.y = moveAngle;
 
-        // Comical beetroot waddle & wheel spin
         if (betteraveMesh) {
           betteraveMesh.rotation.z = Math.sin(elapsed * 9.0) * 0.08;
           betteraveMesh.position.y = Math.abs(Math.sin(elapsed * 9.0)) * 0.04;
@@ -1595,7 +1971,6 @@ window.BlahajSphericalFoods = (function () {
       } else if (waiterState.mode === 'serving') {
         waiterState.timer += dt;
 
-        // 1. Lift Silver Cloche gracefully with a ding
         if (waiterState.timer < 0.6) {
           const liftFrac = waiterState.timer / 0.6;
           if (trolleyClocheGroup) {
@@ -1604,7 +1979,6 @@ window.BlahajSphericalFoods = (function () {
         } else if (waiterState.timer < 1.8) {
           if (trolleyClocheGroup) trolleyClocheGroup.position.y = 1.40;
 
-          // Place dish onto the booth table
           if (!waiterState.dishPlaced) {
             waiterState.dishPlaced = true;
             const b = banquetteBooths[waiterState.boothIndex];
@@ -1619,13 +1993,11 @@ window.BlahajSphericalFoods = (function () {
             }
           }
         } else if (waiterState.timer < 2.4) {
-          // Lower cloche back onto empty tray
           const lowerFrac = (waiterState.timer - 1.8) / 0.6;
           if (trolleyClocheGroup) {
             trolleyClocheGroup.position.y = 1.40 - lowerFrac * 0.55;
           }
         } else {
-          // Begin returning to station
           waiterState.mode = 'returning';
           waiterState.startPos = {
             x: waiterParentGroup.position.x,
@@ -1743,7 +2115,8 @@ window.BlahajSphericalFoods = (function () {
       });
     }
 
-    // Booth Seating & Served Table Dishe Feasting
+    // Booth Seating, Served Dishes & Birthday Party Crackers
+    const isBirthdayWeek = isHelensBirthdayWeek();
     for (let i = 0; i < banquetteBooths.length; i++) {
       const bObj = banquetteBooths[i];
       const cfg = bObj.config;
@@ -1760,6 +2133,14 @@ window.BlahajSphericalFoods = (function () {
             boothIndex: i,
             dishKey: dish.dishKey,
             prompt: `Feast on ${dish.title} [E] 🍴✨`
+          });
+        }
+        if (isBirthdayWeek) {
+          out.push({
+            kind: 'pop_birthday_cracker',
+            dist: dBooth + 0.1,
+            boothIndex: i,
+            prompt: `🎉 Pop Helen's Birthday Cracker! [P]`
           });
         }
         out.push({
@@ -1807,10 +2188,12 @@ window.BlahajSphericalFoods = (function () {
     getServedDish,
     orderDishToBooth,
     eatServedDish,
+    popBirthdayCracker,
     getPaintingConfig: (idx) => PAINTING_CONFIGS[idx] || null,
     update,
     isHelensBirthdayWeek,
     getHelensCakeMesh: () => cakeGroup,
-    getWaiterState: () => waiterState
+    getWaiterState: () => waiterState,
+    getBirthdayDecorGroup: () => birthdayDecorGroup
   };
 })();
