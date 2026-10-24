@@ -1161,55 +1161,34 @@ window.BlahajWorld = (function () {
       shader.uniforms.uNightFactor = grassUniforms.uNightFactor;
 
       shader.vertexShader =
-        `uniform float uTime;\n` +
-        `uniform float uNightFactor;\n` +
+        'uniform float uTime;\n' +
+        'uniform float uNightFactor;\n' +
         shader.vertexShader.replace(
           '#include <begin_vertex>',
-          `
-          #include <begin_vertex>
-          vec3 instWorldPos = vec3(instanceMatrix[3].x, instanceMatrix[3].y, instanceMatrix[3].z);
-          float worldX = instWorldPos.x;
-          float worldZ = instWorldPos.z;
-
-          // Distance from camera to grass instance:
-          float distToCam = distance(cameraPosition, instWorldPos);
-
-          // Smooth distance fade:
-          // Near & mid-range (0m - 90m): 100% full plush 3D astroturf tufts
-          // Distant range (90m - 175m): smoothly scales down height, merging into ground texture
-          // Far (> 175m): completely flattened into ground texture (zero sparkling / aliased artifacts)
-          float distFade = clamp(1.0 - (distToCam - 90.0) / 85.0, 0.0, 1.0);
-          distFade = distFade * distFade * (3.0 - 2.0 * distFade);
-
-          // Wind sway only affects blades standing upright
-          float swayY = position.y * distFade;
-          float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * swayY;
-          transformed.x += sway;
-          transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * swayY;
-
-          // Scale height smoothly in distance:
-          transformed.y *= distFade;
-          transformed.xz *= (0.45 + 0.55 * distFade);
-          `
-        ).replace(
-          '#include <color_vertex>',
-          `
-          #include <color_vertex>
-          #ifdef USE_INSTANCING_COLOR
-            // Underlying meadow green terrain base color (matches terrain vertex color)
-            vec3 terrainMeadow = vec3(0.21, 0.44, 0.27);
-
-            // Nighttime velvety darkening response:
-            // uNightFactor goes from 0.0 (day) to 1.0 (midnight)
-            // At night, tones down saturation into deep velvety moss so it never glows like green diamonds:
-            vec3 nightGrass = vec3(0.04, 0.09, 0.05);
-            vec3 litGrass = mix(vColor.rgb, nightGrass, uNightFactor * 0.88);
-            vec3 litTerrain = mix(terrainMeadow, vec3(0.03, 0.06, 0.04), uNightFactor * 0.88);
-
-            // Distance blur: blend grass color seamlessly into underlying ground texture
-            vColor.rgb = mix(litTerrain, litGrass, distFade);
-          #endif
-          `
+          [
+            '#include <begin_vertex>',
+            '#ifdef USE_INSTANCING',
+            '  vec3 instWorldPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);',
+            '  float worldX = instWorldPos.x;',
+            '  float worldZ = instWorldPos.z;',
+            '  float distToCam = distance(cameraPosition, instWorldPos);',
+            '  float distFade = clamp(1.0 - (distToCam - 90.0) / 90.0, 0.0, 1.0);',
+            '  distFade = distFade * distFade * (3.0 - 2.0 * distFade);',
+            '  float swayY = position.y * distFade;',
+            '  float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * swayY;',
+            '  transformed.x += sway;',
+            '  transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * swayY;',
+            '  transformed.y *= distFade;',
+            '  transformed.xz *= (0.50 + 0.50 * distFade);',
+            '  #if defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR )',
+            '    vec3 terrainMeadow = vec3(0.21, 0.44, 0.27);',
+            '    vec3 nightGrass = vec3(0.04, 0.09, 0.05);',
+            '    vec3 litGrass = mix(vColor.rgb, nightGrass, uNightFactor * 0.88);',
+            '    vec3 litTerrain = mix(terrainMeadow, vec3(0.03, 0.06, 0.04), uNightFactor * 0.88);',
+            '    vColor.rgb = mix(litTerrain, litGrass, distFade);',
+            '  #endif',
+            '#endif'
+          ].join('\n')
         );
     };
 
