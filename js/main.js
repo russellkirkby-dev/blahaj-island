@@ -558,6 +558,42 @@
       }, 90);
     },
 
+    bistroClocheDing() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(2093.0, 0.85, 'sine', 0.14, 3135.96);
+      this.playTone(3135.96, 0.65, 'triangle', 0.08, 4186.0);
+    },
+
+    eatChomp() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      // 3 crisp munch / chomp sound bites
+      [0, 0.12, 0.24].forEach((t, i) => {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(320 - i * 30, 0.06, 'triangle', 0.18, 120);
+          this.playTone(680 - i * 60, 0.04, 'sine', 0.12, 240);
+        }, t * 1000);
+      });
+      // Satisfying swallow slide
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(280, 0.18, 'sine', 0.14, 160);
+      }, 360);
+      // Sparkly pentatonic celebration arpeggio
+      const notes = [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98];
+      notes.forEach((freq, idx) => {
+        setTimeout(() => {
+          if (!this.ctx) return;
+          this.playTone(freq, 0.35, 'triangle', 0.08, freq * 1.5);
+          this.playTone(freq * 1.5, 0.25, 'sine', 0.05);
+        }, 480 + idx * 60);
+      });
+    },
+
     // =========================================================================
     // LAUNDROMAT & MASTER WASHER #7 AUDIO SUITE
     // =========================================================================
@@ -3475,6 +3511,10 @@
     }
 
     // Spherical Foods Instance specific interactables
+    if (item.kind === 'eat_served_dish') {
+      eatServedDish(item.boothIndex);
+      return;
+    }
     if (item.kind === 'spherical_exit') {
       exitSphericalFoods();
       return;
@@ -5148,9 +5188,52 @@
     });
   }
 
+  function orderSphericalDish(boothIndex, dishKey) {
+    if (!window.BlahajSphericalFoods) return;
+    CozyAudio.bistroChime();
+    window.BlahajSphericalFoods.orderDishToBooth(boothIndex, dishKey);
+
+    const dishNames = {
+      helen_cake: "Helen's Celestial Birthday Bombe",
+      mac_spheres: "Lava Lychee & Truffle Mac Spheres",
+      ramen_spheres: "Miso Ramen & Steamed Bao Spheres",
+      mochi_spheres: "Strawberry Mochi & Matcha Tiramisphere"
+    };
+    const name = dishNames[dishKey] || "Spherical Specialty";
+
+    showToast('ORDER PLACED! 🧆🛎️', `Monsieur Betterave is wheeling the trolley over with ${name}!`);
+    addChatLog(`🛎️ Ordered <strong>${name}</strong>. Monsieur Betterave is wheeling the trolley over to your booth table!`, 'cozy');
+  }
+
+  function eatServedDish(boothIndex) {
+    if (!window.BlahajSphericalFoods) return;
+    if (boothIndex === undefined || boothIndex === null || boothIndex < 0) {
+      boothIndex = player.isSeatedInBooth ? player.seatedBoothIndex : 0;
+    }
+    const result = window.BlahajSphericalFoods.eatServedDish(boothIndex);
+    if (!result) return;
+
+    CozyAudio.eatChomp();
+    spawnFloatingBurst(player.pos, result.isHelensCake ? 0xfbbf24 : 0xec4899, 28);
+
+    player.teaComfort = 100;
+    player.warmth = 100;
+    updateMetersUI();
+
+    if (result.isHelensCake) {
+      player.helenBirthdayJoy = 600;
+      showToast("JOYEUX ANNIVERSAIRE, HELEN! 🎂✨", "Sweet raspberry-rose & gold stars! (Comfort & Warmth Maxed + Birthday Joy!)");
+      addChatLog("🎂 <em>Happy Birthday Helen!</em> You feasted on <strong>Helen's Celestial Birthday Bombe</strong> at the velvet booth. Golden sparkles and raspberry warmth fill your heart (+100% Comfort, +100% Warmth, Birthday Joy buff)!", 'cozy');
+    } else {
+      showToast("FEASTED TO PERFECTION! 🍴✨", `Enjoyed delicious ${result.title}! Perfectly spherical.`);
+      addChatLog(`🍴 Feasted on <strong>${result.title}</strong> at the velvet banquette. Flawlessly spherical!`, 'cozy');
+    }
+  }
+
   function openSphericalFoodsMenuModal() {
     CozyAudio.bistroChime();
     const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
+    const targetBooth = (player.isSeatedInBooth && player.seatedBoothIndex >= 0) ? player.seatedBoothIndex : 0;
 
     const actions = [
       {
@@ -5158,7 +5241,7 @@
         className: 'btn-accent',
         onClick: () => {
           closeDialogueModal();
-          triggerHelensBirthdayCake();
+          orderSphericalDish(targetBooth, 'helen_cake');
         }
       },
       {
@@ -5166,12 +5249,7 @@
         className: 'btn-primary',
         onClick: () => {
           closeDialogueModal();
-          CozyAudio.bistroChime();
-          player.teaComfort = 100;
-          updateMetersUI();
-          spawnFloatingBurst(player.pos, 0xf59e0b, 16);
-          showToast('SERVED HOT & SPHERICAL 🧆', 'Savory truffle mac encased in a golden sphere!');
-          addChatLog('🧆 Monsieur Betterave served steaming <strong>Lava Lychee & Truffle Mac Spheres</strong>.', 'cozy');
+          orderSphericalDish(targetBooth, 'mac_spheres');
         }
       },
       {
@@ -5179,12 +5257,7 @@
         className: 'btn-primary',
         onClick: () => {
           closeDialogueModal();
-          CozyAudio.bistroChime();
-          player.warmth = 100;
-          updateMetersUI();
-          spawnFloatingBurst(player.pos, 0x38bdf8, 16);
-          showToast('SAVORY SPHERE FEAST 🍜', 'Miso broth suspended in delicate culinary pearl!');
-          addChatLog('🍜 Enjoyed <strong>Miso Ramen & Bao Spheres</strong> at the round mahogany table.', 'cozy');
+          orderSphericalDish(targetBooth, 'ramen_spheres');
         }
       },
       {
@@ -5192,12 +5265,7 @@
         className: 'btn-secondary',
         onClick: () => {
           closeDialogueModal();
-          CozyAudio.bistroChime();
-          player.teaComfort = 100;
-          updateMetersUI();
-          spawnFloatingBurst(player.pos, 0xec4899, 16);
-          showToast('DELICATE DESSERT SPHERES 🍓', 'Velvety matcha & glazed strawberry mochi!');
-          addChatLog('🍓 Tasted <strong>Strawberry Mochi & Matcha Tiramisphere</strong>.', 'cozy');
+          orderSphericalDish(targetBooth, 'mochi_spheres');
         }
       }
     ];
@@ -5207,7 +5275,7 @@
       role: 'PROPRIÉTAIRE · SPHERICAL FOODS BISTRO',
       portrait: 'assets/gallery/Spherical-Foods.png',
       text: isWeek
-        ? '“Bienvenue, mes amis! It is the most auspicious week of the year—Helen’s Birthday on October 24th! By unanimous decree of our culinary brigade, no flat food or flat cake is permitted. Our grand feature today is Helen’s Celestial Birthday Bombe. What may I serve you at the round table?”'
+        ? '“Bienvenue, mes amis! It is the most auspicious week of the year—Helen’s Birthday on October 24th! By unanimous decree of our culinary brigade, no flat food or flat cake is permitted. Our grand feature today is Helen’s Celestial Birthday Bombe. What may I wheel over to your table?”'
         : '“Bienvenue to Spherical Foods! Every dish here is handcrafted into a flawless sphere—from savory arancini to sweet melon pearls. What spherical delicacy tempts your palate?”',
       actions: actions
     });
@@ -6668,10 +6736,19 @@
     if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       document.getElementById('hud-zone-name').textContent = 'Spherical Foods Bistro & Rotunda';
       if (player.isSeatedInBooth) {
-        nearestInteractable = {
-          kind: 'seated_booth_menu',
-          prompt: '🛋️ Seated in Booth · [E] or [M] Spherical Menu · [WASD / Space] Stand Up'
-        };
+        const dish = window.BlahajSphericalFoods.getServedDish(player.seatedBoothIndex);
+        if (dish && !dish.eaten) {
+          nearestInteractable = {
+            kind: 'eat_served_dish',
+            boothIndex: player.seatedBoothIndex,
+            prompt: `🍴 Feast on ${dish.title} [E] · [M] Menu · [WASD / Space] Stand Up`
+          };
+        } else {
+          nearestInteractable = {
+            kind: 'seated_booth_menu',
+            prompt: '🛋️ Seated in Booth · [E] or [M] Spherical Menu · [WASD / Space] Stand Up'
+          };
+        }
       } else {
         const sItems = window.BlahajSphericalFoods.getInteractables(player.pos);
         if (sItems.length > 0) {
@@ -7051,6 +7128,8 @@
     exitSphericalFoods,
     triggerHelensBirthdayCake,
     openSphericalFoodsMenuModal,
+    orderSphericalDish,
+    eatServedDish,
     sitInBooth,
     standUpFromBooth,
     openSphericalPaintingModal,
