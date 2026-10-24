@@ -560,6 +560,12 @@ window.BlahajModels = (function () {
     rightFinPivot.add(rightFin);
     rig.add(rightFinPivot);
 
+    // Dedicated Held Item Socket on the tip/grasp of the right pectoral fin!
+    const heldItemSlot = new THREE.Group();
+    heldItemSlot.name = 'heldItemSlot';
+    heldItemSlot.position.set(-0.48, -0.04, 0.28);
+    rightFinPivot.add(heldItemSlot);
+
     // 5. White Felt Teeth Rows along the Underside Grin of the Snout Overhang
     const toothBaseCol = (new THREE.Color(0xffffff)).lerp(new THREE.Color(0xded4bc), mange * 0.75);
     const toothMat = new THREE.MeshStandardMaterial({
@@ -1063,6 +1069,9 @@ window.BlahajModels = (function () {
       rig,
       leftFinPivot,
       rightFinPivot,
+      heldItemSlot,
+      heldItemId: null,
+      hasHeldItem: false,
       tailGroup,
       baseY: 0,
       beepTimer: 0,
@@ -1295,6 +1304,383 @@ window.BlahajModels = (function () {
     return group;
   }
 
+  // ==========================================================================
+  // HELD ITEMS & ACTIVE FIN ACCESSORIES (COCKTAILS, FOOD, TOOLS & TOYS)
+  // ==========================================================================
+  function createHeldItemMesh(itemId) {
+    const g = new THREE.Group();
+
+    if (itemId === 'margarita') {
+      // Frosted Salt-Rimmed Lagoon Margarita in Coupe Glass
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0xccfbf1,
+        transparent: true,
+        opacity: 0.75,
+        roughness: 0.1,
+        metalness: 0.1
+      });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.015, 16), glassMat);
+      base.position.y = 0.008;
+      g.add(base);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.16, 12), glassMat);
+      stem.position.y = 0.09;
+      g.add(stem);
+
+      const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.04, 0.12, 20), glassMat);
+      bowl.position.y = 0.22;
+      g.add(bowl);
+
+      // White Salt Rim
+      const saltRim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.182, 0.012, 8, 24),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.1 })
+      );
+      saltRim.rotation.x = Math.PI / 2;
+      saltRim.position.y = 0.28;
+      g.add(saltRim);
+
+      // Seafoam Lime Beverage
+      const liquidMat = new THREE.MeshStandardMaterial({
+        color: 0x84cc16,
+        emissive: 0x4d7c0f,
+        emissiveIntensity: 0.25,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0.9
+      });
+      const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.05, 0.09, 20), liquidMat);
+      liquid.position.y = 0.22;
+      g.add(liquid);
+
+      // Fresh Green Lime Wheel Wedge
+      const limeGroup = new THREE.Group();
+      const rind = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.012, 8, 16), new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 }));
+      limeGroup.add(rind);
+      const pulp = new THREE.Mesh(new THREE.CylinderGeometry(0.063, 0.063, 0.01, 16), new THREE.MeshStandardMaterial({ color: 0xa3e635, roughness: 0.3 }));
+      pulp.rotation.x = Math.PI / 2;
+      limeGroup.add(pulp);
+      limeGroup.position.set(0.15, 0.29, 0.0);
+      limeGroup.rotation.z = 0.55;
+      g.add(limeGroup);
+
+      // Turquoise Paper Cocktail Umbrella with toothpick!
+      const umbrella = new THREE.Group();
+      const pick = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.22, 6), new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.7 }));
+      pick.position.y = 0.11;
+      umbrella.add(pick);
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.05, 12, 1, true), new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.5, side: THREE.DoubleSide }));
+      canopy.position.y = 0.21;
+      umbrella.add(canopy);
+      umbrella.position.set(-0.06, 0.20, 0.06);
+      umbrella.rotation.set(0.35, 0.2, -0.45);
+      g.add(umbrella);
+
+      g.scale.setScalar(0.9);
+
+    } else if (itemId === 'tropical_cocktail') {
+      // Layered Sunset Hurricane Cocktail with Maraschino Cherry & Swirled Straw
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0xfef08a,
+        transparent: true,
+        opacity: 0.7,
+        roughness: 0.1,
+        metalness: 0.1
+      });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.11, 0.015, 16), glassMat);
+      base.position.y = 0.008;
+      g.add(base);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.06, 12), glassMat);
+      stem.position.y = 0.045;
+      g.add(stem);
+
+      const lowerBody = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.06, 0.16, 16), glassMat);
+      lowerBody.position.y = 0.15;
+      g.add(lowerBody);
+
+      const upperBody = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.10, 0.16, 16), glassMat);
+      upperBody.position.y = 0.31;
+      g.add(upperBody);
+
+      // Sunset gradient layers: Sunrise gold to blood orange
+      const lowerLiq = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.055, 0.14, 16),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.2, transparent: true, opacity: 0.92 })
+      );
+      lowerLiq.position.y = 0.15;
+      g.add(lowerLiq);
+
+      const upperLiq = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.09, 0.14, 16),
+        new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2, transparent: true, opacity: 0.92 })
+      );
+      upperLiq.position.y = 0.29;
+      g.add(upperLiq);
+
+      // Maraschino Cherry
+      const cherry = new THREE.Mesh(
+        new THREE.SphereGeometry(0.04, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.15, metalness: 0.3 })
+      );
+      cherry.position.set(0.06, 0.39, 0.04);
+      g.add(cherry);
+
+      // Bendy Straw
+      const straw = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.008, 0.008, 0.38, 8),
+        new THREE.MeshStandardMaterial({ color: 0xec4899, roughness: 0.3 })
+      );
+      straw.position.set(-0.04, 0.32, -0.03);
+      straw.rotation.set(-0.25, 0.1, 0.32);
+      g.add(straw);
+
+      // Orange Slice
+      const orangeSlice = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 0.012, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 })
+      );
+      orangeSlice.rotation.x = Math.PI / 2;
+      orangeSlice.position.set(0.11, 0.38, -0.03);
+      orangeSlice.rotation.z = -0.4;
+      g.add(orangeSlice);
+
+      g.scale.setScalar(0.85);
+
+    } else if (itemId === 'celestial_boba') {
+      // Celestial Starlight Boba in sealed domed cup
+      const cupMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.65,
+        roughness: 0.15
+      });
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.08, 0.28, 16), cupMat);
+      cup.position.y = 0.14;
+      g.add(cup);
+
+      const lid = new THREE.Mesh(new THREE.SphereGeometry(0.112, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.5), cupMat);
+      lid.position.y = 0.28;
+      g.add(lid);
+
+      const teaMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4 });
+      const teaLiq = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.075, 0.24, 16), teaMat);
+      teaLiq.position.y = 0.13;
+      g.add(teaLiq);
+
+      const pearlMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.2, metalness: 0.2 });
+      for (let p = 0; p < 12; p++) {
+        const pearl = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), pearlMat);
+        const pa = Math.random() * Math.PI * 2;
+        const pr = Math.random() * 0.06;
+        pearl.position.set(Math.cos(pa) * pr, 0.03 + Math.random() * 0.05, Math.sin(pa) * pr);
+        g.add(pearl);
+      }
+
+      const straw = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.014, 0.014, 0.38, 10),
+        new THREE.MeshStandardMaterial({ color: 0xa855f7, roughness: 0.3 })
+      );
+      straw.position.set(0.01, 0.22, 0.01);
+      straw.rotation.set(0.12, 0, -0.15);
+      g.add(straw);
+
+      g.scale.setScalar(0.9);
+
+    } else if (itemId === 'tea') {
+      // Steaming Earl Grey Infusion in Fine China Cup & Saucer
+      const chinaMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.25 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8, roughness: 0.2 });
+
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.018, 16), chinaMat);
+      saucer.position.y = 0.009;
+      g.add(saucer);
+
+      const saucerRim = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.006, 6, 20), goldMat);
+      saucerRim.rotation.x = Math.PI / 2;
+      saucerRim.position.y = 0.018;
+      g.add(saucerRim);
+
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.07, 0.12, 16), chinaMat);
+      cup.position.y = 0.07;
+      g.add(cup);
+
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.01, 6, 12, Math.PI * 1.3), chinaMat);
+      handle.position.set(0.11, 0.07, 0);
+      handle.rotation.z = -Math.PI / 2;
+      g.add(handle);
+
+      const teaLiq = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.092, 0.092, 0.01, 16),
+        new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.1 })
+      );
+      teaLiq.position.y = 0.115;
+      g.add(teaLiq);
+
+      const steamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 });
+      [-0.02, 0.02].forEach((sx, idx) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.022 + idx * 0.008, 6, 6), steamMat);
+        puff.position.set(sx, 0.17 + idx * 0.04, idx * 0.01);
+        g.add(puff);
+      });
+
+      g.scale.setScalar(0.95);
+
+    } else if (itemId === 'breb') {
+      // Warm Breb Loaf with scored diagonal slits
+      const crustMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 });
+      const flourMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.95 });
+      const loaf = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 12), crustMat);
+      loaf.rotation.z = Math.PI / 2;
+      loaf.scale.set(1.0, 0.8, 1.3);
+      loaf.position.y = 0.09;
+      g.add(loaf);
+
+      [-0.06, 0.0, 0.06].forEach((x) => {
+        const slash = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.012, 0.16), flourMat);
+        slash.position.set(x, 0.16, 0);
+        slash.rotation.y = 0.35;
+        g.add(slash);
+      });
+
+      g.scale.setScalar(0.95);
+
+    } else if (itemId === 'carrot_toy') {
+      // Beach-Shorts Carrot Figurine
+      const carrotMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6 });
+      const shortsMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.7 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.5 });
+
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.32, 12), carrotMat);
+      body.rotation.x = Math.PI;
+      body.position.y = 0.16;
+      g.add(body);
+
+      const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.075, 0.10, 12), shortsMat);
+      shorts.position.y = 0.22;
+      g.add(shorts);
+
+      [-0.02, 0.02].forEach((lx) => {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 6), leafMat);
+        leaf.position.set(lx, 0.36, 0);
+        leaf.rotation.z = lx * 4;
+        g.add(leaf);
+      });
+
+      g.scale.setScalar(0.9);
+
+    } else if (itemId === 'hex_key') {
+      // Hiram's Brass Hex Key M10
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.88, roughness: 0.22 });
+      const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.35, 6), brassMat);
+      leg1.position.y = 0.17;
+      g.add(leg1);
+      const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 6), brassMat);
+      leg2.rotation.z = Math.PI / 2;
+      leg2.position.set(-0.06, 0.34, 0);
+      g.add(leg2);
+      g.scale.setScalar(1.0);
+
+    } else if (itemId === 'star_lantern') {
+      // Between Star Lantern (Glowing amber-violet beacon)
+      const metalMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.3 });
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0xa855f7,
+        emissive: 0xc084fc,
+        emissiveIntensity: 0.85,
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.85
+      });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 0.03, 6), metalMat);
+      base.position.y = 0.015;
+      g.add(base);
+      const core = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.16, 6), glassMat);
+      core.position.y = 0.11;
+      g.add(core);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.06, 6), metalMat);
+      cap.position.y = 0.22;
+      g.add(cap);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 12), metalMat);
+      ring.position.y = 0.27;
+      g.add(ring);
+      const light = new THREE.PointLight(0xa855f7, 0.9, 4.5, 1.2);
+      light.position.y = 0.12;
+      g.add(light);
+      g.scale.setScalar(0.9);
+
+    } else if (itemId === 'party_favor') {
+      // Birthday Party Cracker
+      const foilGoldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.25 });
+      const foilRubyMat = new THREE.MeshStandardMaterial({ color: 0xec4899, metalness: 0.6, roughness: 0.3 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.16, 12), foilGoldMat);
+      body.rotation.z = Math.PI / 2;
+      g.add(body);
+      [-1, 1].forEach((dir) => {
+        const twist = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.06, 10), foilRubyMat);
+        twist.rotation.z = -dir * Math.PI / 2;
+        twist.position.x = dir * 0.11;
+        g.add(twist);
+        const bow = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.008, 6, 12), foilRubyMat);
+        bow.position.x = dir * 0.085;
+        g.add(bow);
+      });
+      g.scale.setScalar(1.1);
+
+    } else if (itemId === 'helen_cake' || itemId === 'cake_slice') {
+      // Miniature Celestial Birthday Bombe Slice
+      const chinaMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.2 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.85, roughness: 0.22 });
+      const glazeMat = new THREE.MeshStandardMaterial({ color: 0x9f1239, roughness: 0.08, metalness: 0.35 });
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.10, 0.015, 16), chinaMat);
+      plate.position.y = 0.008;
+      g.add(plate);
+      const cake = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), glazeMat);
+      cake.position.y = 0.016;
+      g.add(cake);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.006, 6, 16), brassMat);
+      ring.rotation.x = Math.PI * 0.35;
+      ring.position.y = 0.06;
+      g.add(ring);
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.018, 0), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+      spark.position.y = 0.15;
+      g.add(spark);
+      g.scale.setScalar(0.9);
+
+    } else {
+      // Default cute parcel box
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), boxMat);
+      box.position.y = 0.09;
+      g.add(box);
+    }
+
+    return g;
+  }
+
+  function attachHeldItem(sharkGroup, itemId) {
+    if (!sharkGroup || !sharkGroup.userData) return;
+    const slot = sharkGroup.userData.heldItemSlot;
+    if (!slot) return;
+
+    while (slot.children.length > 0) {
+      slot.remove(slot.children[0]);
+    }
+
+    if (!itemId) {
+      sharkGroup.userData.heldItemId = null;
+      sharkGroup.userData.hasHeldItem = false;
+      return;
+    }
+
+    const mesh = createHeldItemMesh(itemId);
+    if (mesh) {
+      slot.add(mesh);
+      sharkGroup.userData.heldItemId = itemId;
+      sharkGroup.userData.hasHeldItem = true;
+    }
+  }
+
   function animateShark(mesh, dt, isMoving, time, isSwimming = false, swimVelY = 0) {
     if (!mesh || !mesh.userData || !mesh.userData.rig) return;
     const ud = mesh.userData;
@@ -1321,7 +1707,15 @@ window.BlahajModels = (function () {
       rig.rotation.z = Math.sin(ud.walkPhase) * 0.085;
       if (ud.leftFinPivot && ud.rightFinPivot) {
         ud.leftFinPivot.rotation.z = Math.sin(ud.walkPhase) * 0.32;
-        ud.rightFinPivot.rotation.z = -Math.sin(ud.walkPhase) * 0.32;
+        if (ud.hasHeldItem) {
+          ud.rightFinPivot.rotation.x = -0.36;
+          ud.rightFinPivot.rotation.y = -0.20;
+          ud.rightFinPivot.rotation.z = -0.15 + Math.sin(ud.walkPhase) * 0.06;
+        } else {
+          ud.rightFinPivot.rotation.x = 0;
+          ud.rightFinPivot.rotation.y = 0;
+          ud.rightFinPivot.rotation.z = -Math.sin(ud.walkPhase) * 0.32;
+        }
       }
       if (ud.tailGroup) {
         ud.tailGroup.rotation.y = Math.sin(ud.walkPhase * 1.2) * 0.28;
@@ -1332,7 +1726,18 @@ window.BlahajModels = (function () {
       rig.rotation.z = idleWave * 0.022;
       if (ud.leftFinPivot && ud.rightFinPivot) {
         ud.leftFinPivot.rotation.z = idleWave * 0.08;
-        ud.rightFinPivot.rotation.z = -idleWave * 0.08;
+        if (ud.hasHeldItem) {
+          const sipCycle = (time * 0.45 + (ud.walkPhase || 0)) % (Math.PI * 2);
+          const isSip = sipCycle > Math.PI * 1.65;
+          const sipProgress = isSip ? Math.sin((sipCycle - Math.PI * 1.65) / (Math.PI * 0.35) * Math.PI) : 0;
+          ud.rightFinPivot.rotation.x = -0.38 - sipProgress * 0.45;
+          ud.rightFinPivot.rotation.y = -0.22 - sipProgress * 0.18;
+          ud.rightFinPivot.rotation.z = -0.15;
+        } else {
+          ud.rightFinPivot.rotation.x = 0;
+          ud.rightFinPivot.rotation.y = 0;
+          ud.rightFinPivot.rotation.z = -idleWave * 0.08;
+        }
       }
       if (ud.tailGroup) {
         ud.tailGroup.rotation.y = Math.sin(time * 1.6 + ud.walkPhase) * 0.12;
@@ -1394,6 +1799,9 @@ window.BlahajModels = (function () {
     createBeachBall,
     createBeachCarrot,
     createBeetrootServer,
-    animateShark
+    animateShark,
+    createHeldItemMesh,
+    attachHeldItem
   };
 })();
+window.BlahajSharks3D = window.BlahajModels;

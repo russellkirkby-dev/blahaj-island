@@ -1505,6 +1505,235 @@
     }
   };
 
+  // ==========================================================================
+  // ACTIVE HELD ITEM & FIN DELIGHT SYSTEM (COCKTAILS, FOOD, TOOLS & TOYS)
+  // ==========================================================================
+  const playerHeldItem = {
+    id: null,
+    name: '',
+    icon: '🐾',
+    isTimed: false,
+    timerRemaining: 0,
+    duration: 0,
+    priorItemId: null
+  };
+
+  const HELD_ITEM_DEFS = {
+    margarita: { name: 'Frosted Margarita', icon: '🍸', type: 'drink', isFoodOrDrink: true },
+    tropical_cocktail: { name: 'Sunset Cocktail', icon: '🍹', type: 'drink', isFoodOrDrink: true },
+    celestial_boba: { name: 'Celestial Boba', icon: '🧋', type: 'drink', isFoodOrDrink: true },
+    tea: { name: 'Sacred Steaming Tea', icon: '🍵', type: 'drink', isFoodOrDrink: true },
+    breb: { name: 'Warm Breb Loaf', icon: '🥖', type: 'food', isFoodOrDrink: true },
+    helen_cake: { name: "Helen's Birthday Bombe", icon: '🎂', type: 'food', isFoodOrDrink: true },
+    cake_slice: { name: 'Velvet Cake Slice', icon: '🍰', type: 'food', isFoodOrDrink: true },
+    spherical_beetroot_tart: { name: 'Beetroot Tart', icon: '🥧', type: 'food', isFoodOrDrink: true },
+    spherical_mochi: { name: 'Rainbow Mochi Trio', icon: '🍡', type: 'food', isFoodOrDrink: true },
+    steamed_algae_bun: { name: 'Steamed Algae Bun', icon: '🥟', type: 'food', isFoodOrDrink: true },
+    volcanic_sorbet: { name: 'Volcanic Sorbet Sphere', icon: '🍧', type: 'food', isFoodOrDrink: true },
+    hex_key: { name: 'Hiram’s Hex Key', icon: '🔧', type: 'tool', isFoodOrDrink: false },
+    party_favor: { name: 'Birthday Party Cracker', icon: '🎉', type: 'toy', isFoodOrDrink: false },
+    lantern: { name: 'Ghost Lantern', icon: '🏮', type: 'tool', isFoodOrDrink: false },
+    figurine: { name: 'Carrot Figurine', icon: '🥕', type: 'toy', isFoodOrDrink: false }
+  };
+
+  function getHeldItemMeta(itemId) {
+    if (!itemId) return { name: 'Empty Fin', icon: '🐾', type: 'none', isFoodOrDrink: false };
+    if (HELD_ITEM_DEFS[itemId]) return HELD_ITEM_DEFS[itemId];
+    if (player.inventory) {
+      const invItem = player.inventory.getItem(itemId);
+      if (invItem) {
+        return {
+          name: invItem.name,
+          icon: invItem.icon,
+          type: invItem.type || 'item',
+          isFoodOrDrink: invItem.type === 'drink' || invItem.type === 'food'
+        };
+      }
+    }
+    return { name: itemId, icon: '🦈', type: 'item', isFoodOrDrink: false };
+  }
+
+  function updateHeldItemHUD() {
+    const slotH = document.getElementById('slot-h');
+    const iconEl = document.getElementById('slot-h-icon');
+    const nameEl = document.getElementById('slot-h-name');
+    const subEl = document.getElementById('slot-h-sub');
+    const banner = document.getElementById('held-savor-banner');
+    const savorIcon = document.getElementById('savor-icon');
+    const savorTitle = document.getElementById('savor-title');
+    const savorTimer = document.getElementById('savor-timer');
+    const savorLabel = document.getElementById('savor-label');
+    const savorFill = document.getElementById('savor-fill');
+
+    const meta = getHeldItemMeta(playerHeldItem.id);
+
+    if (slotH) {
+      slotH.classList.toggle('holding', !!playerHeldItem.id);
+      slotH.classList.toggle('savoring', !!(playerHeldItem.id && playerHeldItem.isTimed));
+    }
+    if (iconEl) iconEl.textContent = playerHeldItem.id ? meta.icon : '🐾';
+    if (nameEl) nameEl.textContent = playerHeldItem.id ? meta.name : 'Fin Item';
+    if (subEl) {
+      if (!playerHeldItem.id) {
+        subEl.textContent = 'Empty Fin';
+      } else if (playerHeldItem.isTimed) {
+        subEl.textContent = `Savoring (${Math.ceil(playerHeldItem.timerRemaining)}s)`;
+      } else {
+        subEl.textContent = 'Equipped [H]';
+      }
+    }
+
+    if (banner) {
+      if (playerHeldItem.id && playerHeldItem.isTimed && playerHeldItem.timerRemaining > 0) {
+        banner.classList.remove('hidden');
+        if (savorIcon) savorIcon.textContent = meta.icon;
+        if (savorTitle) savorTitle.textContent = meta.name;
+        if (savorTimer) savorTimer.textContent = `${Math.ceil(playerHeldItem.timerRemaining)}s`;
+        if (savorLabel) savorLabel.textContent = meta.type === 'drink' ? 'SAVORING DRINK' : 'SAVORING SNACK';
+        if (savorFill) {
+          const pct = Math.max(0, Math.min(100, (playerHeldItem.timerRemaining / Math.max(0.1, playerHeldItem.duration)) * 100));
+          savorFill.style.width = `${pct}%`;
+        }
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+  }
+
+  function equipHeldItem(itemId, isTimed = false, duration = 0, priorItemId = null) {
+    if (!itemId) {
+      stowHeldItem();
+      return;
+    }
+
+    if (isTimed && priorItemId === null) {
+      if (playerHeldItem.id && !playerHeldItem.isTimed) {
+        priorItemId = playerHeldItem.id;
+      }
+    }
+
+    playerHeldItem.id = itemId;
+    playerHeldItem.isTimed = !!isTimed;
+    playerHeldItem.duration = duration;
+    playerHeldItem.timerRemaining = duration;
+    if (priorItemId !== null && priorItemId !== undefined) {
+      playerHeldItem.priorItemId = priorItemId;
+    }
+
+    const meta = getHeldItemMeta(itemId);
+    playerHeldItem.name = meta.name;
+    playerHeldItem.icon = meta.icon;
+
+    if (player.mesh && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+      window.BlahajSharks3D.attachHeldItem(player.mesh, itemId);
+    }
+
+    updateHeldItemHUD();
+
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'held_item_sync',
+        heldItemId: itemId,
+        isTimed,
+        duration
+      });
+    }
+
+    if (isTimed) {
+      CozyAudio.bistroChime();
+    } else {
+      if (CozyAudio.shonkPop) { CozyAudio.shonkPop(); } else if (CozyAudio.shonk) { CozyAudio.shonk(); }
+      showToast('EQUIPPED IN FIN 🦈', `Holding ${meta.name} in your right fin. Press [H] to stow!`);
+    }
+  }
+
+  function stowHeldItem(silent = false) {
+    const prevId = playerHeldItem.id;
+    playerHeldItem.id = null;
+    playerHeldItem.isTimed = false;
+    playerHeldItem.duration = 0;
+    playerHeldItem.timerRemaining = 0;
+    playerHeldItem.priorItemId = null;
+
+    if (player.mesh && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+      window.BlahajSharks3D.attachHeldItem(player.mesh, null);
+    }
+
+    updateHeldItemHUD();
+
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'held_item_sync',
+        heldItemId: null
+      });
+    }
+
+    if (!silent && prevId) {
+      CozyAudio.shonk();
+      showToast('STOWED IN SATCHEL 📥', 'Fin is now empty. Press [H] to hold an item!');
+    }
+  }
+
+  function savorHeldItem(itemId, duration = 45.0) {
+    const prior = (playerHeldItem.id && !playerHeldItem.isTimed) ? playerHeldItem.id : null;
+    equipHeldItem(itemId, true, duration, prior);
+    const meta = getHeldItemMeta(itemId);
+    showToast('SAVORING DELIGHT 🍸✨', `Holding ${meta.name}! Taking cozy sips & snacks (${Math.round(duration)}s).`);
+    addChatLog(`🍸 Savoring <strong>${meta.name}</strong> in your fin for ${Math.round(duration)}s! Watch your shark take cozy sips.`, 'cozy');
+  }
+
+  function toggleHeldItem() {
+    if (playerHeldItem.id) {
+      stowHeldItem();
+    } else {
+      let candidate = null;
+      if (player.inventory) {
+        const slots = typeof player.inventory.getSlots === 'function' ? player.inventory.getSlots() : [];
+        if (slots.length > 0) {
+          for (const s of slots) {
+            if (s && s.canHold) {
+              candidate = s.id;
+              break;
+            }
+          }
+        } else if (typeof player.inventory.getSlot === 'function') {
+          const num = player.inventory.numSlots || 16;
+          for (let i = 0; i < num; i++) {
+            const s = player.inventory.getSlot(i);
+            if (s && s.canHold) {
+              candidate = s.id;
+              break;
+            }
+          }
+        }
+      }
+      if (!candidate) candidate = 'margarita';
+      equipHeldItem(candidate, false);
+    }
+  }
+
+  function updateHeldItemSavoring(dt) {
+    if (!playerHeldItem || !playerHeldItem.id || !playerHeldItem.isTimed) return;
+    playerHeldItem.timerRemaining -= dt;
+    if (playerHeldItem.timerRemaining <= 0) {
+      playerHeldItem.timerRemaining = 0;
+      const finishedId = playerHeldItem.id;
+      const prior = playerHeldItem.priorItemId;
+      if (prior) {
+        equipHeldItem(prior, false);
+        const priorMeta = getHeldItemMeta(prior);
+        showToast('FINISHED SAVORING ✨', `Finished snack! Re-equipped ${priorMeta.name} in your fin.`);
+        addChatLog(`✨ Finished savoring <strong>${getHeldItemMeta(finishedId).name}</strong>. Returned <strong>${priorMeta.name}</strong> to your fin!`, 'cozy');
+      } else {
+        stowHeldItem(true);
+        showToast('FINISHED SAVORING ✨', 'Finished enjoying your treat! Delicious and cozy.');
+        addChatLog(`✨ Finished savoring <strong>${getHeldItemMeta(finishedId).name}</strong>! Your fin is now free.`, 'cozy');
+      }
+    } else {
+      updateHeldItemHUD();
+    }
+  }
+
   // Player state
   const player = {
     sharkId: 'hermes',
@@ -1822,6 +2051,10 @@
     player.mesh.rotation.y = player.rotY;
     const activeScene = getActiveScene();
     activeScene.add(player.mesh);
+
+    if (playerHeldItem && playerHeldItem.id && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+      window.BlahajSharks3D.attachHeldItem(player.mesh, playerHeldItem.id);
+    }
 
     updateBlueSharkVisibility();
 
@@ -2341,6 +2574,10 @@
         }
         togglePortalModal();
       }
+      if (k === 'h') {
+        e.preventDefault();
+        toggleHeldItem();
+      }
       if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
       if (k === 'o') toggleSettingsModal();
 
@@ -2603,6 +2840,30 @@
         actWrap.style.display = 'flex';
       }
 
+      const holdBtn = document.getElementById('btn-inspect-hold');
+      if (holdBtn) {
+        if (item.canHold) {
+          holdBtn.style.display = 'inline-flex';
+          if (playerHeldItem && playerHeldItem.id === item.id && !playerHeldItem.isTimed) {
+            holdBtn.textContent = 'Stow from Fin 📥';
+            holdBtn.className = 'btn-secondary';
+            holdBtn.onclick = () => {
+              stowHeldItem();
+              updateItemInspector(item, slotIdx);
+            };
+          } else {
+            holdBtn.textContent = 'Hold in Fin 🦈';
+            holdBtn.className = 'btn-primary';
+            holdBtn.onclick = () => {
+              equipHeldItem(item.id, false);
+              updateItemInspector(item, slotIdx);
+            };
+          }
+        } else {
+          holdBtn.style.display = 'none';
+        }
+      }
+
       if (dropBtn) {
         dropBtn.style.display = 'inline-flex';
         dropBtn.onclick = () => {
@@ -2647,11 +2908,40 @@
             closeCharacterSheetModal();
             triggerFeedBreb();
           };
+        } else if (item.id === 'margarita') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Sip Frosted Margarita (+5m Lagoon Chill) 🍸';
+          useBtn.onclick = () => {
+            player.teaComfort = 100;
+            updateMetersUI();
+            savorHeldItem('margarita', 45.0);
+            closeCharacterSheetModal();
+          };
+        } else if (item.id === 'tropical_cocktail') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Sip Sunset Cocktail (+5m Warm Glow) 🍹';
+          useBtn.onclick = () => {
+            player.warmth = 100;
+            updateMetersUI();
+            savorHeldItem('tropical_cocktail', 45.0);
+            closeCharacterSheetModal();
+          };
+        } else if (item.id === 'celestial_boba') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Drink Celestial Boba (+5m Boba Bliss) 🧋';
+          useBtn.onclick = () => {
+            player.teaComfort = 100;
+            player.warmth = 100;
+            updateMetersUI();
+            savorHeldItem('celestial_boba', 45.0);
+            closeCharacterSheetModal();
+          };
         } else if (item.id === 'tea') {
           useBtn.style.display = 'inline-block';
           useBtn.textContent = 'Sip Sacred Tea (+5m Steaming Spirit) 🍵';
           useBtn.onclick = () => {
             applySteamingSpiritBuff();
+            savorHeldItem('tea', 45.0);
           };
         } else if (item.id === 'party_favor') {
           useBtn.style.display = 'inline-block';
@@ -2692,6 +2982,8 @@
       if (statsEl) statsEl.textContent = 'No modifiers active.';
       const actWrap = document.getElementById('insp-actions');
       if (actWrap) actWrap.style.display = 'none';
+      const holdBtn = document.getElementById('btn-inspect-hold');
+      if (holdBtn) holdBtn.style.display = 'none';
     }
   }
 
@@ -4796,6 +5088,9 @@
     const openCSBtn = document.getElementById('btn-open-charsheet');
     if (openCSBtn) openCSBtn.addEventListener('click', () => openCharacterSheet(player.sharkId));
 
+    const slotH = document.getElementById('slot-h');
+    if (slotH) slotH.addEventListener('click', toggleHeldItem);
+
     const slotK = document.getElementById('slot-k');
     if (slotK) slotK.addEventListener('click', () => toggleCharacterSheetModal(player.sharkId));
 
@@ -5409,6 +5704,7 @@
     player.teaComfort = 100;
     player.warmth = 100;
     updateMetersUI();
+    savorHeldItem(result.dishKey || 'cake_slice', 45.0);
     spawnFloatingBurst(player.pos, 0xf43f5e, 28);
     spawnFloatingBurst(player.pos, 0xfbbf24, 24);
 
@@ -5908,6 +6204,7 @@
     window.BlahajNetwork.send({
       type: 'bistro_eat',
       boothIndex: boothIndex,
+      dishKey: result.dishKey || 'cake_slice',
       title: result.title,
       isHelensCake: !!result.isHelensCake
     });
@@ -6205,7 +6502,12 @@
         }
       },
       onData(data) {
-        if (data.type === 'move') {
+        if (data.type === 'held_item_sync') {
+          coopPartner.heldItemId = data.heldItemId || null;
+          if (coopPartner.mesh && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+            window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
+          }
+        } else if (data.type === 'move') {
           if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
             spawnCoopPartnerShark(data.sharkId || 'solomon', typeof data.mange === 'number' ? data.mange : undefined);
           } else if (typeof data.mange === 'number' && data.mange !== coopPartner.mangeFactor) {
@@ -6220,6 +6522,13 @@
           coopPartner.inCart = !!data.inCart;
           coopPartner.cartId = data.cartId || null;
           coopPartner.zone = data.zone || 'island';
+
+          if (coopPartner.mesh && coopPartner.heldItemId !== data.heldItemId) {
+            coopPartner.heldItemId = data.heldItemId || null;
+            if (window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+              window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
+            }
+          }
 
           if (currentZone === 'laundromat' && window.BlahajLaundromat) {
             if (coopPartner.inCart && coopPartner.cartId) {
@@ -6485,6 +6794,10 @@
     const activeScene = getActiveScene();
     activeScene.add(coopPartner.mesh);
 
+    if (coopPartner.heldItemId && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+      window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
+    }
+
     if (!coopPartner.labelEl) {
       coopPartner.labelEl = createWorldLabel(
         document.getElementById('world-labels'),
@@ -6594,6 +6907,10 @@
     if (player.teaBuffTimer > 0) {
       player.teaBuffTimer = Math.max(0, player.teaBuffTimer - dt);
       player.warmth = 100;
+    }
+
+    if (playerHeldItem && playerHeldItem.isTimed && playerHeldItem.id) {
+      updateHeldItemSavoring(dt);
     }
 
     const curQuarter = Math.floor(elapsed * 4.0);
@@ -7260,7 +7577,8 @@
         inCart: player.inCart,
         cartId: player.cartId || null,
         zone: currentZone,
-        mange: window.__BLAHAJ_MANGE__
+        mange: window.__BLAHAJ_MANGE__,
+        heldItemId: playerHeldItem ? playerHeldItem.id : null
       });
     }
   }
@@ -8098,6 +8416,11 @@
     bakeBrebAtOven,
     collectWorldPickup,
     getPlayerInventory: () => player.inventory,
+    equipHeldItem,
+    stowHeldItem,
+    savorHeldItem,
+    toggleHeldItem,
+    getPlayerHeldItem: () => playerHeldItem,
     getWorldPickups: () => worldPickups,
     getSolomonBreadOven: () => solomonBreadOven,
     getCommunityTrunk: () => communityTrunk,

@@ -1796,6 +1796,10 @@ window.BlahajSphericalFoods = (function () {
       }, 30);
     }
 
+    if (window.BlahajGame && typeof window.BlahajGame.savorHeldItem === 'function') {
+      window.BlahajGame.savorHeldItem(dish.dishKey || 'cake_slice', 45.0);
+    }
+
     return {
       dishKey: dish.dishKey,
       title: dish.title,

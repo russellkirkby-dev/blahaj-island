@@ -19,6 +19,7 @@ window.BlahajInventory = (function () {
       desc: 'Golden freshly-baked loaves from Solomon\'s stone oven. Toss onto meadow grass with [B] to feed and gather plump round island Birbs.',
       stats: '+100% Birb Gathering Radius · Steaming Warmth',
       canUse: true,
+      canHold: true,
       useAction: 'toss_breb',
       usePrompt: 'Toss Warm Breb [B] 🥖'
     },
@@ -57,8 +58,54 @@ window.BlahajInventory = (function () {
       desc: 'Solomon\'s sacred ceremonial tea steeped with sweet orange blossom and bergamot. Instantly fills the Tea Comfort meter to 100%.',
       stats: '+100% Tea Comfort · Grants Warmth Buff',
       canUse: true,
+      canHold: true,
       useAction: 'sip_tea',
       usePrompt: 'Sip Sacred Tea (+5m Steaming Spirit) 🍵'
+    },
+    margarita: {
+      id: 'margarita',
+      name: 'Frosted Lagoon Margarita',
+      icon: '🍸',
+      rarity: 'rare',
+      category: 'beverage',
+      maxStack: 10,
+      type: 'Tropical Cocktail · Salted Rim',
+      desc: 'Chilled seafoam lime margarita served in a salt-rimmed frosted glass with a fresh lime wheel and turquoise paper umbrella. Refreshingly tart and undeniably stylish!',
+      stats: '+15% Agility · Tropical Toast · Hold in Fin',
+      canUse: true,
+      canHold: true,
+      useAction: 'sip_margarita',
+      usePrompt: 'Enjoy Frosted Margarita (45s Savoring) 🍸'
+    },
+    tropical_cocktail: {
+      id: 'tropical_cocktail',
+      name: 'Caldera Sunset Cocktail',
+      icon: '🍹',
+      rarity: 'rare',
+      category: 'beverage',
+      maxStack: 10,
+      type: 'Layered Cocktail · Starlight Garnish',
+      desc: 'A glowing sunset cocktail blending passionfruit, blood orange liqueur, and sparkling starlight in a tall hurricane glass with a cherry and swirled straw.',
+      stats: '+100% Warmth · Island Radiance · Hold in Fin',
+      canUse: true,
+      canHold: true,
+      useAction: 'sip_cocktail',
+      usePrompt: 'Sip Sunset Cocktail (45s Savoring) 🍹'
+    },
+    celestial_boba: {
+      id: 'celestial_boba',
+      name: 'Celestial Starlight Boba',
+      icon: '🧋',
+      rarity: 'epic',
+      category: 'beverage',
+      maxStack: 10,
+      type: 'Café Specialty · Chewy Pearls',
+      desc: 'Golden roasted milk tea brimming with bouncy spherical starlight pearls and served with a chunky pastel straw from the Spherical Foods Café.',
+      stats: '+20% Comfort · Bouncy Step · Hold in Fin',
+      canUse: true,
+      canHold: true,
+      useAction: 'sip_boba',
+      usePrompt: 'Drink Starlight Boba (45s Savoring) 🧋'
     },
     carrot_toy: {
       id: 'carrot_toy',
@@ -70,7 +117,8 @@ window.BlahajInventory = (function () {
       type: 'Sacred Balcony Souvenir',
       desc: 'A rubber-clad carrot in floral boardshorts that tumbled off the high Volcano Balcony and bounced unharmed into the sea.',
       stats: '+15% Plush Bounce Height · Lucky Charm',
-      canUse: false
+      canUse: false,
+      canHold: true
     },
     hex_key: {
       id: 'hex_key',
@@ -82,7 +130,8 @@ window.BlahajInventory = (function () {
       type: 'Architectural Instrument',
       desc: 'Hiram\'s indestructible brass hex key. Unlocks bridges, ramps, observation docks, and pocket portals across the archipelago.',
       stats: 'Unlocks Master Builder Mode [C] · Zero Decay',
-      canUse: false
+      canUse: false,
+      canHold: true
     },
     seam_needle: {
       id: 'seam_needle',
@@ -106,7 +155,8 @@ window.BlahajInventory = (function () {
       type: 'Dimensional Beacon',
       desc: 'Hermes\'s eternal lantern. Burns with violet-amber starlight, revealing paths between Los Angeles and New Zealand shores.',
       stats: 'Portal Guide Beacon · Clears Interdimensional Fog',
-      canUse: false
+      canUse: false,
+      canHold: true
     },
     beach_ball: {
       id: 'beach_ball',
@@ -143,6 +193,7 @@ window.BlahajInventory = (function () {
       desc: 'A festive golden foil cracker tied with ruby ribbon bows. Pop it to shower the area in colorful confetti, party horns, and cheer!',
       stats: '+20% Comfort · Rainbow Confetti Burst',
       canUse: true,
+      canHold: true,
       useAction: 'pop_cracker',
       usePrompt: 'Pop Party Cracker 🎉'
     },
@@ -303,6 +354,9 @@ window.BlahajInventory = (function () {
     const defaultContents = [
       { id: 'breb', qty: 5 },
       { id: 'tea', qty: 3 },
+      { id: 'margarita', qty: 2 },
+      { id: 'tropical_cocktail', qty: 2 },
+      { id: 'celestial_boba', qty: 2 },
       { id: 'carrot_toy', qty: 1 },
       { id: 'hex_key', qty: 1 },
       { id: 'seam_needle', qty: 1 },
@@ -399,6 +453,14 @@ window.BlahajInventory = (function () {
       return slots.filter(Boolean).length;
     }
 
+    function getSlots() {
+      const list = [];
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        list.push(getSlot(i));
+      }
+      return list;
+    }
+
     return {
       slots,
       numSlots: NUM_SLOTS,
@@ -407,6 +469,7 @@ window.BlahajInventory = (function () {
       getItemCount,
       hasItem,
       getSlot,
+      getSlots,
       getUsedSlotCount
     };
   }

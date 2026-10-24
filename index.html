@@ -234,7 +234,22 @@
     </div>
 
     <!-- TOAST NOTIFICATION BANNER -->
-    <div id="toast-banner" class="hidden">
+        <!-- ACTIVE FIN SAVORING BANNER -->
+    <div id="held-savor-banner" class="held-savor-banner hidden">
+      <div class="savor-icon" id="savor-icon">🍸</div>
+      <div class="savor-content">
+        <div class="savor-header">
+          <span class="savor-label" id="savor-label">SAVORING DRINK</span>
+          <span class="savor-timer" id="savor-timer">45s</span>
+        </div>
+        <div class="savor-title" id="savor-title">Frosted Salt-Rimmed Margarita</div>
+        <div class="savor-progress-bar">
+          <div class="savor-progress-fill" id="savor-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+<div id="toast-banner" class="hidden">
       <div class="toast-subtitle" id="toast-sub">RITUAL COMPLETE</div>
       <div class="toast-title" id="toast-title">A Cup of Infinite Comfort</div>
     </div>
@@ -377,7 +392,14 @@
 
         <div class="bar-divider"></div>
 
-        <button class="action-slot util-slot" id="slot-k" title="[K] Open Character Sheet &amp; MMO Inventory">
+                <button class="action-slot util-slot" id="slot-h" title="[H] Fin Item (Hold Drinks, Snacks, Tools and Toys)">
+          <span class="slot-key">H</span>
+          <div class="slot-emoji" id="slot-h-icon">🐾</div>
+          <span class="slot-name" id="slot-h-name">Fin Item</span>
+          <span class="slot-power" id="slot-h-sub">Empty Fin</span>
+        </button>
+
+<button class="action-slot util-slot" id="slot-k" title="[K] Open Character Sheet &amp; MMO Inventory">
           <span class="slot-key">K</span>
           <div class="slot-emoji">🎒</div>
           <span class="slot-name">Character</span>
@@ -581,6 +603,7 @@
                 <div class="inspector-desc" id="insp-desc">Golden freshly-baked loaves from Solomon's kitchen. Toss onto the grass with [B] to feed and gather plump round island Birbs.</div>
                 <div class="inspector-stats" id="insp-stats">+100% Birb Gathering Radius · Steaming Warmth</div>
                 <div class="inspector-actions" id="insp-actions" style="margin-top: 8px; display: flex; gap: 8px;">
+                  <button type="button" class="btn-primary" id="btn-inspect-hold" style="padding: 4px 12px; font-size: 11px; display: none;">Hold in Fin 🦈</button>
                   <button type="button" class="btn-primary" id="btn-inspect-use" style="padding: 4px 12px; font-size: 11px;">Use Item</button>
                   <button type="button" class="btn-secondary" id="btn-inspect-drop" style="padding: 4px 12px; font-size: 11px;">Drop on Ground ⬇️</button>
                 </div>
