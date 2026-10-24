@@ -278,31 +278,37 @@ window.BlahajEnemies = (function () {
 
     const enemyDefs = [
       {
-        id: 'starfish_1',
-        type: 'starfish',
-        title: 'Barnacle Brine Star 🌟',
-        tag: 'EVIL STARFISH · MOODY SPIKE',
-        homePos: new THREE.Vector3(22.0, 1.2, 8.0), // South Beach / Meadow path
-        builder: createStarfishMesh,
-        speed: 2.2,
-        aggroDist: 8.0
-      },
-      {
         id: 'shark_1',
         type: 'shark',
         title: 'Rowdy Gray Fin 🦈',
         tag: 'MEAN SHARK · RUFFIAN OF SHALLOWS',
-        homePos: new THREE.Vector3(26.0, 0.4, -26.0), // Shallow lagoon near East Cape
+        isWaterBased: true,
+        // Cruising underwater in the East Cape coastal waters (depth ~1.45m underwater)
+        homePos: new THREE.Vector3(78.0, -0.65, 18.0),
         builder: createMeanSharkMesh,
         speed: 4.8,
-        aggroDist: 9.5
+        aggroDist: 10.5
+      },
+      {
+        id: 'starfish_1',
+        type: 'starfish',
+        title: 'Barnacle Brine Star 🌟',
+        tag: 'EVIL STARFISH · MOODY SPIKE',
+        isWaterBased: true,
+        // Submerged on the sandy seabed/reef floor in East Cape tidal channel (depth ~1.28m underwater)
+        homePos: new THREE.Vector3(74.0, -0.95, 26.0),
+        builder: createStarfishMesh,
+        speed: 2.2,
+        aggroDist: 8.0
       },
       {
         id: 'urchin_1',
         type: 'urchin',
         title: 'Prickly Kelp Urchin 🦔',
         tag: 'MISCHIEVOUS PUFFBALL · SOFT SPINES',
-        homePos: new THREE.Vector3(38.0, 1.2, -12.0), // Grassy East Meadow
+        isWaterBased: false,
+        // Grassy East Meadow near spawn on land
+        homePos: new THREE.Vector3(38.0, 1.5, -12.0),
         builder: createKelpUrchinMesh,
         speed: 2.8,
         aggroDist: 7.0
@@ -310,10 +316,24 @@ window.BlahajEnemies = (function () {
     ];
 
     enemyDefs.forEach((def) => {
-      const startY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+      const groundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
         ? worldApi.getGroundAndStructureHeight(def.homePos.x, def.homePos.z)
         : def.homePos.y;
-      def.homePos.y = startY;
+      const waveY = worldApi && typeof worldApi.getWaveHeight === 'function'
+        ? worldApi.getWaveHeight(def.homePos.x, def.homePos.z, 0)
+        : 0.22;
+
+      if (def.isWaterBased) {
+        if (def.type === 'shark') {
+          // Shark swims submerged in water column: body submerged, dorsal fin near surface
+          def.homePos.y = Math.min(waveY - 0.38, Math.max(groundY + 0.55, waveY - 0.65));
+        } else {
+          // Starfish rests on the underwater sea floor
+          def.homePos.y = groundY + 0.12;
+        }
+      } else {
+        def.homePos.y = groundY;
+      }
 
       const mesh = def.builder();
       mesh.position.copy(def.homePos);
@@ -324,6 +344,7 @@ window.BlahajEnemies = (function () {
         type: def.type,
         title: def.title,
         tag: def.tag,
+        isWaterBased: !!def.isWaterBased,
         homePos: def.homePos.clone(),
         pos: def.homePos.clone(),
         vel: new THREE.Vector3(),
@@ -548,10 +569,6 @@ window.BlahajEnemies = (function () {
           enemy.isFlying = false;
           enemy.vel.set(0, 0, 0);
           enemy.rotVel.set(0, 0, 0);
-          const returnY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
-            ? worldApi.getGroundAndStructureHeight(enemy.homePos.x, enemy.homePos.z)
-            : enemy.homePos.y;
-          enemy.homePos.y = returnY;
           enemy.pos.copy(enemy.homePos);
           enemy.mesh.position.copy(enemy.pos);
           enemy.mesh.rotation.set(0, enemy.rotY, 0);
@@ -559,29 +576,52 @@ window.BlahajEnemies = (function () {
           updateEnemyLabelUI(enemy);
 
           spawnComicStars(enemy.pos, 0x56c2ff, 18);
+          if (enemy.isWaterBased && window.CozyAudio && typeof window.CozyAudio.waterSplash === 'function') {
+            window.CozyAudio.waterSplash(0.3, 0.35);
+          }
           if (window.showToast) {
-            window.showToast('🌊 SPLASH DOWN!', `${enemy.title} parachuted back into the lagoon, soft and calmed!`);
+            const locText = enemy.isWaterBased ? 'back into the azure ocean depths' : 'back into the meadow';
+            window.showToast('🌊 SPLASH DOWN!', `${enemy.title} parachuted ${locText}, soft and calmed!`);
           }
         }
         return;
       }
 
-      // STATE B: GROUND RECOIL / REGULAR PHYSICS
-      if (enemy.vel.lengthSq() > 0.01) {
-        enemy.pos.addScaledVector(enemy.vel, dt);
-        enemy.vel.multiplyScalar(Math.max(0, 1 - dt * 6.0));
-      }
-
-      // Query dynamic ground height under current enemy position
-      const groundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+      // Water and ground heights at current location
+      const curGroundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
         ? worldApi.getGroundAndStructureHeight(enemy.pos.x, enemy.pos.z)
         : enemy.homePos.y;
+      const curWaveY = worldApi && typeof worldApi.getWaveHeight === 'function'
+        ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed)
+        : 0.22;
+
+      // STATE B: GROUND / WATER RECOIL PHYSICS
+      if (enemy.vel.lengthSq() > 0.01) {
+        const nextRecoilX = enemy.pos.x + enemy.vel.x * dt;
+        const nextRecoilZ = enemy.pos.z + enemy.vel.z * dt;
+        if (enemy.isWaterBased && worldApi) {
+          const testGround = worldApi.getGroundAndStructureHeight(nextRecoilX, nextRecoilZ);
+          const testWave = worldApi.getWaveHeight(nextRecoilX, nextRecoilZ, elapsed);
+          // Keep water creatures inside water during recoil!
+          if (testWave - testGround >= 0.45) {
+            enemy.pos.x = nextRecoilX;
+            enemy.pos.z = nextRecoilZ;
+          } else {
+            enemy.vel.x = -enemy.vel.x * 0.3;
+            enemy.vel.z = -enemy.vel.z * 0.3;
+          }
+        } else {
+          enemy.pos.x = nextRecoilX;
+          enemy.pos.z = nextRecoilZ;
+        }
+        enemy.vel.multiplyScalar(Math.max(0, 1 - dt * 6.0));
+      }
 
       // STATE C: AI BEHAVIOR (IDLE / PATROL / CHASE)
       const distToPlayer = playerPos ? enemy.pos.distanceTo(playerPos) : 999;
 
       if (distToPlayer < enemy.aggroDist) {
-        // Turn and approach player with comical hop
+        // Turn towards player
         const dir = new THREE.Vector3().subVectors(playerPos, enemy.pos);
         dir.y = 0;
         dir.normalize();
@@ -590,50 +630,91 @@ window.BlahajEnemies = (function () {
         enemy.rotY += (targetRotY - enemy.rotY) * Math.min(1.0, dt * 6.0);
         enemy.mesh.rotation.y = enemy.rotY;
 
-        // Move toward player
+        // Move toward player, obeying strict water/land boundaries!
         if (distToPlayer > 1.6) {
-          enemy.pos.addScaledVector(dir, enemy.speed * dt);
+          const stepX = dir.x * enemy.speed * dt;
+          const stepZ = dir.z * enemy.speed * dt;
+          const tryX = enemy.pos.x + stepX;
+          const tryZ = enemy.pos.z + stepZ;
+
+          if (enemy.isWaterBased && worldApi) {
+            const tryGroundY = worldApi.getGroundAndStructureHeight(tryX, tryZ);
+            const tryWaveY = worldApi.getWaveHeight(tryX, tryZ, elapsed);
+            const tryDepth = tryWaveY - tryGroundY;
+
+            // Water-based enemies ONLY move if target position is underwater (depth >= 0.55m)!
+            // They NEVER step onto dry land!
+            if (tryDepth >= 0.55) {
+              enemy.pos.x = tryX;
+              enemy.pos.z = tryZ;
+            } else {
+              // Shoreline deflection: slide along the water edge
+              const tryXOnlyGround = worldApi.getGroundAndStructureHeight(tryX, enemy.pos.z);
+              if (tryWaveY - tryXOnlyGround >= 0.55) {
+                enemy.pos.x = tryX;
+              } else {
+                const tryZOnlyGround = worldApi.getGroundAndStructureHeight(enemy.pos.x, tryZ);
+                if (tryWaveY - tryZOnlyGround >= 0.55) {
+                  enemy.pos.z = tryZ;
+                }
+                // If cornered against land, shark patrols/circles in place in the water
+              }
+            }
+          } else if (!enemy.isWaterBased && worldApi) {
+            // Land-based enemy (puffball): stays on land, doesn't plunge into deep water!
+            const tryGroundY = worldApi.getGroundAndStructureHeight(tryX, tryZ);
+            const tryWaveY = worldApi.getWaveHeight(tryX, tryZ, elapsed);
+            if (tryWaveY - tryGroundY < 0.40) {
+              enemy.pos.x = tryX;
+              enemy.pos.z = tryZ;
+            }
+          } else {
+            enemy.pos.x = tryX;
+            enemy.pos.z = tryZ;
+          }
         }
 
-        // Animated waddle / hop using dynamic ground height!
-        if (enemy.type === 'starfish') {
-          enemy.mesh.position.y = groundY + Math.abs(Math.sin(enemy.animPhase * 2.5)) * 0.28;
-          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 2.5) * 0.15;
-        } else if (enemy.type === 'urchin') {
-          enemy.mesh.position.y = groundY + Math.abs(Math.sin(enemy.animPhase * 3.0)) * 0.65;
-        } else {
-          // Mean shark in shallows / lagoon
-          const waterY = worldApi && typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed) : 0;
-          const baseY = Math.max(groundY - 0.15, waterY - 0.35);
-          enemy.mesh.position.y = baseY + Math.sin(enemy.animPhase * 2.0) * 0.12;
-        }
-
-        // Bumper contact with player (NO DYING — only comical nudge)
+        // Bumper contact with player (NO DYING — comical nudge)
         if (distToPlayer < 1.4) {
-          // Nudge player slightly
           if (window.BlahajGame && typeof window.BlahajGame.adjustSharkMange === 'function') {
             window.BlahajGame.adjustSharkMange(null, 0.03, `${enemy.title} Bump`);
           }
-          // Push enemy back gently
-          enemy.vel.addScaledVector(dir, -4.0);
+          enemy.vel.addScaledVector(dir, -3.5);
         }
       } else {
         // Return leisurely towards home territory
         const dHome = enemy.pos.distanceTo(enemy.homePos);
         if (dHome > 2.0) {
           const homeDir = new THREE.Vector3().subVectors(enemy.homePos, enemy.pos).normalize();
-          enemy.pos.addScaledVector(homeDir, enemy.speed * 0.5 * dt);
+          enemy.pos.addScaledVector(homeDir, enemy.speed * 0.45 * dt);
           enemy.mesh.rotation.y = Math.atan2(homeDir.x, homeDir.z);
         }
-        if (enemy.type === 'starfish') {
-          enemy.mesh.position.y = groundY + Math.sin(enemy.animPhase * 1.5) * 0.08;
-        } else if (enemy.type === 'urchin') {
-          enemy.mesh.position.y = groundY + Math.sin(enemy.animPhase * 1.8) * 0.14;
-        } else {
-          const waterY = worldApi && typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed) : 0;
-          const baseY = Math.max(groundY - 0.15, waterY - 0.35);
-          enemy.mesh.position.y = baseY + Math.sin(enemy.animPhase * 1.5) * 0.10;
+      }
+
+      // Query final ground & wave heights for visual rendering
+      const finalGroundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+        ? worldApi.getGroundAndStructureHeight(enemy.pos.x, enemy.pos.z)
+        : enemy.homePos.y;
+      const finalWaveY = worldApi && typeof worldApi.getWaveHeight === 'function'
+        ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed)
+        : 0.22;
+
+      // Vertical positioning & animations
+      if (enemy.isWaterBased) {
+        if (enemy.type === 'shark') {
+          // Mean Shark swims fully underwater in the water column!
+          // Depth fluctuates gently, with dorsal fin slicing near the water surface
+          const targetSwimY = Math.min(finalWaveY - 0.32, Math.max(finalGroundY + 0.55, finalWaveY - 0.68 + Math.sin(enemy.animPhase * 1.5) * 0.16));
+          enemy.mesh.position.y = targetSwimY;
+          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 1.5) * 0.09;
+        } else if (enemy.type === 'starfish') {
+          // Starfish crawls on the underwater seabed / reef floor
+          enemy.mesh.position.y = finalGroundY + 0.14 + Math.abs(Math.sin(enemy.animPhase * 2.2)) * 0.12;
+          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 2.2) * 0.10;
         }
+      } else {
+        // Land-based puffball hops merrily across meadow grass
+        enemy.mesh.position.y = finalGroundY + Math.abs(Math.sin(enemy.animPhase * 3.0)) * 0.58;
       }
 
       enemy.pos.y = enemy.mesh.position.y;
