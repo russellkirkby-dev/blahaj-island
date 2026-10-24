@@ -958,6 +958,17 @@ window.BlahajInventory = (function () {
       });
     }
 
+    function setSlots(newSlots) {
+      if (!Array.isArray(newSlots)) return;
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        if (newSlots[i] && newSlots[i].id && ITEMS[newSlots[i].id]) {
+          slots[i] = { id: newSlots[i].id, qty: Math.max(1, newSlots[i].qty || 1) };
+        } else {
+          slots[i] = null;
+        }
+      }
+    }
+
     return {
       group: trunkGroup,
       slots,
@@ -966,6 +977,7 @@ window.BlahajInventory = (function () {
       deposit,
       withdraw,
       getSlots,
+      setSlots,
       worldPos: { x: -3.2, y: 0.35, z: 10.0 }
     };
   }

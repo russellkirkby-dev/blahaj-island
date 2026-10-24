@@ -1518,6 +1518,7 @@
     coyoteTimer: 0,
     inBoat: false,
     inCart: false,
+    cartId: null,
     isSeatedInBooth: false,
     seatedBoothIndex: -1,
     inWater: false,
@@ -2274,7 +2275,13 @@
         }
         toggleGalleryModal();
       }
-      if (k === 'p') togglePortalModal();
+      if (k === 'p') {
+        if (player.isSeatedInBooth && currentZone === 'spherical_foods') {
+          popBirthdayCracker(player.seatedBoothIndex);
+          return;
+        }
+        togglePortalModal();
+      }
       if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
       if (k === 'o') toggleSettingsModal();
 
@@ -2552,14 +2559,23 @@
               y: Math.max(0.15, dropGroundY + 0.15),
               z: dropZ
             };
+            const dropId = `dropped_${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
             if (worldPickups) {
-              worldPickups.spawnPickup(item.id, dropPos, null, 1);
+              worldPickups.spawnPickup(item.id, dropPos, dropId, 1);
             }
             CozyAudio.coinDrop();
             showToast('DROPPED ON GROUND ⬇️', `Dropped 1x ${item.name}! Walk up to it and press [E] to pick it back up.`);
             addChatLog(`⬇️ Dropped 1x <strong>${item.name}</strong> onto the ground. Approach it and press <strong>[E]</strong> to pick it back up!`, 'cozy');
             renderCharacterSheet(selectedCSShark);
             updateMetersUI();
+
+            window.BlahajNetwork.send({
+              type: 'item_dropped',
+              id: dropId,
+              itemType: item.id,
+              pos: dropPos,
+              count: 1
+            });
           }
         };
       }
@@ -3524,7 +3540,15 @@
     }, 1200);
     addChatLog('🌀 <strong>Giant Master Washer & Spin Dryer #7</strong> started! Soapy suds swirl around you.', 'cozy');
 
+    window.BlahajNetwork.send({
+      type: 'laundromat_spin_start',
+      sharkId: player.sharkId
+    });
+
     window.BlahajLaundromat.startSpinCycle(player, () => {
+      window.BlahajNetwork.send({
+        type: 'laundromat_spin_end'
+      });
       // Upon cycle completion:
       // 1. Reduce Mange factor by -50% (or down to mint condition 0%)
       const nextMange = adjustSharkMange(player.sharkId, -0.50, 'Master Washer #7 Spin Cycle');
@@ -3592,6 +3616,7 @@
     const cart = window.BlahajLaundromat.mountCart(cartId);
     if (cart) {
       player.inCart = true;
+      player.cartId = cart.id;
       player.ridingWithPartner = false;
       player.inBoat = false;
       CozyAudio.shonk();
@@ -3605,6 +3630,7 @@
     if (!window.BlahajLaundromat) return;
     window.BlahajLaundromat.dismountCart(player);
     player.inCart = false;
+    player.cartId = null;
     CozyAudio.shonk();
     if (CozyAudio.cartDismount) CozyAudio.cartDismount();
     if (CozyAudio.stopCartRoll) CozyAudio.stopCartRoll();
@@ -5462,6 +5488,13 @@
 
     showToast('ORDER PLACED! 🧆🛎️', `Monsieur Betterave is wheeling the trolley over with ${name}!`);
     addChatLog(`🛎️ Ordered <strong>${name}</strong>. Monsieur Betterave is wheeling the trolley over to your booth table!`, 'cozy');
+
+    window.BlahajNetwork.send({
+      type: 'bistro_order',
+      boothIndex: boothIndex,
+      dishKey: dishKey,
+      dishName: name
+    });
   }
 
   function bakeBrebAtOven() {
@@ -5482,6 +5515,7 @@
     if (!player.inventory || !pickup) return;
     const itemType = pickup.type;
     const count = pickup.count || 1;
+    const pickupId = pickup.id;
     const added = player.inventory.addItem(itemType, count);
     if (added > 0) {
       if (worldPickups) worldPickups.collect(pickup);
@@ -5492,6 +5526,13 @@
       showToast(`PICKED UP ${def.name.toUpperCase()}! ${def.icon}✨`, `Added +${added} into Satchel! (Total: ${player.inventory.getItemCount(itemType)})`);
       addChatLog(`${def.icon} Picked up <strong>${def.name}</strong> (+${added} into Satchel, total: ${player.inventory.getItemCount(itemType)}).`, 'cozy');
       updateMetersUI();
+
+      window.BlahajNetwork.send({
+        type: 'item_collected',
+        id: pickupId,
+        itemType: itemType,
+        count: added
+      });
     } else {
       showToast('SATCHEL FULL! 🎒', 'No room in your satchel for more items!');
     }
@@ -5544,6 +5585,10 @@
               CozyAudio.coinDrop();
               renderCommunityTrunkModal();
               updateMetersUI();
+              window.BlahajNetwork.send({
+                type: 'trunk_sync',
+                slots: communityTrunk.getSlots()
+              });
             } else {
               showToast('SATCHEL FULL! 🎒', 'No room in your satchel to take this item!');
             }
@@ -5577,6 +5622,10 @@
               CozyAudio.coinDrop();
               renderCommunityTrunkModal();
               updateMetersUI();
+              window.BlahajNetwork.send({
+                type: 'trunk_sync',
+                slots: communityTrunk.getSlots()
+              });
             } else {
               showToast('TRUNK FULL! 📦', 'The Community Trunk is full! Remove something first.');
             }
@@ -5683,10 +5732,13 @@
     }
   }
 
-  function launchHelenBirthdayFireworks() {
-    if (player.inventory && player.inventory.hasItem('firework_rocket', 1)) {
-      player.inventory.removeItem('firework_rocket', 1);
-      updateMetersUI();
+  function launchHelenBirthdayFireworks(isRemote = false) {
+    if (!isRemote) {
+      if (player.inventory && player.inventory.hasItem('firework_rocket', 1)) {
+        player.inventory.removeItem('firework_rocket', 1);
+        updateMetersUI();
+      }
+      window.BlahajNetwork.send({ type: 'firework_launch' });
     }
     CozyAudio.fireworkWhistle();
 
@@ -5762,6 +5814,12 @@
 
     showToast("JOYEUX ANNIVERSAIRE, HÉLÈNE! 🎉✨", "Party cracker popped with golden streamers & confetti!");
     addChatLog("🎉 <em>Happy Birthday Helen!</em> You popped a festive golden party cracker at Spherical Foods! Confetti and golden streamers fill the room!", 'cozy');
+
+    window.BlahajNetwork.send({
+      type: 'bistro_cracker',
+      boothIndex: boothIndex || (player.isSeatedInBooth ? player.seatedBoothIndex : 0),
+      pos: { x: player.pos.x, y: player.pos.y, z: player.pos.z }
+    });
   }
 
   function eatServedDish(boothIndex) {
@@ -5787,6 +5845,13 @@
       showToast("FEASTED TO PERFECTION! 🍴✨", `Enjoyed delicious ${result.title}! Perfectly spherical.`);
       addChatLog(`🍴 Feasted on <strong>${result.title}</strong> at the velvet banquette. Flawlessly spherical!`, 'cozy');
     }
+
+    window.BlahajNetwork.send({
+      type: 'bistro_eat',
+      boothIndex: boothIndex,
+      title: result.title,
+      isHelensCake: !!result.isHelensCake
+    });
   }
 
   function openSphericalFoodsMenuModal() {
@@ -5795,6 +5860,13 @@
     const targetBooth = (player.isSeatedInBooth && player.seatedBoothIndex >= 0) ? player.seatedBoothIndex : 0;
 
     const actions = [
+      ...(isWeek ? [{
+        label: "🎉 POP BOOTH PARTY CRACKER! 🎊",
+        className: 'btn-secondary',
+        onClick: () => {
+          popBirthdayCracker(targetBooth);
+        }
+      }] : []),
       {
         label: isWeek ? "✨ ORDER: Helen's Birthday Bombe (Oct 24 Week Special!) 🎂" : "Helen's Birthday Bombe (Reserved for Oct 24) 🎂",
         className: 'btn-accent',
@@ -6046,6 +6118,32 @@
           }));
           window.BlahajNetwork.send({ type: 'build_sync', items });
         }
+
+        // Sync dropped world pickups on connect so partner sees all currently dropped items
+        if (worldPickups) {
+          const droppedItems = worldPickups.getPickups()
+            .filter((p) => !p.isStatic && !p.collected)
+            .map((p) => ({
+              id: p.id,
+              itemType: p.type,
+              pos: p.pos,
+              count: p.count
+            }));
+          if (droppedItems.length > 0) {
+            window.BlahajNetwork.send({
+              type: 'pickups_sync',
+              items: droppedItems
+            });
+          }
+        }
+
+        // Sync shared Archipelago Community Trunk on connect
+        if (communityTrunk && typeof communityTrunk.getSlots === 'function') {
+          window.BlahajNetwork.send({
+            type: 'trunk_sync',
+            slots: communityTrunk.getSlots()
+          });
+        }
       },
       onData(data) {
         if (data.type === 'move') {
@@ -6058,7 +6156,26 @@
           coopPartner.targetRotY = data.rotY;
           coopPartner.isMoving = data.isMoving;
           coopPartner.inBoat = !!data.inBoat;
+          const wasInCart = coopPartner.inCart;
+          const prevCartId = coopPartner.cartId;
+          coopPartner.inCart = !!data.inCart;
+          coopPartner.cartId = data.cartId || null;
           coopPartner.zone = data.zone || 'island';
+
+          if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+            if (coopPartner.inCart && coopPartner.cartId) {
+              window.BlahajLaundromat.updateRemoteCart(
+                coopPartner.cartId,
+                { x: data.x, y: data.y, z: data.z },
+                data.rotY,
+                data.isMoving,
+                0.05
+              );
+            } else if (wasInCart && prevCartId) {
+              window.BlahajLaundromat.releaseRemoteCart(prevCartId);
+            }
+          }
+
           updateCoopPartnerVisibility();
         } else if (data.type === 'mange_sync') {
           if (typeof data.mange === 'number') {
@@ -6181,6 +6298,80 @@
           pierNotes.push(data.note);
           savePierNotes();
           showToast('NEW PIER BOTTLE NOTE', `${data.note.author} left a note on the Endless Pier!`);
+        } else if (data.type === 'laundromat_spin_start') {
+          if (window.BlahajLaundromat) {
+            window.BlahajLaundromat.startRemoteSpinCycle(coopPartner.mesh, () => {
+              if (coopPartner.mesh) {
+                spawnFloatingBurst(coopPartner.mesh.position, 0x82e2ff, 24);
+              }
+            });
+            showToast('PARTNER IN SPIN CYCLE! 🫧🌀', 'Your partner hopped into Master Washer #7 for a 40°C Delicate cycle!');
+            addChatLog('🌀 Your partner hopped into <strong>Giant Master Washer #7</strong>! Soapy suds swirl around them.', 'coop');
+          }
+        } else if (data.type === 'bistro_order') {
+          if (window.BlahajSphericalFoods) {
+            window.BlahajSphericalFoods.orderDishToBooth(data.boothIndex, data.dishKey);
+            CozyAudio.bistroChime();
+            addChatLog(`🛎️ Your partner ordered <strong>${data.dishName || 'a Spherical Specialty'}</strong>! Monsieur Betterave is wheeling the trolley over to their booth.`, 'coop');
+          }
+        } else if (data.type === 'bistro_eat') {
+          if (window.BlahajSphericalFoods) {
+            const res = window.BlahajSphericalFoods.eatServedDish(data.boothIndex);
+            CozyAudio.eatChomp();
+            const cPos = coopPartner.mesh ? coopPartner.mesh.position : player.pos;
+            spawnFloatingBurst(cPos, data.isHelensCake ? 0xfbbf24 : 0xec4899, 28);
+            addChatLog(`🍴 Your partner feasted on <strong>${data.title || 'Spherical Specialty'}</strong> at the velvet booth!`, 'coop');
+          }
+        } else if (data.type === 'bistro_cracker') {
+          if (window.BlahajSphericalFoods) {
+            const cPos = data.pos || (coopPartner.mesh ? coopPartner.mesh.position : player.pos);
+            window.BlahajSphericalFoods.popBirthdayCracker(cPos);
+            CozyAudio.birthdayHorn();
+            spawnFloatingBurst(cPos, 0xfbbf24, 32);
+            spawnFloatingBurst(cPos, 0xec4899, 24);
+            addChatLog("🎉 <em>Happy Birthday Helen!</em> Your partner popped a festive party cracker! Confetti and golden streamers burst into the air!", 'coop');
+          }
+        } else if (data.type === 'item_dropped') {
+          if (worldPickups) {
+            const existing = worldPickups.getPickups().find((p) => p.id === data.id);
+            if (!existing) {
+              worldPickups.spawnPickup(data.itemType, data.pos, data.id, data.count || 1);
+              const def = window.BlahajInventory?.ITEMS[data.itemType] || { name: data.itemType, icon: '📦' };
+              spawnFloatingBurst(data.pos, 0xfacc15, 12);
+              addChatLog(`${def.icon} Your partner dropped <strong>${def.name}</strong> on the ground.`, 'coop');
+            }
+          }
+        } else if (data.type === 'item_collected') {
+          if (worldPickups) {
+            const p = worldPickups.getPickups().find((x) => x.id === data.id);
+            if (p) {
+              worldPickups.collect(p);
+              const def = window.BlahajInventory?.ITEMS[data.itemType] || { name: data.itemType, icon: '📦' };
+              if (coopPartner.mesh) spawnFloatingBurst(coopPartner.mesh.position, 0x52f29c, 12);
+              addChatLog(`${def.icon} Your partner picked up <strong>${def.name}</strong>.`, 'coop');
+            }
+          }
+        } else if (data.type === 'pickups_sync' && Array.isArray(data.items)) {
+          if (worldPickups) {
+            data.items.forEach((item) => {
+              const existing = worldPickups.getPickups().find((p) => p.id === item.id);
+              if (!existing) {
+                worldPickups.spawnPickup(item.itemType, item.pos, item.id, item.count || 1);
+              }
+            });
+          }
+        } else if (data.type === 'trunk_sync' && Array.isArray(data.slots)) {
+          if (communityTrunk && typeof communityTrunk.setSlots === 'function') {
+            communityTrunk.setSlots(data.slots);
+            const modal = document.getElementById('community-trunk-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+              renderCommunityTrunkModal();
+            }
+            addChatLog('📦 Community Trunk updated with shared supplies.', 'coop');
+          }
+        } else if (data.type === 'firework_launch') {
+          launchHelenBirthdayFireworks(true);
+          addChatLog("🎆🚀 Your partner launched <strong>Helen's Birthday Grand Fireworks</strong>! Look up at the ocean sky!", 'coop');
         }
       },
       onDisconnect() {
@@ -7008,6 +7199,7 @@
         isMoving,
         inBoat: player.inBoat,
         inCart: player.inCart,
+        cartId: player.cartId || null,
         zone: currentZone,
         mange: window.__BLAHAJ_MANGE__
       });
@@ -7337,9 +7529,8 @@
           };
         } else if (window.BlahajSphericalFoods.isHelensBirthdayWeek()) {
           nearestInteractable = {
-            kind: 'pop_birthday_cracker',
-            boothIndex: player.seatedBoothIndex,
-            prompt: "🎉 Pop Helen's Birthday Cracker [E] · [M] Menu · [WASD / Space] Stand Up"
+            kind: 'seated_booth_menu',
+            prompt: "🛋️ Seated in Booth · [E] or [M] Spherical Menu · [P] Pop Birthday Cracker 🎉 · [WASD / Space] Stand Up"
           };
         } else {
           nearestInteractable = {
@@ -7746,12 +7937,22 @@
     updateCoopPartnerVisibility();
     coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1, dt * 12));
     coopPartner.mesh.rotation.y = coopPartner.targetRotY;
-    window.BlahajModels.animateShark(
-      coopPartner.mesh,
-      dt,
-      coopPartner.isMoving && !coopPartner.inBoat,
-      elapsed
-    );
+    if (coopPartner.inCart && currentZone === 'laundromat') {
+      coopPartner.mesh.position.y = 0.38;
+      window.BlahajModels.animateShark(
+        coopPartner.mesh,
+        dt,
+        false,
+        elapsed
+      );
+    } else {
+      window.BlahajModels.animateShark(
+        coopPartner.mesh,
+        dt,
+        coopPartner.isMoving && !coopPartner.inBoat,
+        elapsed
+      );
+    }
 
     // Sync Partner's Regatta Sailboat Mesh whenever Partner is sailing!
     const pBoat = worldApi.getPartnerBoatMesh && worldApi.getPartnerBoatMesh();

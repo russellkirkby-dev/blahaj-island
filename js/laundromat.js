@@ -1812,7 +1812,10 @@ window.BlahajLaundromat = (function () {
     return safeLanding;
   }
 
-  // Mega Spin Cycle Sequence Controller
+  let activeSpinSharkMesh = null;
+  let isRemoteSpinActive = false;
+
+  // Mega Spin Cycle Sequence Controller (Local Player)
   function startSpinCycle(player, onFinished) {
     if (masterWasher.cycleActive) return;
     masterWasher.cycleActive = true;
@@ -1824,10 +1827,63 @@ window.BlahajLaundromat = (function () {
     masterWasher.doorOpenPlayed = false;
     splatSoundPlayed = false;
     unstickSoundPlayed = false;
+    activeSpinSharkMesh = (player && player.mesh) ? player.mesh : null;
+    isRemoteSpinActive = false;
     onCompleteHandler = onFinished;
 
     if (window.CozyAudio && typeof window.CozyAudio.coinDrop === 'function') {
       window.CozyAudio.coinDrop();
+    }
+  }
+
+  // Mega Spin Cycle Sequence Controller (Remote Co-op Partner)
+  function startRemoteSpinCycle(remoteSharkMesh, onFinished) {
+    if (masterWasher.cycleActive) return;
+    masterWasher.cycleActive = true;
+    masterWasher.cyclePhase = 'closing';
+    masterWasher.cycleTimer = 0.0;
+    masterWasher.didDing = false;
+    masterWasher.doorLatchPlayed = false;
+    masterWasher.fillSoundPlayed = false;
+    masterWasher.doorOpenPlayed = false;
+    splatSoundPlayed = false;
+    unstickSoundPlayed = false;
+    activeSpinSharkMesh = remoteSharkMesh || null;
+    isRemoteSpinActive = true;
+    onCompleteHandler = onFinished;
+
+    if (window.CozyAudio && typeof window.CozyAudio.coinDrop === 'function') {
+      window.CozyAudio.coinDrop();
+    }
+  }
+
+  // Remote Cart Synchronization for multiplayer racing
+  function updateRemoteCart(cartId, pos, rotY, isMoving, dt = 0.016) {
+    if (!cartId || !carts) return null;
+    const cart = carts.find((c) => c.id === cartId);
+    if (!cart) return null;
+
+    cart.isRemoteOccupied = true;
+    cart.pos.x = pos.x;
+    cart.pos.z = pos.z;
+    cart.rotY = rotY;
+    if (cart.group) {
+      cart.group.position.set(pos.x, 0, pos.z);
+      cart.group.rotation.y = rotY;
+    }
+    if (isMoving && cart.wheelMeshes) {
+      cart.wheelMeshes.forEach((w) => {
+        w.rotation.x += dt * 12.0;
+      });
+    }
+    return cart;
+  }
+
+  function releaseRemoteCart(cartId) {
+    if (!cartId || !carts) return;
+    const cart = carts.find((c) => c.id === cartId);
+    if (cart) {
+      cart.isRemoteOccupied = false;
     }
   }
 
@@ -1855,6 +1911,8 @@ window.BlahajLaundromat = (function () {
     if (masterWasher.cycleActive) {
       masterWasher.cycleTimer += dt;
       const t = masterWasher.cycleTimer;
+      const spinTargetMesh = isRemoteSpinActive ? activeSpinSharkMesh : playerMesh;
+      const spinTargetPos = isRemoteSpinActive ? null : playerPos;
 
       // Phase 1: Door Closing (0.0s - 1.2s)
       if (t < 1.2) {
@@ -1876,11 +1934,11 @@ window.BlahajLaundromat = (function () {
           }
         }
 
-        if (playerMesh) {
-          playerMesh.position.set(masterWasher.x, 0.45, masterWasher.z + 0.3);
-          playerMesh.rotation.order = 'XYZ';
-          playerMesh.rotation.set(0, 0, 0);
-          if (playerPos) playerPos.copy(playerMesh.position);
+        if (spinTargetMesh) {
+          spinTargetMesh.position.set(masterWasher.x, 0.45, masterWasher.z + 0.3);
+          spinTargetMesh.rotation.order = 'XYZ';
+          spinTargetMesh.rotation.set(0, 0, 0);
+          if (spinTargetPos) spinTargetPos.copy(spinTargetMesh.position);
         }
       }
       // Phase 2: Wash Slosh & Soap Foam (1.2s - 4.5s)
@@ -1902,13 +1960,13 @@ window.BlahajLaundromat = (function () {
           masterWasher.waterMesh.material.opacity = Math.min(0.45, sloshT * 0.25);
         }
 
-        if (playerMesh) {
+        if (spinTargetMesh) {
           const sx = masterWasher.x + Math.sin(sloshT * 3.8) * 0.40;
           const sy = 0.42 + Math.abs(Math.sin(sloshT * 3.8)) * 0.18;
-          playerMesh.position.set(sx, sy, masterWasher.z + 0.35);
-          playerMesh.rotation.order = 'XYZ';
-          playerMesh.rotation.set(0.04, 0, Math.sin(sloshT * 3.8) * 0.35);
-          if (playerPos) playerPos.copy(playerMesh.position);
+          spinTargetMesh.position.set(sx, sy, masterWasher.z + 0.35);
+          spinTargetMesh.rotation.order = 'XYZ';
+          spinTargetMesh.rotation.set(0.04, 0, Math.sin(sloshT * 3.8) * 0.35);
+          if (spinTargetPos) spinTargetPos.copy(spinTargetMesh.position);
         }
       }
       // Phase 3: High-Speed Centrifugal Spin Cycle with Comical Window Splats & Motion Blur! (4.5s - 9.0s)
@@ -1950,7 +2008,7 @@ window.BlahajLaundromat = (function () {
         const isSplat1 = t >= 5.6 && t < 6.3;
         const isSplat2 = t >= 7.4 && t < 8.1;
 
-        if (playerMesh) {
+        if (spinTargetMesh) {
           if (isSplat1 || isSplat2) {
             const splatWindow = isSplat1 ? (t - 5.6) / 0.70 : (t - 7.4) / 0.70;
 
@@ -1972,17 +2030,17 @@ window.BlahajLaundromat = (function () {
             // With scaleY = 1.35, local Y * scaleY ~ 2.77.
             // With scaleZ = 0.35, local Z * scaleZ ~ 0.29.
             // Center of glass is at Y = 1.85, Z = masterWasher.z + 1.84.
-            // Setting playerMesh.position.y = (1.85 - 2.65) - slideDown places the snout/eyes at Y ~ 1.85 - slideDown!
+            // Setting spinTargetMesh.position.y = (1.85 - 2.65) - slideDown places the snout/eyes at Y ~ 1.85 - slideDown!
             const splatY = (1.85 - 2.65) - slideDown;
             const splatZ = (masterWasher.z + 1.84) - (0.82 * 0.35) - 0.04;
 
-            playerMesh.position.set(splatX, splatY, splatZ);
-            playerMesh.rotation.order = 'YXZ';
+            spinTargetMesh.position.set(splatX, splatY, splatZ);
+            spinTargetMesh.rotation.order = 'YXZ';
             // Facing camera (+Z), flat against glass, slight comical wobble tilt
-            playerMesh.rotation.set(-0.04, 0.0, isSplat1 ? 0.08 : -0.08);
+            spinTargetMesh.rotation.set(-0.04, 0.0, isSplat1 ? 0.08 : -0.08);
 
             // Squash & stretch: comically flattened against the glass window!
-            playerMesh.scale.set(1.48, 1.35, 0.35);
+            spinTargetMesh.scale.set(1.48, 1.35, 0.35);
 
             // Trigger suction release pop sound right before unstuck
             if (splatWindow > 0.90 && !unstickSoundPlayed) {
@@ -1996,7 +2054,7 @@ window.BlahajLaundromat = (function () {
             // Normal dizzy centrifugal tumble around drum perimeter with blur streaks
             splatSoundPlayed = false;
             unstickSoundPlayed = false;
-            playerMesh.scale.set(1.0, 1.0, 1.0);
+            spinTargetMesh.scale.set(1.0, 1.0, 1.0);
 
             const spinR = 0.40;
             const cx = masterWasher.x + Math.cos(masterWasher.drumAngle) * spinR;
@@ -2008,12 +2066,12 @@ window.BlahajLaundromat = (function () {
             const offX = -Math.sin(rotZ) * comDist;
             const offY = Math.cos(rotZ) * comDist;
 
-            playerMesh.position.set(cx - offX, cy - offY, masterWasher.z + 0.35);
-            playerMesh.rotation.order = 'XYZ';
-            playerMesh.rotation.set(0.10, 0, rotZ);
+            spinTargetMesh.position.set(cx - offX, cy - offY, masterWasher.z + 0.35);
+            spinTargetMesh.rotation.order = 'XYZ';
+            spinTargetMesh.rotation.set(0.10, 0, rotZ);
           }
 
-          if (playerPos) playerPos.copy(playerMesh.position);
+          if (spinTargetPos) spinTargetPos.copy(spinTargetMesh.position);
         }
       }
       // Phase 4: Spin Down & Ding! (9.0s - 10.5s)
@@ -2051,12 +2109,12 @@ window.BlahajLaundromat = (function () {
           mat.opacity = Math.max(0, mat.opacity - dt * 2.0);
         });
 
-        if (playerMesh) {
-          playerMesh.scale.set(1.0, 1.0, 1.0);
-          playerMesh.position.set(masterWasher.x, 0, masterWasher.z + 2.4);
-          playerMesh.rotation.order = 'XYZ';
-          playerMesh.rotation.set(0, 0, 0);
-          if (playerPos) playerPos.copy(playerMesh.position);
+        if (spinTargetMesh) {
+          spinTargetMesh.scale.set(1.0, 1.0, 1.0);
+          spinTargetMesh.position.set(masterWasher.x, 0, masterWasher.z + 2.4);
+          spinTargetMesh.rotation.order = 'XYZ';
+          spinTargetMesh.rotation.set(0, 0, 0);
+          if (spinTargetPos) spinTargetPos.copy(spinTargetMesh.position);
         }
       }
       // Cycle Complete
@@ -2074,9 +2132,11 @@ window.BlahajLaundromat = (function () {
         if (masterWasher.waterMesh) masterWasher.waterMesh.material.opacity = 0;
         blurStreakMaterials.forEach((mat) => { mat.opacity = 0; });
 
-        if (playerMesh) {
-          playerMesh.scale.set(1.0, 1.0, 1.0);
+        if (spinTargetMesh) {
+          spinTargetMesh.scale.set(1.0, 1.0, 1.0);
         }
+        activeSpinSharkMesh = null;
+        isRemoteSpinActive = false;
 
         washerBubbles.forEach((b) => {
           b.sprite.visible = false;
@@ -2380,7 +2440,7 @@ window.BlahajLaundromat = (function () {
 
     // Mountable Laundry Carts along the aisles
     carts.forEach((cart) => {
-      if (!cart.isOccupied) {
+      if (!cart.isOccupied && !cart.isRemoteOccupied) {
         const dCart = Math.hypot(p.x - cart.pos.x, p.z - cart.pos.z);
         if (dCart < 2.6) {
           out.push({
@@ -2489,6 +2549,9 @@ window.BlahajLaundromat = (function () {
     getCeilingY: () => 5.2,
     getInteractables,
     startSpinCycle,
+    startRemoteSpinCycle,
+    updateRemoteCart,
+    releaseRemoteCart,
     isSpinCycleActive: () => masterWasher.cycleActive,
     getMasterWasher: () => masterWasher,
     getPosters: () => POSTERS,

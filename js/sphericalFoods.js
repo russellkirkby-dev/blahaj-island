@@ -2126,23 +2126,7 @@ window.BlahajSphericalFoods = (function () {
 
       if (dBooth < 3.2) {
         const dish = bObj.getServedDish();
-        if (dish && !dish.eaten) {
-          out.push({
-            kind: 'eat_served_dish',
-            dist: dBooth,
-            boothIndex: i,
-            dishKey: dish.dishKey,
-            prompt: `Feast on ${dish.title} [E] 🍴✨`
-          });
-        }
-        if (isBirthdayWeek) {
-          out.push({
-            kind: 'pop_birthday_cracker',
-            dist: dBooth + 0.1,
-            boothIndex: i,
-            prompt: `🎉 Pop Helen's Birthday Cracker! [P]`
-          });
-        }
+        // Banquette seating is always the primary interaction when unseated
         out.push({
           kind: 'booth_seat',
           dist: dBooth,
@@ -2150,6 +2134,15 @@ window.BlahajSphericalFoods = (function () {
           boothIndex: i,
           boothName: cfg.name
         });
+        if (dish && !dish.eaten) {
+          out.push({
+            kind: 'eat_served_dish',
+            dist: dBooth + 0.05,
+            boothIndex: i,
+            dishKey: dish.dishKey,
+            prompt: `Feast on ${dish.title} [E] 🍴✨`
+          });
+        }
         break;
       }
     }
@@ -2186,6 +2179,7 @@ window.BlahajSphericalFoods = (function () {
     getInteractables,
     getBoothSeat,
     getServedDish,
+    getBanquetteBooths: () => banquetteBooths,
     orderDishToBooth,
     eatServedDish,
     popBirthdayCracker,
