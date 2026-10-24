@@ -793,7 +793,13 @@ window.BlahajInventory = (function () {
       if (!pickup || pickup.collected) return false;
       pickup.collected = true;
       pickup.mesh.visible = false;
-      pickup.respawnTimer = 40.0; // 40-second respawn for static nodes
+      if (!pickup.isStatic) {
+        if (pickup.mesh.parent) pickup.mesh.parent.remove(pickup.mesh);
+        const idx = activePickups.indexOf(pickup);
+        if (idx !== -1) activePickups.splice(idx, 1);
+      } else {
+        pickup.respawnTimer = 40.0; // 40-second respawn for static nodes
+      }
       return true;
     }
 

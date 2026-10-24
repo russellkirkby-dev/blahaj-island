@@ -2533,46 +2533,53 @@
       const useBtn = document.getElementById('btn-inspect-use');
       const dropBtn = document.getElementById('btn-inspect-drop');
 
-      if (actWrap && dropBtn) {
-        dropBtn.style.display = 'inline-block';
+      if (actWrap) {
+        actWrap.style.display = 'flex';
+      }
+
+      if (dropBtn) {
+        dropBtn.style.display = 'inline-flex';
         dropBtn.onclick = () => {
           if (!item || !player.inventory) return;
           const removed = player.inventory.removeItem(item.id, 1);
           if (removed) {
             const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, player.rotY, 0));
+            const dropX = player.pos.x + forward.x * 1.5;
+            const dropZ = player.pos.z + forward.z * 1.5;
+            const dropGroundY = worldApi ? worldApi.getGroundAndStructureHeight(dropX, dropZ, player.pos.y) : player.pos.y;
             const dropPos = {
-              x: player.pos.x + forward.x * 1.5,
-              y: player.pos.y + 0.15,
-              z: player.pos.z + forward.z * 1.5
+              x: dropX,
+              y: Math.max(0.15, dropGroundY + 0.15),
+              z: dropZ
             };
             if (worldPickups) {
               worldPickups.spawnPickup(item.id, dropPos, null, 1);
             }
             CozyAudio.coinDrop();
-            showToast('DROPPED ON GROUND ⬇️', `Left 1x ${item.name} for Helen or another shark to pick up!`);
-            addChatLog(`⬇️ Dropped 1x <strong>${item.name}</strong> onto the ground. Anyone nearby can pick it up!`, 'cozy');
+            showToast('DROPPED ON GROUND ⬇️', `Dropped 1x ${item.name}! Walk up to it and press [E] to pick it back up.`);
+            addChatLog(`⬇️ Dropped 1x <strong>${item.name}</strong> onto the ground. Approach it and press <strong>[E]</strong> to pick it back up!`, 'cozy');
             renderCharacterSheet(selectedCSShark);
             updateMetersUI();
           }
         };
       }
 
-      if (actWrap && useBtn) {
+      if (useBtn) {
         if (item.id === 'breb') {
-          actWrap.style.display = 'block';
+          useBtn.style.display = 'inline-block';
           useBtn.textContent = 'Toss Warm Breb Loaf [B] 🥖';
           useBtn.onclick = () => {
             closeCharacterSheetModal();
             triggerFeedBreb();
           };
         } else if (item.id === 'tea') {
-          actWrap.style.display = 'block';
+          useBtn.style.display = 'inline-block';
           useBtn.textContent = 'Sip Sacred Tea (+5m Steaming Spirit) 🍵';
           useBtn.onclick = () => {
             applySteamingSpiritBuff();
           };
         } else if (item.id === 'party_favor') {
-          actWrap.style.display = 'block';
+          useBtn.style.display = 'inline-block';
           useBtn.textContent = 'Pop Birthday Party Cracker 🎉';
           useBtn.onclick = () => {
             popBirthdayCracker();
@@ -2581,14 +2588,21 @@
               renderCharacterSheet(selectedCSShark);
             }
           };
-        } else if (item.id === 'guano' || item.id === 'sulfur' || item.id === 'obsidian') {
-          actWrap.style.display = 'block';
-          useBtn.textContent = 'Pyrotechnic Alchemy Material 🧪';
+        } else if (item.id === 'firework_rocket') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = "Launch Helen's Birthday Rocket! 🚀";
           useBtn.onclick = () => {
-            showToast('ALCHEMICAL COMPONENT 🧪', 'Bring Guano & Volcanic Sulfur to Solomon to craft Celebration Fireworks!');
+            closeCharacterSheetModal();
+            launchHelenBirthdayFireworks();
+          };
+        } else if (item.id === 'guano' || item.id === 'sulfur' || item.id === 'obsidian' || item.id === 'brimstone_core' || item.id === 'pure_obsidian' || item.id === 'star_powder') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Pyrotechnic Material Info 🧪';
+          useBtn.onclick = () => {
+            showToast('ALCHEMICAL COMPONENT 🧪', 'Bring to Solomon (Alchemy), Hiram (Mortar), or Nimue (Fuse) to craft fireworks!');
           };
         } else {
-          actWrap.style.display = 'none';
+          useBtn.style.display = 'none';
         }
       }
     } else {
@@ -3384,7 +3398,7 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(() => {
-          currentZone = 'overworld';
+          currentZone = 'island';
           player.isSeatedInBooth = false;
           player.seatedBoothIndex = -1;
           if (window.BlahajSphericalFoods) {
@@ -7367,17 +7381,23 @@
       return;
     }
 
-    // World Pickups (Birb Guano & Volcanic Sulfur)
-    if (worldPickups && currentZone === 'overworld') {
-      const nearbyPickups = worldPickups.getNearbyPickups(player.pos, 3.2);
-      if (nearbyPickups.length > 0 && nearbyPickups[0].dist < bestDist) {
-        bestDist = nearbyPickups[0].dist;
-        nearestInteractable = nearbyPickups[0];
+    // World Pickups (Birb Guano, Volcanic Sulfur, Driftwood, Dropped Items)
+    if (worldPickups && (currentZone === 'island' || currentZone === 'overworld')) {
+      const nearbyPickups = worldPickups.getNearbyPickups(player.pos, 3.6);
+      if (nearbyPickups.length > 0) {
+        const closest = nearbyPickups[0];
+        // Walk-over auto pickup when within 1.25m of dropped items
+        if (closest.dist < 1.25 && closest.pickup && !closest.pickup.isStatic) {
+          collectWorldPickup(closest.pickup);
+        } else if (closest.dist < bestDist) {
+          bestDist = closest.dist;
+          nearestInteractable = closest;
+        }
       }
     }
 
     // Solomon's Stone Bread Oven in Heartland Plaza
-    if (solomonBreadOven && currentZone === 'overworld') {
+    if (solomonBreadOven && (currentZone === 'island' || currentZone === 'overworld')) {
       const dOven = Math.hypot(player.pos.x - solomonBreadOven.worldPos.x, player.pos.z - solomonBreadOven.worldPos.z);
       if (dOven < 3.8 && dOven < bestDist) {
         bestDist = dOven;
@@ -7390,7 +7410,7 @@
     }
 
     // Archipelago Community Trunk in Heartland Plaza (Physical Shared Stash)
-    if (communityTrunk && currentZone === 'overworld') {
+    if (communityTrunk && (currentZone === 'island' || currentZone === 'overworld')) {
       const dTrunk = Math.hypot(player.pos.x - communityTrunk.worldPos.x, player.pos.z - communityTrunk.worldPos.z);
       if (dTrunk < 3.8 && dTrunk < bestDist) {
         bestDist = dTrunk;
@@ -7403,7 +7423,7 @@
     }
 
     // Heartland Pier Launch Mortar Station on Endless Pier
-    if (launchMortarStation && currentZone === 'overworld') {
+    if (launchMortarStation && (currentZone === 'island' || currentZone === 'overworld')) {
       const dMortar = Math.hypot(player.pos.x - launchMortarStation.worldPos.x, player.pos.z - launchMortarStation.worldPos.z);
       if (dMortar < 4.2 && dMortar < bestDist) {
         bestDist = dMortar;
@@ -7430,7 +7450,7 @@
     }
 
     // Check Sleeping Birbs for Gentle Soft Down Gathering
-    if (worldApi && currentZone === 'overworld') {
+    if (worldApi && (currentZone === 'island' || currentZone === 'overworld')) {
       const flock = worldApi.getBirbFlock ? worldApi.getBirbFlock() : [];
       flock.forEach((b) => {
         if (b.isSleeping && !b.downGathered) {
@@ -7556,7 +7576,9 @@
       }
       const isCurrentLm = lastNearestInteractableKey === lm.id;
       const effectiveRadius = isCurrentLm ? (lm.radius + 1.6) : lm.radius;
-      if (d < effectiveRadius && d < bestDist) {
+      // Do not allow distant landmarks to override immediate ground pickups or ovens within 3.8m
+      const hasClosePickup = nearestInteractable && (nearestInteractable.kind.startsWith('pickup_') || nearestInteractable.kind === 'solomon_bread_oven');
+      if (d < effectiveRadius && d < bestDist && !hasClosePickup) {
         bestDist = d;
         nearestInteractable = {
           kind: 'landmark',

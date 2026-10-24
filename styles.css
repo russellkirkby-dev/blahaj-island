@@ -745,7 +745,7 @@ body, html {
 
 .island-meters {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .meter-pill {
@@ -1046,7 +1046,7 @@ body.has-volcano-notice #toast-banner {
 .vhud-icon-wrap {
   flex-shrink: 0;
   width: 44px;
-  height: 44px;
+  height: 38px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(232, 111, 56, 0.45) 0%, rgba(20, 14, 18, 0.8) 70%);
   border: 1.5px solid #f5cd79;
@@ -1483,7 +1483,7 @@ body.has-volcano-notice #toast-banner {
 }
 
 .action-slot .slot-emoji {
-  font-size: 22px;
+  font-size: 19px;
   margin-bottom: 3px;
 }
 
@@ -2114,7 +2114,7 @@ body.has-volcano-notice #toast-banner {
   width: 95vw !important;
   max-height: 94vh;
   overflow-y: auto;
-  padding: 20px 24px !important;
+  padding: 12px 18px !important;
   background: radial-gradient(circle at 50% 0%, rgba(26, 44, 76, 0.98) 0%, rgba(11, 19, 36, 0.98) 100%) !important;
   border: 2px solid rgba(220, 185, 120, 0.65) !important;
   border-radius: 20px !important;
@@ -2583,7 +2583,7 @@ body.has-volcano-notice #toast-banner {
 
 .mmo-slot {
   position: relative;
-  height: 58px;
+  height: 44px;
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.85);
   border: 1.5px solid rgba(255, 255, 255, 0.15);
@@ -2717,6 +2717,36 @@ body.has-volcano-notice #toast-banner {
   color: #34d399;
   font-weight: 600;
   margin-top: 1px;
+}
+
+.inspector-actions {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#btn-inspect-drop {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.35));
+  border: 1.5px solid #f87171;
+  color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+  transition: all 0.2s ease;
+}
+
+#btn-inspect-drop:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.45), rgba(185, 28, 28, 0.55));
+  border-color: #fca5a5;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.45);
+  transform: translateY(-1px);
 }
 
 .mmo-currency-bar {
