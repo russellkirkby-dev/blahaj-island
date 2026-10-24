@@ -2408,6 +2408,11 @@
 
     canvas.addEventListener('click', () => {
       CozyAudio.ensure();
+      const vhudCard = document.getElementById('volcano-hud-card');
+      if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
+        hideVolcanoHUDCard();
+        return;
+      }
       if (!isAnyModalOpen() && document.pointerLockElement !== canvas) {
         canvas.requestPointerLock?.();
       }
@@ -2426,6 +2431,10 @@
       prevPointerDy = 0;
       if (!camState.isPointerLocked) {
         clearAllMovementKeys();
+        const vhudCard = document.getElementById('volcano-hud-card');
+        if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
+          hideVolcanoHUDCard();
+        }
       }
     });
 
@@ -2434,6 +2443,21 @@
       if (document.hidden) clearAllMovementKeys();
     });
     window.addEventListener('focus', clearAllMovementKeys);
+
+    // Global click-anywhere dismissal for Volcano HUD notice and toast banner
+    window.addEventListener('pointerdown', (e) => {
+      const vhudCard = document.getElementById('volcano-hud-card');
+      if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
+        hideVolcanoHUDCard();
+      }
+      const toastBanner = document.getElementById('toast-banner');
+      if (toastBanner && !toastBanner.classList.contains('hidden')) {
+        if (toastBanner.contains(e.target)) {
+          toastBanner.classList.add('hidden');
+          clearTimeout(showToast._t);
+        }
+      }
+    }, true);
 
     let mouseDownPos = { x: 0, y: 0 };
 
@@ -2531,6 +2555,19 @@
         clearAllMovementKeys();
         if (e.key === 'Escape') document.activeElement.blur();
         return;
+      }
+
+      // Immediate keyboard dismissal for volcano HUD card
+      const activeVhudCard = document.getElementById('volcano-hud-card');
+      if (activeVhudCard && !activeVhudCard.classList.contains('hidden') && !activeVhudCard.classList.contains('fading-out')) {
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e') {
+          hideVolcanoHUDCard();
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
       }
 
       if (e.key === 'Escape') {
@@ -5312,6 +5349,13 @@
         hideVolcanoHUDCard();
       });
     }
+    const toastBanner = document.getElementById('toast-banner');
+    if (toastBanner) {
+      toastBanner.addEventListener('click', () => {
+        toastBanner.classList.add('hidden');
+        clearTimeout(showToast._t);
+      });
+    }
 
     // Interactive Mange Factor Slider in Unit Frame
     const mangeSlider = document.getElementById('mange-factor-slider');
@@ -5747,7 +5791,7 @@
     if (timerFill) {
       timerFill.style.animation = 'none';
       void timerFill.offsetWidth;
-      timerFill.style.animation = 'vhudTimerDrain 8.5s linear forwards';
+      timerFill.style.animation = 'vhudTimerDrain 3.8s linear forwards';
     }
 
     if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) {
@@ -5759,7 +5803,7 @@
     if (currentVolcanoNoticeTimer) clearTimeout(currentVolcanoNoticeTimer);
     currentVolcanoNoticeTimer = setTimeout(() => {
       hideVolcanoHUDCard();
-    }, 8500);
+    }, 3800);
   }
 
   function hideVolcanoHUDCard() {
@@ -5772,7 +5816,7 @@
       card.classList.add('hidden');
       card.classList.remove('fading-out');
       document.body.classList.remove('has-volcano-notice');
-    }, 280);
+    }, 200);
   }
 
   function getVolcanoNoticeKeyForPos(pos) {
