@@ -2135,8 +2135,15 @@
       }
     });
 
+    let pointerLockCooldown = 0;
+    let lastClientX = null;
+    let lastClientY = null;
+
     document.addEventListener('pointerlockchange', () => {
       camState.isPointerLocked = document.pointerLockElement === canvas;
+      pointerLockCooldown = 3; // Discard first 3 frames after pointer lock transition
+      lastClientX = null;
+      lastClientY = null;
       if (!camState.isPointerLocked) {
         clearAllMovementKeys();
       }
@@ -2153,6 +2160,8 @@
     canvas.addEventListener('mousedown', (e) => {
       CozyAudio.ensure();
       mouseDownPos = { x: e.clientX, y: e.clientY };
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
       if (e.button === 2 || e.button === 0) {
         camState.isRightDragging = true;
       }
@@ -2167,6 +2176,8 @@
 
     window.addEventListener('mouseup', () => {
       camState.isRightDragging = false;
+      lastClientX = null;
+      lastClientY = null;
     });
 
     window.addEventListener('contextmenu', (e) => {
@@ -2176,11 +2187,53 @@
 
     window.addEventListener('mousemove', (e) => {
       if (isAnyModalOpen()) return;
+
+      if (pointerLockCooldown > 0) {
+        pointerLockCooldown--;
+        lastClientX = e.clientX;
+        lastClientY = e.clientY;
+        return;
+      }
+
       if (camState.isPointerLocked || camState.isRightDragging) {
+        let dx = 0;
+        let dy = 0;
+
+        if (camState.isPointerLocked) {
+          dx = (typeof e.movementX === 'number' && Number.isFinite(e.movementX)) ? e.movementX : 0;
+          dy = (typeof e.movementY === 'number' && Number.isFinite(e.movementY)) ? e.movementY : 0;
+        } else {
+          // In drag mode without pointer lock, use client coordinate delta to eliminate browser movementX spikes
+          if (lastClientX !== null && lastClientY !== null) {
+            dx = e.clientX - lastClientX;
+            dy = e.clientY - lastClientY;
+          }
+          lastClientX = e.clientX;
+          lastClientY = e.clientY;
+        }
+
+        // 1. REJECT OS CURSOR RECENTER / WARP SPIKES:
+        // Chromium's Pointer Lock on Windows periodically resets the virtual cursor when it travels
+        // to the screen margin (typically every 15-20s of camera rotation). This synthetic recenter
+        // event generates a massive delta (100-300px), causing sudden 20-40° jump cuts.
+        // Genuine hand mouse movement at 60Hz never exceeds 50px per event.
+        if (Math.abs(dx) > 65 || Math.abs(dy) > 65) {
+          return; // Discard recenter warp glitch!
+        }
+
+        // 2. Safe delta clamping: limits max angular velocity per event to ~5.5°
+        dx = Math.max(-30, Math.min(30, dx));
+        dy = Math.max(-30, Math.min(30, dy));
+
         const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
         const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
-        camState.yaw -= e.movementX * 0.0032 * sens;
-        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + e.movementY * 0.0026 * sens * invert));
+
+        camState.yaw -= dx * 0.0032 * sens;
+        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
+
+        // Keep yaw cleanly wrapped within [-PI, PI] to prevent floating point drift
+        while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+        while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
       }
     });
 
