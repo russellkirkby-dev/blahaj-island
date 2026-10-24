@@ -1867,9 +1867,9 @@ window.BlahajLaundromat = (function () {
     cart.pos.x = pos.x;
     cart.pos.z = pos.z;
     cart.rotY = rotY;
-    if (cart.group) {
-      cart.group.position.set(pos.x, 0, pos.z);
-      cart.group.rotation.y = rotY;
+    if (cart.mesh) {
+      cart.mesh.position.set(pos.x, 0, pos.z);
+      cart.mesh.rotation.y = rotY;
     }
     if (isMoving && cart.wheelMeshes) {
       cart.wheelMeshes.forEach((w) => {
@@ -1884,6 +1884,9 @@ window.BlahajLaundromat = (function () {
     const cart = carts.find((c) => c.id === cartId);
     if (cart) {
       cart.isRemoteOccupied = false;
+      cart.speed = 0;
+      cart.bounceVx = 0;
+      cart.bounceVz = 0;
     }
   }
 
@@ -2269,7 +2272,7 @@ window.BlahajLaundromat = (function () {
 
     // Cart physics & mesh animation for unoccupied and occupied carts
     carts.forEach((c) => {
-      if (!c.isOccupied) {
+      if (!c.isOccupied && !c.isRemoteOccupied) {
         // Decay bounce recoil
         c.bounceVx *= Math.max(0, 1.0 - dt * 6.5);
         c.bounceVz *= Math.max(0, 1.0 - dt * 6.5);

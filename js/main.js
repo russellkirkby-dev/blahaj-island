@@ -1621,6 +1621,7 @@
     if (banner) {
       if (playerHeldItem.id && playerHeldItem.isTimed && playerHeldItem.timerRemaining > 0) {
         banner.classList.remove('hidden');
+        banner.style.display = 'flex';
         if (savorIcon) savorIcon.textContent = meta.icon;
         if (savorTitle) savorTitle.textContent = meta.name;
         if (savorTimer) savorTimer.textContent = `${Math.ceil(playerHeldItem.timerRemaining)}s`;
@@ -1631,6 +1632,8 @@
         }
       } else {
         banner.classList.add('hidden');
+        banner.style.display = 'none';
+        if (savorTimer) savorTimer.textContent = '0s';
       }
     }
   }
@@ -1752,8 +1755,10 @@
     playerHeldItem.timerRemaining -= dt;
     if (playerHeldItem.timerRemaining <= 0) {
       playerHeldItem.timerRemaining = 0;
+      playerHeldItem.isTimed = false;
       const finishedId = playerHeldItem.id;
       const prior = playerHeldItem.priorItemId;
+      playerHeldItem.priorItemId = null;
       if (prior) {
         equipHeldItem(prior, false);
         const priorMeta = getHeldItemMeta(prior);
@@ -1764,6 +1769,7 @@
         showToast('FINISHED SAVORING ✨', 'Finished enjoying your treat! Delicious and cozy.');
         addChatLog(`✨ Finished savoring <strong>${getHeldItemMeta(finishedId).name}</strong>! Your fin is now free.`, 'cozy');
       }
+      updateHeldItemHUD();
     } else {
       updateHeldItemHUD();
     }
@@ -4036,6 +4042,24 @@
       if (CozyAudio.cartMount) CozyAudio.cartMount();
       showToast('LAUNDRY CART RACER! 🛒💨', `Aboard ${cart.name}! [WASD] & Mouse Steer · [Shift] Turbo Push · [Space] / [E] Hop Off`);
       addChatLog(`🛒 Hopped into <strong>${cart.name}</strong>! Zooming through the laundromat!`, 'cozy');
+
+      if (window.BlahajNetwork) {
+        window.BlahajNetwork.send({
+          type: 'move',
+          sharkId: player.sharkId,
+          x: player.pos.x,
+          y: player.pos.y,
+          z: player.pos.z,
+          rotY: player.rotY,
+          isMoving: false,
+          inBoat: false,
+          inCart: true,
+          cartId: cart.id,
+          zone: currentZone,
+          mange: window.__BLAHAJ_MANGE__,
+          heldItemId: playerHeldItem ? playerHeldItem.id : null
+        });
+      }
     }
   }
 
@@ -4049,6 +4073,24 @@
     if (CozyAudio.stopCartRoll) CozyAudio.stopCartRoll();
     showToast('HOPPED OFF CART 🛒', 'Parked your Laundry Cart.');
     addChatLog('🛒 Stepped out of the Laundry Cart.', 'cozy');
+
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'move',
+        sharkId: player.sharkId,
+        x: player.pos.x,
+        y: player.pos.y,
+        z: player.pos.z,
+        rotY: player.rotY,
+        isMoving: false,
+        inBoat: false,
+        inCart: false,
+        cartId: null,
+        zone: currentZone,
+        mange: window.__BLAHAJ_MANGE__,
+        heldItemId: playerHeldItem ? playerHeldItem.id : null
+      });
+    }
   }
 
   function triggerInteract() {
@@ -5766,7 +5808,7 @@
     player.teaComfort = 100;
     player.warmth = 100;
     updateMetersUI();
-    savorHeldItem(result.dishKey || 'cake_slice', 45.0);
+    savorHeldItem('helen_cake', 45.0);
     spawnFloatingBurst(player.pos, 0xf43f5e, 28);
     spawnFloatingBurst(player.pos, 0xfbbf24, 24);
 
@@ -7280,10 +7322,8 @@
               CozyAudio.updateCartRoll(occ.speed, dt);
             }
           }
-          return;
-        }
-
-        // --- CAT / SHARKITTY ON-FOOT BOUNCY COLLISION PHYSICS ---
+        } else {
+          // --- CAT / SHARKITTY ON-FOOT BOUNCY COLLISION PHYSICS ---
         // Decay cat bouncy recoil impulses, spring tilt, and hop
         player.laundromatBounceVx = (player.laundromatBounceVx || 0) * Math.max(0, 1.0 - dt * 8.0);
         player.laundromatBounceVz = (player.laundromatBounceVz || 0) * Math.max(0, 1.0 - dt * 8.0);
@@ -7392,6 +7432,7 @@
           player.pos.y += player.velY * dt;
           player.isGrounded = false;
           player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
+        }
         }
       } else {
         if (isMoving) {
@@ -7625,6 +7666,8 @@
           player.mesh.rotation.order = 'XYZ';
           player.mesh.rotation.set(0, player.rotY, 0);
         }
+      } else if (player.inCart) {
+        // Mesh rotation handled in laundromat cart racer updater
       } else {
         player.mesh.rotation.order = 'XYZ';
         player.mesh.rotation.set(0, player.rotY, 0);
@@ -7641,6 +7684,8 @@
     netSyncTimer += dt;
     if (netSyncTimer > 0.05) {
       netSyncTimer = 0;
+      const occCart = (player.inCart && window.BlahajLaundromat) ? window.BlahajLaundromat.getOccupiedCart() : null;
+      const cartMoving = occCart ? (Math.abs(occCart.speed) > 0.05) : false;
       window.BlahajNetwork.send({
         type: 'move',
         sharkId: player.sharkId,
@@ -7648,7 +7693,7 @@
         y: player.pos.y,
         z: player.pos.z,
         rotY: player.rotY,
-        isMoving,
+        isMoving: player.inCart ? cartMoving : isMoving,
         inBoat: player.inBoat,
         inCart: player.inCart,
         cartId: player.cartId || null,
@@ -8417,6 +8462,15 @@
 
     if (coopPartner.inCart && currentZone === 'laundromat') {
       coopPartner.mesh.position.y = 0.38;
+      if (window.BlahajLaundromat && coopPartner.cartId) {
+        window.BlahajLaundromat.updateRemoteCart(
+          coopPartner.cartId,
+          coopPartner.mesh.position,
+          coopPartner.mesh.rotation.y,
+          coopPartner.isMoving,
+          dt
+        );
+      }
       window.BlahajModels.animateShark(
         coopPartner.mesh,
         dt,
@@ -8481,6 +8535,7 @@
     getCamState: () => camState,
     getScene: () => scene,
     getZone: () => currentZone,
+    getCoopPartner: () => coopPartner,
     applySteamingSpiritBuff,
     triggerFeedBreb,
     triggerBeepNose,

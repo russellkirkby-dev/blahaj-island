@@ -518,6 +518,7 @@ window.BlahajNetwork = (function () {
     getInviteUrl,
     send,
     getClientId: () => clientId,
-    isConnected: () => isRelayConnected || (isPeerConnected && handshakeVerified)
+    isConnected: () => isRelayConnected || (isPeerConnected && handshakeVerified),
+    simulateIncoming: (data) => { if (callbacks && callbacks.onData) callbacks.onData(data); }
   };
 })();
