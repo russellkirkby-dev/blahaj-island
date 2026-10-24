@@ -67,6 +67,19 @@
     washerMotorGain: null,
     washerWobbleGain: null,
     washerMotorFilter: null,
+    bistroGain: null,
+    bistroNextChordTime: 0,
+    bistroChordIdx: 0,
+    bistroChords: [
+      { name: 'Cmaj7', bass: 130.81, notes: [261.63, 329.63, 392.00, 493.88] },
+      { name: 'Am7',   bass: 110.00, notes: [220.00, 261.63, 329.63, 392.00] },
+      { name: 'Dm7',   bass: 146.83, notes: [293.66, 349.23, 440.00, 523.25] },
+      { name: 'G7b9',  bass: 98.00,  notes: [246.94, 293.66, 349.23, 415.30] },
+      { name: 'Em7',   bass: 164.81, notes: [329.63, 392.00, 493.88, 587.33] },
+      { name: 'A7',    bass: 110.00, notes: [277.18, 329.63, 392.00, 554.37] },
+      { name: 'Dm9',   bass: 146.83, notes: [293.66, 349.23, 440.00, 659.25] },
+      { name: 'G13',   bass: 98.00,  notes: [246.94, 329.63, 349.23, 523.25] }
+    ],
     lastFootstepTime: 0,
     ambientInitialized: false,
 
@@ -181,6 +194,15 @@
       this.boatGain.connect(this.ambientGain || this.ctx.destination);
       boatSrc.start();
 
+      // 5. Parisian Bistro Jazz & Acoustic Ambiance
+      try {
+        this.bistroGain = this.ctx.createGain();
+        this.bistroGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        this.bistroGain.connect(this.ambientGain || this.ctx.destination);
+      } catch (e) {
+        console.warn('Bistro audio init error:', e);
+      }
+
       // 4. Laundromat Interior Atmosphere: 60Hz/120Hz transformer hum + gentle duct air
       const laundromatSrc = this.ctx.createBufferSource();
       laundromatSrc.buffer = noise;
@@ -220,6 +242,20 @@
     updateAmbient(zone, elapsed, playerPos, inBoat, isMoving, camHeight) {
       if (!this.ctx || !this.ambientInitialized) return;
       const now = this.ctx.currentTime;
+
+      if (zone === 'spherical_foods') {
+        // Inside Spherical Foods Bistro: romantic French Parisian jazz chords & intimate dining acoustic presence
+        if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(0.065, now, 0.35);
+        this.updateBistroMusic(elapsed, 0.016);
+        return;
+      } else {
+        if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(0.0001, now, 0.3);
+      }
 
       if (zone === 'laundromat') {
         // Inside Laundromat: fade outdoor surf and wind, fade in interior electric hum and duct breeze
@@ -301,6 +337,110 @@
         // Soft felt/plush grass pat
         this.playTone(160 + Math.random() * 40, 0.06, 'sine', 0.05, 90);
       }
+    },
+
+    updateBistroMusic(elapsed, dt) {
+      if (!this.ctx || !this.bistroGain) return;
+      const now = this.ctx.currentTime;
+      if (now < this.bistroNextChordTime) return;
+
+      this.bistroNextChordTime = now + 2.35;
+      const chord = this.bistroChords[this.bistroChordIdx % this.bistroChords.length];
+      this.bistroChordIdx++;
+
+      // 1. Warm Acoustic Upright Double Bass (Plucked triangle wave low-pass filtered at 180Hz)
+      try {
+        const bassOsc = this.ctx.createOscillator();
+        const bassFilt = this.ctx.createBiquadFilter();
+        const bassGain = this.ctx.createGain();
+
+        bassOsc.type = 'triangle';
+        bassOsc.frequency.setValueAtTime(chord.bass, now);
+        bassFilt.type = 'lowpass';
+        bassFilt.frequency.setValueAtTime(190, now);
+
+        bassGain.gain.setValueAtTime(0.0001, now);
+        bassGain.gain.linearRampToValueAtTime(0.14, now + 0.015);
+        bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.1);
+
+        bassOsc.connect(bassFilt);
+        bassFilt.connect(bassGain);
+        bassGain.connect(this.bistroGain);
+
+        bassOsc.start(now);
+        bassOsc.stop(now + 2.15);
+      } catch (e) {}
+
+      // 2. Vintage Rhodes / Electric Piano Tines (Warm jazz harmony with slight stagger)
+      chord.notes.forEach((freq, nIdx) => {
+        try {
+          const noteTime = now + (nIdx * 0.032);
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const noteFilt = this.ctx.createBiquadFilter();
+          const noteGain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(freq, noteTime);
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(freq * 2, noteTime);
+
+          noteFilt.type = 'lowpass';
+          noteFilt.frequency.setValueAtTime(1400, noteTime);
+
+          const vol = 0.045 / Math.sqrt(chord.notes.length);
+          noteGain.gain.setValueAtTime(0.0001, noteTime);
+          noteGain.gain.linearRampToValueAtTime(vol, noteTime + 0.022);
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 2.2);
+
+          osc1.connect(noteFilt);
+          osc2.connect(noteFilt);
+          noteFilt.connect(noteGain);
+          noteGain.connect(this.bistroGain);
+
+          osc1.start(noteTime);
+          osc2.start(noteTime);
+          osc1.stop(noteTime + 2.25);
+          osc2.stop(noteTime + 2.25);
+        } catch (e) {}
+      });
+
+      // 3. Subtle Brushed Snare Whisper / Plate Clink
+      if (Math.random() < 0.65) {
+        try {
+          const noise = this.getNoiseBuffer();
+          const src = this.ctx.createBufferSource();
+          src.buffer = noise;
+          const snFilt = this.ctx.createBiquadFilter();
+          snFilt.type = 'bandpass';
+          snFilt.frequency.setValueAtTime(3200, now + 1.15);
+          snFilt.Q.setValueAtTime(2.0, now + 1.15);
+
+          const snGain = this.ctx.createGain();
+          snGain.gain.setValueAtTime(0.0001, now + 1.15);
+          snGain.gain.linearRampToValueAtTime(0.012, now + 1.16);
+          snGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.35);
+
+          src.connect(snFilt);
+          snFilt.connect(snGain);
+          snGain.connect(this.bistroGain);
+
+          src.start(now + 1.15);
+          src.stop(now + 1.36);
+        } catch (e) {}
+      }
+    },
+
+    boothSit() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(220, 0.24, 'sine', 0.08, 140);
+    },
+
+    boothStand() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(160, 0.20, 'sine', 0.07, 240);
     },
 
     waterSplash(vol = 0.1, duration = 0.25) {
@@ -1283,6 +1423,8 @@
     coyoteTimer: 0,
     inBoat: false,
     inCart: false,
+    isSeatedInBooth: false,
+    seatedBoothIndex: -1,
     inWater: false,
     isSwimming: false,
     waterSurfaceY: 0.22,
@@ -1979,12 +2121,22 @@
       if (k === 'q') triggerSignatureAbility();
       if (k === 'g') triggerShonkEmote();
       if (k === 'u') toggleUpgradesModal();
-      if (k === 'm') toggleGalleryModal();
+      if (k === 'm') {
+        if (currentZone === 'spherical_foods' || player.isSeatedInBooth) {
+          openSphericalFoodsMenuModal();
+          return;
+        }
+        toggleGalleryModal();
+      }
       if (k === 'p') togglePortalModal();
       if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
       if (k === 'o') toggleSettingsModal();
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
+        if (player.isSeatedInBooth) {
+          standUpFromBooth();
+          return;
+        }
         if (player.inCart) {
           dismountLaundryCart();
           return;
@@ -2924,7 +3076,7 @@
           }
           player.velY = 0;
           player.isGrounded = true;
-          camState.yaw = Math.PI;
+          camState.yaw = 0;
           updateCamera(0);
 
           overlay.classList.add('hidden');
@@ -2984,7 +3136,7 @@
           }
           player.velY = 0;
           player.isGrounded = true;
-          camState.yaw = Math.PI;
+          camState.yaw = 0;
           updateCamera(0);
 
           overlay.classList.add('hidden');
@@ -3034,6 +3186,8 @@
         clearInterval(interval);
         setTimeout(() => {
           currentZone = 'overworld';
+          player.isSeatedInBooth = false;
+          player.seatedBoothIndex = -1;
           if (window.BlahajSphericalFoods) {
             window.BlahajSphericalFoods.setActive(false);
           }
@@ -3333,12 +3487,16 @@
       openSphericalFoodsMenuModal();
       return;
     }
+    if (player.isSeatedInBooth || item.kind === 'seated_booth_menu') {
+      openSphericalFoodsMenuModal();
+      return;
+    }
     if (item.kind === 'booth_seat') {
-      CozyAudio.bistroChime();
-      player.teaComfort = 100;
-      updateMetersUI();
-      showToast('VELVET ROUND BOOTH 🛋️', 'You sink comfortably into the curved burgundy velvet banquette. Perfect spherical view!');
-      addChatLog('🛋️ Slid into the plush burgundy velvet booth at <strong>Spherical Foods Bistro</strong> (+100% Comfort).', 'lore');
+      sitInBooth(item.boothIndex);
+      return;
+    }
+    if (item.kind === 'spherical_painting') {
+      openSphericalPaintingModal(item.paintingIndex);
       return;
     }
 
@@ -4904,6 +5062,92 @@
     });
   }
 
+  function sitInBooth(boothIndex) {
+    if (!window.BlahajSphericalFoods) return;
+    const seat = window.BlahajSphericalFoods.getBoothSeat(boothIndex);
+    player.isSeatedInBooth = true;
+    player.seatedBoothIndex = boothIndex;
+    player.pos.set(seat.x, seat.y, seat.z);
+    player.rotY = seat.rotY;
+    player.velY = 0;
+    player.isGrounded = true;
+    player.teaComfort = 100;
+    updateMetersUI();
+
+    CozyAudio.boothSit();
+    showToast('SEATED IN VELVET BOOTH 🛋️', 'Relaxing in the plush banquette. Press [E] or [M] for Spherical Menu · [WASD / Space] to stand up.');
+    addChatLog('🛋️ Sunk comfortably into the curved burgundy velvet banquette at <strong>Spherical Foods Bistro</strong> (+100% Comfort).', 'lore');
+  }
+
+  function standUpFromBooth() {
+    if (!player.isSeatedInBooth) return;
+    player.isSeatedInBooth = false;
+    player.pos.x += Math.sin(player.rotY) * 0.65;
+    player.pos.z += Math.cos(player.rotY) * 0.65;
+    player.velY = 0;
+
+    CozyAudio.boothStand();
+    showToast('STOOD UP FROM BOOTH 🦈', 'Ready to explore the bistro.');
+  }
+
+  function openSphericalPaintingModal(paintingIndex) {
+    if (!window.BlahajSphericalFoods) return;
+    const cfg = window.BlahajSphericalFoods.getPaintingConfig(paintingIndex);
+    if (!cfg) return;
+
+    CozyAudio.bistroChime();
+
+    const actions = [
+      {
+        label: 'Order Signature Dish [E] 🧆',
+        className: 'btn-accent',
+        onClick: () => {
+          closeDialogueModal();
+          openSphericalFoodsMenuModal();
+        }
+      },
+      {
+        label: 'Culinary Commentary with Monsieur Betterave 💬',
+        className: 'btn-primary',
+        onClick: () => {
+          closeDialogueModal();
+          openDialogueModal({
+            speaker: 'Monsieur Betterave',
+            role: 'PROPRIÉTAIRE · SPHERICAL FOODS BISTRO',
+            portrait: 'assets/gallery/Spherical-Foods.png',
+            text: `“Ah, you admire '${cfg.title}'! A triumph of spherical gastronomy. ${cfg.description} Every radius is calibrated to maximize the sphere's internal flavor pressure. In our kitchen, corners are strictly verboten!”`,
+            actions: [
+              {
+                label: 'View Full Spherical Menu 📜',
+                className: 'btn-primary',
+                onClick: () => {
+                  closeDialogueModal();
+                  openSphericalFoodsMenuModal();
+                }
+              }
+            ]
+          });
+        }
+      }
+    ];
+
+    const customHtml = `
+      <div style="background: rgba(24, 15, 11, 0.92); border: 1px solid #d8aa5b; border-radius: 8px; padding: 12px; margin-top: 10px; color: #fdfaf6;">
+        <div style="font-size: 13px; color: #fbbf24; font-weight: bold; letter-spacing: 0.5px;">CULINARY TASTING NOTES:</div>
+        <div style="font-size: 12px; color: #fed7aa; margin-top: 4px; font-style: italic;">${cfg.tastingNotes}</div>
+      </div>
+    `;
+
+    openDialogueModal({
+      speaker: 'Bistro Wall Art Gallery',
+      role: 'COLLECTION DE L’ACADÉMIE SPHÉRIQUE',
+      portrait: 'assets/gallery/Spherical-Foods.png',
+      text: `“${cfg.title}” — ${cfg.subtitle}\n\n${cfg.description}`,
+      customHtml: customHtml,
+      actions: actions
+    });
+  }
+
   function openSphericalFoodsMenuModal() {
     CozyAudio.bistroChime();
     const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
@@ -5523,6 +5767,29 @@
   }
 
   function updatePlayerMovement(dt, elapsed) {
+    if (player.isSeatedInBooth) {
+      const anyMoveKey = keys['w'] || keys['s'] || keys['a'] || keys['d'] ||
+                         keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright'] ||
+                         keys[' '] || keys['shift'];
+      if (anyMoveKey) {
+        standUpFromBooth();
+      } else {
+        if (window.BlahajSphericalFoods && typeof window.BlahajSphericalFoods.getBoothSeat === 'function') {
+          const seat = window.BlahajSphericalFoods.getBoothSeat(player.seatedBoothIndex);
+          player.pos.set(seat.x, seat.y, seat.z);
+          player.rotY = seat.rotY;
+        }
+        player.velY = 0;
+        player.isGrounded = true;
+        if (player.mesh) {
+          player.mesh.position.copy(player.pos);
+          player.mesh.rotation.set(0, player.rotY, 0);
+          window.BlahajModels.animateShark(player.mesh, dt, false, elapsed, false, 0);
+        }
+        return;
+      }
+    }
+
     let moveForward = 0;
     let moveRight = 0;
 
@@ -6400,9 +6667,16 @@
     // Inside the Spherical Foods Bistro Instance
     if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       document.getElementById('hud-zone-name').textContent = 'Spherical Foods Bistro & Rotunda';
-      const sItems = window.BlahajSphericalFoods.getInteractables(player.pos);
-      if (sItems.length > 0) {
-        nearestInteractable = sItems[0];
+      if (player.isSeatedInBooth) {
+        nearestInteractable = {
+          kind: 'seated_booth_menu',
+          prompt: '🛋️ Seated in Booth · [E] or [M] Spherical Menu · [WASD / Space] Stand Up'
+        };
+      } else {
+        const sItems = window.BlahajSphericalFoods.getInteractables(player.pos);
+        if (sItems.length > 0) {
+          nearestInteractable = sItems[0];
+        }
       }
       const promptEl = document.getElementById('interaction-prompt');
       if (nearestInteractable && !isAnyModalOpen()) {
@@ -6777,6 +7051,9 @@
     exitSphericalFoods,
     triggerHelensBirthdayCake,
     openSphericalFoodsMenuModal,
+    sitInBooth,
+    standUpFromBooth,
+    openSphericalPaintingModal,
     triggerLaundromatSpinCycle,
     mountLaundryCart,
     dismountLaundryCart,
@@ -6788,6 +7065,7 @@
     handleVolcanoTrapHit,
     triggerSignatureAbility
   };
+  window.BlahajGame = window.__DEBUG__;
 
   window.addEventListener('DOMContentLoaded', init);
 })();
