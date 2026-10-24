@@ -1187,6 +1187,8 @@
   // --- Core 3D Scene & Post-Processing State ---
   let scene, camera, renderer, composer, renderPass, clock;
   let worldApi = null;
+  let worldPickups = null;
+  let solomonBreadOven = null;
 
   // --------------------------------------------------------------------------
   // INDIVIDUAL SHARK SETTINGS: MANGE FACTOR & ACCESSORIES
@@ -1522,7 +1524,8 @@
     launderedBuffTimer: 0,
     launderedShieldHits: 0,
     lastNoseBeepTime: 0,
-    lastSharedTeaTime: 0
+    lastSharedTeaTime: 0,
+    inventory: (window.BlahajInventory ? window.BlahajInventory.createPlayerInventory() : null)
   };
 
   // Hiram the Magical Builder State (Exclusive to Hiram [3]!)
@@ -1698,6 +1701,31 @@
     worldApi = window.BlahajWorld.buildWorld(scene);
     loadSavedStructures();
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
+
+    // Initialize Modular Inventory System, Solomon's Bread Oven & World Pickups
+    if (window.BlahajInventory) {
+      if (!player.inventory) {
+        player.inventory = window.BlahajInventory.createPlayerInventory();
+      }
+      solomonBreadOven = window.BlahajInventory.createSolomonBreadOven();
+      scene.add(solomonBreadOven.group);
+
+      worldPickups = window.BlahajInventory.createWorldPickupManager(scene);
+      worldPickups.initStaticNodes();
+
+      // Hook Birbs eating Breb to dynamically drop fresh Birb Guano!
+      window.BlahajOnBirbLoafEaten = (b) => {
+        if (worldPickups && b && b.mesh) {
+          worldPickups.spawnPickup('guano', {
+            x: b.mesh.position.x,
+            y: b.mesh.position.y + 0.05,
+            z: b.mesh.position.z
+          });
+          CozyAudio.birbChirp();
+          addChatLog('🪶 A happy, stuffed Birb dropped a fresh <strong>Birb Guano</strong> deposit on the grass!', 'lore');
+        }
+      };
+    }
 
     // 1b. Build Instanced Volcano Trial Dungeon Scene
     if (window.BlahajVolcano) {
@@ -2378,12 +2406,12 @@
     if (chkRelic) chkRelic.checked = acc.showRelic !== false;
     if (chkHeadgear) chkHeadgear.checked = acc.showHeadgear !== false;
 
-    // 7. MMO Inventory Grid (16 Slots)
+    // 7. Dynamic Satchel Inventory Grid (16 Slots)
     const gridEl = document.getElementById('mmo-inventory-grid');
     if (gridEl) {
       gridEl.innerHTML = '';
       for (let i = 0; i < 16; i++) {
-        const item = MMO_INVENTORY_ITEMS.find((x) => x.slot === i);
+        const item = player.inventory ? player.inventory.getSlot(i) : null;
         const slotEl = document.createElement('div');
         slotEl.className = 'mmo-slot';
         if (i === selectedInventorySlot) slotEl.classList.add('selected');
@@ -2398,7 +2426,7 @@
           slotEl.addEventListener('click', () => {
             selectedInventorySlot = i;
             renderCharacterSheet(selectedCSShark);
-            updateItemInspector(item);
+            updateItemInspector(item, i);
           });
         } else {
           slotEl.classList.add('empty');
@@ -2415,7 +2443,7 @@
     }
 
     // Update item inspector for selected slot
-    const curItem = MMO_INVENTORY_ITEMS.find((x) => x.slot === selectedInventorySlot);
+    const curItem = player.inventory ? player.inventory.getSlot(selectedInventorySlot) : null;
     updateItemInspector(curItem, selectedInventorySlot);
 
     // 8. Currency Readouts
@@ -2449,7 +2477,7 @@
 
     if (item) {
       if (iconEl) iconEl.textContent = item.icon;
-      if (nameEl) nameEl.textContent = item.name;
+      if (nameEl) nameEl.textContent = `${item.name} ${item.qty > 1 ? `(x${item.qty})` : ''}`;
       if (rarityEl) {
         rarityEl.textContent = item.rarity.toUpperCase();
         rarityEl.className = `inspector-rarity rarity-${item.rarity}`;
@@ -2461,18 +2489,34 @@
       const actWrap = document.getElementById('insp-actions');
       const useBtn = document.getElementById('btn-inspect-use');
       if (actWrap && useBtn) {
-        if (item.slot === 1) { // Sacred Brew
+        if (item.id === 'breb') {
+          actWrap.style.display = 'block';
+          useBtn.textContent = 'Toss Warm Breb Loaf [B] 🥖';
+          useBtn.onclick = () => {
+            closeCharacterSheetModal();
+            triggerFeedBreb();
+          };
+        } else if (item.id === 'tea') {
           actWrap.style.display = 'block';
           useBtn.textContent = 'Sip Sacred Tea (+5m Steaming Spirit) 🍵';
           useBtn.onclick = () => {
             applySteamingSpiritBuff();
           };
-        } else if (item.slot === 0) { // Breb
+        } else if (item.id === 'party_favor') {
           actWrap.style.display = 'block';
-          useBtn.textContent = 'Toss Warm Breb [B] 🥖';
+          useBtn.textContent = 'Pop Birthday Party Cracker 🎉';
           useBtn.onclick = () => {
-            closeCharacterSheetModal();
-            triggerFeedBreb();
+            popBirthdayCracker();
+            if (player.inventory) {
+              player.inventory.removeItem('party_favor', 1);
+              renderCharacterSheet(selectedCSShark);
+            }
+          };
+        } else if (item.id === 'guano' || item.id === 'sulfur' || item.id === 'obsidian') {
+          actWrap.style.display = 'block';
+          useBtn.textContent = 'Pyrotechnic Alchemy Material 🧪';
+          useBtn.onclick = () => {
+            showToast('ALCHEMICAL COMPONENT 🧪', 'Bring Guano & Volcanic Sulfur to Solomon to craft Celebration Fireworks!');
           };
         } else {
           actWrap.style.display = 'none';
@@ -2486,7 +2530,7 @@
         rarityEl.className = 'inspector-rarity';
       }
       if (typeEl) typeEl.textContent = 'Archipelago Satchel Storage';
-      if (descEl) descEl.textContent = 'Ready to hold fresh shells, loaf loaves, and treasures found across the islands.';
+      if (descEl) descEl.textContent = 'Ready to hold fresh birb guano, volcanic sulfur, warm breb loaves, and treasures found across the islands.';
       if (statsEl) statsEl.textContent = 'No modifiers active.';
       const actWrap = document.getElementById('insp-actions');
       if (actWrap) actWrap.style.display = 'none';
@@ -2796,6 +2840,17 @@
   // SIGNATURE GAMEPLAY ACTIONS (BREB FOR BIRBS, NOSE BEEPS, RELICS, UPGRADES)
   // ==========================================================================
   function triggerFeedBreb() {
+    if (player.inventory && !player.inventory.hasItem('breb', 1)) {
+      showToast('OUT OF BREB! 🥖', "Bake fresh golden loaves at Solomon's Stone Oven near the Tea House!");
+      CozyAudio.bistroChime();
+      return;
+    }
+
+    if (player.inventory) {
+      player.inventory.removeItem('breb', 1);
+    }
+    updateMetersUI();
+
     CozyAudio.birbChirp();
     const fwdX = Math.sin(player.rotY);
     const fwdZ = Math.cos(player.rotY);
@@ -3546,6 +3601,16 @@
     }
     if (item.kind === 'laundromat_return') {
       exitLaundromat();
+      return;
+    }
+
+    // World Pickups & Bread Oven
+    if (item.kind === 'pickup_guano' || item.kind === 'pickup_sulfur') {
+      collectWorldPickup(item.pickup);
+      return;
+    }
+    if (item.kind === 'solomon_bread_oven') {
+      bakeBrebAtOven();
       return;
     }
 
@@ -4913,6 +4978,17 @@
       slotUSub.textContent = `${player.trialPoints} Trial Pt${player.trialPoints === 1 ? '' : 's'}`;
     }
 
+    // Refresh Slot B (Toss Breb) dynamic quantity badge
+    const slotB = document.getElementById('slot-b');
+    if (slotB && player.inventory) {
+      const bCount = player.inventory.getItemCount('breb');
+      const nameEl = slotB.querySelector('.slot-name');
+      const powerEl = slotB.querySelector('.slot-power');
+      if (nameEl) nameEl.textContent = `Toss Breb (${bCount})`;
+      if (powerEl) powerEl.textContent = bCount > 0 ? `${bCount} Loaves` : 'Bake at Oven!';
+      slotB.style.opacity = bCount > 0 ? '1.0' : '0.65';
+    }
+
     // Active Steaming Spirit Buff Indicator
     const buffPill = document.getElementById('steaming-buff-pill');
     const buffTimerText = document.getElementById('buff-timer-text');
@@ -5246,6 +5322,43 @@
 
     showToast('ORDER PLACED! 🧆🛎️', `Monsieur Betterave is wheeling the trolley over with ${name}!`);
     addChatLog(`🛎️ Ordered <strong>${name}</strong>. Monsieur Betterave is wheeling the trolley over to your booth table!`, 'cozy');
+  }
+
+  function bakeBrebAtOven() {
+    if (!player.inventory) return;
+    const added = player.inventory.addItem('breb', 3);
+    if (added > 0) {
+      CozyAudio.bistroChime();
+      spawnFloatingBurst(player.pos, 0xd97706, 24);
+      updateMetersUI();
+      showToast('FRESH BREB BAKED! 🥖✨', `Pulled ${added} steaming golden loaves from Solomon's Stone Oven! (Total: ${player.inventory.getItemCount('breb')})`);
+      addChatLog(`🥖 Fresh golden loaves baked in <strong>Solomon's Stone Bread Oven</strong> (+${added} Breb into Satchel)!`, 'cozy');
+    } else {
+      showToast('SATCHEL FULL! 🎒', 'Make room in your satchel before baking more Breb!');
+    }
+  }
+
+  function collectWorldPickup(pickup) {
+    if (!player.inventory || !pickup) return;
+    const itemType = pickup.type;
+    const added = player.inventory.addItem(itemType, 1);
+    if (added > 0) {
+      if (worldPickups) worldPickups.collect(pickup);
+      CozyAudio.bistroChime();
+
+      if (itemType === 'guano') {
+        spawnFloatingBurst(player.pos, 0xf8fafc, 18);
+        showToast('GATHERED BIRB GUANO! 🪶✨', `Nitrate saltpeter for fireworks! (Total: ${player.inventory.getItemCount('guano')})`);
+        addChatLog(`🪶 Gathered <strong>Birb Guano</strong> deposit (+1 Guano into Satchel, total: ${player.inventory.getItemCount('guano')}).`, 'cozy');
+      } else if (itemType === 'sulfur') {
+        spawnFloatingBurst(player.pos, 0xfacc15, 20);
+        showToast('MINED VOLCANIC SULFUR! 🟡✨', `Yellow mineral for fireworks! (Total: ${player.inventory.getItemCount('sulfur')})`);
+        addChatLog(`🟡 Mined <strong>Volcanic Sulfur Crystal</strong> (+1 Sulfur into Satchel, total: ${player.inventory.getItemCount('sulfur')}).`, 'cozy');
+      }
+      updateMetersUI();
+    } else {
+      showToast('SATCHEL FULL! 🎒', 'No room in your satchel for more items!');
+    }
   }
 
   function popBirthdayCracker(boothIndex) {
@@ -5870,6 +5983,18 @@
       window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
+      if (worldPickups) {
+        worldPickups.update(dt, elapsed);
+      }
+      if (solomonBreadOven && solomonBreadOven.smokeParticles) {
+        solomonBreadOven.smokeParticles.forEach((sp, idx) => {
+          const t = (elapsed * 0.8 + idx * 0.35) % 1.5;
+          sp.mesh.position.y = sp.baseY + t * 0.75;
+          sp.mesh.position.x = Math.sin(elapsed * 1.5 + sp.phase) * 0.08;
+          sp.mesh.scale.setScalar(0.8 + t * 0.8);
+          sp.mesh.material.opacity = Math.max(0, 0.35 * (1.0 - t / 1.5));
+        });
+      }
     }
 
     if (composer) {
@@ -6846,6 +6971,28 @@
       return;
     }
 
+    // World Pickups (Birb Guano & Volcanic Sulfur)
+    if (worldPickups && currentZone === 'overworld') {
+      const nearbyPickups = worldPickups.getNearbyPickups(player.pos, 3.2);
+      if (nearbyPickups.length > 0 && nearbyPickups[0].dist < bestDist) {
+        bestDist = nearbyPickups[0].dist;
+        nearestInteractable = nearbyPickups[0];
+      }
+    }
+
+    // Solomon's Stone Bread Oven in Heartland Plaza
+    if (solomonBreadOven && currentZone === 'overworld') {
+      const dOven = Math.hypot(player.pos.x - solomonBreadOven.worldPos.x, player.pos.z - solomonBreadOven.worldPos.z);
+      if (dOven < 3.8 && dOven < bestDist) {
+        bestDist = dOven;
+        nearestInteractable = {
+          kind: 'solomon_bread_oven',
+          dist: dOven,
+          prompt: 'Bake Warm Breb Loaves [E] 🥖'
+        };
+      }
+    }
+
     // Allow hopping onto Partner's Boat to ride together!
     if (coopPartner.active && coopPartner.inBoat && coopPartner.mesh) {
       const dPartnerBoat = coopPartner.mesh.position.distanceTo(player.pos);
@@ -7194,6 +7341,11 @@
     orderSphericalDish,
     eatServedDish,
     popBirthdayCracker,
+    bakeBrebAtOven,
+    collectWorldPickup,
+    getPlayerInventory: () => player.inventory,
+    getWorldPickups: () => worldPickups,
+    getSolomonBreadOven: () => solomonBreadOven,
     sitInBooth,
     standUpFromBooth,
     openSphericalPaintingModal,
