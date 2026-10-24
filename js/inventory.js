@@ -145,6 +145,152 @@ window.BlahajInventory = (function () {
       canUse: true,
       useAction: 'pop_cracker',
       usePrompt: 'Pop Party Cracker 🎉'
+    },
+    birb_down: {
+      id: 'birb_down',
+      name: 'Soft Birb Down',
+      icon: '🪶',
+      rarity: 'cozy',
+      category: 'material',
+      maxStack: 30,
+      type: 'Fiber · Birb Fluff',
+      desc: 'Fluffy cloud-soft down gently gathered from a sleeping island birb resting in a food coma. Nimue weaves this into slow-burning fuses and festive ribbons.',
+      stats: 'Feather-Light Fiber · Nimue Crafting',
+      canUse: false
+    },
+    plush_fluff: {
+      id: 'plush_fluff',
+      name: 'Plush Coat Fluff',
+      icon: '🧶',
+      rarity: 'cozy',
+      category: 'material',
+      maxStack: 30,
+      type: 'Fiber · Groomed Plush',
+      desc: 'Soft felt fibers gently combed from a shark\'s coat during grooming. Used by Nimue for cozy felt accessories, ribbons, and star fuses.',
+      stats: 'Felt Fiber · Nimue Weaving',
+      canUse: false
+    },
+    driftwood: {
+      id: 'driftwood',
+      name: 'Beach Driftwood Log',
+      icon: '🪵',
+      rarity: 'cozy',
+      category: 'material',
+      maxStack: 20,
+      type: 'Hardwood Timber · Hiram Crafting',
+      desc: 'Dense, salt-cured ocean driftwood washed ashore on the outer beaches. Hiram can lathe and carve this into pyrotechnic mortars and furniture.',
+      stats: 'Ocean-Toughened Wood · Hiram Crafting',
+      canUse: false
+    },
+    blueprints: {
+      id: 'blueprints',
+      name: 'Master Mortar Blueprints',
+      icon: '📐',
+      rarity: 'epic',
+      category: 'schematic',
+      maxStack: 1,
+      type: 'Architectural Blueprint · Hiram',
+      desc: 'Hand-drafted isometric schematics drawn by Hiram detailing the heavy brass-ringed launch tube needed for aerial fireworks.',
+      stats: 'Unlocks Mortar Crafting at Hiram',
+      canUse: false
+    },
+    ancient_pages: {
+      id: 'ancient_pages',
+      name: 'Tattered Portal Log',
+      icon: '📜',
+      rarity: 'rare',
+      category: 'lore',
+      maxStack: 10,
+      type: 'Abstract Relic · Hermes Lore',
+      desc: 'Faded parchment pages recording coordinates across the Between Realm and ancient tide tables. Hermes cherishes these historical records.',
+      stats: 'Ancient Cartography · Hermes Memory',
+      canUse: false
+    },
+    memory_crystal: {
+      id: 'memory_crystal',
+      name: 'Crystallized Memory',
+      icon: '🔮',
+      rarity: 'epic',
+      category: 'memory',
+      maxStack: 10,
+      type: 'Abstract Relic · Starlit Thought',
+      desc: 'A softly glowing violet-blue prism containing shared memories between distant shores. Hermes keeps these safe.',
+      stats: 'Starlit Resonator · Clears Interdimensional Fog',
+      canUse: false
+    },
+    brimstone_core: {
+      id: 'brimstone_core',
+      name: 'Prismatic Brimstone Heart',
+      icon: '💎',
+      rarity: 'legendary',
+      category: 'rare_mineral',
+      maxStack: 10,
+      type: 'Trial Reward · Caldera Heart',
+      desc: 'High-energy crystalline brimstone harvested deep within the Sacred Volcano Gatehall trial. Produces dazzling multi-tiered firework bursts.',
+      stats: 'High Pyrotechnic Yield · Extreme Thermal Charge',
+      canUse: false
+    },
+    pure_obsidian: {
+      id: 'pure_obsidian',
+      name: 'Pure Obsidian Shard',
+      icon: '🗡️',
+      rarity: 'epic',
+      category: 'mineral',
+      maxStack: 20,
+      type: 'Caldera Razor Glass',
+      desc: 'Flawless black volcanic glass mined near the lava falls. Hiram uses its razor edge to carve precision woodwork and mortars.',
+      stats: 'Vitreous Cutting Edge · Trial Resilience',
+      canUse: false
+    },
+    star_powder: {
+      id: 'star_powder',
+      name: 'Pyrotechnic Star Powder',
+      icon: '🎆',
+      rarity: 'rare',
+      category: 'pyrotechnic',
+      maxStack: 20,
+      type: 'Refined Alchemy · Solomon Roasted',
+      desc: 'Precision blend of Birb Guano saltpeter and Volcanic Sulfur roasted in Solomon\'s bread oven. The beating reactive heart of fireworks.',
+      stats: 'Rapid Deflagration · Rainbow Color Formulation',
+      canUse: false
+    },
+    mortar_tube: {
+      id: 'mortar_tube',
+      name: 'Turned Launch Mortar Shell',
+      icon: '🪵',
+      rarity: 'rare',
+      category: 'hardware',
+      maxStack: 5,
+      type: 'Carved Hardware · Hiram Turnery',
+      desc: 'Sturdy hollowed hardwood mortar casing turned and banded with brass rings by Hiram. Directs rockets high into the night sky.',
+      stats: 'Reinforced Bore · 500ft Aerial Ascent',
+      canUse: false
+    },
+    braided_fuse: {
+      id: 'braided_fuse',
+      name: 'Twisted Star Fuse',
+      icon: '🧵',
+      rarity: 'rare',
+      category: 'pyrotechnic',
+      maxStack: 20,
+      type: 'Woven Fiber · Nimue Weave',
+      desc: 'Waxed ribbon braided from soft Birb Down and plush coat threads by Nimue. Burns with a steady golden hiss and festive sparks.',
+      stats: 'Reliable 4-Second Delayed Ignition',
+      canUse: false
+    },
+    firework_rocket: {
+      id: 'firework_rocket',
+      name: 'Helen\'s Birthday Star Rocket',
+      icon: '🚀',
+      rarity: 'legendary',
+      category: 'firework',
+      maxStack: 10,
+      type: 'Grand Pyrotechnic · Birthday Edition',
+      desc: 'Lavish celebration rocket combining Solomon\'s star powder, Hiram\'s mortar shell, and Nimue\'s braided fuse. Detonates in radiant heart constellations and golden willows!',
+      stats: 'Epic Island Spectacle · Helen\'s Birthday Week',
+      canUse: true,
+      useAction: 'launch_firework',
+      usePrompt: 'Launch Helen\'s Birthday Rocket! 🎆'
     }
   };
 
@@ -385,13 +531,22 @@ window.BlahajInventory = (function () {
       { id: 'sulfur_1', type: 'sulfur', pos: { x: -26.0, y: 0.2, z: -178.0 } },
       { id: 'sulfur_2', type: 'sulfur', pos: { x: -32.5, y: 0.2, z: -188.0 } },
       { id: 'sulfur_3', type: 'sulfur', pos: { x: -21.0, y: 0.2, z: -198.0 } },
-      { id: 'sulfur_4', type: 'sulfur', pos: { x: -34.0, y: 0.2, z: -208.0 } }
+      { id: 'sulfur_4', type: 'sulfur', pos: { x: -34.0, y: 0.2, z: -208.0 } },
+
+      // Beach Driftwood Logs (Crescent Harbour & Artisans' Shore)
+      { id: 'driftwood_1', type: 'driftwood', pos: { x: -14.0, y: 0.22, z: 56.0 } },
+      { id: 'driftwood_2', type: 'driftwood', pos: { x: 26.0, y: 0.22, z: 52.0 } },
+      { id: 'driftwood_3', type: 'driftwood', pos: { x: -58.0, y: 0.22, z: 12.0 } },
+
+      // Volcano Trial Instance Rare Drops (Gatehall Dungeon)
+      { id: 'brimstone_1', type: 'brimstone_core', pos: { x: -2.0, y: 0.45, z: -202.0 } },
+      { id: 'obsidian_rare_1', type: 'pure_obsidian', pos: { x: 5.5, y: 0.45, z: -214.0 } }
     ];
 
     function createGuanoMesh() {
       const g = new THREE.Group();
 
-      // White mineral splash splash on ground
+      // White mineral splash on ground
       const splashMat = new THREE.MeshStandardMaterial({
         color: 0xf8fafc,
         roughness: 0.7,
@@ -408,10 +563,7 @@ window.BlahajInventory = (function () {
       g.add(crust);
 
       // Floating feather beacon indicator
-      const featherMat = new THREE.MeshStandardMaterial({
-        color: 0x60a5fa,
-        roughness: 0.4
-      });
+      const featherMat = new THREE.MeshStandardMaterial({ color: 0x60a5fa, roughness: 0.4 });
       const feather = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.38, 6), featherMat);
       feather.rotation.z = Math.PI * 0.15;
       feather.position.y = 0.48;
@@ -468,15 +620,121 @@ window.BlahajInventory = (function () {
       return g;
     }
 
-    function spawnPickup(type, pos, id = null) {
+    function createDriftwoodMesh() {
+      const g = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.85 });
+      const barkMat = new THREE.MeshStandardMaterial({ color: 0x582a0a, roughness: 0.9 });
+
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.95, 8), woodMat);
+      log.rotation.z = Math.PI * 0.5;
+      log.rotation.y = Math.PI * 0.25;
+      log.position.y = 0.12;
+      g.add(log);
+
+      // Branch knob
+      const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.35, 6), barkMat);
+      branch.position.set(0.15, 0.22, 0.05);
+      branch.rotation.x = 0.6;
+      g.add(branch);
+
+      // Beacon icon
+      const spark = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+      spark.position.y = 0.55;
+      g.add(spark);
+
+      return g;
+    }
+
+    function createBrimstoneCoreMesh() {
+      const g = new THREE.Group();
+      const crystalMat = new THREE.MeshStandardMaterial({
+        color: 0xec4899,
+        emissive: 0xf43f5e,
+        emissiveIntensity: 0.65,
+        roughness: 0.15,
+        metalness: 0.3
+      });
+
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.26, 0), crystalMat);
+      core.position.y = 0.32;
+      g.add(core);
+
+      const light = new THREE.PointLight(0xf43f5e, 1.4, 4.0, 1.8);
+      light.position.y = 0.35;
+      g.add(light);
+
+      return g;
+    }
+
+    function createPureObsidianMesh() {
+      const g = new THREE.Group();
+      const glassMat = new THREE.MeshStandardMaterial({
+        color: 0x09090b,
+        roughness: 0.1,
+        metalness: 0.9,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.25
+      });
+
+      const shard = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.65, 4), glassMat);
+      shard.position.y = 0.32;
+      shard.rotation.z = 0.15;
+      g.add(shard);
+
+      const light = new THREE.PointLight(0x38bdf8, 0.8, 3.0, 1.5);
+      light.position.y = 0.45;
+      g.add(light);
+
+      return g;
+    }
+
+    function createGenericItemMesh(itemKey) {
+      const g = new THREE.Group();
+      const def = ITEMS[itemKey] || { name: 'Parcel', icon: '📦' };
+
+      // Soft parcel box with golden ribbon
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+      const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, emissive: 0xca8a04, emissiveIntensity: 0.3 });
+
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.36), boxMat);
+      box.position.y = 0.18;
+      g.add(box);
+
+      const ribV = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.33, 0.08), ribbonMat);
+      ribV.position.y = 0.18;
+      g.add(ribV);
+
+      const ribH = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.33, 0.37), ribbonMat);
+      ribH.position.y = 0.18;
+      g.add(ribH);
+
+      // Star beacon
+      const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.08, 0), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+      star.position.y = 0.52;
+      g.add(star);
+
+      return g;
+    }
+
+    function createMeshForType(type) {
+      if (type === 'guano') return createGuanoMesh();
+      if (type === 'sulfur') return createSulfurMesh();
+      if (type === 'driftwood') return createDriftwoodMesh();
+      if (type === 'brimstone_core') return createBrimstoneCoreMesh();
+      if (type === 'pure_obsidian') return createPureObsidianMesh();
+      return createGenericItemMesh(type);
+    }
+
+    function spawnPickup(type, pos, id = null, count = 1) {
       if (!scene) return null;
-      const mesh = (type === 'guano') ? createGuanoMesh() : createSulfurMesh();
+      const mesh = createMeshForType(type);
       mesh.position.set(pos.x, pos.y, pos.z);
       scene.add(mesh);
 
       const pickupObj = {
         id: id || `${type}_dyn_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         type,
+        count: count || 1,
         mesh,
         pos: { ...pos },
         collected: false,
@@ -519,13 +777,12 @@ window.BlahajInventory = (function () {
         if (p.collected || !p.mesh.visible) return;
         const dist = Math.hypot(playerPos.x - p.pos.x, playerPos.z - p.pos.z);
         if (dist <= maxDist) {
+          const def = ITEMS[p.type] || { name: p.type, icon: '📦' };
           result.push({
             pickup: p,
             dist,
-            kind: p.type === 'guano' ? 'pickup_guano' : 'pickup_sulfur',
-            prompt: p.type === 'guano'
-              ? 'Gather Birb Guano [E] 🪶'
-              : 'Mine Volcanic Sulfur Crystal [E] 🟡'
+            kind: `pickup_${p.type}`,
+            prompt: `Pick Up ${def.name} ${def.icon} [E]`
           });
         }
       });
@@ -550,10 +807,234 @@ window.BlahajInventory = (function () {
     };
   }
 
+  // 5. THE ARCHIPELAGO COMMUNITY TRUNK (3D SHARED ISLAND STASH)
+  // Location: Heartland Plaza crossroads (x: -3.2, z: 10.0)
+  function createCommunityTrunk() {
+    const trunkGroup = new THREE.Group();
+    trunkGroup.position.set(-3.2, 0, 10.0);
+    trunkGroup.rotation.y = Math.PI * 0.15;
+
+    const oakMat = new THREE.MeshStandardMaterial({ color: 0x5c3317, roughness: 0.75 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.35, metalness: 0.7 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.5, metalness: 0.6 });
+
+    // Chest Body Box
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.62, 0.76), oakMat);
+    body.position.y = 0.31;
+    body.castShadow = true;
+    trunkGroup.add(body);
+
+    // Brass corner straps
+    const cornerOffsets = [
+      [-0.61, 0.31, -0.36], [0.61, 0.31, -0.36],
+      [-0.61, 0.31, 0.36], [0.61, 0.31, 0.36]
+    ];
+    cornerOffsets.forEach(([cx, cy, cz]) => {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.63, 0.08), brassMat);
+      strap.position.set(cx, cy, cz);
+      trunkGroup.add(strap);
+    });
+
+    // Front Brass Latch & Keyhole
+    const latch = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.06), brassMat);
+    latch.position.set(0, 0.44, 0.40);
+    trunkGroup.add(latch);
+
+    // Hinged Lid Group
+    const lidGroup = new THREE.Group();
+    lidGroup.position.set(0, 0.62, -0.38);
+
+    const lidMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 1.27, 16, 1, false, 0, Math.PI), oakMat);
+    lidMesh.rotation.z = Math.PI * 0.5;
+    lidMesh.position.set(0, 0, 0.38);
+    lidGroup.add(lidMesh);
+
+    // Brass lid ribs
+    for (let r = -0.55; r <= 0.55; r += 0.55) {
+      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.40, 0.06, 16, 1, false, 0, Math.PI), brassMat);
+      rib.rotation.z = Math.PI * 0.5;
+      rib.position.set(r, 0, 0.38);
+      lidGroup.add(rib);
+    }
+    trunkGroup.add(lidGroup);
+
+    // Warm Beacon Light
+    const beacon = new THREE.PointLight(0xfef08a, 0.5, 3.5, 1.4);
+    beacon.position.y = 0.9;
+    trunkGroup.add(beacon);
+
+    // 16 Shared Storage Slots
+    const NUM_SLOTS = 16;
+    const slots = new Array(NUM_SLOTS).fill(null);
+
+    // Pre-populate with initial shared island supplies
+    const initialTrunkItems = [
+      { id: 'breb', qty: 3 },
+      { id: 'ancient_pages', qty: 1 },
+      { id: 'blueprints', qty: 1 },
+      { id: 'driftwood', qty: 2 }
+    ];
+    initialTrunkItems.forEach((it, idx) => {
+      if (idx < NUM_SLOTS && ITEMS[it.id]) {
+        slots[idx] = { id: it.id, qty: it.qty };
+      }
+    });
+
+    let lidTargetRot = 0;
+
+    function openLid(isOpen) {
+      lidTargetRot = isOpen ? -Math.PI * 0.42 : 0;
+    }
+
+    function update(dt) {
+      lidGroup.rotation.x += (lidTargetRot - lidGroup.rotation.x) * 10 * dt;
+    }
+
+    function deposit(itemKey, count = 1, playerInventory = null) {
+      if (!ITEMS[itemKey] || count <= 0) return 0;
+      if (playerInventory && !playerInventory.hasItem(itemKey, count)) return 0;
+      const def = ITEMS[itemKey];
+      let remaining = count;
+
+      // 1. Stack into existing slot
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        if (slots[i] && slots[i].id === itemKey) {
+          const space = def.maxStack - slots[i].qty;
+          if (space > 0) {
+            const add = Math.min(space, remaining);
+            slots[i].qty += add;
+            remaining -= add;
+            if (remaining <= 0) break;
+          }
+        }
+      }
+
+      // 2. Fill empty slot
+      if (remaining > 0) {
+        for (let i = 0; i < NUM_SLOTS; i++) {
+          if (!slots[i]) {
+            const add = Math.min(def.maxStack, remaining);
+            slots[i] = { id: itemKey, qty: add };
+            remaining -= add;
+            if (remaining <= 0) break;
+          }
+        }
+      }
+
+      const deposited = count - remaining;
+      if (deposited > 0 && playerInventory) {
+        playerInventory.removeItem(itemKey, deposited);
+      }
+      return deposited;
+    }
+
+    function withdraw(slotIdx, count = 1, playerInventory = null) {
+      if (slotIdx < 0 || slotIdx >= NUM_SLOTS || !slots[slotIdx]) return 0;
+      const slotItem = slots[slotIdx];
+      const takeCount = Math.min(count, slotItem.qty);
+      if (playerInventory) {
+        const added = playerInventory.addItem(slotItem.id, takeCount);
+        if (added <= 0) return 0;
+        slotItem.qty -= added;
+        if (slotItem.qty <= 0) slots[slotIdx] = null;
+        return added;
+      }
+      slotItem.qty -= takeCount;
+      if (slotItem.qty <= 0) slots[slotIdx] = null;
+      return takeCount;
+    }
+
+    function getSlots() {
+      return slots.map((s, idx) => {
+        if (!s) return null;
+        const def = ITEMS[s.id];
+        return { slot: idx, id: s.id, qty: s.qty, ...def };
+      });
+    }
+
+    return {
+      group: trunkGroup,
+      slots,
+      openLid,
+      update,
+      deposit,
+      withdraw,
+      getSlots,
+      worldPos: { x: -3.2, y: 0.35, z: 10.0 }
+    };
+  }
+
+  // 6. HEARTLAND PIER LAUNCH MORTAR (3D LAUNCH TUBE & PYROTECHNICS)
+  // Location: Endless Pier Tip (x: 48.0, y: 1.45, z: 76.0)
+  function createLaunchMortarStation() {
+    const stationGroup = new THREE.Group();
+    stationGroup.position.set(48.0, 1.45, 76.0);
+    stationGroup.rotation.y = Math.PI * 0.95; // Pointing out toward the ocean and bistro bluff
+
+    const teakMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.75 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.3, metalness: 0.75 });
+    const darkBrassMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.45, metalness: 0.65 });
+    const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.35 });
+
+    // 1. Heavy Turntable Plinth
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, 0.35, 16), teakMat);
+    plinth.position.y = 0.175;
+    stationGroup.add(plinth);
+
+    // 2. Brass Mortar Trunnion Stand
+    const trunnionL = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.75, 0.35), darkBrassMat);
+    trunnionL.position.set(-0.42, 0.6, 0);
+    stationGroup.add(trunnionL);
+
+    const trunnionR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.75, 0.35), darkBrassMat);
+    trunnionR.position.set(0.42, 0.6, 0);
+    stationGroup.add(trunnionR);
+
+    // 3. Heavy Heavy Mortar Tube (Angled upward towards the sea sky)
+    const tubeGroup = new THREE.Group();
+    tubeGroup.position.set(0, 0.65, 0);
+    tubeGroup.rotation.x = -Math.PI * 0.15; // 70-degree high launch angle
+
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.34, 1.4, 16), brassMat);
+    tube.position.y = 0.6;
+    tubeGroup.add(tube);
+
+    // Brass reinforcing bands
+    const band1 = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 16), darkBrassMat);
+    band1.position.y = 0.3;
+    tubeGroup.add(band1);
+
+    const band2 = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.1, 16), darkBrassMat);
+    band2.position.y = 1.15;
+    tubeGroup.add(band2);
+
+    // Decorative Silk Ribbon Bow
+    const ribbon = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.05, 8, 20), ribbonMat);
+    ribbon.rotation.x = Math.PI * 0.5;
+    ribbon.position.y = 0.75;
+    tubeGroup.add(ribbon);
+
+    stationGroup.add(tubeGroup);
+
+    // Sparkle Beacon
+    const beacon = new THREE.PointLight(0xf43f5e, 0.9, 4.0, 1.6);
+    beacon.position.set(0, 1.8, 0);
+    stationGroup.add(beacon);
+
+    return {
+      group: stationGroup,
+      tubeGroup,
+      beacon,
+      worldPos: { x: 48.0, y: 1.45, z: 76.0 }
+    };
+  }
+
   return {
     ITEMS,
     createPlayerInventory,
     createSolomonBreadOven,
-    createWorldPickupManager
+    createWorldPickupManager,
+    createCommunityTrunk,
+    createLaunchMortarStation
   };
 })();

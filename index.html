@@ -580,8 +580,9 @@
                 <div class="inspector-type" id="insp-type">Consumable · Summons Birbs</div>
                 <div class="inspector-desc" id="insp-desc">Golden freshly-baked loaves from Solomon's kitchen. Toss onto the grass with [B] to feed and gather plump round island Birbs.</div>
                 <div class="inspector-stats" id="insp-stats">+100% Birb Gathering Radius · Steaming Warmth</div>
-                <div class="inspector-actions" id="insp-actions" style="margin-top: 8px;">
+                <div class="inspector-actions" id="insp-actions" style="margin-top: 8px; display: flex; gap: 8px;">
                   <button type="button" class="btn-primary" id="btn-inspect-use" style="padding: 4px 12px; font-size: 11px;">Use Item</button>
+                  <button type="button" class="btn-secondary" id="btn-inspect-drop" style="padding: 4px 12px; font-size: 11px;">Drop on Ground ⬇️</button>
                 </div>
               </div>
             </div>
@@ -691,6 +692,54 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARCHIPELAGO COMMUNITY TRUNK MODAL -->
+  <div class="modal-backdrop hidden" id="community-trunk-modal">
+    <div class="modal-card trunk-card">
+      <button class="modal-close-x" id="close-trunk-modal" title="Close [Esc]">✕</button>
+      <div class="charsheet-header">
+        <div class="charsheet-header-left">
+          <span class="cs-super-tag">HEARTLAND PLAZA · SHARED ISLAND STORAGE</span>
+          <h2>Archipelago Community Trunk</h2>
+          <p style="font-size: 11px; color: var(--parchment-muted); margin-top: 2px;">
+            Return here to store or withdraw shared supplies for Helen, Russell, and fellow sharks.
+          </p>
+        </div>
+        <div class="charsheet-header-active-status" style="background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.4);">
+          <span style="font-size: 14px;">📦</span>
+          <span style="font-size: 11px; font-weight: 600; color: #fde047;">SHARED ISLAND CHEST</span>
+        </div>
+      </div>
+
+      <div class="trunk-split-layout">
+        <!-- LEFT: COMMUNITY TRUNK (16 SLOTS) -->
+        <div class="trunk-pane">
+          <div class="trunk-pane-header">
+            <span>📦 Community Trunk (<span id="trunk-used-count">0</span> / 16)</span>
+            <span class="trunk-sub-hint">Click item to Withdraw ⬅️</span>
+          </div>
+          <div class="mmo-inventory-grid" id="trunk-grid"></div>
+        </div>
+
+        <!-- RIGHT: TRAVELING SATCHEL (16 SLOTS) -->
+        <div class="trunk-pane">
+          <div class="trunk-pane-header">
+            <span>🎒 Your Satchel (<span id="satchel-used-count">0</span> / 16)</span>
+            <span class="trunk-sub-hint">Click item to Deposit ➡️</span>
+          </div>
+          <div class="mmo-inventory-grid" id="satchel-trunk-grid"></div>
+        </div>
+      </div>
+
+      <!-- TRUNK FOOTER ACTIONS -->
+      <div class="trunk-footer" style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(220, 185, 120, 0.2); padding-top: 12px;">
+        <div class="trunk-hint-bar" style="font-size: 11px; color: var(--parchment-muted);">
+          💡 <em>Tip: Return physically to Heartland Plaza to share supplies with your partner!</em>
+        </div>
+        <button type="button" class="btn-primary" id="btn-trunk-close">Done &amp; Close [Esc]</button>
       </div>
     </div>
   </div>

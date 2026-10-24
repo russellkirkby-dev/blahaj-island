@@ -1150,6 +1150,21 @@
         }, n.delay);
       });
     },
+    fireworkWhistle() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(380, 1.8, 'sine', 0.16, 2400);
+    },
+    fireworkBoom() {
+      if (gameSettings && !gameSettings.sfxVol) return;
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(120, 1.4, 'sawtooth', 0.35, 30);
+      setTimeout(() => this.playTone(330, 0.7, 'triangle', 0.22, 110), 80);
+      setTimeout(() => this.playTone(660, 0.6, 'sine', 0.18, 220), 160);
+      setTimeout(() => this.portalChime(), 320);
+    },
     teaPour() {
       [440, 554.37, 659.25, 880].forEach((f, i) => {
         setTimeout(() => this.playTone(f, 0.28, 'sine', 0.1), i * 75);
@@ -1189,6 +1204,9 @@
   let worldApi = null;
   let worldPickups = null;
   let solomonBreadOven = null;
+  let communityTrunk = null;
+  let launchMortarStation = null;
+  const activeRockets = [];
 
   // --------------------------------------------------------------------------
   // INDIVIDUAL SHARK SETTINGS: MANGE FACTOR & ACCESSORIES
@@ -1710,6 +1728,12 @@
       solomonBreadOven = window.BlahajInventory.createSolomonBreadOven();
       scene.add(solomonBreadOven.group);
 
+      communityTrunk = window.BlahajInventory.createCommunityTrunk();
+      scene.add(communityTrunk.group);
+
+      launchMortarStation = window.BlahajInventory.createLaunchMortarStation();
+      scene.add(launchMortarStation.group);
+
       worldPickups = window.BlahajInventory.createWorldPickupManager(scene);
       worldPickups.initStaticNodes();
 
@@ -2042,11 +2066,30 @@
     spawnFloatingBurst(birb.mesh.position, 0xfbbf24, 6);
     CozyAudio.birbChirp();
     const appetiteState = `${birb.appetite}/3`;
-    showToast('MUNCH MUNCH! 🥖🐦', `Plump Birb happily pecked warm Breb! (Appetite: ${appetiteState}) (+1 Birb Crumb)`);
+    showToast('MUNCH MUNCH! 🥖🐦', `Plump Birb happily pecked warm Breb! (${appetiteState} full) (+1 Birb Crumb)`);
     addChatLog(`🐦 Birb happily finished pecking a loaf of Breb (${appetiteState} full). +1 Birb Crumb!`, 'lore');
     completeQuest('q-breb');
     updateMetersUI();
     renderBuilderToolbar();
+  };
+
+  window.BlahajOnBirbComa = function (birb) {
+    CozyAudio.birbChirp();
+    showToast('BIRB IN FOOD COMA! 😴', 'Plump Birb ate 3 loaves and collapsed happily! Approach to gather Soft Down [E] 🪶');
+    addChatLog('😴 A delightfully round Birb entered a deep Breb Coma on the grass. You can gently gather Soft Birb Down!', 'lore');
+  };
+
+  window.BlahajOnBirbWakeUp = function (birb) {
+    if (worldPickups && birb && birb.mesh) {
+      worldPickups.spawnPickup('guano', {
+        x: birb.mesh.position.x,
+        y: birb.mesh.position.y + 0.05,
+        z: birb.mesh.position.z
+      });
+      CozyAudio.birbChirp();
+      showToast('BIRB WOKE UP! 🕊️', 'The rested Birb woke up and left a fresh nitrate Guano deposit on the grass!');
+      addChatLog('🕊️ A rested Birb woke from its food coma, shook its wings, and left a mineral <strong>Birb Guano</strong> deposit on the meadow!', 'lore');
+    }
   };
 
   window.BlahajOnBirbComa = function (birb) {
@@ -2488,6 +2531,32 @@
 
       const actWrap = document.getElementById('insp-actions');
       const useBtn = document.getElementById('btn-inspect-use');
+      const dropBtn = document.getElementById('btn-inspect-drop');
+
+      if (actWrap && dropBtn) {
+        dropBtn.style.display = 'inline-block';
+        dropBtn.onclick = () => {
+          if (!item || !player.inventory) return;
+          const removed = player.inventory.removeItem(item.id, 1);
+          if (removed) {
+            const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, player.rotY, 0));
+            const dropPos = {
+              x: player.pos.x + forward.x * 1.5,
+              y: player.pos.y + 0.15,
+              z: player.pos.z + forward.z * 1.5
+            };
+            if (worldPickups) {
+              worldPickups.spawnPickup(item.id, dropPos, null, 1);
+            }
+            CozyAudio.coinDrop();
+            showToast('DROPPED ON GROUND ⬇️', `Left 1x ${item.name} for Helen or another shark to pick up!`);
+            addChatLog(`⬇️ Dropped 1x <strong>${item.name}</strong> onto the ground. Anyone nearby can pick it up!`, 'cozy');
+            renderCharacterSheet(selectedCSShark);
+            updateMetersUI();
+          }
+        };
+      }
+
       if (actWrap && useBtn) {
         if (item.id === 'breb') {
           actWrap.style.display = 'block';
@@ -3604,13 +3673,33 @@
       return;
     }
 
-    // World Pickups & Bread Oven
-    if (item.kind === 'pickup_guano' || item.kind === 'pickup_sulfur') {
+    // World Pickups & Bread Oven & Community Trunk & Launch Station
+    if (item.kind && item.kind.startsWith('pickup_')) {
       collectWorldPickup(item.pickup);
       return;
     }
     if (item.kind === 'solomon_bread_oven') {
       bakeBrebAtOven();
+      return;
+    }
+    if (item.kind === 'community_trunk') {
+      openCommunityTrunkModal();
+      return;
+    }
+    if (item.kind === 'launch_mortar') {
+      launchHelenBirthdayFireworks();
+      return;
+    }
+    if (item.kind === 'assemble_and_launch_mortar') {
+      assembleAndLaunchFireworks();
+      return;
+    }
+    if (item.kind === 'inspect_mortar') {
+      showToast('HEARTLAND LAUNCH MORTAR 🔭', "Requires Helen's Birthday Star Rocket! Craft powder at Solomon, mortar at Hiram, and fuse at Nimue.");
+      return;
+    }
+    if (item.kind === 'pluck_birb_down') {
+      pluckBirbDown(item.ref);
       return;
     }
 
@@ -3678,43 +3767,72 @@
       const line = act.lines[act.lineIdx % act.lines.length];
       act.lineIdx++;
       showActorSpeechBubble(act, line);
+
+      const actorActions = [
+        {
+          label: 'Beep Noses! 🦈💕',
+          className: 'btn-primary',
+          onClick: () => {
+            closeDialogueModal();
+            triggerBeepNose();
+          }
+        },
+        {
+          label: 'Toss Warm Breb for Birbs 🥖🐦',
+          className: 'btn-accent',
+          onClick: () => {
+            closeDialogueModal();
+            triggerFeedBreb();
+          }
+        },
+        {
+          label: 'Share Sacred Tea 🍵',
+          className: 'btn-secondary',
+          onClick: () => {
+            CozyAudio.teaPour();
+            player.teaComfort = 100;
+            player.warmth = 100;
+            player.teaSharedCount++;
+            updateMetersUI();
+            completeQuest('q-tea');
+            showActorSpeechBubble(act, '“Thank you for the Sacred Tea, sharkitty! Warmth restored!”');
+            closeDialogueModal();
+          }
+        }
+      ];
+
+      if (act.id === 'solomon') {
+        actorActions.unshift({
+          label: 'Synthesize Star Powder 🎆 (1x Guano + 1x Sulfur)',
+          className: 'btn-accent',
+          onClick: () => {
+            craftStarPowderAtSolomon();
+          }
+        });
+      } else if (act.id === 'hiram') {
+        actorActions.unshift({
+          label: 'Carve Launch Mortar 🪵 (2x Driftwood or 1x Pure Obsidian)',
+          className: 'btn-accent',
+          onClick: () => {
+            craftMortarAtHiram();
+          }
+        });
+      } else if (act.id === 'nimue') {
+        actorActions.unshift({
+          label: 'Braid Star Fuse 🧵 (2x Birb Down or 2x Plush Fluff)',
+          className: 'btn-accent',
+          onClick: () => {
+            craftFuseAtNimue();
+          }
+        });
+      }
+
       openDialogueModal({
         speaker: act.name,
         role: act.tag,
         portrait: act.portrait,
         text: line,
-        actions: [
-          {
-            label: 'Beep Noses! 🦈💕',
-            className: 'btn-primary',
-            onClick: () => {
-              closeDialogueModal();
-              triggerBeepNose();
-            }
-          },
-          {
-            label: 'Toss Warm Breb for Birbs 🥖🐦',
-            className: 'btn-accent',
-            onClick: () => {
-              closeDialogueModal();
-              triggerFeedBreb();
-            }
-          },
-          {
-            label: 'Share Sacred Tea 🍵',
-            className: 'btn-secondary',
-            onClick: () => {
-              CozyAudio.teaPour();
-              player.teaComfort = 100;
-              player.warmth = 100;
-              player.teaSharedCount++;
-              updateMetersUI();
-              completeQuest('q-tea');
-              showActorSpeechBubble(act, '“Thank you for the Sacred Tea, sharkitty! Warmth restored!”');
-              closeDialogueModal();
-            }
-          }
-        ]
+        actions: actorActions
       });
       return;
     }
@@ -4571,6 +4689,11 @@
     const closeCSBtn = document.getElementById('close-charsheet-modal');
     if (closeCSBtn) closeCSBtn.addEventListener('click', closeCharacterSheetModal);
 
+    const closeTrunkModal = document.getElementById('close-trunk-modal');
+    if (closeTrunkModal) closeTrunkModal.addEventListener('click', closeCommunityTrunkModal);
+    const btnTrunkClose = document.getElementById('btn-trunk-close');
+    if (btnTrunkClose) btnTrunkClose.addEventListener('click', closeCommunityTrunkModal);
+
     const openCSBtn = document.getElementById('btn-open-charsheet');
     if (openCSBtn) openCSBtn.addEventListener('click', () => openCharacterSheet(player.sharkId));
 
@@ -4718,7 +4841,10 @@
         e.stopPropagation();
         CozyAudio.groomBrush();
         const next = adjustSharkMange(player.sharkId, -0.20, 'Plush Grooming');
-        showToast('PLUSH GROOMED 🪮', `Brushed and fluffed ${LORE.sharks[player.sharkId].name}'s coat! (Mange: ${Math.round(next * 100)}%)`);
+        if (player.inventory) {
+          player.inventory.addItem('plush_fluff', 1);
+        }
+        showToast('PLUSH GROOMED 🪮', `Brushed ${LORE.sharks[player.sharkId].name}'s coat (-20% Mange)! Gathered +1 Plush Fluff 🧶`);
         addChatLog(`🪮 You groomed <strong>${LORE.sharks[player.sharkId].name}</strong>'s coat with a soft bristle brush (-20% Mange).`, 'info');
       });
     }
@@ -5341,24 +5467,273 @@
   function collectWorldPickup(pickup) {
     if (!player.inventory || !pickup) return;
     const itemType = pickup.type;
-    const added = player.inventory.addItem(itemType, 1);
+    const count = pickup.count || 1;
+    const added = player.inventory.addItem(itemType, count);
     if (added > 0) {
       if (worldPickups) worldPickups.collect(pickup);
       CozyAudio.bistroChime();
 
-      if (itemType === 'guano') {
-        spawnFloatingBurst(player.pos, 0xf8fafc, 18);
-        showToast('GATHERED BIRB GUANO! 🪶✨', `Nitrate saltpeter for fireworks! (Total: ${player.inventory.getItemCount('guano')})`);
-        addChatLog(`🪶 Gathered <strong>Birb Guano</strong> deposit (+1 Guano into Satchel, total: ${player.inventory.getItemCount('guano')}).`, 'cozy');
-      } else if (itemType === 'sulfur') {
-        spawnFloatingBurst(player.pos, 0xfacc15, 20);
-        showToast('MINED VOLCANIC SULFUR! 🟡✨', `Yellow mineral for fireworks! (Total: ${player.inventory.getItemCount('sulfur')})`);
-        addChatLog(`🟡 Mined <strong>Volcanic Sulfur Crystal</strong> (+1 Sulfur into Satchel, total: ${player.inventory.getItemCount('sulfur')}).`, 'cozy');
-      }
+      const def = window.BlahajInventory?.ITEMS[itemType] || { name: itemType, icon: '📦' };
+      spawnFloatingBurst(player.pos, 0xfacc15, 18);
+      showToast(`PICKED UP ${def.name.toUpperCase()}! ${def.icon}✨`, `Added +${added} into Satchel! (Total: ${player.inventory.getItemCount(itemType)})`);
+      addChatLog(`${def.icon} Picked up <strong>${def.name}</strong> (+${added} into Satchel, total: ${player.inventory.getItemCount(itemType)}).`, 'cozy');
       updateMetersUI();
     } else {
       showToast('SATCHEL FULL! 🎒', 'No room in your satchel for more items!');
     }
+  }
+
+  // --- ARCHIPELAGO COMMUNITY TRUNK MODAL LOGIC ---
+  function openCommunityTrunkModal() {
+    const modal = document.getElementById('community-trunk-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    if (communityTrunk) communityTrunk.openLid(true);
+    renderCommunityTrunkModal();
+  }
+
+  function closeCommunityTrunkModal() {
+    const modal = document.getElementById('community-trunk-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    if (communityTrunk) communityTrunk.openLid(false);
+  }
+
+  function renderCommunityTrunkModal() {
+    if (!communityTrunk || !player.inventory) return;
+    const trunkGrid = document.getElementById('trunk-grid');
+    const satchelGrid = document.getElementById('satchel-trunk-grid');
+    const trunkCountEl = document.getElementById('trunk-used-count');
+    const satchelCountEl = document.getElementById('satchel-used-count');
+
+    if (trunkCountEl) trunkCountEl.textContent = communityTrunk.slots.filter(Boolean).length;
+    if (satchelCountEl) satchelCountEl.textContent = player.inventory.getUsedSlotCount();
+
+    // Render Trunk Grid
+    if (trunkGrid) {
+      trunkGrid.innerHTML = '';
+      const tSlots = communityTrunk.getSlots();
+      for (let i = 0; i < 16; i++) {
+        const item = tSlots[i];
+        const slotEl = document.createElement('div');
+        slotEl.className = 'mmo-slot';
+        if (item) {
+          slotEl.classList.add(`rarity-${item.rarity || 'cozy'}`);
+          slotEl.title = `${item.name} (x${item.qty}) - Click to Withdraw into Satchel`;
+          slotEl.innerHTML = `
+            <span class="mmo-slot-icon">${item.icon}</span>
+            ${item.qty > 1 ? `<span class="mmo-slot-badge">${item.qty}</span>` : ''}
+          `;
+          slotEl.onclick = () => {
+            const taken = communityTrunk.withdraw(i, 1, player.inventory);
+            if (taken > 0) {
+              CozyAudio.coinDrop();
+              renderCommunityTrunkModal();
+              updateMetersUI();
+            } else {
+              showToast('SATCHEL FULL! 🎒', 'No room in your satchel to take this item!');
+            }
+          };
+        } else {
+          slotEl.classList.add('empty');
+          slotEl.title = `Trunk Slot ${i + 1} (Empty)`;
+          slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">📦</span>`;
+        }
+        trunkGrid.appendChild(slotEl);
+      }
+    }
+
+    // Render Satchel Grid
+    if (satchelGrid) {
+      satchelGrid.innerHTML = '';
+      for (let i = 0; i < 16; i++) {
+        const item = player.inventory.getSlot(i);
+        const slotEl = document.createElement('div');
+        slotEl.className = 'mmo-slot';
+        if (item) {
+          slotEl.classList.add(`rarity-${item.rarity || 'cozy'}`);
+          slotEl.title = `${item.name} (x${item.qty}) - Click to Deposit into Community Trunk`;
+          slotEl.innerHTML = `
+            <span class="mmo-slot-icon">${item.icon}</span>
+            ${item.qty > 1 ? `<span class="mmo-slot-badge">${item.qty}</span>` : ''}
+          `;
+          slotEl.onclick = () => {
+            const deposited = communityTrunk.deposit(item.id, 1, player.inventory);
+            if (deposited > 0) {
+              CozyAudio.coinDrop();
+              renderCommunityTrunkModal();
+              updateMetersUI();
+            } else {
+              showToast('TRUNK FULL! 📦', 'The Community Trunk is full! Remove something first.');
+            }
+          };
+        } else {
+          slotEl.classList.add('empty');
+          slotEl.title = `Satchel Slot ${i + 1} (Empty)`;
+          slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">🎒</span>`;
+        }
+        satchelGrid.appendChild(slotEl);
+      }
+    }
+  }
+
+  // --- BIRB DOWN PLUCKING ---
+  function pluckBirbDown(birb) {
+    if (!birb || !player.inventory) return;
+    birb.downGathered = true;
+    player.inventory.addItem('birb_down', 1);
+    CozyAudio.birbChirp();
+    spawnFloatingBurst(birb.mesh.position, 0x60a5fa, 16);
+    showToast('GENTLY GATHERED BIRB DOWN! 🪶✨', `Plucked soft down from sleeping birb! (Total: ${player.inventory.getItemCount('birb_down')})`);
+    addChatLog('🪶 Gently gathered cloud-soft <strong>Soft Birb Down</strong> from a sleeping meadow birb! Nimue can spin this into fuses.', 'cozy');
+    updateMetersUI();
+  }
+
+  // --- ARTISANAL SHARK CRAFTING ---
+  function craftStarPowderAtSolomon() {
+    closeDialogueModal();
+    if (!player.inventory) return;
+    if (player.inventory.hasItem('guano', 1) && player.inventory.hasItem('sulfur', 1)) {
+      player.inventory.removeItem('guano', 1);
+      player.inventory.removeItem('sulfur', 1);
+      player.inventory.addItem('star_powder', 1);
+      CozyAudio.bistroChime();
+      spawnFloatingBurst(player.pos, 0xfacc15, 24);
+      showToast('STAR POWDER SYNTHESIZED! 🎆✨', 'Solomon roasted Guano & Sulfur in his oven into Pyrotechnic Star Powder!');
+      addChatLog('🎆 Solomon blended nitrate saltpeter and volcanic brimstone: <strong>+1 Pyrotechnic Star Powder</strong> crafted!', 'cozy');
+      updateMetersUI();
+    } else {
+      showToast('MISSING MATERIALS 🧪', 'Solomon needs 1x Birb Guano (from Birbs after Breb) and 1x Volcanic Sulfur!');
+    }
+  }
+
+  function craftMortarAtHiram() {
+    closeDialogueModal();
+    if (!player.inventory) return;
+    let crafted = false;
+    if (player.inventory.hasItem('driftwood', 2)) {
+      player.inventory.removeItem('driftwood', 2);
+      crafted = true;
+    } else if (player.inventory.hasItem('pure_obsidian', 1)) {
+      player.inventory.removeItem('pure_obsidian', 1);
+      crafted = true;
+    }
+    if (crafted) {
+      player.inventory.addItem('mortar_tube', 1);
+      CozyAudio.allenBuild();
+      spawnFloatingBurst(player.pos, 0xca8a04, 24);
+      showToast('LAUNCH MORTAR CARVED! 🪵✨', 'Hiram lathed dense timber and banded it with brass rings!');
+      addChatLog('🪵 Hiram precision-turned heavy timber into a reinforced <strong>Hardwood Launch Mortar</strong>!', 'cozy');
+      updateMetersUI();
+    } else {
+      showToast('MISSING MATERIALS 🪵', 'Hiram needs 2x Beach Driftwood (found along the shores) or 1x Pure Obsidian Shard!');
+    }
+  }
+
+  function craftFuseAtNimue() {
+    closeDialogueModal();
+    if (!player.inventory) return;
+    let crafted = false;
+    if (player.inventory.hasItem('birb_down', 2)) {
+      player.inventory.removeItem('birb_down', 2);
+      crafted = true;
+    } else if (player.inventory.hasItem('plush_fluff', 2)) {
+      player.inventory.removeItem('plush_fluff', 2);
+      crafted = true;
+    }
+    if (crafted) {
+      player.inventory.addItem('braided_fuse', 1);
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xec4899, 24);
+      showToast('STAR FUSE BRAIDED! 🧵✨', 'Nimue spun soft down fibers into a slow-burning twisted star fuse!');
+      addChatLog('🧵 Nimue braided fine down and starlight silk: <strong>+1 Twisted Star Fuse</strong> crafted!', 'cozy');
+      updateMetersUI();
+    } else {
+      showToast('MISSING MATERIALS 🪶', 'Nimue needs 2x Soft Birb Down (gathered from sleeping Birbs) or 2x Plush Fluff (from grooming)!');
+    }
+  }
+
+  function assembleAndLaunchFireworks() {
+    if (!player.inventory) return;
+    if (player.inventory.hasItem('star_powder', 1) && player.inventory.hasItem('mortar_tube', 1) && player.inventory.hasItem('braided_fuse', 1)) {
+      player.inventory.removeItem('star_powder', 1);
+      player.inventory.removeItem('mortar_tube', 1);
+      player.inventory.removeItem('braided_fuse', 1);
+      player.inventory.addItem('firework_rocket', 1);
+      showToast('ROCKET ASSEMBLED! 🚀✨', "Assembled Helen's Birthday Star Rocket from all 3 shark crafts!");
+      addChatLog("🚀 Synthesized powder, mortar shell, and star fuse into <strong>Helen's Birthday Star Rocket</strong>!", 'cozy');
+      updateMetersUI();
+      setTimeout(() => launchHelenBirthdayFireworks(), 800);
+    } else {
+      showToast('MISSING PYROTECHNIC PARTS 🎆', 'Need 1x Star Powder (Solomon), 1x Launch Mortar (Hiram), and 1x Star Fuse (Nimue)!');
+    }
+  }
+
+  function launchHelenBirthdayFireworks() {
+    if (player.inventory && player.inventory.hasItem('firework_rocket', 1)) {
+      player.inventory.removeItem('firework_rocket', 1);
+      updateMetersUI();
+    }
+    CozyAudio.fireworkWhistle();
+
+    // Spawn 3D ascending rocket from Endless Pier tip
+    const startPos = new THREE.Vector3(48.0, 2.5, 76.0);
+    const rocketMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.16, 0.9, 8),
+      new THREE.MeshStandardMaterial({ color: 0xf43f5e, emissive: 0xfacc15, emissiveIntensity: 0.8 })
+    );
+    rocketMesh.position.copy(startPos);
+    scene.add(rocketMesh);
+
+    const rocketLight = new THREE.PointLight(0xfacc15, 2.0, 15.0);
+    rocketLight.position.copy(startPos);
+    scene.add(rocketLight);
+
+    const rObj = {
+      mesh: rocketMesh,
+      light: rocketLight,
+      pos: startPos.clone(),
+      vel: new THREE.Vector3(-0.25, 22.0, -0.4),
+      life: 2.2
+    };
+    activeRockets.push(rObj);
+
+    showToast('FUSE IGNITED! 🎆✨', "Helen's Birthday Star Rocket whistling high into the night sky!");
+
+    setTimeout(() => {
+      // Detonate at peak
+      CozyAudio.fireworkBoom();
+      triggerGrandFireworkDetonation(rObj.pos);
+    }, 2200);
+  }
+
+  function triggerGrandFireworkDetonation(burstPos) {
+    // 1. Massive Flash Light
+    const flash = new THREE.PointLight(0xff69b4, 12.0, 120.0);
+    flash.position.copy(burstPos);
+    scene.add(flash);
+    setTimeout(() => { if (flash.parent) flash.parent.remove(flash); }, 1400);
+
+    // 2. Multi-color spark bursts
+    const colors = [0xf43f5e, 0xfb7185, 0xa855f7, 0xfacc15, 0x38bdf8, 0xffffff];
+    colors.forEach((col, idx) => {
+      setTimeout(() => {
+        spawnFloatingBurst(burstPos, col, 45);
+      }, idx * 120);
+    });
+
+    // 3. Heart constellation in the sky
+    const heartOffsets = [
+      [0, 0], [-1.5, 2.0], [1.5, 2.0], [-3.0, 3.5], [3.0, 3.5],
+      [-2.5, 5.0], [2.5, 5.0], [-1.0, 5.8], [1.0, 5.8], [0, 4.8]
+    ];
+    heartOffsets.forEach(([hx, hy]) => {
+      const hPos = new THREE.Vector3(burstPos.x + hx * 2.2, burstPos.y + hy * 2.2, burstPos.z);
+      spawnFloatingBurst(hPos, 0xf43f5e, 18);
+    });
+
+    showToast('💖 HAPPY BIRTHDAY HELEN! 💖', 'Grand Starlight Peony & Heart Constellation illuminate Blåhaj Island!');
+    addChatLog('🎆💖 <strong>HAPPY BIRTHDAY HELEN!</strong> The Grand Celebration Rocket detonated in rose-gold peonies, cascading willow starlight, and glowing celestial hearts over the ocean!', 'lore');
   }
 
   function popBirthdayCracker(boothIndex) {
@@ -5994,6 +6369,27 @@
           sp.mesh.scale.setScalar(0.8 + t * 0.8);
           sp.mesh.material.opacity = Math.max(0, 0.35 * (1.0 - t / 1.5));
         });
+      }
+
+      if (communityTrunk) {
+        communityTrunk.update(dt);
+      }
+
+      // Animate active aerial fireworks rockets
+      for (let r = activeRockets.length - 1; r >= 0; r--) {
+        const ro = activeRockets[r];
+        ro.life -= dt;
+        ro.pos.addScaledVector(ro.vel, dt);
+        ro.mesh.position.copy(ro.pos);
+        ro.light.position.copy(ro.pos);
+        if (Math.random() < 0.45) {
+          spawnFloatingBurst(ro.pos, 0xfde047, 3);
+        }
+        if (ro.life <= 0) {
+          if (ro.mesh.parent) ro.mesh.parent.remove(ro.mesh);
+          if (ro.light.parent) ro.light.parent.remove(ro.light);
+          activeRockets.splice(r, 1);
+        }
       }
     }
 
@@ -6993,6 +7389,65 @@
       }
     }
 
+    // Archipelago Community Trunk in Heartland Plaza (Physical Shared Stash)
+    if (communityTrunk && currentZone === 'overworld') {
+      const dTrunk = Math.hypot(player.pos.x - communityTrunk.worldPos.x, player.pos.z - communityTrunk.worldPos.z);
+      if (dTrunk < 3.8 && dTrunk < bestDist) {
+        bestDist = dTrunk;
+        nearestInteractable = {
+          kind: 'community_trunk',
+          dist: dTrunk,
+          prompt: 'Open Archipelago Community Trunk [E] 📦'
+        };
+      }
+    }
+
+    // Heartland Pier Launch Mortar Station on Endless Pier
+    if (launchMortarStation && currentZone === 'overworld') {
+      const dMortar = Math.hypot(player.pos.x - launchMortarStation.worldPos.x, player.pos.z - launchMortarStation.worldPos.z);
+      if (dMortar < 4.2 && dMortar < bestDist) {
+        bestDist = dMortar;
+        if (player.inventory && player.inventory.hasItem('firework_rocket', 1)) {
+          nearestInteractable = {
+            kind: 'launch_mortar',
+            dist: dMortar,
+            prompt: "Launch Helen's Birthday Star Rocket! 🎆 [E]"
+          };
+        } else if (player.inventory && player.inventory.hasItem('star_powder', 1) && player.inventory.hasItem('mortar_tube', 1) && player.inventory.hasItem('braided_fuse', 1)) {
+          nearestInteractable = {
+            kind: 'assemble_and_launch_mortar',
+            dist: dMortar,
+            prompt: "Assemble & Launch Helen's Birthday Rocket! 🚀 [E]"
+          };
+        } else {
+          nearestInteractable = {
+            kind: 'inspect_mortar',
+            dist: dMortar,
+            prompt: "Heartland Pier Launch Mortar [E] (Needs Celebration Rocket 🚀)"
+          };
+        }
+      }
+    }
+
+    // Check Sleeping Birbs for Gentle Soft Down Gathering
+    if (worldApi && currentZone === 'overworld') {
+      const flock = worldApi.getBirbFlock ? worldApi.getBirbFlock() : [];
+      flock.forEach((b) => {
+        if (b.isSleeping && !b.downGathered) {
+          const dBirb = Math.hypot(player.pos.x - b.mesh.position.x, player.pos.z - b.mesh.position.z);
+          if (dBirb < 2.5 && dBirb < bestDist) {
+            bestDist = dBirb;
+            nearestInteractable = {
+              kind: 'pluck_birb_down',
+              ref: b,
+              dist: dBirb,
+              prompt: 'Gently Pluck Soft Birb Down [E] 🪶'
+            };
+          }
+        }
+      });
+    }
+
     // Allow hopping onto Partner's Boat to ride together!
     if (coopPartner.active && coopPartner.inBoat && coopPartner.mesh) {
       const dPartnerBoat = coopPartner.mesh.position.distanceTo(player.pos);
@@ -7346,6 +7801,15 @@
     getPlayerInventory: () => player.inventory,
     getWorldPickups: () => worldPickups,
     getSolomonBreadOven: () => solomonBreadOven,
+    getCommunityTrunk: () => communityTrunk,
+    getLaunchMortarStation: () => launchMortarStation,
+    openCommunityTrunkModal,
+    closeCommunityTrunkModal,
+    launchHelenBirthdayFireworks,
+    craftStarPowderAtSolomon,
+    craftMortarAtHiram,
+    craftFuseAtNimue,
+    assembleAndLaunchFireworks,
     sitInBooth,
     standUpFromBooth,
     openSphericalPaintingModal,

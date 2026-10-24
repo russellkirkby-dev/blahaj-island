@@ -4161,11 +4161,20 @@ window.BlahajWorld = (function () {
 
     birbFlock.forEach((b) => {
       // Birb Satiation & Breb Coma handling
+      const wasSleeping = b.isSleeping;
       if (b.satiationTimer > 0) {
         b.satiationTimer = Math.max(0, b.satiationTimer - dt);
         b.isSleeping = b.satiationTimer > 0;
       } else {
         b.isSleeping = false;
+      }
+
+      // Birb woke up from food coma! Drops guano!
+      if (wasSleeping && !b.isSleeping) {
+        b.downGathered = false;
+        if (typeof window.BlahajOnBirbWakeUp === 'function') {
+          window.BlahajOnBirbWakeUp(b);
+        }
       }
 
       if (b.isSleeping) {
@@ -4253,6 +4262,7 @@ window.BlahajWorld = (function () {
             if (b.appetite >= 3) {
               b.satiationTimer = 90.0;
               b.isSleeping = true;
+              b.downGathered = false;
               b.appetite = 0;
               if (typeof window.BlahajOnBirbComa === 'function') {
                 window.BlahajOnBirbComa(b);

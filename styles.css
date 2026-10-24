@@ -2443,6 +2443,50 @@ body.has-volcano-notice #toast-banner {
   transform: translateY(0);
 }
 
+/* COMMUNITY TRUNK MODAL */
+.trunk-card {
+  max-width: 840px !important;
+  width: 92vw !important;
+  padding: 22px 24px !important;
+}
+
+.trunk-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .trunk-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trunk-pane {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(220, 185, 120, 0.25);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.trunk-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--brass-light);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(220, 185, 120, 0.15);
+}
+
+.trunk-sub-hint {
+  font-size: 9.5px;
+  color: var(--parchment-muted);
+}
+
 .cs-accessories-toggles {
   display: flex;
   flex-direction: column;
