@@ -14,6 +14,7 @@
 
 window.BlahajEnemies = (function () {
   let scene = null;
+  let worldApi = null;
   const enemies = [];
   let labelsContainer = null;
   let activeBursts = [];
@@ -270,8 +271,9 @@ window.BlahajEnemies = (function () {
   // --------------------------------------------------------------------------
   // 3. INITIALIZATION
   // --------------------------------------------------------------------------
-  function init(sceneRef) {
+  function init(sceneRef, worldApiRef) {
     scene = sceneRef;
+    worldApi = worldApiRef;
     labelsContainer = document.getElementById('world-labels');
 
     const enemyDefs = [
@@ -280,7 +282,7 @@ window.BlahajEnemies = (function () {
         type: 'starfish',
         title: 'Barnacle Brine Star 🌟',
         tag: 'EVIL STARFISH · MOODY SPIKE',
-        homePos: new THREE.Vector3(26.0, 1.15, 34.0), // South Beach rocks
+        homePos: new THREE.Vector3(22.0, 1.2, 8.0), // South Beach / Meadow path
         builder: createStarfishMesh,
         speed: 2.2,
         aggroDist: 8.0
@@ -290,7 +292,7 @@ window.BlahajEnemies = (function () {
         type: 'shark',
         title: 'Rowdy Gray Fin 🦈',
         tag: 'MEAN SHARK · RUFFIAN OF SHALLOWS',
-        homePos: new THREE.Vector3(-26.0, 0.65, -42.0), // Rocky Isthmus shallows
+        homePos: new THREE.Vector3(26.0, 0.4, -26.0), // Shallow lagoon near East Cape
         builder: createMeanSharkMesh,
         speed: 4.8,
         aggroDist: 9.5
@@ -300,7 +302,7 @@ window.BlahajEnemies = (function () {
         type: 'urchin',
         title: 'Prickly Kelp Urchin 🦔',
         tag: 'MISCHIEVOUS PUFFBALL · SOFT SPINES',
-        homePos: new THREE.Vector3(42.0, 0.95, -16.0), // East Cape kelp grove
+        homePos: new THREE.Vector3(38.0, 1.2, -12.0), // Grassy East Meadow
         builder: createKelpUrchinMesh,
         speed: 2.8,
         aggroDist: 7.0
@@ -308,6 +310,11 @@ window.BlahajEnemies = (function () {
     ];
 
     enemyDefs.forEach((def) => {
+      const startY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+        ? worldApi.getGroundAndStructureHeight(def.homePos.x, def.homePos.z)
+        : def.homePos.y;
+      def.homePos.y = startY;
+
       const mesh = def.builder();
       mesh.position.copy(def.homePos);
       scene.add(mesh);
@@ -541,6 +548,10 @@ window.BlahajEnemies = (function () {
           enemy.isFlying = false;
           enemy.vel.set(0, 0, 0);
           enemy.rotVel.set(0, 0, 0);
+          const returnY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+            ? worldApi.getGroundAndStructureHeight(enemy.homePos.x, enemy.homePos.z)
+            : enemy.homePos.y;
+          enemy.homePos.y = returnY;
           enemy.pos.copy(enemy.homePos);
           enemy.mesh.position.copy(enemy.pos);
           enemy.mesh.rotation.set(0, enemy.rotY, 0);
@@ -561,6 +572,11 @@ window.BlahajEnemies = (function () {
         enemy.vel.multiplyScalar(Math.max(0, 1 - dt * 6.0));
       }
 
+      // Query dynamic ground height under current enemy position
+      const groundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+        ? worldApi.getGroundAndStructureHeight(enemy.pos.x, enemy.pos.z)
+        : enemy.homePos.y;
+
       // STATE C: AI BEHAVIOR (IDLE / PATROL / CHASE)
       const distToPlayer = playerPos ? enemy.pos.distanceTo(playerPos) : 999;
 
@@ -579,14 +595,17 @@ window.BlahajEnemies = (function () {
           enemy.pos.addScaledVector(dir, enemy.speed * dt);
         }
 
-        // Animated waddle / hop
+        // Animated waddle / hop using dynamic ground height!
         if (enemy.type === 'starfish') {
-          enemy.mesh.position.y = enemy.homePos.y + Math.abs(Math.sin(enemy.animPhase * 2.5)) * 0.28;
+          enemy.mesh.position.y = groundY + Math.abs(Math.sin(enemy.animPhase * 2.5)) * 0.28;
           enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 2.5) * 0.15;
         } else if (enemy.type === 'urchin') {
-          enemy.mesh.position.y = enemy.homePos.y + Math.abs(Math.sin(enemy.animPhase * 3.0)) * 0.65;
+          enemy.mesh.position.y = groundY + Math.abs(Math.sin(enemy.animPhase * 3.0)) * 0.65;
         } else {
-          enemy.mesh.position.y = enemy.homePos.y + Math.sin(enemy.animPhase * 2.0) * 0.12;
+          // Mean shark in shallows / lagoon
+          const waterY = worldApi && typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed) : 0;
+          const baseY = Math.max(groundY - 0.15, waterY - 0.35);
+          enemy.mesh.position.y = baseY + Math.sin(enemy.animPhase * 2.0) * 0.12;
         }
 
         // Bumper contact with player (NO DYING — only comical nudge)
@@ -606,9 +625,18 @@ window.BlahajEnemies = (function () {
           enemy.pos.addScaledVector(homeDir, enemy.speed * 0.5 * dt);
           enemy.mesh.rotation.y = Math.atan2(homeDir.x, homeDir.z);
         }
-        enemy.mesh.position.y = enemy.homePos.y + Math.sin(enemy.animPhase * 1.5) * 0.08;
+        if (enemy.type === 'starfish') {
+          enemy.mesh.position.y = groundY + Math.sin(enemy.animPhase * 1.5) * 0.08;
+        } else if (enemy.type === 'urchin') {
+          enemy.mesh.position.y = groundY + Math.sin(enemy.animPhase * 1.8) * 0.14;
+        } else {
+          const waterY = worldApi && typeof worldApi.getWaveHeight === 'function' ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed) : 0;
+          const baseY = Math.max(groundY - 0.15, waterY - 0.35);
+          enemy.mesh.position.y = baseY + Math.sin(enemy.animPhase * 1.5) * 0.10;
+        }
       }
 
+      enemy.pos.y = enemy.mesh.position.y;
       enemy.mesh.position.x = enemy.pos.x;
       enemy.mesh.position.z = enemy.pos.z;
 
@@ -648,11 +676,11 @@ window.BlahajEnemies = (function () {
   function checkBoopHit(playerPos, playerRotY) {
     if (!playerPos) return false;
 
-    // Forward direction from shark's yaw
+    // Forward direction from shark's yaw (positive sin/cos in our coordinate system!)
     const fwd = new THREE.Vector3(
-      -Math.sin(playerRotY),
+      Math.sin(playerRotY),
       0,
-      -Math.cos(playerRotY)
+      Math.cos(playerRotY)
     ).normalize();
 
     let hitAny = false;
@@ -663,26 +691,36 @@ window.BlahajEnemies = (function () {
       toEnemy.y = 0;
       const dist = toEnemy.length();
 
-      if (dist <= 3.4) {
+      // Generous hit detection:
+      // 1. Close contact (dist <= 2.4m): hits from any frontal or side contact
+      // 2. Medium range (dist <= 4.2m): hits if enemy is in broad frontal arc (dot >= 0.1)
+      let isHit = false;
+      if (dist <= 2.4) {
+        isHit = true;
+      } else if (dist <= 4.2) {
         toEnemy.normalize();
         const dot = fwd.dot(toEnemy);
-        // Generous 120-degree frontal cone
-        if (dot >= 0.25) {
-          enemy.takeBoop(0.35, fwd);
-          hitAny = true;
+        if (dot >= 0.1) {
+          isHit = true;
+        }
+      }
 
-          // Network broadcast to co-op partner
-          if (window.BlahajNetwork) {
-            window.BlahajNetwork.send({
-              type: 'enemy_boop',
-              enemyId: enemy.id,
-              mange: enemy.mange,
-              isFlying: enemy.isFlying,
-              posX: enemy.pos.x,
-              posY: enemy.pos.y,
-              posZ: enemy.pos.z
-            });
-          }
+      if (isHit) {
+        const knockDir = dist > 0.1 ? toEnemy : fwd;
+        enemy.takeBoop(0.35, knockDir);
+        hitAny = true;
+
+        // Network broadcast to co-op partner
+        if (window.BlahajNetwork) {
+          window.BlahajNetwork.send({
+            type: 'enemy_boop',
+            enemyId: enemy.id,
+            mange: enemy.mange,
+            isFlying: enemy.isFlying,
+            posX: enemy.pos.x,
+            posY: enemy.pos.y,
+            posZ: enemy.pos.z
+          });
         }
       }
     });

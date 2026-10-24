@@ -2053,7 +2053,7 @@
     spawnWorldCharacters();
 
     if (window.BlahajEnemies && typeof window.BlahajEnemies.init === 'function') {
-      window.BlahajEnemies.init(scene);
+      window.BlahajEnemies.init(scene, worldApi);
     }
 
     // 3. Setup Controls, UI, Builder Toolbar, Gallery, Upgrades & Co-op Networking
@@ -3395,28 +3395,31 @@
   }
 
   function triggerBeepNose() {
+    // 1. Play punchy boop animation and attack audio
     if (player.mesh && player.mesh.userData) {
-      player.mesh.userData.beepTimer = 0.9;
+      player.mesh.userData.boopTimer = 0.42;
     }
+    CozyAudio.boopAttack();
 
-    // 1. Check for nearby enemy to execute Boop Attack!
+    // Visual comic boop ring at snout
+    const fwd = new THREE.Vector3(Math.sin(player.rotY), 0, Math.cos(player.rotY)).normalize();
+    const snoutPos = player.pos.clone().add(new THREE.Vector3(fwd.x * 1.1, 0.95, fwd.z * 1.1));
+    spawnFloatingBurst(snoutPos, 0x38bdf8, 8);
+
+    // 2. Check for nearby enemy to execute Boop Attack!
     if (window.BlahajEnemies && typeof window.BlahajEnemies.checkBoopHit === 'function') {
       const hit = window.BlahajEnemies.checkBoopHit(player.pos, player.rotY);
       if (hit) {
-        // Player snout forward recoil
-        const fwd = new THREE.Vector3(-Math.sin(player.rotY), 0, -Math.cos(player.rotY));
+        // Player snout forward tackle surge
         player.pos.addScaledVector(fwd, 0.35);
-        spawnFloatingBurst(player.pos, 0xf43f5e, 12);
+        spawnFloatingBurst(snoutPos, 0xf43f5e, 14);
         return;
       }
     }
 
-    // 2. If no enemy struck, perform friendly nose-beep on ally sharks
-    CozyAudio.beepNose();
-    spawnFloatingBurst(player.pos, 0xff7eb6, 8);
-
+    // 3. If no enemy struck, check for friendly nose-beep on ally sharks
     let closestActor = null;
-    let minDist = 7.0;
+    let minDist = 4.5;
     worldActors.forEach((act) => {
       if (!act.mesh.visible) return;
       const d = act.mesh.position.distanceTo(player.pos);
@@ -8472,6 +8475,7 @@
     applyAllSettings,
     saveSettings,
     getPlayer: () => player,
+    get player() { return player; },
     getWorldApi: () => worldApi,
     getCamera: () => camera,
     getCamState: () => camState,

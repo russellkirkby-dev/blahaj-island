@@ -1074,6 +1074,7 @@ window.BlahajModels = (function () {
       hasHeldItem: false,
       tailGroup,
       baseY: 0,
+      boopTimer: 0,
       beepTimer: 0,
       hopTimer: 0,
       walkPhase: Math.random() * Math.PI * 2,
@@ -1748,10 +1749,32 @@ window.BlahajModels = (function () {
       ud.flipTimer = Math.max(0, ud.flipTimer - dt);
       const flipProgress = 1 - ud.flipTimer / 0.45;
       rig.rotation.x = Math.sin(flipProgress * Math.PI * 2) * 0.75;
+      rig.position.z = 0;
       if (ud.tailGroup) {
         ud.tailGroup.rotation.y = Math.sin(flipProgress * Math.PI * 4) * 0.45;
       }
+    } else if (ud.boopTimer > 0) {
+      ud.boopTimer = Math.max(0, ud.boopTimer - dt);
+      const boopProgress = 1 - ud.boopTimer / 0.42;
+      const surge = Math.sin(boopProgress * Math.PI);
+
+      // Punchy forward snout tackle surge & attack hop
+      rig.position.z = surge * 0.58;
+      rig.position.y += surge * 0.24;
+      rig.rotation.x = -surge * 0.38;
+
+      // Dynamic forward fin thrust / clap
+      if (ud.leftFinPivot && ud.rightFinPivot) {
+        ud.leftFinPivot.rotation.y = surge * 1.35;
+        ud.leftFinPivot.rotation.z = surge * 0.45;
+        ud.rightFinPivot.rotation.y = -surge * 1.35;
+        ud.rightFinPivot.rotation.z = -surge * 0.45;
+      }
+      if (ud.tailGroup) {
+        ud.tailGroup.rotation.y = Math.sin(boopProgress * Math.PI * 3.5) * 0.38;
+      }
     } else if (ud.beepTimer > 0) {
+      rig.position.z = 0;
       ud.beepTimer = Math.max(0, ud.beepTimer - dt);
       const p = Math.sin((1 - ud.beepTimer / 0.9) * Math.PI);
       if (ud.leftFinPivot && ud.rightFinPivot) {
@@ -1762,6 +1785,7 @@ window.BlahajModels = (function () {
       }
       rig.rotation.x = p * 0.18;
     } else if (isSwimming) {
+      rig.position.z = 0;
       // Tilt body pitch along climb/dive swim trajectory
       const targetPitch = Math.max(-0.65, Math.min(0.65, -swimVelY * 0.08));
       rig.rotation.x += (targetPitch - rig.rotation.x) * Math.min(1.0, dt * 7.5);
@@ -1770,6 +1794,7 @@ window.BlahajModels = (function () {
         ud.rightFinPivot.rotation.y = 0;
       }
     } else {
+      rig.position.z = 0;
       rig.rotation.x = 0;
       if (ud.leftFinPivot && ud.rightFinPivot) {
         ud.leftFinPivot.rotation.y = 0;
