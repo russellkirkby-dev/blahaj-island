@@ -7935,8 +7935,25 @@
   function updateCoopPartner(dt, elapsed) {
     if (!coopPartner.active || !coopPartner.mesh) return;
     updateCoopPartnerVisibility();
-    coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1, dt * 12));
-    coopPartner.mesh.rotation.y = coopPartner.targetRotY;
+
+    // 1. Smooth Yaw Slerp with shortest-arc angular wrap (eliminates visual snapping & 360-degree spin flips)
+    let rotDiff = coopPartner.targetRotY - coopPartner.mesh.rotation.y;
+    while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+    while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+    coopPartner.mesh.rotation.y += rotDiff * Math.min(1.0, dt * 14.0);
+
+    // 2. Dead Reckoning: smoothly extrapolate along movement vector between network packets
+    if (coopPartner.isMoving && !coopPartner.inBoat && !coopPartner.inCart) {
+      const estSpeed = 6.2;
+      const fwdX = Math.sin(coopPartner.targetRotY) * estSpeed * dt;
+      const fwdZ = Math.cos(coopPartner.targetRotY) * estSpeed * dt;
+      coopPartner.targetPos.x += fwdX * 0.40;
+      coopPartner.targetPos.z += fwdZ * 0.40;
+    }
+
+    // 3. Smooth Position Interpolation
+    coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1.0, dt * 12.0));
+
     if (coopPartner.inCart && currentZone === 'laundromat') {
       coopPartner.mesh.position.y = 0.38;
       window.BlahajModels.animateShark(

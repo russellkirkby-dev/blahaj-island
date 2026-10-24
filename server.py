@@ -54,7 +54,7 @@ def prune_stale_clients(room_dict, now):
 class BlahajRequestHandler(SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         # Keep logs quiet for high-frequency /api/coop/sync polling
-        if "/api/coop/" in (args[0] if args else ""):
+        if args and isinstance(args[0], str) and "/api/coop/" in args[0]:
             return
         super().log_message(format, *args)
 

@@ -1028,20 +1028,100 @@ window.BlahajWorld = (function () {
   // ==========================================================================
   // 22,000 SWAYING 3D GRASS BLADES (MAIN ISLAND + 4 OUTER SANCTUARY ISLANDS!)
   // ==========================================================================
+  // Helper: Road proximity calculation for astroturf border clipping
+  function getDistanceToIslandRoad(x, z) {
+    let minD = 999.0;
+    // Isthmus Causeway to Volcano
+    if (z < -34 && z > -104) {
+      const spineX = -14 - Math.sin(((-z - 32) / 73) * Math.PI * 0.65) * 10;
+      const d = Math.abs(x - spineX) - 3.6;
+      if (d < minD) minD = d;
+    }
+    // Tea Plaza Ring
+    const dTea = Math.hypot(x, z - 10);
+    if (dTea > 5.0 && dTea < 13.0) {
+      const d = Math.min(Math.abs(dTea - 6.5), Math.abs(dTea - 11.2));
+      if (d < minD) minD = d;
+    }
+    // Main Hub Roads
+    for (let i = 0; i < ROAD_SEGMENTS.length; i++) {
+      const s = ROAD_SEGMENTS[i];
+      const d = distToSegment(x, z, s.x1, s.z1, s.x2, s.z2) - s.w;
+      if (d < minD) minD = d;
+    }
+    return minD;
+  }
+
+  // Astroturf Plush Felt Clump Geometry: 3 curved triangular blades forming a wide, lush tuft
+  function createPlushTuftGeometry() {
+    const geom = new THREE.BufferGeometry();
+    const positions = [];
+    const normals = [];
+    const uvs = [];
+
+    const numBlades = 3;
+    const bladeW = 0.18;   // base width
+    const bladeH = 0.36;   // astroturf / plush carpet height: 0.36m
+    const curveOut = 0.16; // soft outward tip curve
+
+    for (let b = 0; b < numBlades; b++) {
+      const angle = (b * Math.PI * 2) / numBlades + (b === 1 ? 0.12 : 0);
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+
+      // Tangent vector along base
+      const tx = -sinA * bladeW * 0.5;
+      const tz = cosA * bladeW * 0.5;
+
+      const v0x = tx, v0y = 0.0, v0z = tz;
+      const v1x = -tx, v1y = 0.0, v1z = -tz;
+
+      const midOut = curveOut * 0.45;
+      const midW = bladeW * 0.42;
+      const mtx = -sinA * midW;
+      const mtz = cosA * midW;
+      const v2x = cosA * midOut + mtx, v2y = bladeH * 0.50, v2z = sinA * midOut + mtz;
+      const v3x = cosA * midOut - mtx, v3y = bladeH * 0.50, v3z = sinA * midOut - mtz;
+
+      const v4x = cosA * curveOut, v4y = bladeH, v4z = sinA * curveOut;
+
+      const bladeVerts = [
+        v0x, v0y, v0z,   v1x, v1y, v1z,   v2x, v2y, v2z,
+        v1x, v1y, v1z,   v3x, v3y, v3z,   v2x, v2y, v2z,
+        v2x, v2y, v2z,   v3x, v3y, v3z,   v4x, v4y, v4z
+      ];
+
+      for (let i = 0; i < bladeVerts.length; i += 3) {
+        positions.push(bladeVerts[i], bladeVerts[i + 1], bladeVerts[i + 2]);
+        normals.push(0, 1, 0);
+        uvs.push(0.5, bladeVerts[i + 1] / bladeH);
+      }
+    }
+
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geom.computeVertexNormals();
+    return geom;
+  }
+
+  // ==========================================================================
+  // DENSE, PLUSH ASTROTURF & MEADOW CARPET (FULL TERRAIN COVERAGE, ZERO GAPS)
+  // Covers Main Island, Volcano Base Foothills, Isthmus, and Outer Sanctuaries!
+  // ==========================================================================
   function buildInstancedMeadowGrass(scene) {
-    const bladeCount = 22000;
-    const bladeGeo = new THREE.ConeGeometry(0.11, 0.85, 4, 1, true);
-    bladeGeo.translate(0, 0.42, 0);
+    const tuftCount = 25000;
+    const tuftGeo = createPlushTuftGeometry();
 
     grassUniforms = { uTime: { value: 0 } };
-    const bladeMat = new THREE.MeshStandardMaterial({
-      color: 0x438a4e,
-      roughness: 0.78,
+    const tuftMat = new THREE.MeshStandardMaterial({
+      color: 0x38a169, // Warm spring plush green
+      roughness: 0.82,
       metalness: 0.02,
       side: THREE.DoubleSide
     });
 
-    bladeMat.onBeforeCompile = (shader) => {
+    tuftMat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = grassUniforms.uTime;
       shader.vertexShader =
         `uniform float uTime;\n` +
@@ -1051,66 +1131,116 @@ window.BlahajWorld = (function () {
           #include <begin_vertex>
           float worldX = instanceMatrix[3][0];
           float worldZ = instanceMatrix[3][2];
-          float sway = sin(uTime * 2.4 + worldX * 0.18 + worldZ * 0.15) * 0.22 * position.y;
+          float sway = sin(uTime * 2.2 + worldX * 0.22 + worldZ * 0.18) * 0.12 * position.y;
           transformed.x += sway;
-          transformed.z += cos(uTime * 1.9 + worldZ * 0.2) * 0.14 * position.y;
+          transformed.z += cos(uTime * 1.8 + worldZ * 0.24) * 0.09 * position.y;
           `
         );
     };
 
-    const instMesh = new THREE.InstancedMesh(bladeGeo, bladeMat, bladeCount);
+    const instMesh = new THREE.InstancedMesh(tuftGeo, tuftMat, tuftCount);
     const dummy = new THREE.Object3D();
     const color = new THREE.Color();
     let placed = 0;
 
-    // 1. Place 15,000 blades on the Main Island
+    // 1. Place 15,000 Astroturf Tufts across the Main Island Meadow & Highlands
     for (let attempt = 0; attempt < 38000 && placed < 15000; attempt++) {
       const gx = (Math.random() - 0.5) * 170;
       const gz = (Math.random() - 0.5) * 155 + 10;
       const gy = getTerrainHeight(gx, gz);
 
-      const dTea = Math.sqrt(gx * gx + Math.pow(gz - 10, 2));
-      const dVol = Math.sqrt(Math.pow(gx - -28, 2) + Math.pow(gz - -148, 2));
-      if (gy > 1.45 && gy < 10.5 && dTea > 12.5 && dVol > 68 && gz > -38 && !isOnIslandRoad(gx, gz)) {
-        dummy.position.set(gx, gy - 0.05, gz);
+      const dTea = Math.hypot(gx, gz - 10);
+      const dVol = Math.hypot(gx - -28, gz - -148);
+      const dRoad = getDistanceToIslandRoad(gx, gz);
+
+      if (gy > 1.45 && gy < 11.5 && dTea > 11.5 && dVol > 68 && gz > -36 && dRoad > 0.4) {
+        dummy.position.set(gx, gy - 0.02, gz);
         dummy.rotation.set(
-          (Math.random() - 0.5) * 0.2,
+          (Math.random() - 0.5) * 0.15,
           Math.random() * Math.PI * 2,
-          (Math.random() - 0.5) * 0.2
+          (Math.random() - 0.5) * 0.15
         );
-        const s = 0.65 + Math.random() * 0.85;
-        dummy.scale.set(s, s * (0.8 + Math.random() * 0.6), s);
+
+        // Near road edges: neater, clipped astroturf border (0.24m). Out in hills/trees: fluffier (0.42m).
+        const s = dRoad < 2.5
+          ? (0.65 + Math.random() * 0.20)
+          : (0.90 + Math.random() * 0.38);
+        dummy.scale.set(s, s, s);
         dummy.updateMatrix();
         instMesh.setMatrixAt(placed, dummy.matrix);
 
-        color.setHSL(0.31 + (Math.random() - 0.5) * 0.06, 0.48, 0.32 + Math.random() * 0.14);
+        // Warm cozy plush gradient
+        color.setHSL(0.32 + (Math.random() - 0.5) * 0.05, 0.56, 0.34 + Math.random() * 0.12);
         instMesh.setColorAt(placed, color);
         placed++;
       }
     }
 
-    // 2. Place 7,000 blades across the 4 Outer Buildable Sanctuary Islands!
+    // 2. Place 5,000 Astroturf Tufts around the Volcano Base Foothills & Isthmus!
+    const targetVolcano = placed + 5000;
+    for (let attempt = 0; attempt < 16000 && placed < targetVolcano && placed < tuftCount; attempt++) {
+      let gx = 0, gz = 0;
+      if (Math.random() < 0.45) {
+        // Green Isthmus Spine
+        gz = -34 - Math.random() * 70;
+        const tIsth = (-gz - 32) / 73;
+        const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+        gx = spineX + (Math.random() - 0.5) * 22.0;
+      } else {
+        // Volcano Base green foothills (dVol in [36, 74])
+        const th = Math.random() * Math.PI * 2;
+        const r = 36 + Math.random() * 38;
+        gx = -28 + Math.cos(th) * r;
+        gz = -148 + Math.sin(th) * r;
+      }
+
+      const gy = getTerrainHeight(gx, gz);
+      const dRoad = getDistanceToIslandRoad(gx, gz);
+
+      // Only on the green foothill meadows (exclude rear sulfur beach at z < -176 or high caldera rock gy > 14)
+      if (gy > 1.45 && gy < 14.0 && gz > -175 && dRoad > 0.5) {
+        dummy.position.set(gx, gy - 0.02, gz);
+        dummy.rotation.set(
+          (Math.random() - 0.5) * 0.15,
+          Math.random() * Math.PI * 2,
+          (Math.random() - 0.5) * 0.15
+        );
+        const s = dRoad < 2.5
+          ? (0.70 + Math.random() * 0.18)
+          : (0.95 + Math.random() * 0.42);
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        instMesh.setMatrixAt(placed, dummy.matrix);
+
+        // Rich mossy green foothills
+        color.setHSL(0.33 + (Math.random() - 0.5) * 0.04, 0.58, 0.32 + Math.random() * 0.10);
+        instMesh.setColorAt(placed, color);
+        placed++;
+      }
+    }
+
+    // 3. Place 5,000 Astroturf Tufts across the 4 Outer Buildable Sanctuary Islands!
     OUTER_ISLANDS.forEach((isl, idx) => {
-      const targetForIsl = placed + 1750;
-      for (let attempt = 0; attempt < 6000 && placed < targetForIsl && placed < bladeCount; attempt++) {
-        const r = Math.sqrt(Math.random()) * (isl.radius * 0.82);
+      const targetForIsl = placed + 1250;
+      for (let attempt = 0; attempt < 5000 && placed < targetForIsl && placed < tuftCount; attempt++) {
+        const r = Math.sqrt(Math.random()) * (isl.radius * 0.85);
         const th = Math.random() * Math.PI * 2;
         const gx = isl.x + Math.cos(th) * r;
         const gz = isl.z + Math.sin(th) * r;
         const gy = getTerrainHeight(gx, gz);
-        if (gy > 1.65) {
-          dummy.position.set(gx, gy - 0.05, gz);
+        if (gy > 1.55) {
+          dummy.position.set(gx, gy - 0.02, gz);
           dummy.rotation.set(
-            (Math.random() - 0.5) * 0.2,
+            (Math.random() - 0.5) * 0.15,
             Math.random() * Math.PI * 2,
-            (Math.random() - 0.5) * 0.2
+            (Math.random() - 0.5) * 0.15
           );
-          const s = 0.65 + Math.random() * 0.85;
-          dummy.scale.set(s, s * (0.8 + Math.random() * 0.6), s);
+          const s = 0.85 + Math.random() * 0.38;
+          dummy.scale.set(s, s, s);
           dummy.updateMatrix();
           instMesh.setMatrixAt(placed, dummy.matrix);
 
-          color.setHSL(0.3 + idx * 0.012 + (Math.random() - 0.5) * 0.05, 0.5, 0.33 + Math.random() * 0.14);
+          color.setHSL(0.31 + idx * 0.012 + (Math.random() - 0.5) * 0.04, 0.54, 0.35 + Math.random() * 0.12);
           instMesh.setColorAt(placed, color);
           placed++;
         }
@@ -2473,24 +2603,15 @@ window.BlahajWorld = (function () {
     const bladderGeo = new THREE.SphereGeometry(0.34, 8, 8);
     const giantBladderGeo = new THREE.SphereGeometry(0.52, 8, 8);
 
-    // Dense clusters distributed across all quadrants of the archipelago
+    // Curated hero kelp groves in 3 iconic marine sanctuaries (48 hero plants total!)
+    // Drastically reduces draw calls & CPU loops from 15,000+ meshes down to ~1,200!
     const kelpClusters = [
-      // 1. Crescent Outer Lagoon Kelp Forest (Offshore past the clean beach sand band)
-      { count: 110, cx: 0, cz: 104, rx: 34, rz: 16, isGiant: false },
-      // 2. East Cape Channel Kelp Grove (Between headland & Hermes Atoll)
-      { count: 75, cx: 106, cz: 24, rx: 22, rz: 18, isGiant: false },
-      // 3. West Artisans' Reef & Solomon Cay Channel
-      { count: 75, cx: -86, cz: 44, rx: 26, rz: 20, isGiant: false },
-      // 4. North Volcano Sea Cove
-      { count: 50, cx: -28, cz: -212, rx: 26, rz: 18, isGiant: false },
-      // 5. Outer Sanctuary Islands Coastlines
-      { count: 40, cx: 165, cz: -18, rx: 24, rz: 20, isGiant: false },
-      { count: 40, cx: -155, cz: 85, rx: 24, rz: 20, isGiant: false },
-      // 6. The Grand Continental Drop-Off Giant Bull Kelp Towers (-10m to -21.5m)
-      // These reach 16m to 22m tall so sharks can swim all the way up and down amongst them!
-      { count: 65, cx: 0, cz: 135, rx: 48, rz: 16, isGiant: true },
-      { count: 55, cx: -105, cz: 125, rx: 32, rz: 16, isGiant: true },
-      { count: 50, cx: 125, cz: -55, rx: 32, rz: 16, isGiant: true }
+      // 1. Crescent Outer Lagoon Sanctuary (Deep clear basin past the beach swim channel)
+      { count: 16, cx: 0, cz: 104, rx: 22, rz: 10, isGiant: false },
+      // 2. Endless Pier & Tea Gazebo Channel
+      { count: 14, cx: 62, cz: 52, rx: 14, rz: 14, isGiant: false },
+      // 3. The Grand Continental Drop-Off Giant Bull Kelp Trench (-10m to -21.5m)
+      { count: 18, cx: 0, cz: 138, rx: 32, rz: 10, isGiant: true }
     ];
 
     kelpClusters.forEach((cl) => {
@@ -2501,10 +2622,14 @@ window.BlahajWorld = (function () {
         // Keep clean beach sand bands completely clear!
         if (isInCleanBeachSandBand(kx, kz)) continue;
 
+        // Clear underwater swim channel around island perimeter (keeps shore clear)
+        const dCoast = getDistanceToNearestCoast(kx, kz);
+        if (dCoast < 14.0) continue;
+
         const groundY = getTerrainHeight(kx, kz);
 
-        // Place kelp underwater between -1.6m and -23.0m
-        if (groundY < -1.5 && groundY > -23.0) {
+        // Place kelp underwater safely below wading channel (-2.2m to -23.0m)
+        if (groundY < -2.2 && groundY > -23.0) {
           const group = new THREE.Group();
           group.position.set(kx, groundY, kz);
 
@@ -2723,9 +2848,9 @@ window.BlahajWorld = (function () {
   // 7,500 SWAYING 3D SEAGRASS & SEA ANEMONE BLADES (MOVING IN OCEAN CURRENT!)
   // ==========================================================================
   function buildUnderwaterSeaFlora(scene) {
-    const bladeCount = 7500;
-    const bladeGeo = new THREE.ConeGeometry(0.18, 1.6, 4, 1, true);
-    bladeGeo.translate(0, 0.8, 0);
+    const bladeCount = 1800; // Curated, focused marine beds (reduces overhead, 1 draw call)
+    const bladeGeo = new THREE.ConeGeometry(0.18, 1.4, 4, 1, true);
+    bladeGeo.translate(0, 0.7, 0);
 
     const seaGrassUniforms = { uTime: { value: 0 } };
     const bladeMat = new THREE.MeshStandardMaterial({
@@ -2757,37 +2882,27 @@ window.BlahajWorld = (function () {
     const color = new THREE.Color();
     let placed = 0;
 
-    for (let attempt = 0; attempt < 38000 && placed < bladeCount; attempt++) {
-      const gx = (Math.random() - 0.5) * 440;
-      const gz = (Math.random() - 0.5) * 440 + 10;
+    for (let attempt = 0; attempt < 18000 && placed < bladeCount; attempt++) {
+      const gx = (Math.random() - 0.5) * 320;
+      const gz = (Math.random() - 0.5) * 320 + 20;
       const gy = getTerrainHeight(gx, gz);
 
-      // Must be underwater in near-shelf & mid-shelf depth range (-1.2m to -8.5m)
-      if (gy >= -1.2 || gy <= -8.5) continue;
+      // Must be underwater safely below shallow wading (-2.2m to -7.5m)
+      if (gy >= -2.2 || gy <= -7.5) continue;
 
       // EXCLUDE ALL CLEAN BEACH SAND BANDS (traditional tidy swimming beaches!)
       if (isInCleanBeachSandBand(gx, gz)) continue;
 
-      // Must be in one of the DESIGNATED OFFSHORE SEAGRASS ZONES:
+      // Clear underwater channel around island coast (keeps swim path open)
+      const dCoast = getDistanceToNearestCoast(gx, gz);
+      if (dCoast < 14.0) continue;
+
+      // Restrict strictly to 2 Curated Marine Sanctuary Beds:
       let inSeagrassZone = false;
-      // 1. Crescent Lagoon Offshore Meadow (past the beach sand band: z in [86, 126])
-      if (gz >= 86 && gz <= 126 && Math.abs(gx) <= 44) inSeagrassZone = true;
-      // 2. West Sound Beds between Main Island & Nimue's Isle
-      else if (gx >= -115 && gx <= -55 && gz >= 10 && gz <= 65) inSeagrassZone = true;
-      // 3. East Channel Meadow offshore of Great Portal Headland
-      else if (gx >= 82 && gx <= 138 && gz >= -20 && gz <= 42) inSeagrassZone = true;
-      // 4. Outer Atoll deep fringes (past 20m from island centers)
-      else {
-        for (let i = 0; i < OUTER_ISLANDS.length; i++) {
-          const isl = OUTER_ISLANDS[i];
-          const d = Math.hypot(gx - isl.x, gz - isl.z);
-          if (d >= 20.0 && d <= 48.0) { inSeagrassZone = true; break; }
-        }
-        if (!inSeagrassZone) {
-          const dCoast = getDistanceToNearestCoast(gx, gz);
-          if (dCoast >= 36.0 && dCoast <= 58.0) inSeagrassZone = true;
-        }
-      }
+      // 1. Crescent Lagoon Offshore Sanctuary Bed
+      if (gz >= 92 && gz <= 118 && Math.abs(gx) <= 30) inSeagrassZone = true;
+      // 2. Endless Pier Channel Bed
+      else if (gx >= 48 && gx <= 76 && gz >= 36 && gz <= 68) inSeagrassZone = true;
 
       if (!inSeagrassZone) continue;
 

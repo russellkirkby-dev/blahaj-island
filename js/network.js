@@ -393,6 +393,11 @@ window.BlahajNetwork = (function () {
 
   function startLocalRelayPolling() {
     setInterval(async () => {
+      // Standby when WebRTC PeerJS direct connection is active and verified!
+      // Eliminates dual-transport race conditions, rubber-banding, and 15 HTTP requests/sec.
+      if (isPeerConnected && handshakeVerified) {
+        return;
+      }
       if (!latestPlayerState) return;
       const batch = outgoingEvents.splice(0, outgoingEvents.length);
 
@@ -487,7 +492,7 @@ window.BlahajNetwork = (function () {
     if (!payload) return;
     if (payload.type === 'move') {
       latestPlayerState = payload;
-    } else if (hasLocalRelay) {
+    } else if (hasLocalRelay && (!isPeerConnected || !handshakeVerified)) {
       outgoingEvents.push(payload);
     }
 
