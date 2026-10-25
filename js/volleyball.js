@@ -345,6 +345,11 @@ window.BlahajVolleyball = (function () {
       ball.mesh.position.copy(ball.pos);
       ball.mesh.scale.set(1, 1, 1);
     }
+
+    if (isMatchActiveState) {
+      broadcastMatchSync(true);
+      broadcastStateSync();
+    }
   }
 
   function setHUDHint(text) {
@@ -401,12 +406,105 @@ window.BlahajVolleyball = (function () {
   }
 
   // ==========================================================================
+  // MULTIPLAYER CO-OP SPECTATOR SYNCHRONIZATION & NON-INTERFERENCE
+  // ==========================================================================
+  let isSpectatingState = false;
+  let spectatorHostId = null;
+  let spectatorHostSharkId = null;
+  let netSyncTimer = 0;
+
+  const spectatorTargetBall = {
+    x: COURT.centerX,
+    y: COURT.sandY + 2.05,
+    z: COURT.playerStart.z + 1.2,
+    vx: 0,
+    vy: 0,
+    vz: 0,
+    squish: 1.0,
+    state: 'player_serve'
+  };
+
+  const spectatorTargetOpp = {
+    x: COURT.oppStart.x,
+    y: COURT.oppStart.y,
+    z: COURT.oppStart.z,
+    rotY: COURT.oppStart.rotY,
+    velY: 0,
+    isGrounded: true,
+    celebrateTimer: 0
+  };
+
+  function broadcastMatchSync(active) {
+    if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'volleyball_match_sync',
+        active: !!active,
+        hostClientId: window.BlahajNetwork.getClientId ? window.BlahajNetwork.getClientId() : null,
+        hostSharkId: (activePlayer && activePlayer.sharkId) || 'solomon',
+        opponentKey: currentOpponentKey,
+        playerScore,
+        opponentScore,
+        rallyCount
+      });
+    }
+  }
+
+  function broadcastStateSync() {
+    if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'volleyball_state_sync',
+        ball: {
+          x: Number(ball.pos.x.toFixed(3)),
+          y: Number(ball.pos.y.toFixed(3)),
+          z: Number(ball.pos.z.toFixed(3)),
+          vx: Number(ball.vel.x.toFixed(2)),
+          vy: Number(ball.vel.y.toFixed(2)),
+          vz: Number(ball.vel.z.toFixed(2)),
+          squish: Number(ball.squish.toFixed(2)),
+          state: ball.state
+        },
+        opponent: {
+          x: Number(opponentActor.pos.x.toFixed(3)),
+          y: Number(opponentActor.pos.y.toFixed(3)),
+          z: Number(opponentActor.pos.z.toFixed(3)),
+          rotY: Number(opponentActor.rotY.toFixed(3)),
+          velY: Number(opponentActor.velY.toFixed(2)),
+          isGrounded: opponentActor.isGrounded,
+          celebrateTimer: opponentActor.celebrateTimer
+        },
+        playerScore,
+        opponentScore,
+        rallyCount,
+        lastHitter: ball.lastHitter
+      });
+    }
+  }
+
+  function broadcastEvent(eventName, pos, color, hitter) {
+    if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'volleyball_event',
+        event: eventName,
+        x: Number((pos ? pos.x : COURT.centerX).toFixed(3)),
+        y: Number((pos ? pos.y : COURT.sandY + 1.0).toFixed(3)),
+        z: Number((pos ? pos.z : COURT.centerZ).toFixed(3)),
+        color: color || 0x38bdf8,
+        hitter,
+        rallyCount,
+        playerScore,
+        opponentScore
+      });
+    }
+  }
+
+  // ==========================================================================
   // MATCH LIFECYCLE
   // ==========================================================================
   function startMatch(opponentKey = 'sandy', sceneRef, playerRef) {
     activeScene = sceneRef || resolveScene();
     activePlayer = playerRef || resolvePlayer();
     isMatchActiveState = true;
+    isSpectatingState = false;
 
     playerScore = 0;
     opponentScore = 0;
@@ -451,10 +549,17 @@ window.BlahajVolleyball = (function () {
     const vHud = document.getElementById('volleyball-hud');
     if (vHud) {
       vHud.classList.remove('hidden');
+      vHud.classList.remove('spectator');
+      const badge = vHud.querySelector('.vball-hud-badge');
+      if (badge) badge.textContent = '🏐 CRESCENT BEACH VOLLEYBALL 🦈';
+      const p1Label = document.getElementById('vball-p1-label');
+      if (p1Label) p1Label.textContent = 'YOU';
       const oppNameEl = document.getElementById('vball-opp-name');
       if (oppNameEl) {
         oppNameEl.textContent = (OPPONENTS[currentOpponentKey] ? OPPONENTS[currentOpponentKey].name : 'SANDY').toUpperCase();
       }
+      const btnLeave = document.getElementById('btn-leave-volleyball');
+      if (btnLeave) btnLeave.textContent = '✕ LEAVE MATCH [Esc]';
       updateScoreboardUI();
     }
 
@@ -464,9 +569,15 @@ window.BlahajVolleyball = (function () {
       btnLeave.dataset.bound = 'true';
       btnLeave.addEventListener('click', (e) => {
         e.stopPropagation();
-        endMatch();
+        if (isSpectatingState) {
+          endSpectating();
+        } else {
+          endMatch();
+        }
       });
     }
+
+    broadcastMatchSync(true);
 
     const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
     if (typeof showToast === 'function') {
@@ -480,6 +591,8 @@ window.BlahajVolleyball = (function () {
   function endMatch() {
     if (!isMatchActiveState) return;
     isMatchActiveState = false;
+
+    broadcastMatchSync(false);
 
     // Clean up opponent mesh
     if (opponentActor.mesh && opponentActor.mesh.parent) {
@@ -520,7 +633,10 @@ window.BlahajVolleyball = (function () {
     // Restore HUD
     document.body.classList.remove('volleyball-active');
     const vHud = document.getElementById('volleyball-hud');
-    if (vHud) vHud.classList.add('hidden');
+    if (vHud) {
+      vHud.classList.add('hidden');
+      vHud.classList.remove('spectator');
+    }
 
     if (typeof showToast === 'function') {
       showToast('CRESCENT BEACH 🏖️', 'Left volleyball court. Sunny continues lounging with his coconut drink!');
@@ -578,6 +694,8 @@ window.BlahajVolleyball = (function () {
           if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
           setHUDHint(`🔥 RALLY STARTED! Ball served to ${oppDef.name.split(' ')[0]}!`);
           if (typeof showToast === 'function') showToast('SERVE BOOP! 🏐', 'Ball launched over the bamboo net!');
+          broadcastEvent('boop', ball.pos, 0xfacc15, 'player');
+          broadcastStateSync();
         }
       }
     } else if (ball.state === 'opponent_serve') {
@@ -598,6 +716,8 @@ window.BlahajVolleyball = (function () {
         spawnBoopParticles(ball.pos, 0x38bdf8, 24);
         if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
         setHUDHint(`🏐 ${oppDef.name.split(' ')[0].toUpperCase()} SERVES! Get under the glowing reticle and header-boop!`);
+        broadcastEvent('boop', ball.pos, 0x38bdf8, 'opponent');
+        broadcastStateSync();
       }
     } else if (ball.state === 'in_play') {
       // Floaty, pleasant cartoony gravity
@@ -657,6 +777,8 @@ window.BlahajVolleyball = (function () {
           if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
           updateScoreboardUI();
           setHUDHint(`🔥 RALLY: ${rallyCount}! High snout boop over the bamboo net!`);
+          broadcastEvent('boop', pSnout, 0xfacc15, 'player');
+          broadcastStateSync();
         }
       }
 
@@ -691,6 +813,8 @@ window.BlahajVolleyball = (function () {
           if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
           updateScoreboardUI();
           setHUDHint(`🔥 RALLY: ${rallyCount}! ${oppDef.name.split(' ')[0]} booped it back! Get under the reticle!`);
+          broadcastEvent('boop', oppSnout, 0x38bdf8, 'opponent');
+          broadcastStateSync();
         }
       }
 
@@ -699,6 +823,13 @@ window.BlahajVolleyball = (function () {
         ball.pos.y = COURT.sandY + BALL_RADIUS;
         handleBallLanding();
       }
+    }
+
+    // Broadcast throttled real-time multiplayer state to partner/spectators
+    netSyncTimer += dt;
+    if (netSyncTimer >= 0.045) {
+      netSyncTimer = 0;
+      broadcastStateSync();
     }
 
     // 3. Update Ball Visuals & Glowing Sand Landing Reticle
@@ -745,6 +876,8 @@ window.BlahajVolleyball = (function () {
   function handleBallLanding() {
     ball.state = 'scored';
     spawnBoopParticles(ball.pos, 0xd4a373, 24);
+    broadcastEvent('point', ball.pos, 0xd4a373, null);
+    broadcastStateSync();
 
     const isNorthSide = ball.pos.z >= COURT.netZ;
     const isSouthSide = ball.pos.z < COURT.netZ;
@@ -874,11 +1007,316 @@ window.BlahajVolleyball = (function () {
   }
 
   // ==========================================================================
+  // SPECTATOR MODE FOR MULTIPLAYER / CO-OP PARTNERS
+  // ==========================================================================
+  function startSpectating(data, sceneRef, playerRef) {
+    if (isMatchActiveState) return;
+
+    activeScene = sceneRef || resolveScene();
+    activePlayer = playerRef || resolvePlayer();
+    isSpectatingState = true;
+
+    spectatorHostId = data && data.hostClientId;
+    spectatorHostSharkId = (data && data.hostSharkId) || 'solomon';
+    currentOpponentKey = (data && data.opponentKey) || 'sandy';
+    playerScore = (data && data.playerScore) || 0;
+    opponentScore = (data && data.opponentScore) || 0;
+    rallyCount = (data && data.rallyCount) || 0;
+
+    spawnOpponent(currentOpponentKey);
+    spawnBall();
+
+    if (data && data.ball) {
+      ball.pos.set(data.ball.x, data.ball.y, data.ball.z);
+      spectatorTargetBall.x = data.ball.x;
+      spectatorTargetBall.y = data.ball.y;
+      spectatorTargetBall.z = data.ball.z;
+    }
+    if (data && data.opponent) {
+      opponentActor.pos.set(data.opponent.x, data.opponent.y, data.opponent.z);
+      opponentActor.rotY = data.opponent.rotY;
+      spectatorTargetOpp.x = data.opponent.x;
+      spectatorTargetOpp.y = data.opponent.y;
+      spectatorTargetOpp.z = data.opponent.z;
+    }
+
+    // Configure Spectator HUD
+    const vHud = document.getElementById('volleyball-hud');
+    if (vHud) {
+      vHud.classList.remove('hidden');
+      vHud.classList.add('spectator');
+      const badge = vHud.querySelector('.vball-hud-badge');
+      if (badge) badge.textContent = '👀 SPECTATING PARTNER · CRESCENT BEACH 🏖️';
+      const p1Label = document.getElementById('vball-p1-label');
+      if (p1Label) p1Label.textContent = 'PARTNER';
+      const oppNameEl = document.getElementById('vball-opp-name');
+      if (oppNameEl) {
+        oppNameEl.textContent = (OPPONENTS[currentOpponentKey] ? OPPONENTS[currentOpponentKey].name : 'SANDY').toUpperCase();
+      }
+      setHUDHint('👀 Cheering from the sidelines! Non-interference zone protects the active court.');
+      const btnLeave = document.getElementById('btn-leave-volleyball');
+      if (btnLeave) btnLeave.textContent = '✕ HIDE HUD [Esc]';
+      updateScoreboardUI();
+    }
+
+    const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+    if (typeof showToast === 'function') {
+      showToast(
+        '👀 SPECTATING PARTNER MATCH',
+        `Your partner started volleyball vs ${oppDef.name}! Watch the rally from the sidelines!`
+      );
+    }
+  }
+
+  function applySpectatorState(data) {
+    if (isMatchActiveState) return;
+    if (!isSpectatingState) {
+      startSpectating(data);
+      return;
+    }
+
+    if (data.ball) {
+      spectatorTargetBall.x = data.ball.x;
+      spectatorTargetBall.y = data.ball.y;
+      spectatorTargetBall.z = data.ball.z;
+      spectatorTargetBall.vx = data.ball.vx;
+      spectatorTargetBall.vy = data.ball.vy;
+      spectatorTargetBall.vz = data.ball.vz;
+      spectatorTargetBall.squish = data.ball.squish;
+      spectatorTargetBall.state = data.ball.state;
+      ball.squish = data.ball.squish;
+      ball.state = data.ball.state;
+    }
+
+    if (data.opponent) {
+      spectatorTargetOpp.x = data.opponent.x;
+      spectatorTargetOpp.y = data.opponent.y;
+      spectatorTargetOpp.z = data.opponent.z;
+      spectatorTargetOpp.rotY = data.opponent.rotY;
+      spectatorTargetOpp.velY = data.opponent.velY;
+      spectatorTargetOpp.isGrounded = data.opponent.isGrounded;
+      spectatorTargetOpp.celebrateTimer = data.opponent.celebrateTimer;
+    }
+
+    if (typeof data.playerScore === 'number') playerScore = data.playerScore;
+    if (typeof data.opponentScore === 'number') opponentScore = data.opponentScore;
+    if (typeof data.rallyCount === 'number') rallyCount = data.rallyCount;
+    updateScoreboardUI();
+  }
+
+  function handleSpectatorEvent(data) {
+    if (isMatchActiveState) return;
+    if (!isSpectatingState) startSpectating(data);
+
+    if (data.event === 'boop') {
+      const p = new THREE.Vector3(data.x, data.y, data.z);
+      spawnBoopParticles(p, data.color || 0x38bdf8, 20);
+      if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
+      if (typeof data.rallyCount === 'number') {
+        rallyCount = data.rallyCount;
+        updateScoreboardUI();
+        const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+        const hitterName = data.hitter === 'player' ? 'Partner' : oppDef.name.split(' ')[0];
+        setHUDHint(`🔥 RALLY: ${rallyCount}! ${hitterName} booped it over the net!`);
+      }
+    } else if (data.event === 'point') {
+      const p = new THREE.Vector3(data.x, data.y, data.z);
+      spawnBoopParticles(p, 0xd4a373, 24);
+      if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) CozyAudio.portalChime();
+      if (typeof data.playerScore === 'number') playerScore = data.playerScore;
+      if (typeof data.opponentScore === 'number') opponentScore = data.opponentScore;
+      updateScoreboardUI();
+    }
+  }
+
+  function updateSpectator(dt) {
+    if (!isSpectatingState) return;
+    dt = Math.min(dt || 0.016, 0.05);
+
+    if (!activeScene) activeScene = resolveScene();
+    updateParticles(dt);
+
+    // Dead-reckon ball target forward by its velocity
+    if (spectatorTargetBall.state === 'in_play') {
+      spectatorTargetBall.vy -= 7.2 * dt;
+      spectatorTargetBall.x += spectatorTargetBall.vx * dt;
+      spectatorTargetBall.y += spectatorTargetBall.vy * dt;
+      spectatorTargetBall.z += spectatorTargetBall.vz * dt;
+    }
+
+    // Smoothly lerp ball to target position
+    const ballLerp = Math.min(1.0, dt * 18);
+    ball.pos.x += (spectatorTargetBall.x - ball.pos.x) * ballLerp;
+    ball.pos.y += (spectatorTargetBall.y - ball.pos.y) * ballLerp;
+    ball.pos.z += (spectatorTargetBall.z - ball.pos.z) * ballLerp;
+
+    if (ball.mesh) {
+      ball.mesh.position.copy(ball.pos);
+      ball.mesh.rotation.x += (spectatorTargetBall.vz || 0) * 1.6 * dt;
+      ball.mesh.rotation.z -= (spectatorTargetBall.vx || 0) * 1.6 * dt;
+      ball.mesh.scale.set(
+        1.0 + (1.0 - ball.squish) * 0.35,
+        ball.squish,
+        1.0 + (1.0 - ball.squish) * 0.35
+      );
+    }
+
+    if (ball.shadowMesh) {
+      ball.shadowMesh.position.set(ball.pos.x, COURT.sandY + 0.02, ball.pos.z);
+      const heightAbove = Math.max(0, ball.pos.y - (COURT.sandY + BALL_RADIUS));
+      const shadowScale = Math.max(0.4, 1.0 - heightAbove * 0.10);
+      ball.shadowMesh.scale.set(shadowScale, shadowScale, shadowScale);
+      ball.shadowMesh.material.opacity = Math.max(0.12, 0.44 - heightAbove * 0.05);
+    }
+
+    if (ball.reticleMesh) {
+      ball.reticleMesh.position.set(ball.pos.x, COURT.sandY + 0.025, ball.pos.z);
+      const pulse = 1.0 + Math.sin(Date.now() * 0.008) * 0.15;
+      ball.reticleMesh.scale.set(pulse, pulse, pulse);
+    }
+
+    // Smoothly lerp opponent actor
+    const oppLerp = Math.min(1.0, dt * 14);
+    opponentActor.pos.x += (spectatorTargetOpp.x - opponentActor.pos.x) * oppLerp;
+    opponentActor.pos.y += (spectatorTargetOpp.y - opponentActor.pos.y) * oppLerp;
+    opponentActor.pos.z += (spectatorTargetOpp.z - opponentActor.pos.z) * oppLerp;
+    opponentActor.rotY = spectatorTargetOpp.rotY;
+
+    if (opponentActor.mesh) {
+      opponentActor.mesh.position.copy(opponentActor.pos);
+      opponentActor.mesh.rotation.y = opponentActor.rotY;
+      const distMoving = Math.hypot(
+        spectatorTargetOpp.x - opponentActor.pos.x,
+        spectatorTargetOpp.z - opponentActor.pos.z
+      );
+      if (window.BlahajModels && window.BlahajModels.animateShark) {
+        window.BlahajModels.animateShark(opponentActor.mesh, dt, distMoving > 0.05, Date.now() * 0.001);
+      }
+    }
+  }
+
+  function endSpectating() {
+    if (!isSpectatingState) return;
+    isSpectatingState = false;
+
+    // Clean up opponent mesh
+    if (opponentActor.mesh && opponentActor.mesh.parent) {
+      opponentActor.mesh.parent.remove(opponentActor.mesh);
+      opponentActor.mesh = null;
+    }
+
+    // Clean up ball, shadow & reticle
+    if (ball.mesh && ball.mesh.parent) {
+      ball.mesh.parent.remove(ball.mesh);
+      ball.mesh = null;
+    }
+    if (ball.shadowMesh && ball.shadowMesh.parent) {
+      ball.shadowMesh.parent.remove(ball.shadowMesh);
+      ball.shadowMesh = null;
+    }
+    if (ball.reticleMesh && ball.reticleMesh.parent) {
+      ball.reticleMesh.parent.remove(ball.reticleMesh);
+      ball.reticleMesh = null;
+    }
+
+    // Clean up particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+    }
+    particles.length = 0;
+
+    // Restore HUD
+    const vHud = document.getElementById('volleyball-hud');
+    if (vHud) {
+      vHud.classList.add('hidden');
+      vHud.classList.remove('spectator');
+      const badge = vHud.querySelector('.vball-hud-badge');
+      if (badge) badge.textContent = '🏐 CRESCENT BEACH VOLLEYBALL 🦈';
+      const p1Label = document.getElementById('vball-p1-label');
+      if (p1Label) p1Label.textContent = 'YOU';
+      const btnLeave = document.getElementById('btn-leave-volleyball');
+      if (btnLeave) btnLeave.textContent = '✕ LEAVE MATCH [Esc]';
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('SPECTATING CONCLUDED 🏖️', 'Volleyball match ended at Crescent Beach.');
+    }
+  }
+
+  // Non-Interference Spectator Boundary Checking
+  function isWithinActiveCourt(x, z) {
+    return x >= (COURT.minX - 0.2) && x <= (COURT.maxX + 0.2) &&
+           z >= (COURT.minZ - 0.2) && z <= (COURT.maxZ + 0.2);
+  }
+
+  function constrainSpectatorPosition(currentPos, nextX, nextZ) {
+    if (!isWithinActiveCourt(nextX, nextZ)) {
+      return { x: nextX, z: nextZ, blocked: false };
+    }
+    // Repel towards closest outer perimeter edge
+    const dWest = Math.abs(nextX - (COURT.minX - 0.35));
+    const dEast = Math.abs((COURT.maxX + 0.35) - nextX);
+    const dSouth = Math.abs(nextZ - (COURT.minZ - 0.35));
+    const dNorth = Math.abs((COURT.maxZ + 0.35) - nextZ);
+    const minD = Math.min(dWest, dEast, dSouth, dNorth);
+
+    let clampedX = nextX;
+    let clampedZ = nextZ;
+    if (minD === dWest) clampedX = COURT.minX - 0.4;
+    else if (minD === dEast) clampedX = COURT.maxX + 0.4;
+    else if (minD === dSouth) clampedZ = COURT.minZ - 0.4;
+    else clampedZ = COURT.maxZ + 0.4;
+
+    return { x: clampedX, z: clampedZ, blocked: true };
+  }
+
+  // ==========================================================================
   // OPPONENT SELECTION MODAL WITH SUNNY THE BEACH CARROT
   // ==========================================================================
   function openOpponentSelectModal(openDialogueModalFn, closeDialogueModalFn, sceneRef, playerRef) {
     activeScene = sceneRef || resolveScene();
     activePlayer = playerRef || resolvePlayer();
+
+    // If partner is currently in a match, Sunny invites player to relax and spectate from the lounge!
+    if (isSpectatingState) {
+      const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+      if (typeof openDialogueModalFn === 'function') {
+        openDialogueModalFn({
+          speaker: 'Sunny the Beach Carrot',
+          role: 'CRESCENT BEACH REFEREE & CONNOISSEUR',
+          portrait: 'assets/gallery/Volcano-temple.png',
+          text: `“Shh! Don’t distract them! Your partner is currently locked in an intense volleyball rally against ${oppDef.name} right now on Crescent Beach! Grab a chilled coconut drink, sit in the deckchairs, and cheer them on from the spectator terrace!”`,
+          actions: [
+            {
+              label: '👀 View Match from Spectator Lounge [Cam]',
+              className: 'btn-primary',
+              onClick: () => {
+                if (closeDialogueModalFn) closeDialogueModalFn();
+                if (window.camState) {
+                  window.camState.yaw = 1.95;
+                  window.camState.pitch = 0.28;
+                  window.camState.distance = 6.2;
+                }
+                if (typeof showToast === 'function') {
+                  showToast('👀 SPECTATOR VIEW', 'Enjoying the match from the Crescent Beach lounge!');
+                }
+              }
+            },
+            {
+              label: '🏖️ Just Lounging by the Waves (Close)',
+              className: 'btn-secondary',
+              onClick: () => {
+                if (closeDialogueModalFn) closeDialogueModalFn();
+              }
+            }
+          ]
+        });
+        return;
+      }
+    }
 
     if (typeof openDialogueModalFn !== 'function') {
       startMatch('sandy', activeScene, activePlayer);
@@ -955,6 +1393,21 @@ window.BlahajVolleyball = (function () {
       const nextZ = THREE.MathUtils.clamp(p.z + dir.z * dist, COURT.minZ, COURT.netZ - 0.45);
       return new THREE.Vector3(nextX, COURT.sandY, nextZ);
     },
-    getInteractables: () => []
+    getInteractables: () => [],
+
+    // Multiplayer Spectator & Non-Interference API
+    startSpectating,
+    applySpectatorState,
+    handleSpectatorEvent,
+    updateSpectator,
+    endSpectating,
+    isSpectating: () => isSpectatingState,
+    broadcastMatchSync,
+    constrainSpectatorPosition,
+    isWithinActiveCourt,
+    toggleSpectatorHUD: () => {
+      const vHud = document.getElementById('volleyball-hud');
+      if (vHud) vHud.classList.toggle('hidden');
+    }
   };
 })();

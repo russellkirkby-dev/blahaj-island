@@ -3622,6 +3622,21 @@ body.volleyball-active #interaction-prompt {
   display: none !important;
 }
 
+#volleyball-hud.spectator {
+  border-color: #a855f7;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(168, 85, 247, 0.4);
+}
+
+#volleyball-hud.spectator .vball-hud-badge {
+  color: #c084fc;
+}
+
+#volleyball-hud.spectator .vball-btn-leave {
+  background: linear-gradient(135deg, #64748b, #475569);
+  border-color: #94a3b8;
+  box-shadow: 0 2px 10px rgba(100, 116, 139, 0.4);
+}
+
 .vball-hud-topline {
   display: flex;
   align-items: center;

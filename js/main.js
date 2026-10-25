@@ -2575,9 +2575,15 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
-        if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
-          window.BlahajVolleyball.endMatch();
-          return;
+        if (window.BlahajVolleyball) {
+          if (window.BlahajVolleyball.isMatchActive()) {
+            window.BlahajVolleyball.endMatch();
+            return;
+          }
+          if (window.BlahajVolleyball.isSpectating()) {
+            window.BlahajVolleyball.toggleSpectatorHUD();
+            return;
+          }
         }
         if (currentZone === 'volleyball') {
           exitVolleyballCourt();
@@ -6746,6 +6752,11 @@
             slots: communityTrunk.getSlots()
           });
         }
+
+        // Sync active Crescent Beach volleyball match on connect
+        if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
+          window.BlahajVolleyball.broadcastMatchSync(true);
+        }
       },
       onData(data) {
         if (data.type === 'enemy_boop') {
@@ -6891,6 +6902,22 @@
               addChatLog('🪡✨ Your partner stitched a Great Seam Rift!', 'coop');
             }
           });
+        } else if (data.type === 'volleyball_match_sync') {
+          if (window.BlahajVolleyball) {
+            if (data.active) {
+              window.BlahajVolleyball.startSpectating(data, scene, player);
+            } else {
+              window.BlahajVolleyball.endSpectating();
+            }
+          }
+        } else if (data.type === 'volleyball_state_sync') {
+          if (window.BlahajVolleyball) {
+            window.BlahajVolleyball.applySpectatorState(data);
+          }
+        } else if (data.type === 'volleyball_event') {
+          if (window.BlahajVolleyball) {
+            window.BlahajVolleyball.handleSpectatorEvent(data);
+          }
         } else if (data.type === 'emote') {
           if (coopPartner.mesh) {
             if (data.kind === 'beep') {
@@ -7203,8 +7230,12 @@
       window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
-      if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
-        window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+      if (window.BlahajVolleyball) {
+        if (window.BlahajVolleyball.isMatchActive()) {
+          window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+        } else if (window.BlahajVolleyball.isSpectating()) {
+          window.BlahajVolleyball.updateSpectator(dt);
+        }
       }
       if (worldPickups) {
         worldPickups.update(dt, elapsed);
@@ -7655,6 +7686,19 @@
 
           // Expanded bounds covering Main Island, Volcano Peninsula, 4 Outer Islands, and the Deep Ocean Shelf!
           if (Math.abs(nx) < 380 && Math.abs(nz) < 380) {
+            // Non-interference spectator boundary for Crescent Beach Volleyball
+            if (window.BlahajVolleyball && window.BlahajVolleyball.isSpectating()) {
+              const spectCheck = window.BlahajVolleyball.constrainSpectatorPosition(player.pos, nx, nz);
+              if (spectCheck.blocked) {
+                nx = spectCheck.x;
+                nz = spectCheck.z;
+                if (!player._lastSpectatorBoundaryToast || Date.now() - player._lastSpectatorBoundaryToast > 4000) {
+                  player._lastSpectatorBoundaryToast = Date.now();
+                  showToast('👀 SPECTATOR SIDELINE', 'Cheering on your partner from the sidelines! Non-interference zone protects the court.');
+                }
+              }
+            }
+
             const nextGroundY = worldApi.getTerrainHeight(nx, nz);
             if (player.inBoat) {
               if (nextGroundY < 0.85) {
