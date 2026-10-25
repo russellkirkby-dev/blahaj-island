@@ -1839,6 +1839,20 @@
   let lastNearestInteractableKey = null;
 
   function getActiveScene() {
+    if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+      document.getElementById('hud-zone-name').textContent = 'Crescent Beach · Volleyball Court 🏐';
+      const items = window.BlahajVolleyball.getInteractables(player.pos);
+      if (items.length > 0) nearestInteractable = items[0];
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
+      }
+      return;
+    }
+
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       return window.BlahajVolcano.getScene();
     }
@@ -1847,6 +1861,9 @@
     }
     if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       return window.BlahajSphericalFoods.getScene();
+    }
+    if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+      return window.BlahajVolleyball.getScene();
     }
     return scene;
   }
@@ -3779,6 +3796,113 @@
     }, 90);
   }
 
+  // ==========================================================================
+  // CRESCENT BEACH SHARK VOLLEYBALL INSTANCE
+  // ==========================================================================
+  function enterVolleyballCourt() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+    if (player.inCart) dismountLaundryCart();
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'Crescent Beach · Shark Volleyball Court 🏐';
+    subEl.textContent = 'Setting up the bamboo net & warming up fins... Ready to rally!';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 34;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'volleyball';
+          if (window.BlahajVolleyball) {
+            window.BlahajVolleyball.build();
+            window.BlahajVolleyball.setActive(true);
+            const start = window.BlahajVolleyball.getStart();
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajVolleyball.getScene().add(player.mesh);
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+          camState.yaw = 0;
+          camState.pitch = 0.18;
+          camState.distance = 6.2;
+          camState.heightOffset = 1.8;
+
+          const vHud = document.getElementById('volleyball-hud');
+          if (vHud) vHud.classList.remove('hidden');
+
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('SHARK BEACH VOLLEYBALL 🏐', 'Nose-boop the ball over the net! [WASD] Move · [Space] Jump · [F] Snout Spike!');
+        }, 120);
+      }
+    }, 70);
+  }
+
+  function exitVolleyballCourt() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    titleEl.textContent = 'Returning to Crescent Beach';
+    subEl.textContent = 'Packing up the volleyball net... Soft ocean breeze greets you! 🏖️';
+    barEl.style.width = '0%';
+    overlay.classList.remove('hidden');
+
+    if (window.BlahajVolleyball) window.BlahajVolleyball.setActive(false);
+
+    const vHud = document.getElementById('volleyball-hud');
+    if (vHud) vHud.classList.add('hidden');
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 34;
+      barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+          const groundY = worldApi.getGroundAndStructureHeight(26, 49) || 1.8;
+          player.pos.set(26, groundY, 49);
+          player.rotY = Math.PI;
+          if (player.mesh) {
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          showToast('CRESCENT BEACH 🏖️', 'Back on the warm golden sand!');
+        }, 120);
+      }
+    }, 70);
+  }
+
   function enterSphericalFoods() {
     if (isTransitioningZone) return;
     isTransitioningZone = true;
@@ -4246,6 +4370,14 @@
     }
     if (item.kind === 'spherical_exit') {
       exitSphericalFoods();
+      return;
+    }
+    if (item.kind === 'enter_volleyball') {
+      enterVolleyballCourt();
+      return;
+    }
+    if (item.kind === 'exit_volleyball') {
+      exitVolleyballCourt();
       return;
     }
     if (item.kind === 'helen_birthday_cake') {
@@ -7027,7 +7159,23 @@
       floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
-    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+    } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDir = { x: dirX / len, z: dirZ / len };
+          const resolved = window.BlahajVolleyball.resolveMove(player.pos, normDir, player.speed * dt);
+          player.pos.x = resolved.x;
+          player.pos.z = resolved.z;
+          player.rotY = Math.atan2(dirX, dirZ);
+        }
+        player.pos.y = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
+      } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       floorY = window.BlahajSphericalFoods.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
       floorY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
@@ -8591,6 +8739,8 @@
     enterLaundromat,
     exitLaundromat,
     enterSphericalFoods,
+    enterVolleyballCourt,
+    exitVolleyballCourt,
     exitSphericalFoods,
     triggerHelensBirthdayCake,
     openSphericalFoodsMenuModal,

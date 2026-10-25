@@ -2410,7 +2410,47 @@ window.BlahajWorld = (function () {
     coconut.position.set(0.9, 0.2, 0.8);
     sunnyLounge.add(coconut);
 
-    scene.add(sunnyLounge);
+        scene.add(sunnyLounge);
+
+    // Overworld Crescent Beach Volleyball Court setup
+    const courtGroup = new THREE.Group();
+    const courtX = 26;
+    const courtZ = 51;
+    const courtY = getTerrainHeight(courtX, courtZ);
+    courtGroup.position.set(courtX, courtY, courtZ);
+    courtGroup.rotation.y = 0.2;
+
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.7 });
+    // Two bamboo posts with tied rolled net
+    [-2.2, 2.2].forEach((px) => {
+      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), woodMat);
+      p.position.set(px, 1.3, 0);
+      courtGroup.add(p);
+    });
+
+    // Rolled net tied with ribbons
+    const rolledNet = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 8), new THREE.MeshStandardMaterial({ color: 0xf1f5f9 }));
+    rolledNet.rotation.z = Math.PI / 2;
+    rolledNet.position.set(0, 1.8, 0);
+    courtGroup.add(rolledNet);
+
+    // Resting beach ball
+    if (window.BlahajModels && window.BlahajModels.createBeachBall) {
+      const bBall = window.BlahajModels.createBeachBall(0.45);
+      bBall.position.set(0.8, 0.45, 0.6);
+      courtGroup.add(bBall);
+    }
+
+    // Rustic signpost
+    const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.8, 8), woodMat);
+    signPost.position.set(-2.8, 0.9, 0.4);
+    courtGroup.add(signPost);
+
+    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.08), new THREE.MeshStandardMaterial({ color: 0x5c3a21 }));
+    signBoard.position.set(-2.8, 1.6, 0.4);
+    courtGroup.add(signBoard);
+
+    scene.add(courtGroup);
   }
 
   // ==========================================================================
