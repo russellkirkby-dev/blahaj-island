@@ -241,6 +241,10 @@ window.BlahajWorld = (function () {
     const dSunny = Math.hypot(x - 20, z - 62);
     if (dSunny < 24.0) return true;
 
+    // 3b. Crescent Beach Shark Volleyball Flat Sand Terrace (x: 28, z: 52)
+    const dVolleySand = Math.hypot(x - 28, z - 52);
+    if (dVolleySand < 18.0) return true;
+
     // 4. In south crescent sector past z > 85, transition to offshore meadow & barrier reef
     if (Math.abs(x) < 45 && z > 85) return false;
 
@@ -353,6 +357,13 @@ window.BlahajWorld = (function () {
     if (dHarbour < 28) {
       const coveFactor = 1 - smoothstep(8, 28, dHarbour);
       hMain -= coveFactor * 4.2;
+    }
+
+    // Wide, Spacious Crescent Beach Shark Volleyball Flat Sand Terrace around (28, 52)
+    const dVolleyBeach = Math.hypot(x - 28, z - 52);
+    if (dVolleyBeach < 15.0) {
+      const fVolley = 1 - smoothstep(9.0, 15.0, dVolleyBeach);
+      hMain = hMain * (1 - fVolley) + 1.65 * fVolley;
     }
 
     // Heartland Plaza around Sacred Tea House (0, 10)
@@ -899,6 +910,20 @@ window.BlahajWorld = (function () {
         } else {
           const shade = 0.14 + (vy / 70) * 0.08;
           c.setRGB(shade + 0.03, shade, shade + 0.04);
+        }
+      } else if (isInCleanBeachSandBand(vx, vz) && vy < 3.2) {
+        if (vy >= 0.0) {
+          // Warm wide shoreline & clean dry golden beach sand
+          c.setHex(0xf1dfba);
+        } else {
+          // Clean, sunlit Sand Band: smooth golden-ivory ripple sand with turquoise caustics
+          const sandT = Math.max(0, Math.min(1, (vy - (-3.4)) / 3.4));
+          const rippleSparkle = Math.sin(vx * 0.45 + vz * 0.4) * 0.025;
+          c.setRGB(
+            0.65 + 0.26 * sandT + rippleSparkle,
+            0.75 + 0.12 * sandT + rippleSparkle,
+            0.64 + 0.05 * sandT
+          );
         }
       } else if (vy < 0.95) {
         const inSandBand = isInCleanBeachSandBand(vx, vz);
@@ -2412,45 +2437,250 @@ window.BlahajWorld = (function () {
 
         scene.add(sunnyLounge);
 
-    // Overworld Crescent Beach Volleyball Court setup
-    const courtGroup = new THREE.Group();
-    const courtX = 26;
-    const courtZ = 51;
-    const courtY = getTerrainHeight(courtX, courtZ);
-    courtGroup.position.set(courtX, courtY, courtZ);
-    courtGroup.rotation.y = 0.2;
+    // Overworld Crescent Beach Full Beach Volleyball Court & Spectator Lounge
+    (() => {
+      const courtGroup = new THREE.Group();
+      const courtX = 28;
+      const courtZ = 52;
+      const courtY = getTerrainHeight(courtX, courtZ);
+      courtGroup.position.set(courtX, courtY, courtZ);
 
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.7 });
-    // Two bamboo posts with tied rolled net
-    [-2.2, 2.2].forEach((px) => {
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.6, 8), woodMat);
-      p.position.set(px, 1.3, 0);
-      courtGroup.add(p);
-    });
+      const courtBambooMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.55 });
+      const courtWoodMat = new THREE.MeshStandardMaterial({ color: 0xdeb887, roughness: 0.7 });
+      const courtDarkWoodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.85 });
+      const courtBrassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.25, metalness: 0.85 });
+      const courtTapeLineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
+      const courtNetMeshMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.82,
+        side: THREE.DoubleSide
+      });
 
-    // Rolled net tied with ribbons
-    const rolledNet = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.2, 8), new THREE.MeshStandardMaterial({ color: 0xf1f5f9 }));
-    rolledNet.rotation.z = Math.PI / 2;
-    rolledNet.position.set(0, 1.8, 0);
-    courtGroup.add(rolledNet);
+      // 1. Full Court Boundary Tape Lines in the Sand (6.4m wide x 11.0m long)
+      const halfW = 3.2;
+      const halfL = 5.5;
+      const makeTape = (w, h, x, z) => {
+        const tape = new THREE.Mesh(new THREE.PlaneGeometry(w, h), courtTapeLineMat);
+        tape.rotation.x = -Math.PI / 2;
+        tape.position.set(x, 0.02, z);
+        courtGroup.add(tape);
+      };
+      makeTape(halfW * 2, 0.12, 0, -halfL); // South Baseline
+      makeTape(halfW * 2, 0.12, 0, halfL);  // North Baseline
+      makeTape(0.12, halfL * 2, -halfW, 0); // West Sideline
+      makeTape(0.12, halfL * 2, halfW, 0);  // East Sideline
+      makeTape(halfW * 2, 0.08, 0, 0);      // Center Line under net
 
-    // Resting beach ball
-    if (window.BlahajModels && window.BlahajModels.createBeachBall) {
-      const bBall = window.BlahajModels.createBeachBall(0.45);
-      bBall.position.set(0.8, 0.45, 0.6);
-      courtGroup.add(bBall);
-    }
+      // 2. Corner flags on flexible bamboo pegs
+      const flagCols = [0xef4444, 0x06b6d4, 0xf59e0b, 0x10b981];
+      [
+        [-halfW, -halfL],
+        [halfW, -halfL],
+        [-halfW, halfL],
+        [halfW, halfL]
+      ].forEach(([cx, cz], i) => {
+        const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.9, 6), courtBambooMat);
+        peg.position.set(cx, 0.45, cz);
+        courtGroup.add(peg);
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.35, 4), new THREE.MeshBasicMaterial({ color: flagCols[i] }));
+        fl.position.set(cx, 0.85, cz);
+        fl.rotation.z = Math.PI / 2;
+        courtGroup.add(fl);
+      });
 
-    // Rustic signpost
-    const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 1.8, 8), woodMat);
-    signPost.position.set(-2.8, 0.9, 0.4);
-    courtGroup.add(signPost);
+      // 3. Tall Sturdy Bamboo Posts & Guy-Wire Rigging
+      [-3.6, 3.6].forEach((px) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 3.2, 10), courtBambooMat);
+        post.position.set(px, 1.6, 0);
+        courtGroup.add(post);
 
-    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.08), new THREE.MeshStandardMaterial({ color: 0x5c3a21 }));
-    signBoard.position.set(-2.8, 1.6, 0.4);
-    courtGroup.add(signBoard);
+        const brassCap = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.12, 10), courtBrassMat);
+        brassCap.position.set(px, 3.22, 0);
+        courtGroup.add(brassCap);
 
-    scene.add(courtGroup);
+        // Diagonal anchor rigging cables
+        [-0.6, 0.6].forEach((dz) => {
+          const wireMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
+          const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.8, 4), wireMat);
+          wire.position.set(px * 1.12, 1.3, dz * 0.9);
+          wire.rotation.x = dz > 0 ? 0.42 : -0.42;
+          wire.rotation.z = px > 0 ? -0.28 : 0.28;
+          courtGroup.add(wire);
+        });
+      });
+
+      // 4. Prominent Upright Volleyball Net spanning across the center
+      const netMesh = new THREE.Mesh(new THREE.PlaneGeometry(7.0, 1.1, 14, 4), courtNetMeshMat);
+      netMesh.position.set(0, 1.65, 0);
+      courtGroup.add(netMesh);
+
+      // Top bright yellow boundary tape band
+      const topTape = new THREE.Mesh(
+        new THREE.BoxGeometry(7.0, 0.09, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 })
+      );
+      topTape.position.set(0, 2.2, 0);
+      courtGroup.add(topTape);
+
+      // Bottom crisp white boundary tape band
+      const bottomTape = new THREE.Mesh(
+        new THREE.BoxGeometry(7.0, 0.06, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 })
+      );
+      bottomTape.position.set(0, 1.1, 0);
+      courtGroup.add(bottomTape);
+
+      // Red/White striped boundary antenna rods
+      [-halfW, halfW].forEach((ax) => {
+        const ant = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.02, 0.02, 1.6, 6),
+          new THREE.MeshStandardMaterial({ color: 0xef4444 })
+        );
+        ant.position.set(ax, 2.1, 0);
+        courtGroup.add(ant);
+      });
+
+      // Fluttering ribbons on post tops
+      [
+        [-3.6, 0xef4444],
+        [3.6, 0x06b6d4]
+      ].forEach(([rx, col]) => {
+        const ribbon = new THREE.Mesh(
+          new THREE.ConeGeometry(0.12, 0.4, 4),
+          new THREE.MeshStandardMaterial({ color: col, side: THREE.DoubleSide })
+        );
+        ribbon.position.set(rx, 3.35, 0.1);
+        ribbon.rotation.x = Math.PI / 2;
+        courtGroup.add(ribbon);
+      });
+
+      // 5. Referee Bamboo High Chair on West Sideline (x = -4.3, z = 0)
+      const refChair = new THREE.Group();
+      refChair.position.set(-4.3, 0, 0);
+      [
+        [-0.4, -0.4],
+        [0.4, -0.4],
+        [-0.4, 0.4],
+        [0.4, 0.4]
+      ].forEach(([cx, cz]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.3, 6), courtBambooMat);
+        leg.position.set(cx, 1.15, cz);
+        refChair.add(leg);
+      });
+      // Platform seat
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.9), courtWoodMat);
+      seat.position.set(0, 2.15, 0);
+      refChair.add(seat);
+      // Backrest
+      const bRest = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.55, 0.06), courtWoodMat);
+      bRest.position.set(0, 2.5, -0.42);
+      refChair.add(bRest);
+      // Draped colorful towel
+      const towel = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.03, 0.8),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8 })
+      );
+      towel.position.set(0, 2.18, 0.05);
+      refChair.add(towel);
+      courtGroup.add(refChair);
+
+      // 6. Sideline Deckchairs & Parasol Spectator Lounge (East Sideline: x = 4.6, z = -1.6)
+      const loungeGroup = new THREE.Group();
+      loungeGroup.position.set(4.6, 0, -1.6);
+      loungeGroup.rotation.y = -0.4;
+      [-0.7, 0.7].forEach((dx, idx) => {
+        const dSeat = new THREE.Mesh(
+          new THREE.BoxGeometry(0.7, 0.04, 1.2),
+          new THREE.MeshStandardMaterial({ color: idx === 0 ? 0x0284c7 : 0xf43f5e, roughness: 0.8 })
+        );
+        dSeat.position.set(dx, 0.35, 0);
+        dSeat.rotation.x = 0.3;
+        loungeGroup.add(dSeat);
+      });
+      // Tropical sideline parasol
+      const pPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.7, 8), courtBambooMat);
+      pPole.position.set(0, 1.35, -1.0);
+      loungeGroup.add(pPole);
+      const pCanopy = new THREE.Mesh(
+        new THREE.ConeGeometry(1.4, 0.6, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+      );
+      pCanopy.position.set(0, 2.7, -1.0);
+      loungeGroup.add(pCanopy);
+
+      // Chilled cooler box with coconut drink
+      const cooler = new THREE.Mesh(
+        new THREE.BoxGeometry(0.65, 0.42, 0.42),
+        new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.4 })
+      );
+      cooler.position.set(0, 0.21, 0.9);
+      loungeGroup.add(cooler);
+      courtGroup.add(loungeGroup);
+
+      // 7. Multi-Colored Beach Ball resting on the golden sand
+      if (window.BlahajModels && window.BlahajModels.createBeachBall) {
+        const bBall = window.BlahajModels.createBeachBall(0.48);
+        bBall.position.set(1.4, 0.48, -3.8);
+        courtGroup.add(bBall);
+      }
+
+      // 8. Large, Clear Hand-Carved Driftwood Signpost at South Court Entrance
+      const signGroup = new THREE.Group();
+      signGroup.position.set(0, 0, -6.6);
+      [-1.2, 1.2].forEach((sx) => {
+        const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.2, 8), courtDarkWoodMat);
+        sp.position.set(sx, 1.1, 0);
+        signGroup.add(sp);
+      });
+
+      const board = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.85, 0.12), courtDarkWoodMat);
+      board.position.set(0, 1.7, 0);
+      signGroup.add(board);
+
+      // Carved canvas sign texture
+      const signCanvas = document.createElement('canvas');
+      signCanvas.width = 512;
+      signCanvas.height = 160;
+      const sCtx = signCanvas.getContext('2d');
+      if (sCtx) {
+        sCtx.fillStyle = '#fef3c7';
+        sCtx.fillRect(0, 0, 512, 160);
+        sCtx.strokeStyle = '#78350f';
+        sCtx.lineWidth = 8;
+        sCtx.strokeRect(6, 6, 500, 148);
+        sCtx.fillStyle = '#78350f';
+        sCtx.font = 'bold 26px sans-serif';
+        sCtx.textAlign = 'center';
+        sCtx.fillText('🏐 CRESCENT BEACH VOLLEYBALL 🦈', 256, 48);
+        sCtx.font = 'bold 22px sans-serif';
+        sCtx.fillStyle = '#0284c7';
+        sCtx.fillText('PRESS [E] TO PLAY MATCH!', 256, 88);
+        sCtx.font = '16px sans-serif';
+        sCtx.fillStyle = '#475569';
+        sCtx.fillText('Header-boop rallies with Sandy & Sunny!', 256, 126);
+
+        const signTex = new THREE.CanvasTexture(signCanvas);
+        const signFront = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.7, 0.78),
+          new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.6 })
+        );
+        signFront.position.set(0, 1.7, -0.07);
+        signFront.rotation.y = Math.PI;
+        signGroup.add(signFront);
+      }
+      courtGroup.add(signGroup);
+
+      // 9. Interactive Glowing Court Entrance Ring on the Sand
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65 });
+      const courtRing = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.0, 24), ringMat);
+      courtRing.rotation.x = -Math.PI / 2;
+      courtRing.position.set(0, 0.04, -5.5);
+      courtGroup.add(courtRing);
+
+      scene.add(courtGroup);
+    })();
   }
 
   // ==========================================================================

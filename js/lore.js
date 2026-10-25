@@ -170,7 +170,9 @@ window.BLAHAJ_LORE = {
       lines: [
         '“Ahhh, now THIS is what I call proper vacation lounging! Soft golden sand, warm ocean breeze, and a chilled coconut drink at Crescent Beach.”',
         '“My daredevil carrot cousins are still up on the high Volcano Balcony if you fancy knocking them flying down the slope—don’t worry, they bounce back up after a quick 18 seconds!”',
-        '“If you’re feeling extra brave, take a sailboat north to the Rear Volcano Wharf and enter the fiery dungeon depths!”'
+        '“If you’re feeling extra brave, take a sailboat north to the Rear Volcano Wharf and enter the fiery dungeon depths!”',
+        '“Look right over here—our full Crescent Beach Shark Volleyball Court is set up on the sand! Sandy is ready on the far court, and I’m ready to referee from the high chair!”',
+        '“Step onto the court or hit ‘Play Beach Volleyball!’ right here with me whenever you want a rally! Sharks use their noses to header-boop the ball back and forth across the net!”'
       ]
     }
   ],
@@ -212,6 +214,15 @@ window.BLAHAJ_LORE = {
       radius: 12,
       prompt: 'Make an Offering to the Volcano [E] 🌋🍵',
       type: 'sealed_gate'
+    },
+    {
+      id: 'crescent_beach_volleyball',
+      name: 'Crescent Beach Volleyball Court',
+      zoneTitle: 'Crescent Beach · Shark Volleyball Court',
+      pos: { x: 28, z: 52 },
+      radius: 9.5,
+      prompt: 'Play Shark Beach Volleyball [E] 🏐🦈',
+      type: 'volleyball'
     },
     {
       id: 'rear_volcano_wharf',

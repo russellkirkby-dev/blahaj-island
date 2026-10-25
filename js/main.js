@@ -2589,6 +2589,10 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        if (currentZone === 'volleyball') {
+          exitVolleyballCourt();
+          return;
+        }
         const setModal = document.getElementById('settings-modal');
         if (setModal && !setModal.classList.contains('hidden')) {
           closeSettingsModal();
@@ -4465,7 +4469,16 @@
         }
       ];
 
-      if (act.id === 'solomon') {
+      if (act.id === 'carrot_leader') {
+        actorActions.unshift({
+          label: 'Play Beach Volleyball! 🏐🦈',
+          className: 'btn-primary',
+          onClick: () => {
+            closeDialogueModal();
+            enterVolleyballCourt();
+          }
+        });
+      } else if (act.id === 'solomon') {
         actorActions.unshift({
           label: 'Synthesize Star Powder 🎆 (1x Guano + 1x Sulfur)',
           className: 'btn-accent',
@@ -4920,6 +4933,11 @@
           }
         ]
       });
+      return;
+    }
+
+    if (lm.type === 'volleyball') {
+      enterVolleyballCourt();
       return;
     }
 
@@ -8174,6 +8192,23 @@
     nearestInteractable = null;
     let bestDist = 999;
 
+    // Inside the Crescent Beach Volleyball Instance
+    if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+      document.getElementById('hud-zone-name').textContent = 'Crescent Beach · Shark Volleyball Court 🏐';
+      const vbItems = window.BlahajVolleyball.getInteractables(player.pos);
+      if (vbItems.length > 0) {
+        nearestInteractable = vbItems[0];
+      }
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else {
+        promptEl.classList.add('hidden');
+      }
+      return;
+    }
+
     // Inside the Volcano Instance: Dedicated room zones, puzzles, tea and return portal
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       const roomTitle = window.BlahajVolcano.getRoomTitle(player.pos.z) || 'The Sacred Volcano Trial';
@@ -8395,6 +8430,19 @@
         }
       }
     });
+
+    // Crescent Beach Shark Beach Volleyball Court
+    if (currentZone === 'island' || currentZone === 'overworld') {
+      const dVolleyCourt = Math.hypot(player.pos.x - 28, player.pos.z - 52);
+      if (dVolleyCourt < 8.0 && dVolleyCourt < bestDist) {
+        bestDist = dVolleyCourt;
+        nearestInteractable = {
+          kind: 'enter_volleyball',
+          dist: dVolleyCourt,
+          prompt: 'Play Shark Beach Volleyball [E] 🏐🦈'
+        };
+      }
+    }
 
     worldActors.forEach((act) => {
       if (!act.mesh.visible) return;
@@ -8728,6 +8776,8 @@
     getScene: () => scene,
     getZone: () => currentZone,
     getCoopPartner: () => coopPartner,
+    getWorldActors: () => worldActors,
+    getNearestInteractable: () => nearestInteractable,
     applySteamingSpiritBuff,
     triggerFeedBreb,
     triggerBeepNose,
