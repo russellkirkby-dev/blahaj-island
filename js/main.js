@@ -3798,10 +3798,11 @@
     if (player.inCart) dismountLaundryCart();
 
     if (window.BlahajVolleyball) {
+      window.BlahajVolleyball.setSceneAndPlayer(scene, player);
       if (opponentKey) {
         window.BlahajVolleyball.startMatch(opponentKey, scene, player);
       } else {
-        window.BlahajVolleyball.openOpponentSelectModal(openDialogueModal, closeDialogueModal);
+        window.BlahajVolleyball.openOpponentSelectModal(openDialogueModal, closeDialogueModal, scene, player);
       }
     }
   }
@@ -8831,6 +8832,8 @@
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;
   window.player = player;
+  window.scene = scene;
+  window.getActiveScene = getActiveScene;
   window.openDialogueModal = openDialogueModal;
   window.closeDialogueModal = closeDialogueModal;
   window.enterVolleyballCourt = enterVolleyballCourt;
