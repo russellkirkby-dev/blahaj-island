@@ -1839,31 +1839,17 @@
   let lastNearestInteractableKey = null;
 
   function getActiveScene() {
-    if (currentZone === 'volleyball' && window.BlahajVolleyball) {
-      document.getElementById('hud-zone-name').textContent = 'Crescent Beach · Volleyball Court 🏐';
-      const items = window.BlahajVolleyball.getInteractables(player.pos);
-      if (items.length > 0) nearestInteractable = items[0];
-      const promptEl = document.getElementById('interaction-prompt');
-      if (nearestInteractable && !isAnyModalOpen()) {
-        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
-        promptEl.classList.remove('hidden');
-      } else {
-        promptEl.classList.add('hidden');
-      }
-      return;
-    }
-
     if (currentZone === 'volcano' && window.BlahajVolcano) {
-      return window.BlahajVolcano.getScene();
+      return window.BlahajVolcano.getScene() || scene;
     }
     if (currentZone === 'laundromat' && window.BlahajLaundromat) {
-      return window.BlahajLaundromat.getScene();
+      return window.BlahajLaundromat.getScene() || scene;
     }
     if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
-      return window.BlahajSphericalFoods.getScene();
+      return window.BlahajSphericalFoods.getScene() || scene;
     }
     if (currentZone === 'volleyball' && window.BlahajVolleyball) {
-      return window.BlahajVolleyball.getScene();
+      return window.BlahajVolleyball.getScene() || scene;
     }
     return scene;
   }
@@ -7161,7 +7147,7 @@
       return;
     }
     if (!playerShadow) playerShadow = createPlayerShadow();
-    const activeScene = getActiveScene();
+    const activeScene = getActiveScene() || scene;
     if (playerShadow.parent !== activeScene) {
       if (playerShadow.parent) playerShadow.parent.remove(playerShadow);
       activeScene.add(playerShadow);
@@ -7178,22 +7164,8 @@
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
-        if (isMoving) {
-          const fwdX = -Math.sin(camState.yaw);
-          const fwdZ = -Math.cos(camState.yaw);
-          const rightX = Math.cos(camState.yaw);
-          const rightZ = -Math.sin(camState.yaw);
-          const dirX = fwdX * moveForward + rightX * moveRight;
-          const dirZ = fwdZ * moveForward + rightZ * moveRight;
-          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
-          const normDir = { x: dirX / len, z: dirZ / len };
-          const resolved = window.BlahajVolleyball.resolveMove(player.pos, normDir, player.speed * dt);
-          player.pos.x = resolved.x;
-          player.pos.z = resolved.z;
-          player.rotY = Math.atan2(dirX, dirZ);
-        }
-        player.pos.y = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
-      } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+      floorY = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
+    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       floorY = window.BlahajSphericalFoods.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
       floorY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
@@ -7265,6 +7237,8 @@
       window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
+    } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+      window.BlahajVolleyball.update(dt, player, keys['f']);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
       if (worldPickups) {
@@ -7643,6 +7617,62 @@
           player.isGrounded = false;
           player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
+        }
+      } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDir = { x: dirX / len, z: dirZ / len };
+
+          const resolved = window.BlahajVolleyball.resolveMove(player.pos, normDir, speed * dt);
+          if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
+            player.pos.x = resolved.x;
+            player.pos.z = resolved.z;
+          }
+
+          const targetAngle = Math.atan2(dirX / len, dirZ / len);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          if (player.isGrounded) {
+            CozyAudio.footstep(false, false);
+          }
+        }
+
+        const floorY = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
+        if (player.pos.y >= floorY - 0.45) {
+          if (!player.isGrounded || player.pos.y > floorY + 0.05) {
+            player.velY -= 24.0 * dt;
+            player.pos.y += player.velY * dt;
+            if (player.pos.y <= floorY) {
+              player.pos.y = floorY;
+              player.velY = 0;
+              player.isGrounded = true;
+              player.canDoubleJump = true;
+              player.doubleJumped = false;
+              player.coyoteTimer = 0.15;
+            }
+          } else {
+            player.pos.y = floorY;
+            player.velY = 0;
+            player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
+          }
+        } else {
+          player.velY -= 24.0 * dt;
+          player.pos.y += player.velY * dt;
+          player.isGrounded = false;
+          player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
       } else {
         if (isMoving) {
@@ -8152,6 +8182,8 @@
         const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
         camY = Math.min(maxCamY, Math.max(minCamY, camY));
       }
+    } else if (currentZone === 'volleyball') {
+      camY = Math.max(0.65, camY);
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
       camY = Math.max(minGround, camY);
