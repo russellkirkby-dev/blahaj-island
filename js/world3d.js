@@ -2687,13 +2687,24 @@ window.BlahajWorld = (function () {
       umbrellaGroup.add(canopyGroup);
       chairGroup.add(umbrellaGroup);
 
-      // 7. Raised Teak Duckboard Deck Platform Base (Ensures lounger is NEVER buried or occluded by grass/sand)
+      // 7. Raised Sandstone & Teak Duckboard Foundation Plinth (Ensures lounger sits proudly elevated)
+      const stoneBaseMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 });
+      const foundationPlinth = new THREE.Mesh(
+        new THREE.BoxGeometry(2.8, 0.48, 2.6),
+        stoneBaseMat
+      );
+      foundationPlinth.position.set(umbSideX * 0.35, -0.20, 0.15);
+      chairGroup.add(foundationPlinth);
+
       const deckPlinth = new THREE.Mesh(
-        new THREE.BoxGeometry(2.3, 0.12, 2.2),
+        new THREE.BoxGeometry(2.7, 0.14, 2.5),
         teakMat
       );
-      deckPlinth.position.set(umbSideX * 0.45, -0.06, 0.15);
+      deckPlinth.position.set(umbSideX * 0.35, 0.08, 0.15);
       chairGroup.add(deckPlinth);
+
+      // Scale entire chair & parasol by 1.38x so it is grand, roomy, and comfortable for sharks
+      chairGroup.scale.set(1.38, 1.38, 1.38);
 
       // 8. Overhead High-Visibility Interactive 3D Marker Badge
       const markerGroup = new THREE.Group();
@@ -3031,12 +3042,13 @@ window.BlahajWorld = (function () {
         const th = (typeof getTerrainHeight === 'function') ? getTerrainHeight(spec.x, spec.z) : 0;
         const gh = (typeof getGroundAndStructureHeight === 'function') ? getGroundAndStructureHeight(spec.x, spec.z) : th;
         const groundY = Math.max(th, gh);
-        chairMesh.position.set(spec.x, groundY + 0.04, spec.z);
+        // Elevate +0.32m so the stone foundation anchors into the ground while lounger sits high and clear of terrain
+        chairMesh.position.set(spec.x, groundY + 0.32, spec.z);
         chairMesh.rotation.y = spec.rotY;
 
-        // Glowing interactive ground beacon ring so chairs pop clearly across sand & meadow
+        // Glowing interactive ground beacon ring
         const beaconRing = new THREE.Mesh(
-          new THREE.RingGeometry(1.35, 1.65, 24),
+          new THREE.RingGeometry(1.55, 1.95, 24),
           new THREE.MeshBasicMaterial({ color: spec.cushionColor, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
         );
         beaconRing.rotation.x = -Math.PI / 2;
@@ -3049,12 +3061,12 @@ window.BlahajWorld = (function () {
           id: spec.id,
           name: spec.name,
           x: spec.x,
-          y: groundY,
+          y: groundY + 0.32,
           z: spec.z,
           rotY: spec.rotY,
-          seatX: spec.x + Math.sin(spec.rotY) * 0.12,
-          seatY: groundY + 0.42,
-          seatZ: spec.z + Math.cos(spec.rotY) * 0.12,
+          seatX: spec.x + Math.sin(spec.rotY) * 0.18,
+          seatY: groundY + 0.32 + 0.62,
+          seatZ: spec.z + Math.cos(spec.rotY) * 0.18,
           seatRotY: spec.rotY,
           mesh: chairMesh
         });

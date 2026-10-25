@@ -3874,3 +3874,25 @@ body.in-binocular-mode .hotbar-track {
   box-shadow: 0 6px 20px rgba(56, 189, 248, 0.3);
   transform: translateY(-2px);
 }
+
+.binocular-close-btn {
+  pointer-events: auto !important;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #ffffff;
+  border: 2px solid rgba(254, 202, 202, 0.9);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  padding: 10px 28px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.75), 0 0 14px rgba(239, 68, 68, 0.6);
+  transition: all 0.15s ease;
+  margin-top: 8px;
+}
+.binocular-close-btn:hover {
+  transform: scale(1.05);
+  background: linear-gradient(135deg, #f87171, #dc2626);
+  box-shadow: 0 6px 22px rgba(239, 68, 68, 0.85);
+}

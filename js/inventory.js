@@ -494,13 +494,16 @@ window.BlahajInventory = (function () {
     const ovenGroup = new THREE.Group();
     const ovenX = -12.5;
     const ovenZ = 16.0;
-    const ovenY = (window.BlahajWorld && typeof window.BlahajWorld.getGroundAndStructureHeight === 'function')
+    const thCenter = (window.BlahajWorld && typeof window.BlahajWorld.getGroundAndStructureHeight === 'function')
       ? window.BlahajWorld.getGroundAndStructureHeight(ovenX, ovenZ)
-      : (window.BlahajWorld && typeof window.BlahajWorld.getTerrainHeight === 'function')
-        ? window.BlahajWorld.getTerrainHeight(ovenX, ovenZ)
-        : 5.64;
+      : 5.64;
+    const thRear = (window.BlahajWorld && typeof window.BlahajWorld.getGroundAndStructureHeight === 'function')
+      ? window.BlahajWorld.getGroundAndStructureHeight(ovenX, ovenZ + 2.4)
+      : 6.25;
+    const ovenY = Math.max(thCenter, thRear) + 0.25;
     ovenGroup.position.set(ovenX, ovenY, ovenZ);
     ovenGroup.rotation.y = -Math.PI * 0.75; // Faces openly towards the meadow arrival clearing & path!
+    ovenGroup.scale.set(1.22, 1.22, 1.22); // Grand 1.22x scale
 
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.88 });
     const darkStoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.92 });
@@ -513,9 +516,10 @@ window.BlahajInventory = (function () {
     const breadMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
     const flourMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.95 });
 
-    // 1. Broad Cobblestone Foundation Terrace (4.8m wide x 4.0m deep x 0.9m high)
-    const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.9, 4.0), stoneMat);
-    basePlinth.position.y = 0.45;
+    // 1. Broad Cobblestone Foundation Terrace (5.2m wide x 4.6m deep x 1.8m deep foundation)
+    // Deep skirt geometry anchors deeply into the meadow hillside so it never looks sunken
+    const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.8, 4.6), stoneMat);
+    basePlinth.position.set(0, 0.45, 0);
     ovenGroup.add(basePlinth);
 
     // Front stone terrace step

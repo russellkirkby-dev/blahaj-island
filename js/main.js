@@ -2705,6 +2705,16 @@
         toggleFastTravelModal();
         return;
       }
+
+      // If in binocular mode, pressing Esc, Space, F, T, E, H or Enter lowers them immediately!
+      if (isUsingBinoculars) {
+        if (k === 'escape' || k === 'f' || k === ' ' || k === 't' || k === 'e' || k === 'h' || k === 'enter') {
+          e.preventDefault();
+          exitBinocularMode();
+          return;
+        }
+      }
+
       if (k === 't') {
         e.preventDefault();
         if (isUsingBinoculars) {
@@ -2737,18 +2747,7 @@
       }
       if (k === 'x') removeNearestBuiltStructure();
 
-      if (isUsingBinoculars) {
-      nearestInteractable = {
-        kind: 'binoculars_active',
-        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
-      };
-      const promptEl = document.getElementById('interaction-prompt');
-      if (promptEl && !isAnyModalOpen()) {
-        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
-        promptEl.classList.remove('hidden');
-      }
-      return;
-    }
+      // (Binocular prompt handled in main interaction loop)
 
     if (player.isLounging) {
         if (k === ' ' || k === 'f') {
@@ -5676,6 +5675,11 @@
       }
     });
 
+    document.getElementById('btn-close-binoculars')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      exitBinocularMode();
+    });
+
     const btnToggleSky = document.getElementById('btn-toggle-sky-controls');
     const skyFlyout = document.getElementById('sky-controls-flyout');
     const btnCloseSky = document.getElementById('btn-close-sky-controls');
@@ -6666,9 +6670,14 @@
     binocularSavedShoulderRight = camState.shoulderRight;
     binocularSavedHeightOffset = camState.heightOffset;
 
-    camState.distance = 0.05;
+    // Temporarily hide player mesh so lenses have 100% unobstructed view forward!
+    if (player.mesh) {
+      player.mesh.visible = false;
+    }
+
+    camState.distance = 0.0;
     camState.shoulderRight = 0.0;
-    camState.heightOffset = 0.75;
+    camState.heightOffset = 1.15;
     camera.fov = 16.0; // 4.5x zoom
     camera.updateProjectionMatrix();
 
@@ -6677,12 +6686,17 @@
     document.body.classList.add('in-binocular-mode');
 
     CozyAudio.binocularZoom();
-    showToast('🔭 BINOCULAR HORIZON VIEW', 'Looking through brass lenses! Move mouse/keys to scan the horizon. Press [F / Esc] to lower.');
+    showToast('🔭 BINOCULAR HORIZON VIEW', 'Looking through brass lenses! Press [Esc / Space / F / T] or click Lower Binoculars to exit.');
   }
 
   function exitBinocularMode() {
     if (!isUsingBinoculars) return;
     isUsingBinoculars = false;
+
+    // Restore player mesh visibility
+    if (player.mesh) {
+      player.mesh.visible = true;
+    }
 
     camState.distance = binocularSavedDistance || 7.4;
     camState.shoulderRight = binocularSavedShoulderRight || 0.85;
@@ -8916,14 +8930,17 @@
     }
 
     if (isUsingBinoculars) {
-      camX = player.pos.x;
-      camY = player.pos.y + 0.75;
-      camZ = player.pos.z;
       const fwdX = -Math.sin(camState.yaw) * Math.cos(camState.pitch);
       const fwdY = Math.sin(camState.pitch);
       const fwdZ = -Math.cos(camState.yaw) * Math.cos(camState.pitch);
+
+      // Camera positioned forward from player at eye level facing out into the horizon
+      camX = player.pos.x + fwdX * 0.95;
+      camY = player.pos.y + 1.25 + fwdY * 0.35;
+      camZ = player.pos.z + fwdZ * 0.95;
+
       camera.position.set(camX, camY, camZ);
-      camera.lookAt(camX + fwdX * 50, camY + fwdY * 50, camZ + fwdZ * 50);
+      camera.lookAt(camX + fwdX * 100, camY + fwdY * 100, camZ + fwdZ * 100);
       updateBinocularCrosshairHUD();
       return;
     }
