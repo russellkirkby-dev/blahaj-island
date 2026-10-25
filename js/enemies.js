@@ -185,17 +185,12 @@ window.BlahajEnemies = (function () {
       group.add(s2);
     }
 
-    // Left Eyepatch & Strap
+    // Left Eyepatch (Clean flush pirate patch without floating neck strap ring)
     const eyepatch = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), patchMat);
     eyepatch.scale.set(1.0, 1.0, 0.4);
     eyepatch.position.set(-0.46, 0.95, 0.82);
     eyepatch.rotation.y = -0.4;
     group.add(eyepatch);
-
-    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.025, 6, 24), strapMat);
-    strap.position.set(0, 0.88, 0.65);
-    strap.rotation.set(0.3, 0.25, 0.1);
-    group.add(strap);
 
     // Right Eye (Angry Yellow Scowl Eye)
     const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), eyeMat);
