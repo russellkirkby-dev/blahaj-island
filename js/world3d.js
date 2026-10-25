@@ -2405,13 +2405,13 @@ window.BlahajWorld = (function () {
     group.add(shrineGroup);
     scene.add(group);
 
-    // Sunny the Beach Carrot's Scenic Crescent Beach Vacation Lounge (Umbrella, Beach Mat & Coconut Drink)
+    // Sunny the Beach Carrot's Scenic Crescent Beach Vacation Lounge (Moved to open West Cove at 11.5, 51.0)
     const sunnyLounge = new THREE.Group();
-    const sunnyX = 22;
-    const sunnyZ = 48;
+    const sunnyX = 11.5;
+    const sunnyZ = 51.0;
     const sunnyY = getTerrainHeight(sunnyX, sunnyZ);
     sunnyLounge.position.set(sunnyX, sunnyY, sunnyZ);
-    sunnyLounge.rotation.y = 0.15;
+    sunnyLounge.rotation.y = 0.35;
 
     // Striped sunny beach towel / mat
     const towel = new THREE.Mesh(
@@ -2704,7 +2704,7 @@ window.BlahajWorld = (function () {
       chairGroup.add(deckPlinth);
 
       // Scale entire chair & parasol by 1.38x so it is grand, roomy, and comfortable for sharks
-      chairGroup.scale.set(1.38, 1.38, 1.38);
+      chairGroup.scale.set(1.65, 1.65, 1.65); // 1.65x grand lounger scale roomy for sharks
 
       // 8. Overhead High-Visibility Interactive 3D Marker Badge
       const markerGroup = new THREE.Group();
@@ -2898,58 +2898,12 @@ window.BlahajWorld = (function () {
 
       // 6b. Luxury Beach & Meadow Sun Loungers with Piña Colada Tables (Crescent Beach, Heartland Meadow & Pier)
       const DECK_CHAIRS_SPECS = [
-        // East Cape Arrival Promenade (Immediately flanking player at spawn on plateau!)
-        {
-          id: 'deckchair_spawn_1',
-          name: 'East Cape Ocean View Lounger',
-          x: 57.5,
-          z: -7.0,
-          rotY: -Math.PI * 0.5,
-          cushionColor: 0x0284c7, // Royal Ocean Blue
-          stripeColor: 0xf8fafc,
-          pillowColor: 0xfacc15,
-          tableSide: 'right'
-        },
-        {
-          id: 'deckchair_spawn_2',
-          name: 'East Cape Sunrise Recliner',
-          x: 57.5,
-          z: -13.0,
-          rotY: -Math.PI * 0.5,
-          cushionColor: 0xf59e0b, // Warm Sunrise Gold
-          stripeColor: 0xffedd5,
-          pillowColor: 0x38bdf8,
-          tableSide: 'left'
-        },
-        // Central Heartland Town Plaza
-        {
-          id: 'deckchair_plaza_1',
-          name: 'Heartland Plaza Palm Lounger',
-          x: 3.5,
-          z: 21.0,
-          rotY: 0.2,
-          cushionColor: 0x10b981, // Emerald Palm
-          stripeColor: 0xfef08a,
-          pillowColor: 0xf43f5e,
-          tableSide: 'right'
-        },
-        {
-          id: 'deckchair_plaza_2',
-          name: 'Heartland Town Square Recliner',
-          x: -3.5,
-          z: 21.0,
-          rotY: -0.2,
-          cushionColor: 0xec4899, // Hibiscus Pink
-          stripeColor: 0xfdf2f8,
-          pillowColor: 0x38bdf8,
-          tableSide: 'left'
-        },
-        // Crescent Beach (Spaced safely 5m+ clear of volleyball court, facing directly south to the beach & ocean!)
+        // Crescent Beach - East Promenade (Spaced 5.5m+ clear of volleyball court, facing directly south to ocean!)
         {
           id: 'deckchair_russell',
           name: 'Russell’s Ocean View Lounger',
-          x: 36.5,
-          z: 49.0,
+          x: 38.0,
+          z: 48.0,
           rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0x0284c7, // Royal Ocean Blue
           stripeColor: 0xf8fafc,
@@ -2959,19 +2913,20 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_helen',
           name: 'Helen’s Sunset Deck Chair',
-          x: 36.5,
-          z: 53.5,
+          x: 38.0,
+          z: 55.0,
           rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0xf43f5e, // Sunset Coral Pink
           stripeColor: 0xfef08a,
           pillowColor: 0xfde047,
           tableSide: 'left'
         },
+        // Crescent Beach - West Promenade (Spaced 5.5m+ clear of volleyball court, facing directly south to ocean!)
         {
           id: 'deckchair_sunny',
           name: 'Sunny’s Companion Recliner',
-          x: 19.5,
-          z: 49.0,
+          x: 18.0,
+          z: 48.0,
           rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0xf59e0b, // Sunshine Yellow
           stripeColor: 0xfef3c7,
@@ -2981,21 +2936,44 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_surf',
           name: 'Waterfront Waves Lounger',
-          x: 19.5,
-          z: 53.5,
+          x: 18.0,
+          z: 55.0,
           rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0x0d9488, // Teal Palm Green
           stripeColor: 0xf0fdfa,
           pillowColor: 0xfbbf24,
           tableSide: 'right'
         },
-        // Heartland Meadow Sanctuary of the Birbs
+        // Central Heartland Town Plaza (Open arcade terrace facing south to the fountains and gardens)
+        {
+          id: 'deckchair_plaza_1',
+          name: 'Heartland Plaza Palm Lounger',
+          x: 6.0,
+          z: 24.0,
+          rotY: Math.PI,
+          cushionColor: 0x10b981, // Emerald Palm
+          stripeColor: 0xfef08a,
+          pillowColor: 0xf43f5e,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_plaza_2',
+          name: 'Heartland Town Square Recliner',
+          x: -6.0,
+          z: 24.0,
+          rotY: Math.PI,
+          cushionColor: 0xec4899, // Hibiscus Pink
+          stripeColor: 0xfdf2f8,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        },
+        // Heartland Meadow Sanctuary of the Birbs (Open grass terrace clear of Solomon's oven, facing sea)
         {
           id: 'deckchair_meadow_1',
           name: 'Heartland Meadow Birb-Watching Lounger',
-          x: -16.0,
-          z: 22.5,
-          rotY: 0.85,
+          x: -19.5,
+          z: 25.0,
+          rotY: Math.PI * 0.75, // Facing Southeast across meadow and ocean
           cushionColor: 0x10b981, // Emerald Birb Grass
           stripeColor: 0xfef08a,
           pillowColor: 0xf43f5e,
@@ -3004,21 +2982,21 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_meadow_2',
           name: 'Heartland Meadow Sunset Recliner',
-          x: -17.8,
-          z: 24.8,
-          rotY: 0.85,
+          x: -23.5,
+          z: 28.0,
+          rotY: Math.PI * 0.75,
           cushionColor: 0xf59e0b, // Warm Honey Breb
           stripeColor: 0xffedd5,
           pillowColor: 0x38bdf8,
           tableSide: 'left'
         },
-        // Heartland Harbor & Pier Promenade
+        // Heartland Harbor & Pier Promenade (Overlooking panoramic ocean water)
         {
           id: 'deckchair_pier_1',
           name: 'Heartland Pier Promenade Lounger',
           x: 7.2,
-          z: 28.0,
-          rotY: -0.65,
+          z: 31.0,
+          rotY: -Math.PI * 0.35,
           cushionColor: 0x0284c7, // Harbor Blue
           stripeColor: 0xf8fafc,
           pillowColor: 0xfacc15,
@@ -3027,9 +3005,9 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_pier_2',
           name: 'Heartland Pier Sunset Chair',
-          x: 9.0,
-          z: 30.2,
-          rotY: -0.65,
+          x: 9.8,
+          z: 34.0,
+          rotY: -Math.PI * 0.35,
           cushionColor: 0xec4899, // Sunset Pink
           stripeColor: 0xfdf2f8,
           pillowColor: 0x38bdf8,
@@ -3071,7 +3049,7 @@ window.BlahajWorld = (function () {
           z: spec.z,
           rotY: spec.rotY,
           seatX: spec.x,
-          seatY: groundY + 0.32 + 0.65,
+          seatY: groundY + 0.32 + 0.78,
           seatZ: spec.z,
           seatRotY: facingRotY,
           mesh: chairMesh

@@ -165,7 +165,7 @@ window.BLAHAJ_LORE = {
       tag: 'CRESCENT BEACH CONNOISSEUR',
       type: 'carrot',
       shortsColor: 0x3b82f6,
-      pos: { x: 22, z: 48, rotY: 0.15 },
+      pos: { x: 11.5, z: 51.0, rotY: 0.35 },
       portrait: 'assets/gallery/Volcano-temple.png',
       lines: [
         '“Ahhh, now THIS is what I call proper vacation lounging! Soft golden sand, warm ocean breeze, and a chilled coconut drink at Crescent Beach.”',

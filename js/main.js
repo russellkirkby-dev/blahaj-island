@@ -6221,8 +6221,8 @@
     },
     beach: {
       name: "Crescent Beach Volleyball & Deck Chairs",
-      x: 36.5,
-      z: 44.5,
+      x: 38.0,
+      z: 43.5,
       rotY: 0.0, // Arrives on the beach sand walkway facing south towards the loungers & ocean!
       toast: "CRESCENT BEACH & DECK CHAIRS 🏖️",
       desc: "Arrived on the warm golden sand by Russell & Helen's sun loungers!"
@@ -6233,7 +6233,7 @@
       z: -10.0,
       rotY: -Math.PI * 0.5,
       toast: "EAST CAPE ARRIVAL 🌅",
-      desc: "Arrived at the East Cape Portal Gate, ocean loungers & binoculars viewpoint!"
+      desc: "Arrived at the East Cape Portal Gate, crossroads signpost & binoculars viewpoint!"
     },
     plaza: {
       name: "Heartland Town Plaza & Crossroads",
@@ -6349,6 +6349,14 @@
       player.mesh.rotation.x = 0.34; // Lean back against headrest
       player.mesh.scale.set(1.12, 0.78, 1.05); // Plush squash settling into cushion
     }
+
+    // Set camera to over-the-shoulder vacation view looking out at the sea!
+    let rearCamYaw = chair.seatRotY + Math.PI;
+    while (rearCamYaw > Math.PI) rearCamYaw -= Math.PI * 2;
+    while (rearCamYaw < -Math.PI) rearCamYaw += Math.PI * 2;
+    camState.yaw = rearCamYaw;
+    camState.pitch = 0.14;
+    camState.distance = 5.4;
 
     // Equip chilled Piña Colada in fin!
     equipHeldItem('pina_colada');
