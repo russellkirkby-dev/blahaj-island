@@ -245,6 +245,19 @@ window.BlahajInventory = (function () {
       stats: 'Unlocks Mortar Crafting at Hiram',
       canUse: false
     },
+    binoculars: {
+      id: 'binoculars',
+      name: 'Brass Marine Binoculars',
+      icon: '🔭',
+      rarity: 'rare',
+      category: 'tools',
+      maxStack: 1,
+      type: 'Nautical Scope · 4.5x Zoom',
+      desc: 'Heavy dual-barrel maritime binoculars with polished brass and navy casing. Press [T] or [F] to scan the horizon through first-person lenses with live compass & landmark rangefinder.',
+      stats: '4.5x Optical Zoom · Dynamic Landmark Rangefinder',
+      canUse: true,
+      canHold: true
+    },
     ancient_pages: {
       id: 'ancient_pages',
       name: 'Tattered Portal Log',
@@ -362,7 +375,8 @@ window.BlahajInventory = (function () {
       { id: 'seam_needle', qty: 1 },
       { id: 'star_lantern', qty: 1 },
       { id: 'beach_ball', qty: 2 },
-      { id: 'obsidian', qty: 4 }
+      { id: 'obsidian', qty: 4 },
+      { id: 'binoculars', qty: 1 }
     ];
 
     defaultContents.forEach((item, idx) => {
@@ -475,97 +489,238 @@ window.BlahajInventory = (function () {
   }
 
   // 3. SOLOMON'S STONE BREAD OVEN (3D MESH & INTERACTION)
-  // Location: Heartland Plaza near the Sacred Tea House (x: -8.5, z: 14.5)
+  // Location: Heartland Meadow Sanctuary of the Birbs (x: -12.5, z: 16.0)
   function createSolomonBreadOven() {
     const ovenGroup = new THREE.Group();
-    ovenGroup.position.set(-8.5, 0, 14.5);
-    ovenGroup.rotation.y = Math.PI * 0.25; // Angles warmly towards the plaza path
+    const ovenX = -12.5;
+    const ovenZ = 16.0;
+    const ovenY = (window.BlahajWorld && typeof window.BlahajWorld.getGroundAndStructureHeight === 'function')
+      ? window.BlahajWorld.getGroundAndStructureHeight(ovenX, ovenZ)
+      : (window.BlahajWorld && typeof window.BlahajWorld.getTerrainHeight === 'function')
+        ? window.BlahajWorld.getTerrainHeight(ovenX, ovenZ)
+        : 5.64;
+    ovenGroup.position.set(ovenX, ovenY, ovenZ);
+    ovenGroup.rotation.y = -Math.PI * 0.75; // Faces openly towards the meadow arrival clearing & path!
 
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
-    const clayMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.65 });
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.45 });
-    const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.6 });
-    const emberMat = new THREE.MeshBasicMaterial({ color: 0xffedd5 });
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.88 });
+    const darkStoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.92 });
+    const brickMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.75 });
+    const clayMat = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.65 });
+    const timberMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.55 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.6 });
+    const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.75 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.3, metalness: 0.6 });
+    const breadMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
+    const flourMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.95 });
 
-    // 1. Cobblestone Base Plinth
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.75, 2.4), stoneMat);
-    plinth.position.y = 0.375;
-    ovenGroup.add(plinth);
+    // 1. Broad Cobblestone Foundation Terrace (4.8m wide x 4.0m deep x 0.9m high)
+    const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.9, 4.0), stoneMat);
+    basePlinth.position.y = 0.45;
+    ovenGroup.add(basePlinth);
 
-    // 2. Terracotta Clay Dome Oven
+    // Front stone terrace step
+    const frontStep = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.45, 1.0), darkStoneMat);
+    frontStep.position.set(0, 0.225, 2.3);
+    ovenGroup.add(frontStep);
+
+    // 4 Corner Masonry Pillars
+    [-2.25, 2.25].forEach((px) => {
+      [-1.85, 1.85].forEach((pz) => {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.2, 0.55), darkStoneMat);
+        pillar.position.set(px, 0.6, pz);
+        ovenGroup.add(pillar);
+      });
+    });
+
+    // 2. Terracotta Clay Dome Oven (Wide 3.3m diameter dome)
     const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(1.05, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      new THREE.SphereGeometry(1.65, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.5),
       clayMat
     );
-    dome.position.y = 0.75;
-    dome.scale.set(1.0, 0.9, 1.0);
+    dome.position.set(0, 0.9, -0.2);
+    dome.scale.set(1.15, 0.95, 1.1);
     ovenGroup.add(dome);
 
-    // 3. Arched Firebox Mouth
-    const mouthFrame = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.08, 8, 16, Math.PI), stoneMat);
-    mouthFrame.position.set(0, 1.05, 0.95);
-    ovenGroup.add(mouthFrame);
+    // Lower brick course collar around dome base
+    const domeBaseCollar = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.9, 1.95, 0.45, 24),
+      brickMat
+    );
+    domeBaseCollar.position.set(0, 1.1, -0.2);
+    ovenGroup.add(domeBaseCollar);
 
-    const mouthLining = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.35, 16, 1, true), clayMat);
+    // 3. Arched Brick Firebox Mouth
+    const mouthArch = new THREE.Mesh(
+      new THREE.TorusGeometry(0.68, 0.16, 12, 24, Math.PI),
+      brickMat
+    );
+    mouthArch.position.set(0, 1.35, 1.15);
+    ovenGroup.add(mouthArch);
+
+    const mouthLining = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.62, 0.62, 0.75, 18, 1, true),
+      brickMat
+    );
     mouthLining.rotation.x = Math.PI / 2;
-    mouthLining.position.set(0, 1.05, 0.80);
+    mouthLining.position.set(0, 1.35, 0.85);
     ovenGroup.add(mouthLining);
 
-    // Glowing Embers inside firebox
-    const embers = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.55), emberMat);
-    embers.position.set(0, 0.80, 0.45);
-    ovenGroup.add(embers);
+    // Roaring Embers & Inner Hearth Flames
+    const emberBed = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.18, 0.95),
+      new THREE.MeshBasicMaterial({ color: 0xffedd5 })
+    );
+    emberBed.position.set(0, 0.98, 0.55);
+    ovenGroup.add(emberBed);
 
-    const ovenLight = new THREE.PointLight(0xff6600, 1.4, 5.5, 1.5);
-    ovenLight.position.set(0, 1.05, 0.65);
+    // Animated / glowing flame cones inside the mouth
+    [-0.22, 0, 0.22].forEach((fx, fi) => {
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(0.18, 0.45 + fi * 0.08, 8),
+        new THREE.MeshBasicMaterial({ color: fi === 1 ? 0xffaa00 : 0xff4400 })
+      );
+      flame.position.set(fx, 1.18, 0.55);
+      ovenGroup.add(flame);
+    });
+
+    // Powerful warm hearth light illuminating the meadow
+    const ovenLight = new THREE.PointLight(0xff7700, 3.8, 15.0, 1.2);
+    ovenLight.position.set(0, 1.45, 1.1);
     ovenGroup.add(ovenLight);
 
-    // 4. Stone Chimney with Chimney Pot
-    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.4, 0.45), stoneMat);
-    chimney.position.set(0, 2.05, -0.45);
+    // 4. Majestic Tall Stone Masonry Chimney (5.2m tall)
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.85, 3.8, 0.85), stoneMat);
+    chimney.position.set(0, 3.2, -0.75);
     ovenGroup.add(chimney);
 
-    const chimneyCap = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.25, 12), clayMat);
-    chimneyCap.position.set(0, 2.85, -0.45);
-    ovenGroup.add(chimneyCap);
+    const chimneyCorbel = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.25, 1.05), darkStoneMat);
+    chimneyCorbel.position.set(0, 5.0, -0.75);
+    ovenGroup.add(chimneyCorbel);
 
-    // 5. Wooden Prep Table & Fresh Bread Loaves
-    const prepBench = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.65, 0.65), woodMat);
-    prepBench.position.set(1.5, 0.325, 0.3);
-    ovenGroup.add(prepBench);
+    const chimneyPot = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.32, 0.65, 16), clayMat);
+    chimneyPot.position.set(0, 5.4, -0.75);
+    ovenGroup.add(chimneyPot);
 
-    // 3 Golden Loaves resting on prep bench
-    const breadMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.85 });
-    [-0.32, 0.0, 0.32].forEach((bx) => {
-      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), breadMat);
-      loaf.scale.set(1.4, 0.85, 0.95);
-      loaf.position.set(1.5 + bx, 0.72, 0.3);
+    // 5. Rustic Timber Pergola Roof Pavilion (Cedar Beams + Roof Rafters)
+    [-2.1, 2.1].forEach((px) => {
+      [-1.7, 1.7].forEach((pz) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.10, 3.8, 8), timberMat);
+        post.position.set(px, 1.9, pz);
+        ovenGroup.add(post);
+      });
+      // Side longitudinal beams
+      const sideBeam = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 3.9), timberMat);
+      sideBeam.position.set(px, 3.75, 0);
+      ovenGroup.add(sideBeam);
+    });
+
+    // Cross rafters across the top
+    for (let rz = -1.6; rz <= 1.6; rz += 0.55) {
+      const rafter = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.12, 0.12), timberMat);
+      rafter.position.set(0, 3.88, rz);
+      ovenGroup.add(rafter);
+    }
+
+    // 2 Warm Hanging Iron Lanterns dangling from pergola
+    [-1.6, 1.6].forEach((lx) => {
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.65, 6), ironMat);
+      chain.position.set(lx, 3.45, 1.4);
+      ovenGroup.add(chain);
+
+      const lanternBody = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.32, 0.24), ironMat);
+      lanternBody.position.set(lx, 3.0, 1.4);
+      ovenGroup.add(lanternBody);
+
+      const lanternCore = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.18), new THREE.MeshBasicMaterial({ color: 0xffedd5 }));
+      lanternCore.position.set(lx, 3.0, 1.4);
+      ovenGroup.add(lanternCore);
+
+      const lanternLight = new THREE.PointLight(0xffedd5, 1.4, 8.0, 1.5);
+      lanternLight.position.set(lx, 3.0, 1.4);
+      ovenGroup.add(lanternLight);
+    });
+
+    // 6. Prominent Carved Front Wooden Signboard (Mounted across front pergola rafters)
+    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.62, 0.10), darkWoodMat);
+    signBoard.position.set(0, 3.42, 1.75);
+    ovenGroup.add(signBoard);
+
+    const signTrim = new THREE.Mesh(new THREE.BoxGeometry(3.72, 0.72, 0.08), goldMat);
+    signTrim.position.set(0, 3.42, 1.74);
+    ovenGroup.add(signTrim);
+
+    // Signboard bread loaf emblem
+    const signBread = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), breadMat);
+    signBread.scale.set(1.4, 0.8, 0.9);
+    signBread.position.set(0, 3.42, 1.83);
+    ovenGroup.add(signBread);
+
+    // 7. Prep Benches Loaded with Breb Loaves, Flour Sacks & Baker's Peels
+    // Left Prep Table (Golden Loaves)
+    const leftBench = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.85, 0.75), timberMat);
+    leftBench.position.set(1.85, 0.9 + 0.425, 0.5);
+    ovenGroup.add(leftBench);
+
+    // 4 Fresh Golden Breb Loaves on Left Bench
+    [-0.5, -0.15, 0.2, 0.5].forEach((bx, bi) => {
+      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), breadMat);
+      loaf.scale.set(1.35, 0.82, 0.95);
+      loaf.position.set(1.85 + bx * 0.7, 0.9 + 0.85 + 0.10, 0.5 + (bi % 2 ? 0.08 : -0.08));
+      loaf.rotation.y = bi * 0.45;
       ovenGroup.add(loaf);
     });
 
-    // 6. Wooden Baker's Peel
-    const peelHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.8, 8), woodMat);
-    peelHandle.rotation.x = Math.PI * 0.18;
-    peelHandle.position.set(-1.25, 0.95, 0.5);
+    // Right Prep Table (Flour Barrels & Dough Bowls)
+    const rightBench = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.85, 0.75), timberMat);
+    rightBench.position.set(-1.85, 0.9 + 0.425, 0.5);
+    ovenGroup.add(rightBench);
+
+    // Rustic Flour Barrel on Right Bench
+    const flourBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.22, 0.55, 14), darkWoodMat);
+    flourBarrel.position.set(-1.85, 0.9 + 0.85 + 0.275, 0.5);
+    ovenGroup.add(flourBarrel);
+
+    const flourTop = new THREE.Mesh(new THREE.CircleGeometry(0.22, 14), flourMat);
+    flourTop.rotation.x = -Math.PI / 2;
+    flourTop.position.set(-1.85, 0.9 + 0.85 + 0.555, 0.5);
+    ovenGroup.add(flourTop);
+
+    // Long Wooden Baker's Peel resting against hearth
+    const peelHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 2.6, 8), timberMat);
+    peelHandle.rotation.x = Math.PI * 0.22;
+    peelHandle.rotation.z = Math.PI * 0.08;
+    peelHandle.position.set(-1.15, 1.5, 1.4);
     ovenGroup.add(peelHandle);
 
-    const peelBlade = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.02, 0.35), woodMat);
-    peelBlade.position.set(-1.25, 0.20, 1.25);
+    const peelBlade = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.03, 0.48), timberMat);
+    peelBlade.position.set(-1.3, 0.45, 2.2);
+    peelBlade.rotation.x = Math.PI * 0.22;
     ovenGroup.add(peelBlade);
 
-    // Smoke particles array
+    // 8. Glowing Golden Ground Hearth Beacon Ring (High-contrast beacon visible across the meadow)
+    const hearthRing = new THREE.Mesh(
+      new THREE.RingGeometry(2.4, 2.9, 32),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    );
+    hearthRing.rotation.x = -Math.PI / 2;
+    hearthRing.position.set(0, 0.04, 0);
+    ovenGroup.add(hearthRing);
+
+    // 9. Majestic Billowing Smoke Plume (12 rising puffs drifting up to 18m)
     const smokeParticles = [];
-    for (let p = 0; p < 4; p++) {
+    for (let p = 0; p < 12; p++) {
+      const radius = 0.26 + p * 0.12;
       const sMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.15, 6, 6),
-        new THREE.MeshBasicMaterial({ color: 0xf1f5f9, transparent: true, opacity: 0.3 })
+        new THREE.SphereGeometry(radius, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffedd5, transparent: true, opacity: Math.max(0.12, 0.48 - p * 0.03) })
       );
-      sMesh.position.set(0, 2.95 + p * 0.35, -0.45);
+      const py = 5.6 + p * 1.15;
+      sMesh.position.set(0, py, -0.75);
       ovenGroup.add(sMesh);
       smokeParticles.push({
         mesh: sMesh,
-        baseY: 2.95 + p * 0.35,
-        phase: p * 1.2
+        baseY: py,
+        phase: p * 0.85
       });
     }
 
@@ -573,7 +728,7 @@ window.BlahajInventory = (function () {
       group: ovenGroup,
       ovenLight,
       smokeParticles,
-      worldPos: { x: -8.5, y: 0.5, z: 14.5 }
+      worldPos: { x: ovenX, y: ovenY, z: ovenZ }
     };
   }
 

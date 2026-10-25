@@ -651,6 +651,7 @@ window.BlahajEnemies = (function () {
     // 2. Update each enemy
     enemies.forEach((enemy, enemyIdx) => {
       enemy.animPhase += dt * 4.0;
+      if (enemy.attackCooldown > 0) enemy.attackCooldown -= dt;
 
       // Special eyeball spin for urchin
       if (enemy.mesh && enemy.mesh.userData.leftPupil && enemy.mesh.userData.rightPupil) {
@@ -837,12 +838,15 @@ window.BlahajEnemies = (function () {
           }
         }
 
-        // Bumper contact with player (NO DYING — comical nudge)
-        if (distToPlayer < 1.4) {
-          if (window.BlahajGame && typeof window.BlahajGame.adjustSharkMange === 'function') {
-            window.BlahajGame.adjustSharkMange(null, 0.03, `${enemy.title} Bump`);
+        // Active enemy attack on player with real combat stakes!
+        if (distToPlayer < 1.75 && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
+          enemy.attackCooldown = 1.75; // 1.75s attack cooldown
+          const dmg = (enemy.type === 'shark') ? 18 : (enemy.type === 'starfish' ? 14 : 10);
+          if (window.BlahajGame && typeof window.BlahajGame.damagePlayer === 'function') {
+            window.BlahajGame.damagePlayer(dmg, enemy.title, dir);
           }
-          enemy.vel.addScaledVector(dir, -3.5);
+          // Recoil bounce after lunge
+          enemy.vel.addScaledVector(dir, -4.8);
         }
       } else {
         // Player has escaped or is far away

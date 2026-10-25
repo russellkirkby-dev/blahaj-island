@@ -9,6 +9,8 @@ window.BlahajWorld = (function () {
   const birbFlock = [];
   const fishSchool = [];
   const beachBalls = [];
+  const deckChairs = [];
+  window.BlahajDeckChairs = deckChairs;
   const activeBrebLoaves = [];
   const dungeonTraps = [];
   const builtStructures = [];
@@ -1004,6 +1006,7 @@ window.BlahajWorld = (function () {
     buildOuterSanctuaryIslands(scene);
     buildLushPalmsBouldersAndLanterns(scene);
     buildGreatSeamRifts(scene);
+    buildTouristBinocularPedestals(scene);
 
     // Build Living World: Flocks of Birbs, Swimming Fishes & Bouncy Beach Balls!
     buildBirbFlocks(scene);
@@ -1034,6 +1037,7 @@ window.BlahajWorld = (function () {
       getBalconyCarrots: () => balconyCarrots,
       getBirbFlock: () => birbFlock,
       getBeachBalls: () => beachBalls,
+      getDeckChairs: () => deckChairs,
       getDungeonTraps: () => dungeonTraps,
       getBuiltStructures: () => builtStructures,
       createStructureMesh: (type, isPreview) => createStructureMesh(type, isPreview),
@@ -1559,6 +1563,14 @@ window.BlahajWorld = (function () {
     const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe299 });
 
     const signpostSpecs = [
+      {
+        id: 'sign-spawn',
+        x: 55.0,
+        z: -9.5,
+        title: '🪧 East Cape Arrival & Travel Hub',
+        directions: '⬅️ West: Heartland Plaza & Solomon\'s Stone Bread Oven (65m) | ⬇️ South: Crescent Beach Deck Chairs (60m) | 🌅 Here: Ocean Loungers & Binoculars',
+        arrows: [-Math.PI * 0.5, Math.PI * 0.5, 0]
+      },
       {
         id: 'sign-hub',
         x: 5.5,
@@ -2437,6 +2449,271 @@ window.BlahajWorld = (function () {
 
         scene.add(sunnyLounge);
 
+    // ==========================================================================
+    // LUXURY CRESCENT BEACH SUN LOUNGERS & DECK CHAIRS WITH PIÑA COLADAS
+    // ==========================================================================
+    function createLuxuryDeckChair(options = {}) {
+      const chairGroup = new THREE.Group();
+      chairGroup.name = options.name || 'luxury_deck_chair';
+
+      const teakMat = new THREE.MeshStandardMaterial({ color: 0x7c4a24, roughness: 0.65 });
+      const slatMat = new THREE.MeshStandardMaterial({ color: 0x9a6136, roughness: 0.6 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.85, roughness: 0.25 });
+      const cushionColor = options.cushionColor || 0x0284c7;
+      const stripeColor = options.stripeColor || 0xf8fafc;
+      const cushionMat = new THREE.MeshStandardMaterial({ color: cushionColor, roughness: 0.85 });
+      const stripeMat = new THREE.MeshStandardMaterial({ color: stripeColor, roughness: 0.85 });
+      const pillowMat = new THREE.MeshStandardMaterial({ color: options.pillowColor || 0xfef08a, roughness: 0.8 });
+
+      // 1. Lower Frame & 4 Sturdy Legs
+      [-0.38, 0.38].forEach((lx) => {
+        [-0.60, 0.60].forEach((lz) => {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.048, 0.35, 8), teakMat);
+          leg.position.set(lx, 0.175, lz);
+          chairGroup.add(leg);
+          const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.049, 0.04, 8), brassMat);
+          cap.position.set(lx, 0.02, lz);
+          chairGroup.add(cap);
+        });
+        const sideRail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 1.45), teakMat);
+        sideRail.position.set(lx, 0.32, 0);
+        chairGroup.add(sideRail);
+      });
+
+      // Cross slats for base bed
+      for (let sz = -0.60; sz <= 0.15; sz += 0.12) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.025, 0.08), slatMat);
+        slat.position.set(0, 0.36, sz);
+        chairGroup.add(slat);
+      }
+
+      // 2. Angled Reclining Backrest
+      const backGroup = new THREE.Group();
+      backGroup.position.set(0, 0.36, 0.15);
+      backGroup.rotation.x = -0.52; // Reclined back ~30 degrees
+
+      [-0.38, 0.38].forEach((bx) => {
+        const bRail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.07, 0.92), teakMat);
+        bRail.position.set(bx, 0.035, 0.46);
+        backGroup.add(bRail);
+      });
+      for (let bz = 0.06; bz <= 0.88; bz += 0.11) {
+        const bSlat = new THREE.Mesh(new THREE.BoxGeometry(0.80, 0.025, 0.08), slatMat);
+        bSlat.position.set(0, 0.04, bz);
+        backGroup.add(bSlat);
+      }
+
+      // Brass support stays behind backrest
+      [-0.28, 0.28].forEach((sx) => {
+        const stay = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.65, 6), brassMat);
+        stay.position.set(sx, -0.15, 0.42);
+        stay.rotation.x = 0.82;
+        backGroup.add(stay);
+      });
+      chairGroup.add(backGroup);
+
+      // 3. Ergonomic Wooden Armrests
+      [-0.43, 0.43].forEach((ax) => {
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 1.15), teakMat);
+        arm.position.set(ax, 0.54, 0.12);
+        chairGroup.add(arm);
+        [-0.40, 0.55].forEach((az) => {
+          const sup = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.22, 6), teakMat);
+          sup.position.set(ax, 0.43, az);
+          chairGroup.add(sup);
+        });
+        const cupHolder = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 12), brassMat);
+        cupHolder.position.set(ax, 0.555, -0.38);
+        chairGroup.add(cupHolder);
+      });
+
+      // 4. Padded Striped Mattress / Cushion
+      const seatCushion = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.78), cushionMat);
+      seatCushion.position.set(0, 0.41, -0.22);
+      chairGroup.add(seatCushion);
+      [-0.20, 0, 0.20].forEach((stX) => {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.082, 0.78), stripeMat);
+        stripe.position.set(stX, 0.41, -0.22);
+        chairGroup.add(stripe);
+      });
+
+      const backCushion = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.08, 0.82), cushionMat);
+      backCushion.position.set(0, 0.09, 0.44);
+      backGroup.add(backCushion);
+      [-0.20, 0, 0.20].forEach((stX) => {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.082, 0.82), stripeMat);
+        stripe.position.set(stX, 0.09, 0.44);
+        backGroup.add(stripe);
+      });
+
+      // Plush Rolled Head Pillow
+      const pillow = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.65, 12), pillowMat);
+      pillow.rotation.z = Math.PI / 2;
+      pillow.position.set(0, 0.16, 0.80);
+      backGroup.add(pillow);
+
+      // 5. Side Cocktail Table with Piña Colada
+      if (options.hasTable !== false) {
+        const tableX = options.tableSide === 'left' ? -0.75 : 0.75;
+        const tableGroup = new THREE.Group();
+        tableGroup.position.set(tableX, 0, 0.15);
+
+        const tableTop = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.04, 16), teakMat);
+        tableTop.position.set(0, 0.44, 0);
+        tableGroup.add(tableTop);
+        for (let i = 0; i < 3; i++) {
+          const ang = (i * Math.PI * 2) / 3;
+          const tLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.45, 6), teakMat);
+          tLeg.position.set(Math.cos(ang) * 0.14, 0.22, Math.sin(ang) * 0.14);
+          tLeg.rotation.z = -Math.cos(ang) * 0.18;
+          tLeg.rotation.x = Math.sin(ang) * 0.18;
+          tableGroup.add(tLeg);
+        }
+
+        // Hand-Carved Coconut Piña Colada on Table
+        const pinaGroup = new THREE.Group();
+        pinaGroup.position.set(0, 0.46, 0);
+
+        const coconutHusk = new THREE.Mesh(
+          new THREE.SphereGeometry(0.12, 14, 10, 0, Math.PI * 2, 0.4, Math.PI - 0.4),
+          new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.85 })
+        );
+        coconutHusk.position.y = 0.07;
+        pinaGroup.add(coconutHusk);
+
+        const frostCream = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.095, 0.09, 0.02, 14),
+          new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.2 })
+        );
+        frostCream.position.y = 0.13;
+        pinaGroup.add(frostCream);
+
+        const miniCanopy = new THREE.Mesh(
+          new THREE.ConeGeometry(0.08, 0.03, 8),
+          new THREE.MeshStandardMaterial({ color: 0xf43f5e, side: THREE.DoubleSide })
+        );
+        miniCanopy.position.set(-0.03, 0.23, 0.02);
+        miniCanopy.rotation.z = -0.35;
+        pinaGroup.add(miniCanopy);
+
+        const mStraw = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.008, 0.008, 0.18, 6),
+          new THREE.MeshStandardMaterial({ color: 0x38bdf8 })
+        );
+        mStraw.position.set(0.03, 0.19, -0.02);
+        mStraw.rotation.z = 0.3;
+        pinaGroup.add(mStraw);
+
+        tableGroup.add(pinaGroup);
+        chairGroup.add(tableGroup);
+      }
+
+      // 6. Towering 3.4m Luxury Striped Resort Parasol / Beach Umbrella
+      const umbrellaGroup = new THREE.Group();
+      const umbSideX = options.tableSide === 'left' ? -0.85 : 0.85;
+      umbrellaGroup.position.set(umbSideX, 0, 0.25);
+
+      // Heavy carved sandstone / brass weighted umbrella base
+      const umbBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.34, 0.16, 16),
+        brassMat
+      );
+      umbBase.position.y = 0.08;
+      umbrellaGroup.add(umbBase);
+
+      // Polished Bamboo / Teak Umbrella Mast (3.4m tall)
+      const umbPole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.045, 0.05, 3.4, 8),
+        teakMat
+      );
+      umbPole.position.y = 1.70;
+      umbrellaGroup.add(umbPole);
+
+      // Parasol Canopy Hub & Ribs
+      const canopyGroup = new THREE.Group();
+      canopyGroup.position.y = 3.10;
+
+      // Broad Striped Fabric Canopy (3.2m diameter)
+      const canopyGeom = new THREE.ConeGeometry(1.65, 0.65, 16, 1, true);
+      const canopyMesh = new THREE.Mesh(canopyGeom, cushionMat);
+      canopyMesh.position.y = -0.15;
+      canopyGroup.add(canopyMesh);
+
+      // Alternating Striped Segments on Canopy
+      for (let s = 0; s < 8; s++) {
+        const stripeSector = new THREE.Mesh(
+          new THREE.ConeGeometry(1.66, 0.65, 2, 1, true, (s * Math.PI * 2) / 8, Math.PI / 8),
+          stripeMat
+        );
+        stripeSector.position.y = -0.15;
+        canopyGroup.add(stripeSector);
+      }
+
+      // Scalloped Decorative Fabric Valance Trim
+      const valance = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.65, 1.65, 0.18, 16, 1, true),
+        cushionMat
+      );
+      valance.position.y = -0.48;
+      canopyGroup.add(valance);
+
+      // Golden Brass Top Cap & Finial
+      const finial = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 12, 12),
+        brassMat
+      );
+      finial.position.y = 0.28;
+      canopyGroup.add(finial);
+
+      // Warm Golden Hanging Lantern Under Canopy
+      const lanternPole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.012, 0.012, 0.45, 6),
+        brassMat
+      );
+      lanternPole.position.set(0, -0.35, 0);
+      canopyGroup.add(lanternPole);
+
+      const lanternGlobe = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffedd5 })
+      );
+      lanternGlobe.position.set(0, -0.60, 0);
+      canopyGroup.add(lanternGlobe);
+
+      const lanternLight = new THREE.PointLight(0xffedd5, 1.2, 6.0, 1.5);
+      lanternLight.position.set(0, -0.62, 0);
+      canopyGroup.add(lanternLight);
+
+      umbrellaGroup.add(canopyGroup);
+      chairGroup.add(umbrellaGroup);
+
+      // 7. Raised Teak Duckboard Deck Platform Base (Ensures lounger is NEVER buried or occluded by grass/sand)
+      const deckPlinth = new THREE.Mesh(
+        new THREE.BoxGeometry(2.3, 0.12, 2.2),
+        teakMat
+      );
+      deckPlinth.position.set(umbSideX * 0.45, -0.06, 0.15);
+      chairGroup.add(deckPlinth);
+
+      // 8. Overhead High-Visibility Interactive 3D Marker Badge
+      const markerGroup = new THREE.Group();
+      markerGroup.position.set(0, 3.65, 0.15);
+      const markerRing = new THREE.Mesh(
+        new THREE.TorusGeometry(0.38, 0.04, 8, 16),
+        new THREE.MeshBasicMaterial({ color: cushionColor })
+      );
+      markerRing.rotation.x = Math.PI / 2;
+      markerGroup.add(markerRing);
+      const markerCore = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.18, 0),
+        new THREE.MeshBasicMaterial({ color: 0xfef08a })
+      );
+      markerGroup.add(markerCore);
+      chairGroup.add(markerGroup);
+
+      return chairGroup;
+    }
+
     // Overworld Crescent Beach Full Beach Volleyball Court & Spectator Lounge
     (() => {
       const courtGroup = new THREE.Group();
@@ -2586,20 +2863,10 @@ window.BlahajWorld = (function () {
       refChair.add(towel);
       courtGroup.add(refChair);
 
-      // 6. Sideline Deckchairs & Parasol Spectator Lounge (East Sideline: x = 4.6, z = -1.6)
+      // 6. Tropical Sideline Parasol & Cooler in Court Group
       const loungeGroup = new THREE.Group();
       loungeGroup.position.set(4.6, 0, -1.6);
       loungeGroup.rotation.y = -0.4;
-      [-0.7, 0.7].forEach((dx, idx) => {
-        const dSeat = new THREE.Mesh(
-          new THREE.BoxGeometry(0.7, 0.04, 1.2),
-          new THREE.MeshStandardMaterial({ color: idx === 0 ? 0x0284c7 : 0xf43f5e, roughness: 0.8 })
-        );
-        dSeat.position.set(dx, 0.35, 0);
-        dSeat.rotation.x = 0.3;
-        loungeGroup.add(dSeat);
-      });
-      // Tropical sideline parasol
       const pPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.7, 8), courtBambooMat);
       pPole.position.set(0, 1.35, -1.0);
       loungeGroup.add(pPole);
@@ -2610,7 +2877,6 @@ window.BlahajWorld = (function () {
       pCanopy.position.set(0, 2.7, -1.0);
       loungeGroup.add(pCanopy);
 
-      // Chilled cooler box with coconut drink
       const cooler = new THREE.Mesh(
         new THREE.BoxGeometry(0.65, 0.42, 0.42),
         new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.4 })
@@ -2618,6 +2884,181 @@ window.BlahajWorld = (function () {
       cooler.position.set(0, 0.21, 0.9);
       loungeGroup.add(cooler);
       courtGroup.add(loungeGroup);
+
+      // 6b. Luxury Beach & Meadow Sun Loungers with Piña Colada Tables (Crescent Beach, Heartland Meadow & Pier)
+      const DECK_CHAIRS_SPECS = [
+        // East Cape Arrival Promenade (Immediately flanking player at spawn on plateau!)
+        {
+          id: 'deckchair_spawn_1',
+          name: 'East Cape Ocean View Lounger',
+          x: 57.5,
+          z: -7.0,
+          rotY: -Math.PI * 0.5,
+          cushionColor: 0x0284c7, // Royal Ocean Blue
+          stripeColor: 0xf8fafc,
+          pillowColor: 0xfacc15,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_spawn_2',
+          name: 'East Cape Sunrise Recliner',
+          x: 57.5,
+          z: -13.0,
+          rotY: -Math.PI * 0.5,
+          cushionColor: 0xf59e0b, // Warm Sunrise Gold
+          stripeColor: 0xffedd5,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        },
+        // Central Heartland Town Plaza
+        {
+          id: 'deckchair_plaza_1',
+          name: 'Heartland Plaza Palm Lounger',
+          x: 3.5,
+          z: 21.0,
+          rotY: 0.2,
+          cushionColor: 0x10b981, // Emerald Palm
+          stripeColor: 0xfef08a,
+          pillowColor: 0xf43f5e,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_plaza_2',
+          name: 'Heartland Town Square Recliner',
+          x: -3.5,
+          z: 21.0,
+          rotY: -0.2,
+          cushionColor: 0xec4899, // Hibiscus Pink
+          stripeColor: 0xfdf2f8,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        },
+        // Crescent Beach
+        {
+          id: 'deckchair_russell',
+          name: 'Russell’s Ocean View Lounger',
+          x: 33.2,
+          z: 49.6,
+          rotY: -0.42,
+          cushionColor: 0x0284c7, // Royal Ocean Blue
+          stripeColor: 0xf8fafc,
+          pillowColor: 0xfef08a,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_helen',
+          name: 'Helen’s Sunset Deck Chair',
+          x: 32.2,
+          z: 51.8,
+          rotY: -0.42,
+          cushionColor: 0xf43f5e, // Sunset Coral Pink
+          stripeColor: 0xfef08a,
+          pillowColor: 0xfde047,
+          tableSide: 'left'
+        },
+        {
+          id: 'deckchair_sunny',
+          name: 'Sunny’s Companion Recliner',
+          x: 23.8,
+          z: 47.0,
+          rotY: 0.28,
+          cushionColor: 0xf59e0b, // Sunshine Yellow
+          stripeColor: 0xfef3c7,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        },
+        {
+          id: 'deckchair_surf',
+          name: 'Waterfront Waves Lounger',
+          x: 25.2,
+          z: 43.2,
+          rotY: 0.12,
+          cushionColor: 0x0d9488, // Teal Palm Green
+          stripeColor: 0xf0fdfa,
+          pillowColor: 0xfbbf24,
+          tableSide: 'right'
+        },
+        // Heartland Meadow Sanctuary of the Birbs
+        {
+          id: 'deckchair_meadow_1',
+          name: 'Heartland Meadow Birb-Watching Lounger',
+          x: -16.0,
+          z: 22.5,
+          rotY: 0.85,
+          cushionColor: 0x10b981, // Emerald Birb Grass
+          stripeColor: 0xfef08a,
+          pillowColor: 0xf43f5e,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_meadow_2',
+          name: 'Heartland Meadow Sunset Recliner',
+          x: -17.8,
+          z: 24.8,
+          rotY: 0.85,
+          cushionColor: 0xf59e0b, // Warm Honey Breb
+          stripeColor: 0xffedd5,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        },
+        // Heartland Harbor & Pier Promenade
+        {
+          id: 'deckchair_pier_1',
+          name: 'Heartland Pier Promenade Lounger',
+          x: 7.2,
+          z: 28.0,
+          rotY: -0.65,
+          cushionColor: 0x0284c7, // Harbor Blue
+          stripeColor: 0xf8fafc,
+          pillowColor: 0xfacc15,
+          tableSide: 'right'
+        },
+        {
+          id: 'deckchair_pier_2',
+          name: 'Heartland Pier Sunset Chair',
+          x: 9.0,
+          z: 30.2,
+          rotY: -0.65,
+          cushionColor: 0xec4899, // Sunset Pink
+          stripeColor: 0xfdf2f8,
+          pillowColor: 0x38bdf8,
+          tableSide: 'left'
+        }
+      ];
+
+      DECK_CHAIRS_SPECS.forEach((spec) => {
+        const chairMesh = createLuxuryDeckChair(spec);
+        const th = (typeof getTerrainHeight === 'function') ? getTerrainHeight(spec.x, spec.z) : 0;
+        const gh = (typeof getGroundAndStructureHeight === 'function') ? getGroundAndStructureHeight(spec.x, spec.z) : th;
+        const groundY = Math.max(th, gh);
+        chairMesh.position.set(spec.x, groundY + 0.04, spec.z);
+        chairMesh.rotation.y = spec.rotY;
+
+        // Glowing interactive ground beacon ring so chairs pop clearly across sand & meadow
+        const beaconRing = new THREE.Mesh(
+          new THREE.RingGeometry(1.35, 1.65, 24),
+          new THREE.MeshBasicMaterial({ color: spec.cushionColor, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+        );
+        beaconRing.rotation.x = -Math.PI / 2;
+        beaconRing.position.set(0, 0.04, 0);
+        chairMesh.add(beaconRing);
+
+        scene.add(chairMesh);
+
+        deckChairs.push({
+          id: spec.id,
+          name: spec.name,
+          x: spec.x,
+          y: groundY,
+          z: spec.z,
+          rotY: spec.rotY,
+          seatX: spec.x + Math.sin(spec.rotY) * 0.12,
+          seatY: groundY + 0.42,
+          seatZ: spec.z + Math.cos(spec.rotY) * 0.12,
+          seatRotY: spec.rotY,
+          mesh: chairMesh
+        });
+      });
 
       // 7. Multi-Colored Beach Ball resting on the golden sand
       if (window.BlahajModels && window.BlahajModels.createBeachBall) {
@@ -2683,6 +3124,84 @@ window.BlahajWorld = (function () {
       scene.add(courtGroup);
     })();
   }
+  // ==========================================================================
+  // MARITIME TOURIST BINOCULARS PEDESTALS (OVERLOOKS ACROSS THE ARCHIPELAGO)
+  // ==========================================================================
+  const binocularPedestals = [];
+  window.BlahajBinocularPedestals = binocularPedestals;
+
+  function buildTouristBinocularPedestals(scene) {
+    function createTouristBinocularPedestal(x, z, rotY = 0, name = 'Tourist Maritime Binoculars') {
+      const g = new THREE.Group();
+      const sy = (typeof getGroundAndStructureHeight === 'function') ? getGroundAndStructureHeight(x, z) : getTerrainHeight(x, z);
+      g.position.set(x, sy, z);
+      g.rotation.y = rotY;
+
+      const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8, metalness: 0.5 });
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.25, metalness: 0.85 });
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.85 });
+
+      // Heavy Stepped Base Plinth
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.42, 0.15, 16), ironMat);
+      base.position.y = 0.075;
+      g.add(base);
+
+      // Fluted Brass Pedestal Column
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.085, 1.15, 12), brassMat);
+      col.position.y = 0.72;
+      g.add(col);
+
+      // Swivel Mounting Yoke
+      const yoke = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.08, 0.12), ironMat);
+      yoke.position.set(0, 1.32, 0);
+      g.add(yoke);
+
+      // Dual Brass Marine Barrels
+      const bLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.45, 12), brassMat);
+      bLeft.rotation.x = Math.PI / 2 - 0.15; // Angled slightly upward
+      bLeft.position.set(-0.09, 1.40, 0.08);
+      g.add(bLeft);
+
+      const bRight = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.45, 12), brassMat);
+      bRight.rotation.x = Math.PI / 2 - 0.15;
+      bRight.position.set(0.09, 1.40, 0.08);
+      g.add(bRight);
+
+      // Ocular Glass Lenses
+      [-0.09, 0.09].forEach((lx) => {
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.05, 12), lensMat);
+        lens.position.set(lx, 1.435, 0.30);
+        lens.rotation.x = -0.15;
+        g.add(lens);
+      });
+
+      // Glowing Ground Beacon Ring
+      const bRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.85, 1.15, 20),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+      );
+      bRing.rotation.x = -Math.PI / 2;
+      bRing.position.set(0, 0.02, 0);
+      g.add(bRing);
+
+      scene.add(g);
+
+      binocularPedestals.push({
+        id: `bino_pedestal_${binocularPedestals.length + 1}`,
+        name,
+        x,
+        y: sy,
+        z,
+        mesh: g
+      });
+    }
+
+    createTouristBinocularPedestal(54.0, -8.0, -Math.PI * 0.5, 'East Cape Ocean Viewpoint');
+    createTouristBinocularPedestal(7.0, 27.0, -Math.PI * 0.4, 'Heartland Pier Observation Point');
+    createTouristBinocularPedestal(27.0, 47.0, 0.3, 'Crescent Beach Dunes Overlook');
+    createTouristBinocularPedestal(-22.0, 14.0, 0.85, 'Heartland Meadow Ridge Overlook');
+  }
+
 
   // ==========================================================================
   // REAR VOLCANO WHARF & SEA CAVE ENTRANCE TO THE VOLCANO TRIAL INSTANCE

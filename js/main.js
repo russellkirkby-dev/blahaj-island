@@ -443,6 +443,54 @@
       this.playTone(160, 0.20, 'sine', 0.07, 240);
     },
 
+    deckChairLounge() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(196, 0.28, 'sine', 0.12, 130);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(392, 0.35, 'triangle', 0.08, 523);
+      }, 70);
+    },
+
+    pinaColadaSip() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(330, 0.15, 'sawtooth', 0.07, 440);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(659, 0.18, 'sine', 0.09, 880);
+        this.playTone(1318, 0.14, 'triangle', 0.06);
+      }, 80);
+    },
+
+    binocularZoom() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(220, 0.12, 'sine', 0.08, 440);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(880, 0.08, 'triangle', 0.06, 1760);
+      }, 50);
+    },
+
+    hurtSqueak() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(180, 0.22, 'sawtooth', 0.16, 90);
+      this.playTone(520, 0.14, 'square', 0.08, 280);
+    },
+
+    ovenBake() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(261.63, 0.24, 'sine', 0.12, 523.25);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(659.25, 0.32, 'triangle', 0.10, 783.99);
+      }, 90);
+    },
+
     waterSplash(vol = 0.1, duration = 0.25) {
       this.ensure();
       if (!this.ctx) return;
@@ -1554,6 +1602,8 @@
   };
 
   const HELD_ITEM_DEFS = {
+    pina_colada: { name: 'Chilled Piña Colada', icon: '🍹', type: 'drink', isFoodOrDrink: true },
+    binoculars: { name: 'Brass Marine Binoculars', icon: '🔭', type: 'tool', isFoodOrDrink: false },
     margarita: { name: 'Frosted Margarita', icon: '🍸', type: 'drink', isFoodOrDrink: true },
     tropical_cocktail: { name: 'Sunset Cocktail', icon: '🍹', type: 'drink', isFoodOrDrink: true },
     celestial_boba: { name: 'Celestial Boba', icon: '🧋', type: 'drink', isFoodOrDrink: true },
@@ -1791,6 +1841,9 @@
     cartId: null,
     isSeatedInBooth: false,
     seatedBoothIndex: -1,
+    isLounging: false,
+    loungeChairId: null,
+    loungeChair: null,
     inWater: false,
     isSwimming: false,
     waterSurfaceY: 0.22,
@@ -1935,7 +1988,9 @@
     mesh: null,
     targetPos: new THREE.Vector3(3, 4.2, 26),
     targetRotY: Math.PI,
-    labelEl: null
+    labelEl: null,
+    isLounging: false,
+    loungeChairId: null
   };
 
   // Endless Pier Cross-Ocean Bottle Notes
@@ -1998,6 +2053,11 @@
     if (window.BlahajInventory) {
       if (!player.inventory) {
         player.inventory = window.BlahajInventory.createPlayerInventory();
+      }
+      if (player.inventory && typeof player.inventory.hasItem === 'function') {
+        if (!player.inventory.hasItem('binoculars')) {
+          player.inventory.addItem('binoculars', 1);
+        }
       }
       solomonBreadOven = window.BlahajInventory.createSolomonBreadOven();
       scene.add(solomonBreadOven.group);
@@ -2640,6 +2700,24 @@
 
       if (e.repeat) return;
 
+      if (k === 'm') {
+        e.preventDefault();
+        toggleFastTravelModal();
+        return;
+      }
+      if (k === 't') {
+        e.preventDefault();
+        if (isUsingBinoculars) {
+          exitBinocularMode();
+        } else {
+          if (!playerHeldItem || playerHeldItem.id !== 'binoculars') {
+            equipHeldItem('binoculars', false);
+          }
+          enterBinocularMode();
+        }
+        return;
+      }
+
       if (k === '1') spawnPlayerShark('hermes');
       if (k === '2') spawnPlayerShark('solomon');
       if (k === '3') spawnPlayerShark('hiram');
@@ -2658,6 +2736,46 @@
         CozyAudio.shonk();
       }
       if (k === 'x') removeNearestBuiltStructure();
+
+      if (isUsingBinoculars) {
+      nearestInteractable = {
+        kind: 'binoculars_active',
+        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (player.isLounging) {
+        if (k === ' ' || k === 'f') {
+          e.preventDefault();
+          sipPinaColada();
+          return;
+        }
+        if (k === 'e' || k === 'escape') {
+          e.preventDefault();
+          standUpFromDeckChair();
+          return;
+        }
+      }
+
+      if (isUsingBinoculars) {
+        if (k === 'f' || k === ' ' || k === 'escape' || k === 'e' || k === 'h') {
+          e.preventDefault();
+          exitBinocularMode();
+          return;
+        }
+      } else if (playerHeldItem && playerHeldItem.id === 'binoculars') {
+        if (k === 'f' || k === ' ') {
+          e.preventDefault();
+          toggleBinocularMode();
+          return;
+        }
+      }
 
       if (k === 'e') triggerInteract();
       if (k === 'b') triggerFeedBreb();
@@ -2749,10 +2867,13 @@
     const isCSOpen = csModal && !csModal.classList.contains('hidden');
     const setModal = document.getElementById('settings-modal');
     const isSetOpen = setModal && !setModal.classList.contains('hidden');
+    const travelModal = document.getElementById('modal-fast-travel');
+    const isTravelOpen = travelModal && !travelModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
       isSetOpen ||
+      isTravelOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -4165,7 +4286,9 @@
         cartId: null,
         zone: currentZone,
         mange: window.__BLAHAJ_MANGE__,
-        heldItemId: playerHeldItem ? playerHeldItem.id : null
+        heldItemId: playerHeldItem ? playerHeldItem.id : null,
+        isLounging: !!player.isLounging,
+        loungeChairId: player.loungeChairId || null
       });
     }
   }
@@ -4250,6 +4373,17 @@
       collectWorldPickup(item.pickup);
       return;
     }
+    if (item.kind === 'binocular_pedestal') {
+      if (!playerHeldItem || playerHeldItem.id !== 'binoculars') {
+        equipHeldItem('binoculars', false);
+      }
+      enterBinocularMode();
+      return;
+    }
+    if (item.kind === 'signpost_spawn') {
+      openFastTravelModal();
+      return;
+    }
     if (item.kind === 'solomon_bread_oven') {
       bakeBrebAtOven();
       return;
@@ -4272,6 +4406,28 @@
     }
     if (item.kind === 'pluck_birb_down') {
       pluckBirbDown(item.ref);
+      return;
+    }
+
+    if (isUsingBinoculars) {
+      nearestInteractable = {
+        kind: 'binoculars_active',
+        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (player.isLounging) {
+      standUpFromDeckChair();
+      return;
+    }
+    if (item.kind === 'deckchair') {
+      sitOnDeckChair(item.chairId);
       return;
     }
 
@@ -5496,6 +5652,30 @@
     }
 
     // Celestial Day/Night Clock Widget & Sky Controls Flyout
+    // Fast Travel and Binoculars Quick Buttons
+    document.getElementById('pill-open-fast-travel')?.addEventListener('click', () => {
+      openFastTravelModal();
+    });
+    document.getElementById('btn-close-travel-modal')?.addEventListener('click', () => {
+      closeFastTravelModal();
+    });
+    document.querySelectorAll('.btn-travel-action').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dest = btn.dataset.dest;
+        if (dest) fastTravelTo(dest);
+      });
+    });
+    document.getElementById('pill-quick-binoculars')?.addEventListener('click', () => {
+      if (isUsingBinoculars) {
+        exitBinocularMode();
+      } else {
+        if (!playerHeldItem || playerHeldItem.id !== 'binoculars') {
+          equipHeldItem('binoculars', false);
+        }
+        enterBinocularMode();
+      }
+    });
+
     const btnToggleSky = document.getElementById('btn-toggle-sky-controls');
     const skyFlyout = document.getElementById('sky-controls-flyout');
     const btnCloseSky = document.getElementById('btn-close-sky-controls');
@@ -6022,6 +6202,272 @@
     showToast('STOOD UP FROM BOOTH 🦈', 'Ready to explore the bistro.');
   }
 
+
+  // ==========================================================================
+  // FAST TRAVEL & ARCHIPELAGO NAVIGATION MODAL [M]
+  // ==========================================================================
+  const FAST_TRAVEL_DESTINATIONS = {
+    meadow: {
+      name: "Solomon's Stone Bread Oven & Birb Meadow",
+      x: -12.5,
+      z: 19.2,
+      rotY: -Math.PI, // Right in front of the grand bread oven terrace with unobstructed view!
+      toast: "HEARTLAND MEADOW BREAD OVEN 🥖",
+      desc: "Arrived at Solomon's Grand Stone Bread Oven & Birb Meadow!"
+    },
+    beach: {
+      name: "Crescent Beach Volleyball & Deck Chairs",
+      x: 28.0,
+      z: 48.0,
+      rotY: 0.0,
+      toast: "CRESCENT BEACH & DECK CHAIRS 🏖️",
+      desc: "Arrived on the warm golden sand by Russell & Helen's sun loungers!"
+    },
+    spawn: {
+      name: "East Cape Arrival & Ocean Loungers",
+      x: 54.0,
+      z: -10.0,
+      rotY: -Math.PI * 0.5,
+      toast: "EAST CAPE ARRIVAL 🌅",
+      desc: "Arrived at the East Cape Portal Gate, ocean loungers & binoculars viewpoint!"
+    },
+    plaza: {
+      name: "Heartland Town Plaza & Crossroads",
+      x: 1.0,
+      z: 22.0,
+      rotY: 0.0,
+      toast: "HEARTLAND TOWN PLAZA 🏛️",
+      desc: "Arrived at the Central Plaza crossroads and artisan stalls!"
+    },
+    pier: {
+      name: "Heartland Pier Promenade",
+      x: 7.0,
+      z: 28.0,
+      rotY: -Math.PI * 0.4,
+      toast: "HEARTLAND PIER PROMENADE ⚓",
+      desc: "Arrived at the ocean pier loungers and panoramic sea overlook!"
+    },
+    volcano: {
+      name: "The Sacred Volcano Balcony",
+      x: 0.0,
+      z: -125.0,
+      rotY: Math.PI,
+      toast: "SACRED VOLCANO BALCONY 🌋",
+      desc: "Arrived at the high summit caldera and eternal flame brazier!"
+    }
+  };
+
+  function updateFastTravelDistances() {
+    for (const [key, dest] of Object.entries(FAST_TRAVEL_DESTINATIONS)) {
+      const el = document.getElementById(`dist-dest-${key}`);
+      if (el && player && player.pos) {
+        const d = Math.round(Math.hypot(player.pos.x - dest.x, player.pos.z - dest.z));
+        el.textContent = `${d}m away`;
+      }
+    }
+  }
+
+  function openFastTravelModal() {
+    releasePointerLock();
+    const modal = document.getElementById('modal-fast-travel');
+    if (!modal) return;
+    updateFastTravelDistances();
+    modal.classList.remove('hidden');
+    CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk();
+  }
+
+  function closeFastTravelModal() {
+    const modal = document.getElementById('modal-fast-travel');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function toggleFastTravelModal() {
+    const modal = document.getElementById('modal-fast-travel');
+    if (!modal) return;
+    if (modal.classList.contains('hidden')) {
+      openFastTravelModal();
+    } else {
+      closeFastTravelModal();
+    }
+  }
+
+  function fastTravelTo(destKey) {
+    const dest = FAST_TRAVEL_DESTINATIONS[destKey];
+    if (!dest) return;
+    closeFastTravelModal();
+
+    if (player.isLounging) standUpFromDeckChair();
+    if (player.isSeatedInBooth) standUpFromBooth();
+    if (player.inBoat) disembarkBoatAtCurrentLocation();
+    if (player.inCart) dismountLaundryCart();
+    if (isUsingBinoculars) exitBinocularMode();
+
+    const groundY = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
+      ? worldApi.getGroundAndStructureHeight(dest.x, dest.z)
+      : (worldApi && typeof worldApi.getTerrainHeight === 'function')
+        ? worldApi.getTerrainHeight(dest.x, dest.z)
+        : player.pos.y;
+
+    player.pos.set(dest.x, groundY, dest.z);
+    player.rotY = dest.rotY;
+    player.velY = 0;
+    player.isGrounded = true;
+
+    camState.yaw = dest.rotY;
+    camState.pitch = 0.08;
+
+    CozyAudio.portalChime();
+    showToast(dest.toast, dest.desc);
+    addChatLog(`✨ Teleported across the island to <strong>${dest.name}</strong>!`, 'lore');
+  }
+
+  function sitOnDeckChair(chairId) {
+    const chair = (window.BlahajDeckChairs || []).find((c) => c.id === chairId);
+    if (!chair) return;
+
+    if (player.inBoat) disembarkBoatAtCurrentLocation();
+    if (player.inCart) dismountLaundryCart();
+    if (player.isSeatedInBooth) standUpFromBooth();
+
+    player.isLounging = true;
+    player.loungeChairId = chair.id;
+    player.loungeChair = chair;
+
+    player.pos.set(chair.seatX, chair.seatY, chair.seatZ);
+    player.rotY = chair.seatRotY;
+    player.velY = 0;
+    player.isGrounded = true;
+
+    // Cozy anatomical transformation: Recline comfortably back against the angled cushion!
+    if (player.mesh) {
+      player.mesh.position.copy(player.pos);
+      player.mesh.rotation.y = chair.seatRotY;
+      player.mesh.rotation.x = -0.34; // Beach recline angle
+      player.mesh.scale.set(1.12, 0.78, 1.05); // Plush squash settling into cushion
+    }
+
+    // Equip chilled Piña Colada in fin!
+    equipHeldItem('pina_colada');
+
+    // Restore comfort and stuffing
+    player.teaComfort = 100;
+    player.stuffing = 100;
+    updateMetersUI();
+
+    CozyAudio.deckChairLounge();
+    showToast(
+      'RELAXING ON THE BEACH 🏖️🍹',
+      `Lounging on ${chair.name}! Press [Space] or [F] to sip your Piña Colada · [WASD] or [E] to stand up.`
+    );
+    addChatLog(
+      `🏖️🍹 Sunk into the padded cushion of <strong>${chair.name}</strong> with a chilled Piña Colada (+100% Comfort).`,
+      'lore'
+    );
+
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'move',
+        sharkId: player.sharkId,
+        x: player.pos.x,
+        y: player.pos.y,
+        z: player.pos.z,
+        rotY: player.rotY,
+        isMoving: false,
+        inBoat: false,
+        inCart: false,
+        cartId: null,
+        zone: currentZone,
+        mange: window.__BLAHAJ_MANGE__,
+        heldItemId: 'pina_colada',
+        isLounging: true,
+        loungeChairId: chair.id
+      });
+    }
+  }
+
+  function standUpFromDeckChair() {
+    if (!player.isLounging) return;
+    player.isLounging = false;
+    const chair = player.loungeChair;
+    player.loungeChairId = null;
+    player.loungeChair = null;
+
+    // Restore shark upright anatomy
+    if (player.mesh) {
+      player.mesh.rotation.x = 0;
+      player.mesh.scale.set(1.0, 1.0, 1.0);
+    }
+
+    // Hop slightly forward onto the sand
+    player.pos.x += Math.sin(player.rotY) * 0.75;
+    player.pos.z += Math.cos(player.rotY) * 0.75;
+    player.velY = 0;
+
+    // Put down drink
+    stowHeldItem(true);
+
+    CozyAudio.boothStand();
+    showToast('STOOD UP FROM DECK CHAIR 🏖️', 'Refreshed and energized from the beach lounge!');
+
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'move',
+        sharkId: player.sharkId,
+        x: player.pos.x,
+        y: player.pos.y,
+        z: player.pos.z,
+        rotY: player.rotY,
+        isMoving: false,
+        inBoat: false,
+        inCart: false,
+        cartId: null,
+        zone: currentZone,
+        mange: window.__BLAHAJ_MANGE__,
+        heldItemId: null,
+        isLounging: false,
+        loungeChairId: null
+      });
+    }
+  }
+
+  function sipPinaColada() {
+    if (!player.isLounging) return;
+    const now = Date.now();
+    if (now - (player._lastPinaColadaSip || 0) < 600) return;
+    player._lastPinaColadaSip = now;
+
+    CozyAudio.pinaColadaSip();
+
+    // Spawn tropical sparkles and bubbles at the shark's snout
+    const pSnout = new THREE.Vector3(
+      player.pos.x + Math.sin(player.rotY) * 0.6,
+      player.pos.y + 0.35,
+      player.pos.z + Math.cos(player.rotY) * 0.6
+    );
+    spawnFloatingBurst(pSnout, 0xfacc15, 12);
+    spawnFloatingBurst(pSnout, 0xf43f5e, 8);
+
+    player.teaComfort = Math.min(100, player.teaComfort + 5);
+    player.stuffing = Math.min(100, player.stuffing + 5);
+    updateMetersUI();
+
+    showToast(
+      'REFRESHING SIP! 🍹🍍',
+      'Ice-cold coconut cream, sweet pineapple, and ocean air!'
+    );
+
+    // Broadcast sip to co-op partner
+    if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'lounge_sip',
+        x: pSnout.x,
+        y: pSnout.y,
+        z: pSnout.z,
+        chairId: player.loungeChairId
+      });
+    }
+  }
+
   function openSphericalPaintingModal(paintingIndex) {
     if (!window.BlahajSphericalFoods) return;
     const cfg = window.BlahajSphericalFoods.getPaintingConfig(paintingIndex);
@@ -6105,16 +6551,217 @@
   }
 
   function bakeBrebAtOven() {
-    if (!player.inventory) return;
-    const added = player.inventory.addItem('breb', 3);
-    if (added > 0) {
-      CozyAudio.bistroChime();
-      spawnFloatingBurst(player.pos, 0xd97706, 24);
-      updateMetersUI();
-      showToast('FRESH BREB BAKED! 🥖✨', `Pulled ${added} steaming golden loaves from Solomon's Stone Oven! (Total: ${player.inventory.getItemCount('breb')})`);
-      addChatLog(`🥖 Fresh golden loaves baked in <strong>Solomon's Stone Bread Oven</strong> (+${added} Breb into Satchel)!`, 'cozy');
+    let added = 3;
+    if (player.inventory) {
+      const res = player.inventory.addItem('breb', 3);
+      if (res > 0) added = res;
+    }
+    player.teaComfort = Math.min(100, player.teaComfort + 20);
+    player.stuffing = Math.min(100, player.stuffing + 20);
+    updateMetersUI();
+
+    CozyAudio.ovenBake();
+    spawnFloatingBurst(player.pos, 0xd97706, 28);
+    spawnFloatingBurst(player.pos, 0xfacc15, 16);
+
+    // Nearby Birbs chirp with delight!
+    CozyAudio.birbChirp();
+
+    showToast('FRESH BREB BAKED! 🥖✨', `Pulled ${added} steaming golden loaves from Solomon's Stone Oven at Heartland Meadow!`);
+    addChatLog(`🥖 Fresh golden loaves baked in <strong>Solomon's Stone Bread Oven</strong> at Heartland Meadow (+${added} Breb for Birbs, +20% Stuffing & Comfort)!`, 'lore');
+    completeQuest('q-breb');
+  }
+
+  function damagePlayer(amount = 16, attackerTitle = 'Enemy', knockbackDir = null) {
+    if (playerInvulnTimer > 0) return;
+    playerInvulnTimer = 0.85; // 0.85s i-frame window
+
+    player.stuffing = Math.max(0, player.stuffing - amount);
+    player.teaComfort = Math.max(0, player.teaComfort - Math.round(amount * 0.7));
+    adjustSharkMange(player.sharkId, 0.05, attackerTitle);
+    updateMetersUI();
+
+    // Recoil knockback impulse
+    if (knockbackDir) {
+      player.pos.x += knockbackDir.x * 0.95;
+      player.pos.z += knockbackDir.z * 0.95;
+      player.velY = Math.max(player.velY, 4.5);
+    }
+
+    // Impact audio
+    CozyAudio.hurtSqueak();
+
+    // Red screen damage flash
+    const flashEl = document.getElementById('damage-flash-overlay');
+    if (flashEl) {
+      flashEl.classList.add('active');
+      setTimeout(() => flashEl.classList.remove('active'), 280);
+    }
+
+    // Mesh flash
+    if (player.mesh) {
+      player.mesh.traverse((c) => {
+        if (c.isMesh && c.material) {
+          const origHex = c.material.color.getHex();
+          c.material.color.setHex(0xff3333);
+          setTimeout(() => c.material.color.setHex(origHex), 140);
+        }
+      });
+    }
+
+    // Plush fluff burst
+    spawnFloatingBurst(player.pos, 0xfecdd3, 16);
+
+    // Floating combat text
+    if (window.BlahajEnemies && window.BlahajEnemies.spawnFloatingCombatText) {
+      window.BlahajEnemies.spawnFloatingCombatText(player.pos, `💥 -${amount}% STUFFING!`, '#ef4444');
+    }
+
+    showToast(`💥 TAKEN DAMAGE! (-${amount}% Stuffing)`, `Bitten by ${attackerTitle}! Press [F] to Boop Attack!`);
+    addChatLog(`💥 <strong>${attackerTitle}</strong> attacked you (-${amount}% Stuffing Coherence)! Defend yourself with [F] Boop Attack.`, 'cozy');
+
+    // Check if Unstuffed / Deflated (0% Stuffing)
+    if (player.stuffing <= 0) {
+      triggerUnstuffedRecovery(attackerTitle);
+    }
+  }
+
+  function triggerUnstuffedRecovery(reason = 'Battle') {
+    CozyAudio.shonk();
+    showToast('💫 UNSTUFFED! 🦈', 'Plush stuffing gave way! Rescued to Solomon’s Bread Hearth at Heartland Meadow.');
+    addChatLog('💫 You were comically unstuffed in battle and escorted safely to <strong>Solomon’s Bread Oven</strong> at Heartland Meadow!', 'lore');
+
+    // Teleport to Solomon's Hearth at Heartland Meadow
+    const sy = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
+      ? worldApi.getGroundAndStructureHeight(-12.5, 21.5)
+      : 5.89;
+    player.pos.set(-12.5, sy, 19.2);
+    player.rotY = -Math.PI;
+    camState.yaw = -Math.PI;
+    player.velY = 0;
+    player.stuffing = 100;
+    player.teaComfort = 100;
+    playerInvulnTimer = 2.0; // 2s recovery invulnerability
+    updateMetersUI();
+
+    CozyAudio.teaPour();
+    spawnFloatingBurst(player.pos, 0xfacc15, 24);
+  }
+
+  function toggleBinocularMode() {
+    if (isUsingBinoculars) {
+      exitBinocularMode();
     } else {
-      showToast('SATCHEL FULL! 🎒', 'Make room in your satchel before baking more Breb!');
+      enterBinocularMode();
+    }
+  }
+
+  function enterBinocularMode() {
+    if (isUsingBinoculars) return;
+    if (player.isLounging || player.isSeatedInBooth || player.inCart) return;
+
+    isUsingBinoculars = true;
+    binocularSavedDistance = camState.distance;
+    binocularSavedFov = camera.fov;
+    binocularSavedShoulderRight = camState.shoulderRight;
+    binocularSavedHeightOffset = camState.heightOffset;
+
+    camState.distance = 0.05;
+    camState.shoulderRight = 0.0;
+    camState.heightOffset = 0.75;
+    camera.fov = 16.0; // 4.5x zoom
+    camera.updateProjectionMatrix();
+
+    const overlay = document.getElementById('binocular-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.classList.add('in-binocular-mode');
+
+    CozyAudio.binocularZoom();
+    showToast('🔭 BINOCULAR HORIZON VIEW', 'Looking through brass lenses! Move mouse/keys to scan the horizon. Press [F / Esc] to lower.');
+  }
+
+  function exitBinocularMode() {
+    if (!isUsingBinoculars) return;
+    isUsingBinoculars = false;
+
+    camState.distance = binocularSavedDistance || 7.4;
+    camState.shoulderRight = binocularSavedShoulderRight || 0.85;
+    camState.heightOffset = binocularSavedHeightOffset || 2.35;
+    camera.fov = binocularSavedFov || 60;
+    camera.updateProjectionMatrix();
+
+    const overlay = document.getElementById('binocular-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    document.body.classList.remove('in-binocular-mode');
+
+    CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk();
+    showToast('LOWERED BINOCULARS 🔭', 'Back to standard third-person view.');
+  }
+
+  function updateBinocularCrosshairHUD() {
+    const headingDeg = Math.round(((-camState.yaw * 180) / Math.PI % 360 + 360) % 360);
+    const compassEl = document.getElementById('binocular-compass-text');
+    if (compassEl) {
+      const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+      const dirIdx = Math.round(headingDeg / 45) % 8;
+      const curDir = directions[dirIdx];
+      compassEl.innerHTML = `<span>${(headingDeg - 30 + 360) % 360}°</span> <span>• ${curDir} (${headingDeg}°) •</span> <span>${(headingDeg + 30) % 360}°</span>`;
+    }
+
+    const labelEl = document.getElementById('binocular-target-label');
+    if (!labelEl) return;
+
+    const LANDMARKS = [
+      { name: 'The Sacred Volcano Balcony', x: 0, z: -125 },
+      { name: 'Rear Volcano Wharf & Sea Cave', x: -28, z: -194 },
+      { name: 'Crescent Beach Volleyball Court', x: 28, z: 52 },
+      { name: 'Solomon’s Stone Bread Oven', x: -12.5, z: 16.0 },
+      { name: 'Heartland Birb Meadow', x: -14, z: 18 },
+      { name: 'Heartland Endless Pier', x: 6, z: 42 },
+      { name: 'The Great Portal Gate (NZ ↔ LA)', x: 72, z: -10 },
+      { name: 'Hermes’ Starlight Atoll', x: 135, z: -25 },
+      { name: 'Solomon’s Sunlit Meadow Cay', x: -115, z: 85 },
+      { name: 'Hiram’s Forge & Birch Isle', x: -125, z: -80 },
+      { name: 'Nimue’s Whispering Sanctuary', x: 95, z: -110 }
+    ];
+
+    if (coopPartner && coopPartner.active && coopPartner.mesh) {
+      LANDMARKS.unshift({
+        name: `${coopPartner.sharkId.toUpperCase()} (Co-op Partner)`,
+        x: coopPartner.mesh.position.x,
+        z: coopPartner.mesh.position.z
+      });
+    }
+
+    const fwdX = -Math.sin(camState.yaw);
+    const fwdZ = -Math.cos(camState.yaw);
+
+    let closestAim = null;
+    let closestAng = 0.28; // ~16 degree cone
+
+    for (const lm of LANDMARKS) {
+      const toLmX = lm.x - player.pos.x;
+      const toLmZ = lm.z - player.pos.z;
+      const dist = Math.hypot(toLmX, toLmZ);
+      if (dist < 4.0) continue;
+
+      const normX = toLmX / dist;
+      const normZ = toLmZ / dist;
+      const dot = fwdX * normX + fwdZ * normZ;
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+      if (angle < closestAng) {
+        closestAng = angle;
+        closestAim = { name: lm.name, dist: Math.round(dist) };
+      }
+    }
+
+    if (closestAim) {
+      labelEl.textContent = `🎯 AIMED AT: ${closestAim.name} (${closestAim.dist}m) · ZOOM: 4.5x`;
+      labelEl.style.color = '#facc15';
+    } else {
+      labelEl.textContent = `🔭 SCANNING ARCHIPELAGO HORIZON · ZOOM: 4.5x`;
+      labelEl.style.color = '#38bdf8';
     }
   }
 
@@ -6789,6 +7436,8 @@
           coopPartner.inCart = !!data.inCart;
           coopPartner.cartId = data.cartId || null;
           coopPartner.zone = data.zone || 'island';
+          coopPartner.isLounging = !!data.isLounging;
+          coopPartner.loungeChairId = data.loungeChairId || null;
 
           if (coopPartner.mesh && coopPartner.heldItemId !== data.heldItemId) {
             coopPartner.heldItemId = data.heldItemId || null;
@@ -6902,6 +7551,17 @@
               addChatLog('🪡✨ Your partner stitched a Great Seam Rift!', 'coop');
             }
           });
+        } else if (data.type === 'lounge_sip') {
+          CozyAudio.pinaColadaSip();
+          const sipPos =
+            typeof data.x === 'number'
+              ? new THREE.Vector3(data.x, data.y, data.z)
+              : coopPartner.mesh
+              ? coopPartner.mesh.position.clone().add(new THREE.Vector3(0, 0.35, 0))
+              : player.pos;
+          spawnFloatingBurst(sipPos, 0xfacc15, 12);
+          spawnFloatingBurst(sipPos, 0xf43f5e, 8);
+          addChatLog('🍹🍍 Your partner took a refreshing sip of their Piña Colada on the beach!', 'coop');
         } else if (data.type === 'volleyball_match_sync') {
           if (window.BlahajVolleyball) {
             if (data.active) {
@@ -7101,6 +7761,12 @@
 
   // Dynamic drop shadow for precise 3D jump landing feedback
   let playerShadow = null;
+  let playerInvulnTimer = 0;
+  let isUsingBinoculars = false;
+  let binocularSavedDistance = 7.4;
+  let binocularSavedFov = 60;
+  let binocularSavedShoulderRight = 0.85;
+  let binocularSavedHeightOffset = 2.35;
   function createPlayerShadow() {
     const cvs = document.createElement('canvas');
     cvs.width = cvs.height = 128;
@@ -7192,6 +7858,10 @@
     if (player.teaBuffTimer > 0) {
       player.teaBuffTimer = Math.max(0, player.teaBuffTimer - dt);
       player.warmth = 100;
+    }
+
+    if (playerInvulnTimer > 0) {
+      playerInvulnTimer = Math.max(0, playerInvulnTimer - dt);
     }
 
     if (playerHeldItem && playerHeldItem.isTimed && playerHeldItem.id) {
@@ -7292,6 +7962,51 @@
   }
 
   function updatePlayerMovement(dt, elapsed) {
+    if (isUsingBinoculars) {
+      nearestInteractable = {
+        kind: 'binoculars_active',
+        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (player.isLounging) {
+      const anyMoveKey =
+        keys['w'] ||
+        keys['s'] ||
+        keys['a'] ||
+        keys['d'] ||
+        keys['arrowup'] ||
+        keys['arrowdown'] ||
+        keys['arrowleft'] ||
+        keys['arrowright'] ||
+        keys['shift'];
+      if (anyMoveKey) {
+        standUpFromDeckChair();
+      } else {
+        const chair = player.loungeChair;
+        if (chair) {
+          player.pos.set(chair.seatX, chair.seatY, chair.seatZ);
+          player.rotY = chair.seatRotY;
+        }
+        player.velY = 0;
+        player.isGrounded = true;
+        if (player.mesh) {
+          player.mesh.position.copy(player.pos);
+          player.mesh.rotation.set(-0.34, player.rotY, 0);
+          const breath = Math.sin(elapsed * 2.2) * 0.03;
+          player.mesh.scale.set(1.12 + breath * 0.5, 0.78 + breath, 1.05);
+          window.BlahajModels.animateShark(player.mesh, dt, false, elapsed, false, 0);
+        }
+        return;
+      }
+    }
+
     if (player.isSeatedInBooth) {
       const anyMoveKey = keys['w'] || keys['s'] || keys['a'] || keys['d'] ||
                          keys['arrowup'] || keys['arrowdown'] || keys['arrowleft'] || keys['arrowright'] ||
@@ -7948,7 +8663,9 @@
         cartId: player.cartId || null,
         zone: currentZone,
         mange: window.__BLAHAJ_MANGE__,
-        heldItemId: playerHeldItem ? playerHeldItem.id : null
+        heldItemId: playerHeldItem ? playerHeldItem.id : null,
+        isLounging: !!player.isLounging,
+        loungeChairId: player.loungeChairId || null
       });
     }
   }
@@ -8198,6 +8915,19 @@
       camY = Math.max(minGround, camY);
     }
 
+    if (isUsingBinoculars) {
+      camX = player.pos.x;
+      camY = player.pos.y + 0.75;
+      camZ = player.pos.z;
+      const fwdX = -Math.sin(camState.yaw) * Math.cos(camState.pitch);
+      const fwdY = Math.sin(camState.pitch);
+      const fwdZ = -Math.cos(camState.yaw) * Math.cos(camState.pitch);
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(camX + fwdX * 50, camY + fwdY * 50, camZ + fwdZ * 50);
+      updateBinocularCrosshairHUD();
+      return;
+    }
+
     camera.position.set(camX, camY, camZ);
     camera.lookAt(lookTarget);
 
@@ -8232,6 +8962,33 @@
   function updateInteractionsAndHUD() {
     nearestInteractable = null;
     let bestDist = 999;
+
+    if (isUsingBinoculars) {
+      nearestInteractable = {
+        kind: 'binoculars_active',
+        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (player.isLounging) {
+      document.getElementById('hud-zone-name').textContent = 'Crescent Beach · Lounging on Sun Deck Chair 🏖️🍹';
+      nearestInteractable = {
+        kind: 'lounge_active',
+        prompt: `🏖️🍹 Lounging on ${player.loungeChair?.name || 'Beach Lounger'} · [Space / F] Sip Piña Colada · [WASD / E] Stand Up`
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
 
     // Inside the Crescent Beach Volleyball Instance
     if (currentZone === 'volleyball' && window.BlahajVolleyball) {
@@ -8353,10 +9110,34 @@
       }
     }
 
-    // Solomon's Stone Bread Oven in Heartland Plaza
+    // Maritime Tourist Binoculars Pedestals
+    const pedestals = window.BlahajBinocularPedestals || [];
+    for (const ped of pedestals) {
+      const dPed = Math.hypot(player.pos.x - ped.x, player.pos.z - ped.z);
+      if (dPed < 2.5 && dPed < bestDist) {
+        bestDist = dPed;
+        nearestInteractable = {
+          kind: 'binocular_pedestal',
+          pedestal: ped,
+          prompt: `🔭 ${ped.name} · [E] Look through Marine Binoculars (or [T] anywhere)`
+        };
+      }
+    }
+
+    // East Cape Arrival Crossroads Signpost
+    const dSpawnSign = Math.hypot(player.pos.x - 55.0, player.pos.z - (-9.5));
+    if (dSpawnSign < 3.2 && dSpawnSign < bestDist) {
+      bestDist = dSpawnSign;
+      nearestInteractable = {
+        kind: 'signpost_spawn',
+        prompt: '🪧 East Cape Arrival & Travel Hub · [E] Open Island Travel Map'
+      };
+    }
+
+    // Solomon's Stone Bread Oven in Heartland Meadow
     if (solomonBreadOven && (currentZone === 'island' || currentZone === 'overworld')) {
       const dOven = Math.hypot(player.pos.x - solomonBreadOven.worldPos.x, player.pos.z - solomonBreadOven.worldPos.z);
-      if (dOven < 3.8 && dOven < bestDist) {
+      if (dOven < 6.2 && dOven < bestDist) {
         bestDist = dOven;
         nearestInteractable = {
           kind: 'solomon_bread_oven',
@@ -8482,6 +9263,21 @@
           dist: dVolleyCourt,
           prompt: 'Play Shark Beach Volleyball [E] 🏐🦈'
         };
+      }
+
+      // Crescent Beach Luxury Sun Deck Chairs
+      const deckChairs = window.BlahajDeckChairs || (worldApi && worldApi.getDeckChairs ? worldApi.getDeckChairs() : []);
+      for (const chair of deckChairs) {
+        const dChair = Math.hypot(player.pos.x - chair.x, player.pos.z - chair.z);
+        if (dChair < 3.2 && dChair < bestDist) {
+          bestDist = dChair;
+          nearestInteractable = {
+            kind: 'deckchair',
+            chairId: chair.id,
+            dist: dChair,
+            prompt: `Lie Down on ${chair.name} [E] 🏖️🍹`
+          };
+        }
       }
     }
 
@@ -8741,6 +9537,16 @@
     // 3. Smooth Position Interpolation
     coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1.0, dt * 12.0));
 
+    // 4. Plush Anatomy & Posture Handling (Lounging Beach Recline vs Regular)
+    if (coopPartner.isLounging) {
+      coopPartner.mesh.rotation.x = -0.34;
+      const breath = Math.sin(elapsed * 2.2) * 0.03;
+      coopPartner.mesh.scale.set(1.12 + breath * 0.5, 0.78 + breath, 1.05);
+    } else {
+      coopPartner.mesh.rotation.x = 0;
+      coopPartner.mesh.scale.set(1.0, 1.0, 1.0);
+    }
+
     if (coopPartner.inCart && currentZone === 'laundromat') {
       coopPartner.mesh.position.y = 0.38;
       if (window.BlahajLaundromat && coopPartner.cartId) {
@@ -8861,6 +9667,19 @@
     assembleAndLaunchFireworks,
     sitInBooth,
     standUpFromBooth,
+    sitOnDeckChair,
+    standUpFromDeckChair,
+    sipPinaColada,
+    damagePlayer,
+    openFastTravelModal,
+    closeFastTravelModal,
+    toggleFastTravelModal,
+    fastTravelTo,
+    enterBinocularMode,
+    exitBinocularMode,
+    toggleBinocularMode,
+    equipHeldItem,
+    isUsingBinoculars: () => isUsingBinoculars,
     openSphericalPaintingModal,
     triggerLaundromatSpinCycle,
     mountLaundryCart,

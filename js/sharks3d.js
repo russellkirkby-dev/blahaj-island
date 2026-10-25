@@ -1527,6 +1527,112 @@ window.BlahajModels = (function () {
 
       g.scale.setScalar(0.95);
 
+    } else if (itemId === 'pina_colada') {
+      // Chilled Coconut Pina Colada with Paper Parasol & Striped Straw
+      const coconutMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.85 });
+      const creamMat = new THREE.MeshStandardMaterial({ color: 0xfef9c3, roughness: 0.25 });
+      const pineappleMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
+      const cherryMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.2 });
+      const strawMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 });
+      const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, roughness: 0.4, side: THREE.DoubleSide });
+
+      // Carved coconut shell
+      const husk = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10, 0, Math.PI * 2, 0.4, Math.PI - 0.4), coconutMat);
+      husk.position.y = 0.08;
+      g.add(husk);
+
+      // Creamy frosty drink filling with crushed ice
+      const cream = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.09, 0.02, 14), creamMat);
+      cream.position.y = 0.14;
+      g.add(cream);
+
+      // Fresh pineapple wedge on glass rim
+      const wedge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.08), pineappleMat);
+      wedge.position.set(0.08, 0.17, 0.04);
+      wedge.rotation.z = -0.4;
+      g.add(wedge);
+
+      // Maraschino cocktail cherry
+      const cherry = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), cherryMat);
+      cherry.position.set(0.04, 0.16, -0.04);
+      g.add(cherry);
+
+      // Striped bendy straw
+      const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.22, 8), strawMat);
+      straw.position.set(-0.03, 0.20, 0.02);
+      straw.rotation.z = 0.28;
+      g.add(straw);
+
+      // Paper cocktail parasol / umbrella
+      const umbPole = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.18, 6), new THREE.MeshStandardMaterial({ color: 0xd4a373 }));
+      umbPole.position.set(0.02, 0.20, -0.05);
+      umbPole.rotation.x = -0.35;
+      g.add(umbPole);
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.03, 8), umbrellaMat);
+      canopy.position.set(0.02, 0.28, -0.08);
+      canopy.rotation.x = -0.35;
+      g.add(canopy);
+
+      g.scale.setScalar(0.95);
+
+    } else if (itemId === 'binoculars') {
+      // Nautical Brass & Navy Dual-Barrel Marine Binoculars
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.85, roughness: 0.25 });
+      const navyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65 });
+      const lensMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.95, roughness: 0.08, transparent: true, opacity: 0.85 });
+
+      // Left & Right Barrels
+      [-0.07, 0.07].forEach((bx) => {
+        // Main barrel
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.22, 16), navyMat);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.set(bx, 0.12, 0);
+        g.add(barrel);
+
+        // Brass objective ring
+        const objRing = new THREE.Mesh(new THREE.CylinderGeometry(0.054, 0.054, 0.03, 16), brassMat);
+        objRing.rotation.x = Math.PI / 2;
+        objRing.position.set(bx, 0.12, 0.12);
+        g.add(objRing);
+
+        // Front lens glass
+        const objLens = new THREE.Mesh(new THREE.CircleGeometry(0.048, 16), lensMat);
+        objLens.position.set(bx, 0.12, 0.136);
+        g.add(objLens);
+
+        // Ocular eyepiece
+        const ocular = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.042, 0.06, 14), navyMat);
+        ocular.rotation.x = Math.PI / 2;
+        ocular.position.set(bx, 0.12, -0.13);
+        g.add(ocular);
+
+        // Eyepiece lens glass
+        const eyeLens = new THREE.Mesh(new THREE.CircleGeometry(0.028, 14), lensMat);
+        eyeLens.rotation.y = Math.PI;
+        eyeLens.position.set(bx, 0.12, -0.161);
+        g.add(eyeLens);
+      });
+
+      // Center hinge bridge
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 0.12), brassMat);
+      bridge.position.set(0, 0.12, 0.01);
+      g.add(bridge);
+
+      // Knurled focus wheel
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.035, 12), brassMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(0, 0.145, -0.02);
+      g.add(wheel);
+
+      // Leather neck strap
+      const strapMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+      const strap = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.008, 6, 16, Math.PI), strapMat);
+      strap.position.set(0, 0.08, -0.14);
+      strap.rotation.x = Math.PI * 0.45;
+      g.add(strap);
+
+      g.scale.setScalar(0.95);
+
     } else if (itemId === 'breb') {
       // Warm Breb Loaf with scored diagonal slits
       const crustMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 });

@@ -203,6 +203,14 @@
           <span class="pill-icon">🪡</span>
           <span>Seam: <strong id="val-seam">3 / 6</strong></span>
         </div>
+        <div class="meter-pill travel-pill" id="pill-open-fast-travel" title="Open Island Landmarks Directory & Fast Travel [M]" style="cursor: pointer; background: rgba(14, 165, 233, 0.25); border-color: #0284c7;">
+          <span class="pill-icon">🗺️</span>
+          <span>Fast Travel <u>[M]</u></span>
+        </div>
+        <div class="meter-pill binoculars-pill" id="pill-quick-binoculars" title="Equip & Raise Brass Marine Binoculars [T]" style="cursor: pointer; background: rgba(245, 158, 11, 0.25); border-color: #d97706;">
+          <span class="pill-icon">🔭</span>
+          <span>Binoculars <u>[T]</u></span>
+        </div>
       </div>
     </div>
 
@@ -884,6 +892,93 @@
     </div>
   </div>
 
+  <!-- FAST TRAVEL & LANDMARKS DIRECTORY MODAL [M] -->
+  <div class="modal-backdrop hidden" id="modal-fast-travel" role="dialog" aria-modal="true">
+    <div class="modal-card travel-modal-card" style="max-width: 680px; max-height: 85vh; overflow-y: auto;">
+      <button class="modal-close-x" id="btn-close-travel-modal" title="Close Travel Map [Esc]">✕</button>
+      <div class="settings-header">
+        <span class="portal-badge" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">🗺️ BLÅHAJ ARCHIPELAGO NAVIGATION</span>
+        <h2 style="margin: 6px 0 4px 0;">Island Landmarks &amp; Fast Travel</h2>
+        <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 12px;">Instant teleportation to every key location across Blåhaj Island. Or press <kbd style="background: #334155; padding: 2px 6px; border-radius: 4px; color: #fff;">M</kbd> anytime!</p>
+      </div>
+      <div class="travel-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px;">
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(245, 158, 11, 0.5); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">🥖</span>
+            <div>
+              <div style="display: inline-block; background: #f59e0b; color: #000; font-size: 0.65rem; font-weight: bold; padding: 1px 6px; border-radius: 4px; margin-bottom: 4px;">HOT SPOT</div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">Solomon's Stone Bread Oven</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">Heartland Meadow Sanctuary of the Birbs: Fresh Breb loaves, hearth sizzle, and birb flocks.</p>
+              <div class="travel-card-dist" id="dist-dest-meadow" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-primary" data-dest="meadow" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to Bread Oven ➡</button>
+        </div>
+
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(14, 165, 233, 0.4); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">🏖️</span>
+            <div>
+              <div style="display: inline-block; background: #0284c7; color: #fff; font-size: 0.65rem; font-weight: bold; padding: 1px 6px; border-radius: 4px; margin-bottom: 4px;">COZY VIBES</div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">Crescent Beach &amp; Deck Chairs</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">South Shore: Russell &amp; Helen's sun loungers, Piña Coladas, ocean surf &amp; volleyball court.</p>
+              <div class="travel-card-dist" id="dist-dest-beach" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-secondary" data-dest="beach" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to Beach &amp; Chairs ➡</button>
+        </div>
+
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(244, 63, 94, 0.4); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">🌅</span>
+            <div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">East Cape Arrival &amp; Loungers</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">Arrival Portal Gate: Sunrise ocean view loungers, Crossroads Signpost &amp; tourist binoculars.</p>
+              <div class="travel-card-dist" id="dist-dest-spawn" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-secondary" data-dest="spawn" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to East Cape ➡</button>
+        </div>
+
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">🏛️</span>
+            <div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">Heartland Town Plaza</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">Central Hub: Crossroads signpost, palm deck chairs, community chest, and craft benches.</p>
+              <div class="travel-card-dist" id="dist-dest-plaza" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-secondary" data-dest="plaza" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to Plaza ➡</button>
+        </div>
+
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">⚓</span>
+            <div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">Heartland Pier Promenade</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">Harbor Pier: Salt air promenade loungers, regatta sailboats &amp; high observation deck.</p>
+              <div class="travel-card-dist" id="dist-dest-pier" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-secondary" data-dest="pier" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to Pier ➡</button>
+        </div>
+
+        <div class="travel-card-item" style="background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; gap: 10px; align-items: flex-start;">
+            <span style="font-size: 2rem;">🌋</span>
+            <div>
+              <h4 style="margin: 0; color: #f8fafc; font-size: 0.95rem;">The Sacred Volcano Balcony</h4>
+              <p style="margin: 4px 0; color: #94a3b8; font-size: 0.8rem;">High Caldera: Ancient eternal flame brazier, carrot garden, and panoramic summit vista.</p>
+              <div class="travel-card-dist" id="dist-dest-volcano" style="font-size: 0.75rem; color: #38bdf8;">Locating...</div>
+            </div>
+          </div>
+          <button type="button" class="btn-travel-action btn-secondary" data-dest="volcano" style="margin-top: 10px; padding: 6px 12px; width: 100%; font-size: 0.85rem;">Teleport to Volcano ➡</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 5. ISLAND SETTINGS & AUDIO CONTROLS MODAL [O / Esc] -->
   <div class="modal-backdrop hidden" id="settings-modal">
     <div class="modal-card settings-card">
@@ -1198,17 +1293,53 @@
     </div>
   </div>
 
+    <!-- 7. DAMAGE FLASH VIGNETTE -->
+  <div id="damage-flash-overlay" class="damage-flash-overlay"></div>
+
+  <!-- 8. BINOCULAR HORIZON GOBE / SILHOUETTE OVERLAY -->
+  <div id="binocular-overlay" class="binocular-overlay hidden">
+    <svg class="binocular-mask" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <mask id="binocular-cutout">
+          <!-- White reveals the dark perimeter, black cuts out transparent viewing holes -->
+          <rect width="100%" height="100%" fill="white" />
+          <ellipse cx="37" cy="50" rx="25" ry="36" fill="black" />
+          <ellipse cx="63" cy="50" rx="25" ry="36" fill="black" />
+        </mask>
+      </defs>
+      <rect width="100%" height="100%" fill="rgba(6, 10, 18, 0.94)" mask="url(#binocular-cutout)" />
+    </svg>
+    <div class="binocular-hud">
+      <div class="binocular-compass" id="binocular-compass-text">
+        <span>◀ W</span>
+        <span>• NW •</span>
+        <span>N ▶</span>
+      </div>
+      <div class="binocular-reticle">
+        <div class="reticle-line h-line"></div>
+        <div class="reticle-line v-line"></div>
+        <div class="reticle-circle"></div>
+      </div>
+      <div class="binocular-readout" id="binocular-target-label">
+        🔭 SCANNING HORIZON · ZOOM: 4.5x
+      </div>
+      <div class="binocular-hint">
+        [F / Space] Lower Binoculars · [WASD / Mouse] Scan 360° Horizon · [H] Stow
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=2.4"></script>
-  <script src="js/sharks3d.js?v=2.4"></script>
-  <script src="js/world3d.js?v=2.4"></script>
-  <script src="js/volcano.js?v=2.5"></script>
-  <script src="js/laundromat.js?v=2.4"></script>
-  <script src="js/sphericalFoods.js?v=2.4"></script>
-  <script src="js/volleyball.js?v=1.0"></script>
-  <script src="js/network.js?v=2.4"></script>
-  <script src="js/inventory.js?v=2.4"></script>
-  <script src="js/enemies.js?v=2.4"></script>
-  <script src="js/main.js?v=2.5"></script>
+  <script src="js/lore.js?v=2.8"></script>
+  <script src="js/sharks3d.js?v=2.8"></script>
+  <script src="js/world3d.js?v=2.8"></script>
+  <script src="js/volcano.js?v=2.8"></script>
+  <script src="js/laundromat.js?v=2.8"></script>
+  <script src="js/sphericalFoods.js?v=2.8"></script>
+  <script src="js/volleyball.js?v=2.8"></script>
+  <script src="js/network.js?v=2.8"></script>
+  <script src="js/inventory.js?v=2.8"></script>
+  <script src="js/enemies.js?v=2.8"></script>
+  <script src="js/main.js?v=2.8"></script>
 </body>
 </html>
