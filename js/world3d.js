@@ -2944,13 +2944,13 @@ window.BlahajWorld = (function () {
           pillowColor: 0x38bdf8,
           tableSide: 'left'
         },
-        // Crescent Beach
+        // Crescent Beach (Spaced safely 5m+ clear of volleyball court, facing directly south to the beach & ocean!)
         {
           id: 'deckchair_russell',
           name: 'Russell’s Ocean View Lounger',
-          x: 33.2,
-          z: 49.6,
-          rotY: -0.42,
+          x: 36.5,
+          z: 49.0,
+          rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0x0284c7, // Royal Ocean Blue
           stripeColor: 0xf8fafc,
           pillowColor: 0xfef08a,
@@ -2959,9 +2959,9 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_helen',
           name: 'Helen’s Sunset Deck Chair',
-          x: 32.2,
-          z: 51.8,
-          rotY: -0.42,
+          x: 36.5,
+          z: 53.5,
+          rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0xf43f5e, // Sunset Coral Pink
           stripeColor: 0xfef08a,
           pillowColor: 0xfde047,
@@ -2970,9 +2970,9 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_sunny',
           name: 'Sunny’s Companion Recliner',
-          x: 23.8,
-          z: 47.0,
-          rotY: 0.28,
+          x: 19.5,
+          z: 49.0,
+          rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0xf59e0b, // Sunshine Yellow
           stripeColor: 0xfef3c7,
           pillowColor: 0x38bdf8,
@@ -2981,9 +2981,9 @@ window.BlahajWorld = (function () {
         {
           id: 'deckchair_surf',
           name: 'Waterfront Waves Lounger',
-          x: 25.2,
-          z: 43.2,
-          rotY: 0.12,
+          x: 19.5,
+          z: 53.5,
+          rotY: Math.PI, // Turned 180° to face South directly out to the beach & ocean waves!
           cushionColor: 0x0d9488, // Teal Palm Green
           stripeColor: 0xf0fdfa,
           pillowColor: 0xfbbf24,
@@ -3057,6 +3057,12 @@ window.BlahajWorld = (function () {
 
         scene.add(chairMesh);
 
+        // When lounger is rotated spec.rotY, someone lying on it faces towards the feet (local -Z)
+        // Which in world coordinates is facing angle (spec.rotY + Math.PI)
+        let facingRotY = spec.rotY + Math.PI;
+        while (facingRotY > Math.PI) facingRotY -= Math.PI * 2;
+        while (facingRotY < -Math.PI) facingRotY += Math.PI * 2;
+
         deckChairs.push({
           id: spec.id,
           name: spec.name,
@@ -3064,10 +3070,10 @@ window.BlahajWorld = (function () {
           y: groundY + 0.32,
           z: spec.z,
           rotY: spec.rotY,
-          seatX: spec.x + Math.sin(spec.rotY) * 0.18,
-          seatY: groundY + 0.32 + 0.62,
-          seatZ: spec.z + Math.cos(spec.rotY) * 0.18,
-          seatRotY: spec.rotY,
+          seatX: spec.x,
+          seatY: groundY + 0.32 + 0.65,
+          seatZ: spec.z,
+          seatRotY: facingRotY,
           mesh: chairMesh
         });
       });

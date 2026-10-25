@@ -6221,9 +6221,9 @@
     },
     beach: {
       name: "Crescent Beach Volleyball & Deck Chairs",
-      x: 28.0,
-      z: 48.0,
-      rotY: 0.0,
+      x: 36.5,
+      z: 44.5,
+      rotY: 0.0, // Arrives on the beach sand walkway facing south towards the loungers & ocean!
       toast: "CRESCENT BEACH & DECK CHAIRS 🏖️",
       desc: "Arrived on the warm golden sand by Russell & Helen's sun loungers!"
     },
@@ -6346,7 +6346,7 @@
     if (player.mesh) {
       player.mesh.position.copy(player.pos);
       player.mesh.rotation.y = chair.seatRotY;
-      player.mesh.rotation.x = -0.34; // Beach recline angle
+      player.mesh.rotation.x = 0.34; // Lean back against headrest
       player.mesh.scale.set(1.12, 0.78, 1.05); // Plush squash settling into cushion
     }
 
@@ -8012,7 +8012,7 @@
         player.isGrounded = true;
         if (player.mesh) {
           player.mesh.position.copy(player.pos);
-          player.mesh.rotation.set(-0.34, player.rotY, 0);
+          player.mesh.rotation.set(0.34, player.rotY, 0);
           const breath = Math.sin(elapsed * 2.2) * 0.03;
           player.mesh.scale.set(1.12 + breath * 0.5, 0.78 + breath, 1.05);
           window.BlahajModels.animateShark(player.mesh, dt, false, elapsed, false, 0);
