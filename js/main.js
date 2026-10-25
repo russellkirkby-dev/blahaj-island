@@ -2575,6 +2575,10 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
+          window.BlahajVolleyball.endMatch();
+          return;
+        }
         if (currentZone === 'volleyball') {
           exitVolleyballCourt();
           return;
@@ -3787,110 +3791,25 @@
   }
 
   // ==========================================================================
-  // CRESCENT BEACH SHARK VOLLEYBALL INSTANCE
+  // CRESCENT BEACH SHARK VOLLEYBALL (IN-PLACE ON CRESCENT BEACH)
   // ==========================================================================
-  function enterVolleyballCourt() {
-    if (isTransitioningZone) return;
-    isTransitioningZone = true;
-    player.inBoat = false;
-    player.ridingWithPartner = false;
+  function enterVolleyballCourt(opponentKey) {
+    if (player.inBoat) disembarkBoatAtCurrentLocation();
     if (player.inCart) dismountLaundryCart();
 
-    const overlay = document.getElementById('instance-loading');
-    const titleEl = document.getElementById('instance-loading-title');
-    const subEl = document.getElementById('instance-loading-sub');
-    const barEl = document.getElementById('instance-progress-fill');
-
-    titleEl.textContent = 'Crescent Beach · Shark Volleyball Court 🏐';
-    subEl.textContent = 'Setting up the bamboo net & warming up fins... Ready to rally!';
-    barEl.style.width = '0%';
-    overlay.classList.remove('hidden');
-
-    if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) CozyAudio.portalChime();
-
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 34;
-      barEl.style.width = `${p}%`;
-      if (p >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          currentZone = 'volleyball';
-          if (window.BlahajVolleyball) {
-            window.BlahajVolleyball.build();
-            window.BlahajVolleyball.setActive(true);
-            const start = window.BlahajVolleyball.getStart();
-            player.pos.set(start.x, start.y, start.z);
-            player.rotY = start.rotY;
-            if (player.mesh) {
-              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
-              window.BlahajVolleyball.getScene().add(player.mesh);
-              player.mesh.position.copy(player.pos);
-              player.mesh.rotation.y = player.rotY;
-            }
-          }
-          player.velY = 0;
-          player.isGrounded = true;
-          camState.yaw = 0;
-          camState.pitch = 0.18;
-          camState.distance = 6.2;
-          camState.heightOffset = 1.8;
-
-          const vHud = document.getElementById('volleyball-hud');
-          if (vHud) vHud.classList.remove('hidden');
-
-          overlay.classList.add('hidden');
-          isTransitioningZone = false;
-          showToast('SHARK BEACH VOLLEYBALL 🏐', 'Nose-boop the ball over the net! [WASD] Move · [Space] Jump · [F] Snout Spike!');
-        }, 120);
+    if (window.BlahajVolleyball) {
+      if (opponentKey) {
+        window.BlahajVolleyball.startMatch(opponentKey, scene, player);
+      } else {
+        window.BlahajVolleyball.openOpponentSelectModal(openDialogueModal, closeDialogueModal);
       }
-    }, 70);
+    }
   }
 
   function exitVolleyballCourt() {
-    if (isTransitioningZone) return;
-    isTransitioningZone = true;
-
-    const overlay = document.getElementById('instance-loading');
-    const titleEl = document.getElementById('instance-loading-title');
-    const subEl = document.getElementById('instance-loading-sub');
-    const barEl = document.getElementById('instance-progress-fill');
-
-    titleEl.textContent = 'Returning to Crescent Beach';
-    subEl.textContent = 'Packing up the volleyball net... Soft ocean breeze greets you! 🏖️';
-    barEl.style.width = '0%';
-    overlay.classList.remove('hidden');
-
-    if (window.BlahajVolleyball) window.BlahajVolleyball.setActive(false);
-
-    const vHud = document.getElementById('volleyball-hud');
-    if (vHud) vHud.classList.add('hidden');
-
-    let p = 0;
-    const interval = setInterval(() => {
-      p += 34;
-      barEl.style.width = `${p}%`;
-      if (p >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          currentZone = 'island';
-          if (player.mesh) {
-            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
-            scene.add(player.mesh);
-          }
-          const groundY = worldApi.getGroundAndStructureHeight(26, 49) || 1.8;
-          player.pos.set(26, groundY, 49);
-          player.rotY = Math.PI;
-          if (player.mesh) {
-            player.mesh.position.copy(player.pos);
-            player.mesh.rotation.y = player.rotY;
-          }
-          overlay.classList.add('hidden');
-          isTransitioningZone = false;
-          showToast('CRESCENT BEACH 🏖️', 'Back on the warm golden sand!');
-        }, 120);
-      }
-    }, 70);
+    if (window.BlahajVolleyball) {
+      window.BlahajVolleyball.endMatch();
+    }
   }
 
   function enterSphericalFoods() {
@@ -5348,6 +5267,48 @@
         showToast(modObj.title.toUpperCase(), modObj.sub);
       });
     });
+
+    // Top-Right Quest Tracker Expander / Collapse Toggle
+    const questTrackerEl = document.getElementById('quest-tracker');
+    const btnToggleQuest = document.getElementById('btn-toggle-quest-tracker');
+    const questHeaderEl = questTrackerEl ? questTrackerEl.querySelector('.quest-header') : null;
+
+    function toggleQuestTrackerMinimized(forceState) {
+      if (!questTrackerEl) return;
+      const isMin = typeof forceState === 'boolean'
+        ? questTrackerEl.classList.toggle('minimized', forceState)
+        : questTrackerEl.classList.toggle('minimized');
+      if (btnToggleQuest) {
+        btnToggleQuest.textContent = isMin ? '▲' : '▼';
+        btnToggleQuest.setAttribute('title', isMin ? 'Expand Quest Tracker [Click to expand]' : 'Collapse Quest Tracker [Click to collapse]');
+        btnToggleQuest.setAttribute('aria-expanded', isMin ? 'false' : 'true');
+      }
+      try {
+        localStorage.setItem('blahaj_quest_tracker_minimized', isMin ? '1' : '0');
+      } catch (e) {}
+    }
+
+    if (btnToggleQuest) {
+      btnToggleQuest.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleQuestTrackerMinimized();
+      });
+    }
+
+    if (questHeaderEl) {
+      questHeaderEl.title = 'Click to collapse or expand Quest Tracker';
+      questHeaderEl.addEventListener('click', (e) => {
+        if (e.target === btnToggleQuest || (btnToggleQuest && btnToggleQuest.contains(e.target))) return;
+        toggleQuestTrackerMinimized();
+      });
+    }
+
+    // Restore user preference
+    try {
+      if (localStorage.getItem('blahaj_quest_tracker_minimized') === '1') {
+        toggleQuestTrackerMinimized(true);
+      }
+    } catch (e) {}
 
     document.getElementById('dlg-close-btn').addEventListener('click', closeDialogueModal);
     document.getElementById('close-portal-modal').addEventListener('click', togglePortalModal);
@@ -7238,9 +7199,12 @@
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
-      window.BlahajVolleyball.update(dt, player, keys['f']);
+      window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
+      if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
+        window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+      }
       if (worldPickups) {
         worldPickups.update(dt, elapsed);
       }
@@ -8865,6 +8829,11 @@
     triggerSignatureAbility
   };
   window.BlahajGame = window.__DEBUG__;
+  window.camState = camState;
+  window.player = player;
+  window.openDialogueModal = openDialogueModal;
+  window.closeDialogueModal = closeDialogueModal;
+  window.enterVolleyballCourt = enterVolleyballCourt;
 
   window.addEventListener('DOMContentLoaded', init);
 })();

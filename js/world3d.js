@@ -2628,6 +2628,7 @@ window.BlahajWorld = (function () {
 
       // 8. Large, Clear Hand-Carved Driftwood Signpost at South Court Entrance
       const signGroup = new THREE.Group();
+      signGroup.name = 'crescent_volleyball_sign';
       signGroup.position.set(0, 0, -6.6);
       [-1.2, 1.2].forEach((sx) => {
         const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.2, 8), courtDarkWoodMat);

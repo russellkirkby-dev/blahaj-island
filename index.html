@@ -260,13 +260,18 @@
 
     <!-- VOLLEYBALL MATCH HUD -->
     <div id="volleyball-hud" class="hidden" role="status">
-      <div class="vball-hud-badge">🏐 SHARK VOLLEYBALL</div>
-      <div class="vball-hud-score">
-        <span class="vball-rally-box">RALLY: <strong id="vball-rally">0</strong></span>
-        <span class="vball-divider">|</span>
-        <span class="vball-score-box">YOU <strong id="vball-p1">0</strong> — <strong id="vball-p2">0</strong> SANDY</span>
+      <div class="vball-hud-topline">
+        <span class="vball-hud-badge">🏐 CRESCENT BEACH VOLLEYBALL 🦈</span>
+        <button type="button" id="btn-leave-volleyball" class="vball-btn-leave" title="Leave Match [Esc]">✕ Leave Match</button>
       </div>
-      <div class="vball-hud-hint">[WASD] Move · [Space] Jump · [F] Snout Boop · [Esc] Leave</div>
+      <div class="vball-hud-score">
+        <span class="vball-score-box">YOU <strong id="vball-p1">0</strong></span>
+        <span class="vball-vs">VS</span>
+        <span class="vball-score-box"><strong id="vball-p2">0</strong> <span id="vball-opp-name">SANDY</span></span>
+        <span class="vball-divider">|</span>
+        <span class="vball-rally-box">RALLY: <strong id="vball-rally">0</strong></span>
+      </div>
+      <div class="vball-hud-hint">[WASD] Move · [Space] Jump / Boop · Sharks boop with their snouts!</div>
     </div>
 
     <!-- VOLCANO DUNGEON HUD POPUP NOTIFICATION -->

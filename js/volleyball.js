@@ -1,35 +1,147 @@
-// BLÅHAJ ISLAND - CRESCENT BEACH SHARK VOLLEYBALL INSTANCE
-// Cartoony, floaty beach volleyball where sharks bounce the ball with their snouts!
+// BLÅHAJ ISLAND - IN-PLACE CRESCENT BEACH SHARK VOLLEYBALL
+// Rallies take place directly on Crescent Beach in the main overworld!
+// Beautiful sky, wave shader ocean, palm trees, Sunny relaxing with a cocktail, and header-boops!
 // ============================================================================
 
 window.BlahajVolleyball = (function () {
-  let built = false;
-  let active = false;
-  let scn = null;
+  let isMatchActiveState = false;
+  let activeScene = null;
+  let activePlayer = null;
 
-  // Court geometry & boundaries (meters)
-  // Net is at z = 0, stretching along x from -3.6 to +3.6
-  // Player side: z in [-5.8, -0.4], x in [-3.6, 3.6]
-  // Opponent side: z in [0.4, 5.8], x in [-3.6, 3.6]
+  // Crescent Beach Volleyball Court Constants (Overworld Coordinates)
+  // Center is at (x: 28.0, z: 52.0), terrace sand elevation is y = 1.65
   const COURT = {
-    minX: -3.8,
-    maxX: 3.8,
-    minZ: -5.8,
-    maxZ: 5.8,
-    netZ: 0,
-    netWidth: 7.2,
-    netTopY: 2.3,
-    netBottomY: 1.0,
-    sandY: 1.2,
-    playerStart: { x: 0, y: 1.2, z: -3.0, rotY: 0 },
-    oppStart: { x: 0, y: 1.2, z: 3.0, rotY: Math.PI }
+    centerX: 28.0,
+    centerZ: 52.0,
+    sandY: 1.65,
+    minX: 24.8,
+    maxX: 31.2,
+    minZ: 46.2, // South court baseline
+    maxZ: 57.8, // North court baseline
+    netZ: 52.0, // Bamboo net location
+    netTopY: 2.75, // Top of the net mesh (1.1m tall)
+    playerStart: { x: 28.0, y: 1.65, z: 48.8, rotY: 0 },
+    oppStart: { x: 28.0, y: 1.65, z: 55.2, rotY: Math.PI }
   };
 
-  // Ball physics state
-  const BALL_RADIUS = 0.52;
+  // Available Opponents Definition
+  const OPPONENTS = {
+    sandy: {
+      id: 'sandy',
+      name: 'Sandy the Beach Shonk',
+      title: 'CRESCENT BEACH CHAMPION',
+      portrait: 'assets/gallery/Shonk-1.png',
+      desc: 'Balanced, dependable returns with steady floaty lobs. Wears a sunny visor and bright bandana.',
+      speed: 4.2,
+      accuracy: 0.88,
+      lobArc: 5.4,
+      createModel: (BlahajModels) => {
+        const shonk = BlahajModels.createPlushShark({
+          bodyColor: 0x0ea5e9, // radiant sky blue
+          bellyColor: 0xf8fafc,
+          scarfColor: 0xf59e0b, // sunshine yellow
+          eyeColor: 0x111827
+        });
+        // Bright yellow beach sun visor
+        const visorMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.35 });
+        const visor = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 8, 18, Math.PI), visorMat);
+        visor.position.set(0, 0.65, 0.42);
+        visor.rotation.x = -0.32;
+        shonk.add(visor);
+        return shonk;
+      }
+    },
+    solomon: {
+      id: 'solomon',
+      name: 'Solomon the Wise Shark',
+      title: 'TACTICAL FLOATY LOBBER',
+      portrait: 'assets/gallery/Solomon.png',
+      desc: 'Master of gentle high-arcing lobs that stay aloft forever. Wears a cozy straw sun hat.',
+      speed: 3.8,
+      accuracy: 0.95,
+      lobArc: 6.4,
+      createModel: (BlahajModels) => {
+        const shonk = BlahajModels.createPlushShark({
+          bodyColor: 0xeab308, // golden amber
+          bellyColor: 0xfef08a,
+          scarfColor: 0x1d4ed8, // deep ocean blue
+          eyeColor: 0x0f172a
+        });
+        // Straw sun hat
+        const hatMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.7 });
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 0.05, 16), hatMat);
+        brim.position.set(0, 0.85, 0.15);
+        const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.45, 0.45, 16), hatMat);
+        crown.position.set(0, 1.05, 0.15);
+        shonk.add(brim);
+        shonk.add(crown);
+        return shonk;
+      }
+    },
+    hiram: {
+      id: 'hiram',
+      name: 'Hiram the Builder Shonk',
+      title: 'POWER HEADER SPIKER',
+      portrait: 'assets/gallery/Hiram.png',
+      desc: 'Fast line-drive header returns and energetic court movement. Wears his iconic builder cap.',
+      speed: 4.8,
+      accuracy: 0.84,
+      lobArc: 4.8,
+      createModel: (BlahajModels) => {
+        const shonk = BlahajModels.createPlushShark({
+          bodyColor: 0x64748b, // slate grey
+          bellyColor: 0xf1f5f9,
+          scarfColor: 0xf97316, // safety orange
+          eyeColor: 0x0f172a
+        });
+        // Blue work cap
+        const capMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
+        const capDome = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), capMat);
+        capDome.position.set(0, 0.72, 0.1);
+        const bill = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 0.35), capMat);
+        bill.position.set(0, 0.72, 0.42);
+        bill.rotation.x = 0.15;
+        shonk.add(capDome);
+        shonk.add(bill);
+        return shonk;
+      }
+    },
+    birb: {
+      id: 'birb',
+      name: 'Captain Birb',
+      title: 'WINGED BEACH MASCOT',
+      portrait: 'assets/gallery/Emergency-2.png',
+      desc: 'Flutter jumps and unpredictable wing boops. Always brings good vibes and enthusiastic cheeps.',
+      speed: 5.0,
+      accuracy: 0.80,
+      lobArc: 5.6,
+      createModel: (BlahajModels) => {
+        const b = BlahajModels.createBirb(0xfacc15);
+        b.scale.set(1.4, 1.4, 1.4);
+        return b;
+      }
+    }
+  };
+
+  let currentOpponentKey = 'sandy';
+  let opponentActor = {
+    key: 'sandy',
+    mesh: null,
+    pos: new THREE.Vector3(28.0, 1.65, 55.2),
+    rotY: Math.PI,
+    velY: 0,
+    isGrounded: true,
+    targetX: 28.0,
+    targetZ: 55.2,
+    jumpTimer: 0,
+    celebrateTimer: 0
+  };
+
+  // Ball State & Floaty Physics
+  const BALL_RADIUS = 0.5;
   const ball = {
-    pos: new THREE.Vector3(0, 4.2, -2.5),
-    vel: new THREE.Vector3(0, 2.0, 0),
+    pos: new THREE.Vector3(28.0, 3.2, 50.0),
+    vel: new THREE.Vector3(0, 3.0, 2.0),
     mesh: null,
     shadowMesh: null,
     squish: 1.0,
@@ -39,749 +151,649 @@ window.BlahajVolleyball = (function () {
     nextServer: 'player'
   };
 
-  // Match & Rally statistics
+  // Match Statistics
   let rallyCount = 0;
   let bestRally = 0;
   let playerScore = 0;
   let opponentScore = 0;
 
-  // AI Opponent: Sandy the Beach Shonk
-  const sandy = {
-    mesh: null,
-    pos: new THREE.Vector3(0, 1.2, 3.0),
-    rotY: Math.PI,
-    velY: 0,
-    isGrounded: true,
-    speed: 3.6,
-    jumpTimer: 0,
-    celebrateTimer: 0
-  };
-
-  // Spectators & animated props
-  let sunnyRefMesh = null;
-  const cheeringBirbs = [];
-  const ribbonFlags = [];
-  let waterPlane = null;
-  let scoreboardCanvas = null;
-  let scoreboardTex = null;
-  let scoreboardMesh = null;
-
   // Particle pool for snout impacts and sparkles
   const particles = [];
 
   // ==========================================================================
-  // SCENE BUILDER
+  // OPPONENT CREATION & SPAWNING
   // ==========================================================================
-  function build() {
-    if (built) return;
-    scn = new THREE.Scene();
-    scn.background = new THREE.Color(0x76b8df);
-    scn.fog = new THREE.FogExp2(0x8ed0f2, 0.005);
-
-    // Warm tropical lighting
-    const ambient = new THREE.AmbientLight(0xfff5e6, 0.85);
-    scn.add(ambient);
-
-    const sun = new THREE.DirectionalLight(0xffeedd, 1.4);
-    sun.position.set(25, 45, -20);
-    sun.castShadow = true;
-    scn.add(sun);
-
-    // 1. Crescent Beach Sandy Terrain
-    const sandMat = new THREE.MeshStandardMaterial({
-      color: 0xe5c28b,
-      roughness: 0.92,
-      metalness: 0.02
-    });
-    const sandGeo = new THREE.PlaneGeometry(60, 50, 32, 32);
-    // Add gentle natural beach contour
-    const posAttr = sandGeo.attributes.position;
-    for (let i = 0; i < posAttr.count; i++) {
-      const px = posAttr.getX(i);
-      const pz = posAttr.getY(i); // PlaneGeometry lies in XY initially
-      const wave = Math.sin(px * 0.1) * 0.2 + Math.cos(pz * 0.08) * 0.15;
-      posAttr.setZ(i, wave);
+  function spawnOpponent(opponentKey) {
+    if (opponentActor.mesh && opponentActor.mesh.parent) {
+      opponentActor.mesh.parent.remove(opponentActor.mesh);
     }
-    sandGeo.computeVertexNormals();
+    currentOpponentKey = OPPONENTS[opponentKey] ? opponentKey : 'sandy';
+    const def = OPPONENTS[currentOpponentKey];
 
-    const sandTerrain = new THREE.Mesh(sandGeo, sandMat);
-    sandTerrain.rotation.x = -Math.PI / 2;
-    sandTerrain.position.set(0, COURT.sandY - 0.05, 0);
-    sandTerrain.receiveShadow = true;
-    scn.add(sandTerrain);
-
-    // 2. Turquoise Ocean Plane at the Beach Edge
-    const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x14b8a6,
-      roughness: 0.15,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.85
-    });
-    waterPlane = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), waterMat);
-    waterPlane.rotation.x = -Math.PI / 2;
-    waterPlane.position.set(0, COURT.sandY - 0.45, 18);
-    scn.add(waterPlane);
-
-    // White foam shoreline ribbon
-    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.65 });
-    const foamRibbon = new THREE.Mesh(new THREE.PlaneGeometry(60, 1.8), foamMat);
-    foamRibbon.rotation.x = -Math.PI / 2;
-    foamRibbon.position.set(0, COURT.sandY - 0.35, 10.5);
-    scn.add(foamRibbon);
-
-    // 3. Court Markings & Driftwood Borders
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-    // Border tape ribbons in the sand (12m x 7m)
-    const courtWidth = COURT.maxX - COURT.minX;
-    const courtLength = COURT.maxZ - COURT.minZ;
-
-    // Outer baseline and sideline ribbons
-    const createTape = (w, h, x, z) => {
-      const tape = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lineMat);
-      tape.rotation.x = -Math.PI / 2;
-      tape.position.set(x, COURT.sandY + 0.015, z);
-      scn.add(tape);
-    };
-    createTape(courtWidth, 0.12, 0, COURT.minZ); // South Baseline
-    createTape(courtWidth, 0.12, 0, COURT.maxZ); // North Baseline
-    createTape(0.12, courtLength, COURT.minX, 0); // West Sideline
-    createTape(0.12, courtLength, COURT.maxX, 0); // East Sideline
-    createTape(courtWidth, 0.08, 0, 0); // Center line beneath net
-
-    // Corner wooden pegs with colorful flags
-    const flagGeo = new THREE.ConeGeometry(0.12, 0.4, 4);
-    const flagCols = [0xef4444, 0x3b82f6, 0xf59e0b, 0x10b981];
-    [
-      [COURT.minX, COURT.minZ],
-      [COURT.maxX, COURT.minZ],
-      [COURT.minX, COURT.maxZ],
-      [COURT.maxX, COURT.maxZ]
-    ].forEach(([cx, cz], i) => {
-      const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 6), new THREE.MeshStandardMaterial({ color: 0x8b5a2b }));
-      peg.position.set(cx, COURT.sandY + 0.45, cz);
-      scn.add(peg);
-      const flag = new THREE.Mesh(flagGeo, new THREE.MeshBasicMaterial({ color: flagCols[i] }));
-      flag.position.set(cx, COURT.sandY + 0.85, cz);
-      flag.rotation.z = Math.PI / 2;
-      scn.add(flag);
-    });
-
-    // 4. The Bamboo Volleyball Net Structure
-    const bambooMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.6 });
-    const netMeshMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.8
-    });
-    const tapeBandMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 });
-
-    // Net Posts
-    [-COURT.maxX - 0.4, COURT.maxX + 0.4].forEach((px) => {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.4, 12), bambooMat);
-      post.position.set(px, COURT.sandY + 1.7, 0);
-      post.castShadow = true;
-      scn.add(post);
-
-      // Brass ring cap
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), new THREE.MeshStandardMaterial({ color: 0xd97706 }));
-      cap.position.set(px, COURT.sandY + 3.45, 0);
-      scn.add(cap);
-
-      // Guyline ropes pinned into sand
-      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 3.2, 4), new THREE.MeshBasicMaterial({ color: 0xdeb887 }));
-      rope.position.set(px > 0 ? px + 0.9 : px - 0.9, COURT.sandY + 1.5, 0);
-      rope.rotation.z = px > 0 ? -0.45 : 0.45;
-      scn.add(rope);
-    });
-
-    // Woven Net Plane
-    const netHeight = COURT.netTopY - COURT.netBottomY;
-    const netMesh = new THREE.Mesh(new THREE.PlaneGeometry(COURT.netWidth, netHeight, 28, 6), netMeshMat);
-    netMesh.position.set(0, COURT.sandY + (COURT.netTopY + COURT.netBottomY) / 2, 0);
-    scn.add(netMesh);
-
-    // Top and Bottom yellow/orange border tapes
-    const topBand = new THREE.Mesh(new THREE.BoxGeometry(COURT.netWidth + 0.2, 0.14, 0.06), tapeBandMat);
-    topBand.position.set(0, COURT.sandY + COURT.netTopY, 0);
-    scn.add(topBand);
-
-    const botBand = new THREE.Mesh(new THREE.BoxGeometry(COURT.netWidth + 0.2, 0.08, 0.05), tapeBandMat);
-    botBand.position.set(0, COURT.sandY + COURT.netBottomY, 0);
-    scn.add(botBand);
-
-    // Fluttering ribbon pennants along the top tape
-    for (let rx = -3.0; rx <= 3.0; rx += 0.8) {
-      const rib = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.35), new THREE.MeshBasicMaterial({
-        color: (Math.round(rx) % 2 === 0) ? 0xef4444 : 0x3b82f6,
-        side: THREE.DoubleSide
-      }));
-      rib.position.set(rx, COURT.sandY + COURT.netTopY - 0.2, 0);
-      scn.add(rib);
-      ribbonFlags.push({ mesh: rib, baseX: rx, phase: Math.random() * Math.PI * 2 });
-    }
-
-    // 5. Referee High-Chair & Sunny the Beach Carrot
-    const refGroup = new THREE.Group();
-    refGroup.position.set(-COURT.maxX - 1.6, COURT.sandY, 0);
-
-    // Wooden high chair ladder legs
-    const chairMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.8 });
-    const chairLegs = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 1.4), chairMat);
-    chairLegs.position.y = 1.3;
-    refGroup.add(chairLegs);
-
-    const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.15, 1.6), chairMat);
-    chairSeat.position.y = 2.65;
-    refGroup.add(chairSeat);
-
-    // Sunny the Beach Carrot sitting atop as Official Match Referee!
-    if (window.BlahajModels && window.BlahajModels.createBeachCarrot) {
-      sunnyRefMesh = window.BlahajModels.createBeachCarrot(0x3b82f6);
-      sunnyRefMesh.position.set(0, 2.75, 0);
-      sunnyRefMesh.rotation.y = Math.PI / 2; // facing the court
-      refGroup.add(sunnyRefMesh);
-    }
-    scn.add(refGroup);
-
-    // 6. Spectator Sideline Bench with Cheering Birbs
-    const benchGroup = new THREE.Group();
-    benchGroup.position.set(COURT.maxX + 1.8, COURT.sandY, 0);
-
-    const logBench = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 4.2, 10), new THREE.MeshStandardMaterial({ color: 0x5c3a21 }));
-    logBench.rotation.x = Math.PI / 2;
-    logBench.position.y = 0.35;
-    benchGroup.add(logBench);
-
-    // Parasol over the bench
-    const umbrellaPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 3.2, 8), bambooMat);
-    umbrellaPole.position.set(0.6, 1.6, 0);
-    benchGroup.add(umbrellaPole);
-
-    const umbrellaCanopy = new THREE.Mesh(
-      new THREE.ConeGeometry(1.8, 0.7, 16),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4, side: THREE.DoubleSide })
-    );
-    umbrellaCanopy.position.set(0.6, 3.1, 0);
-    benchGroup.add(umbrellaCanopy);
-
-    // Two cheering spectator Birbs on the bench
-    if (window.BlahajModels && window.BlahajModels.createBirb) {
-      [-0.9, 0.9].forEach((bz, idx) => {
-        const birb = window.BlahajModels.createBirb(idx === 0 ? 0xf59e0b : 0xec4899);
-        birb.position.set(-0.1, 0.65, bz);
-        birb.rotation.y = -Math.PI / 2;
-        benchGroup.add(birb);
-        cheeringBirbs.push({ mesh: birb, baseY: 0.65, phase: idx * 2.0 });
-      });
-    }
-    scn.add(benchGroup);
-
-    // 7. Court Exit / Rest Bench (Behind player at south end)
-    const exitGroup = new THREE.Group();
-    exitGroup.position.set(0, COURT.sandY, COURT.minZ - 1.8);
-
-    const exitLog = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.35, 0.8), chairMat);
-    exitLog.position.y = 0.25;
-    exitGroup.add(exitLog);
-
-    const exitSignMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const signCanvas = document.createElement('canvas');
-    signCanvas.width = 512;
-    signCanvas.height = 128;
-    const sctx = signCanvas.getContext('2d');
-    sctx.fillStyle = '#1e293b';
-    sctx.fillRect(0, 0, 512, 128);
-    sctx.strokeStyle = '#f59e0b';
-    sctx.lineWidth = 6;
-    sctx.strokeRect(4, 4, 504, 120);
-    sctx.fillStyle = '#f8fafc';
-    sctx.font = 'bold 36px sans-serif';
-    sctx.textAlign = 'center';
-    sctx.fillText('🏖️ RETURN TO BEACH [E / Esc]', 256, 75);
-
-    const exitSignTex = new THREE.CanvasTexture(signCanvas);
-    const exitSign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshBasicMaterial({ map: exitSignTex }));
-    exitSign.position.set(0, 1.1, 0);
-    exitGroup.add(exitSign);
-    scn.add(exitGroup);
-
-    // 8. Overhead Rustic Driftwood Scoreboard (Mounted above the net)
-    scoreboardCanvas = document.createElement('canvas');
-    scoreboardCanvas.width = 512;
-    scoreboardCanvas.height = 192;
-    scoreboardTex = new THREE.CanvasTexture(scoreboardCanvas);
-    updateScoreboardCanvas();
-
-    const sbBoard = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 1.35), new THREE.MeshBasicMaterial({
-      map: scoreboardTex,
-      side: THREE.DoubleSide
-    }));
-    sbBoard.position.set(0, COURT.sandY + 3.8, 0);
-    scn.add(sbBoard);
-    scoreboardMesh = sbBoard;
-
-    // 9. Sandy the Beach Shonk (Opponent AI Shark)
-    if (window.BlahajModels && window.BlahajModels.createPlushShark) {
-      sandy.mesh = window.BlahajModels.createPlushShark({
-        bodyColor: 0x0ea5e9, // bright beach blue
-        bellyColor: 0xf8fafc,
-        scarfColor: 0xf59e0b, // sunshine yellow scarf
-        eyeColor: 0x111827
-      });
-      sandy.mesh.position.copy(COURT.oppStart);
-      sandy.mesh.rotation.y = COURT.oppStart.rotY;
-      scn.add(sandy.mesh);
-
-      // Add cute yellow sun-visor onto Sandy's head!
-      const visorMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.3 });
-      const visor = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.06, 8, 18, Math.PI), visorMat);
-      visor.position.set(0, 0.65, 0.4);
-      visor.rotation.x = Math.PI / 4;
-      sandy.mesh.add(visor);
-    }
-
-    // 10. The Floaty Volleyball Beach Ball
-    const ballMesh = (window.BlahajModels && window.BlahajModels.createBeachBall)
-      ? window.BlahajModels.createBeachBall(BALL_RADIUS)
-      : new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS, 24, 20), new THREE.MeshStandardMaterial({ color: 0xff3b30 }));
-    ball.mesh = ballMesh;
-    ball.mesh.position.copy(ball.pos);
-    scn.add(ballMesh);
-
-    // Soft drop shadow on the sand
-    const shadowCanvas = document.createElement('canvas');
-    shadowCanvas.width = 128;
-    shadowCanvas.height = 128;
-    const shCtx = shadowCanvas.getContext('2d');
-    const grad = shCtx.createRadialGradient(64, 64, 4, 64, 64, 60);
-    grad.addColorStop(0, 'rgba(30, 20, 10, 0.65)');
-    grad.addColorStop(0.6, 'rgba(50, 35, 15, 0.35)');
-    grad.addColorStop(1, 'rgba(80, 50, 20, 0.0)');
-    shCtx.fillStyle = grad;
-    shCtx.fillRect(0, 0, 128, 128);
-
-    const shadowTex = new THREE.CanvasTexture(shadowCanvas);
-    ball.shadowMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.6, 1.6),
-      new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, opacity: 0.6 })
-    );
-    ball.shadowMesh.rotation.x = -Math.PI / 2;
-    ball.shadowMesh.position.set(ball.pos.x, COURT.sandY + 0.02, ball.pos.z);
-    scn.add(ball.shadowMesh);
-
-    // 11. Palm trees and beach boulders framing the court
-    const createPalm = (px, pz) => {
-      const palm = new THREE.Group();
-      palm.position.set(px, COURT.sandY, pz);
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.32, 6.5, 8), bambooMat);
-      trunk.position.y = 3.2;
-      trunk.rotation.z = px > 0 ? 0.12 : -0.12;
-      palm.add(trunk);
-      const fronds = new THREE.Mesh(new THREE.ConeGeometry(2.8, 1.2, 8), new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 }));
-      fronds.position.y = 6.4;
-      palm.add(fronds);
-      scn.add(palm);
-    };
-    createPalm(-7.0, -2.0);
-    createPalm(7.2, 2.5);
-    createPalm(-6.5, 6.0);
-
-    built = true;
-  }
-
-  // ==========================================================================
-  // SCOREBOARD RENDERING
-  // ==========================================================================
-  function updateScoreboardCanvas() {
-    if (!scoreboardCanvas) return;
-    const ctx = scoreboardCanvas.getContext('2d');
-    ctx.clearRect(0, 0, 512, 192);
-
-    // Weathered Driftwood background
-    ctx.fillStyle = '#3b2416';
-    ctx.fillRect(0, 0, 512, 192);
-    ctx.strokeStyle = '#d97706';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(6, 6, 500, 180);
-
-    // Banner title
-    ctx.fillStyle = '#fde68a';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('🏐 CRESCENT BEACH SHARK VOLLEYBALL 🦈', 256, 38);
-
-    // Rally Counter
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 38px sans-serif';
-    ctx.fillText(`RALLY: ${rallyCount}   (BEST: ${bestRally})`, 256, 92);
-
-    // Match Score
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 34px sans-serif';
-    ctx.fillText(`SHARK: ${playerScore}  —  SANDY: ${opponentScore}`, 256, 148);
-
-    if (scoreboardTex) scoreboardTex.needsUpdate = true;
-  }
-
-  // ==========================================================================
-  // PARTICLE BURST
-  // ==========================================================================
-  function spawnStars(pos, colorHex = 0xfacc15, count = 12) {
-    if (!scn) return;
-    for (let i = 0; i < count; i++) {
-      const geo = new THREE.SphereGeometry(0.08, 6, 6);
-      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
-      const p = new THREE.Mesh(geo, mat);
-      p.position.copy(pos);
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 2.0 + Math.random() * 3.5;
-      scn.add(p);
-      particles.push({
-        mesh: p,
-        vel: new THREE.Vector3(Math.cos(angle) * speed, 1.5 + Math.random() * 3.5, Math.sin(angle) * speed),
-        life: 0.6
-      });
-    }
-  }
-
-  // ==========================================================================
-  // SERVE BALL
-  // ==========================================================================
-  function serveBall(server = 'player') {
-    ball.state = 'in_play';
-    ball.lastHitter = null;
-    ball.squish = 1.0;
-    if (server === 'player') {
-      ball.pos.set(0, 4.2, -2.5);
-      ball.vel.set(0, 1.2, 0);
+    if (window.BlahajModels) {
+      opponentActor.mesh = def.createModel(window.BlahajModels);
     } else {
-      ball.pos.set(0, 4.2, 2.5);
-      ball.vel.set(0, 1.2, 0);
+      opponentActor.mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4, 0.4, 1.4, 12),
+        new THREE.MeshStandardMaterial({ color: 0x0284c7 })
+      );
     }
-    if (ball.mesh) ball.mesh.position.copy(ball.pos);
-    spawnStars(ball.pos, 0x38bdf8, 8);
-    if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) CozyAudio.portalChime();
+
+    opponentActor.pos.set(COURT.oppStart.x, COURT.oppStart.y, COURT.oppStart.z);
+    opponentActor.rotY = COURT.oppStart.rotY;
+    opponentActor.velY = 0;
+    opponentActor.isGrounded = true;
+    opponentActor.targetX = COURT.oppStart.x;
+    opponentActor.targetZ = COURT.oppStart.z;
+    opponentActor.celebrateTimer = 0;
+
+    opponentActor.mesh.position.copy(opponentActor.pos);
+    opponentActor.mesh.rotation.y = opponentActor.rotY;
+    if (activeScene) activeScene.add(opponentActor.mesh);
   }
 
   // ==========================================================================
-  // UPDATE LOOP (CALLED EVERY FRAME)
+  // BALL CREATION
   // ==========================================================================
-  function update(dt, elapsed, player, keys = {}) {
-    if (!active || !built) return;
-
-    // 1. Animate Water foam and net ribbons
-    if (waterPlane) {
-      waterPlane.position.y = COURT.sandY - 0.45 + Math.sin(elapsed * 1.5) * 0.06;
+  function spawnBall() {
+    if (ball.mesh && ball.mesh.parent) {
+      ball.mesh.parent.remove(ball.mesh);
     }
-    ribbonFlags.forEach((rf) => {
-      rf.mesh.rotation.y = Math.sin(elapsed * 4.0 + rf.phase) * 0.4;
-      rf.mesh.rotation.z = Math.cos(elapsed * 3.5 + rf.phase) * 0.15;
-    });
-
-    // 2. Animate Cheering Birbs & Sunny Referee
-    cheeringBirbs.forEach((b) => {
-      b.mesh.position.y = b.baseY + Math.abs(Math.sin(elapsed * 5.0 + b.phase)) * 0.15;
-    });
-    if (sunnyRefMesh) {
-      sunnyRefMesh.rotation.z = Math.sin(elapsed * 3.0) * 0.08;
+    if (ball.shadowMesh && ball.shadowMesh.parent) {
+      ball.shadowMesh.parent.remove(ball.shadowMesh);
     }
 
-    // 3. Update Particles
+    if (window.BlahajModels && window.BlahajModels.createBeachBall) {
+      ball.mesh = window.BlahajModels.createBeachBall(BALL_RADIUS);
+    } else {
+      ball.mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(BALL_RADIUS, 24, 20),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 })
+      );
+    }
+    ball.mesh.castShadow = true;
+    if (activeScene) activeScene.add(ball.mesh);
+
+    // Soft drop shadow on Crescent Beach sand terrace
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x3d2817,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false
+    });
+    ball.shadowMesh = new THREE.Mesh(new THREE.CircleGeometry(BALL_RADIUS * 1.1, 24), shadowMat);
+    ball.shadowMesh.rotation.x = -Math.PI / 2;
+    ball.shadowMesh.position.set(COURT.centerX, COURT.sandY + 0.02, COURT.centerZ);
+    if (activeScene) activeScene.add(ball.shadowMesh);
+
+    resetBallToServe('player');
+  }
+
+  function resetBallToServe(server = 'player') {
+    ball.state = 'serving';
+    ball.serveTimer = 1.2;
+    ball.squish = 1.0;
+    ball.lastHitter = null;
+
+    if (server === 'player') {
+      ball.pos.set(COURT.centerX, COURT.sandY + 2.2, COURT.playerStart.z + 0.8);
+      ball.vel.set(0, 2.5, 0);
+    } else {
+      ball.pos.set(COURT.centerX, COURT.sandY + 2.2, COURT.oppStart.z - 0.8);
+      ball.vel.set(0, 2.5, 0);
+    }
+
+    if (ball.mesh) {
+      ball.mesh.position.copy(ball.pos);
+      ball.mesh.scale.set(1, 1, 1);
+    }
+  }
+
+  // ==========================================================================
+  // PARTICLE SYSTEM FOR SNOUT IMPACTS & SPARKLES
+  // ==========================================================================
+  function spawnBoopParticles(pos, color = 0x38bdf8, count = 16) {
+    if (!activeScene) return;
+    for (let i = 0; i < count; i++) {
+      const geo = new THREE.SphereGeometry(0.065 + Math.random() * 0.045, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 });
+      const pMesh = new THREE.Mesh(geo, mat);
+      pMesh.position.copy(pos);
+      activeScene.add(pMesh);
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.8 + Math.random() * 3.4;
+      particles.push({
+        mesh: pMesh,
+        vel: new THREE.Vector3(
+          Math.cos(angle) * speed,
+          2.0 + Math.random() * 3.5,
+          Math.sin(angle) * speed
+        ),
+        life: 0.65,
+        maxLife: 0.65
+      });
+    }
+  }
+
+  function updateParticles(dt) {
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.life -= dt;
+      if (p.life <= 0) {
+        if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        p.mesh.material.dispose();
+        particles.splice(i, 1);
+        continue;
+      }
       p.vel.y -= 9.8 * dt;
       p.mesh.position.addScaledVector(p.vel, dt);
-      if (p.life <= 0) {
-        scn.remove(p.mesh);
-        particles.splice(i, 1);
+      const alpha = p.life / p.maxLife;
+      p.mesh.material.opacity = alpha * 0.95;
+      const scale = 0.4 + alpha * 0.6;
+      p.mesh.scale.set(scale, scale, scale);
+    }
+  }
+
+  // ==========================================================================
+  // MATCH LIFECYCLE
+  // ==========================================================================
+  function startMatch(opponentKey = 'sandy', sceneRef, playerRef) {
+    activeScene = sceneRef || (window.BlahajWorld && window.BlahajWorld.getActiveScene ? window.BlahajWorld.getActiveScene() : null);
+    activePlayer = playerRef;
+    isMatchActiveState = true;
+
+    playerScore = 0;
+    opponentScore = 0;
+    rallyCount = 0;
+
+    spawnOpponent(opponentKey);
+    spawnBall();
+
+    // Move player cleanly to south court baseline
+    if (activePlayer) {
+      activePlayer.pos.set(COURT.playerStart.x, COURT.playerStart.y, COURT.playerStart.z);
+      activePlayer.rotY = COURT.playerStart.rotY;
+      activePlayer.velY = 0;
+      activePlayer.isGrounded = true;
+      activePlayer.inBoat = false;
+      activePlayer.ridingWithPartner = false;
+      if (activePlayer.mesh) {
+        activePlayer.mesh.position.copy(activePlayer.pos);
+        activePlayer.mesh.rotation.y = activePlayer.rotY;
       }
     }
 
-    // 4. Ball Physics & Cartoony Loft
-    if (ball.mesh && ball.state === 'in_play') {
-      // Cartoony floaty gravity (7.2 m/s^2 instead of 19.5!)
-      ball.vel.y -= 7.2 * dt;
-      ball.vel.y = Math.max(ball.vel.y, -7.5); // gentle terminal velocity
+    // Align camera behind player facing north down the volleyball court
+    if (window.camState) {
+      window.camState.yaw = Math.PI;
+      window.camState.pitch = 0.22;
+      window.camState.distance = 3.6;
+      window.camState.heightOffset = 1.65;
+    }
 
-      // Slow horizontal air friction
-      ball.vel.x *= Math.pow(0.992, dt * 60);
-      ball.vel.z *= Math.pow(0.992, dt * 60);
+    // Hide entrance signpost during active match for completely unobstructed court view
+    if (activeScene) {
+      activeScene.traverse((obj) => {
+        if (obj.name === 'crescent_volleyball_sign') obj.visible = false;
+      });
+    }
+
+    // Hide overlapping compass, island meters, and banners
+    document.body.classList.add('volleyball-active');
+
+    // Show clean, uncluttered match HUD
+    const vHud = document.getElementById('volleyball-hud');
+    if (vHud) {
+      vHud.classList.remove('hidden');
+      const oppNameEl = document.getElementById('vball-opp-name');
+      if (oppNameEl) {
+        oppNameEl.textContent = (OPPONENTS[currentOpponentKey] ? OPPONENTS[currentOpponentKey].name : 'SANDY').toUpperCase();
+      }
+      updateScoreboardUI();
+    }
+
+    // Wire Leave Match button
+    const btnLeave = document.getElementById('btn-leave-volleyball');
+    if (btnLeave && !btnLeave.dataset.bound) {
+      btnLeave.dataset.bound = 'true';
+      btnLeave.addEventListener('click', (e) => {
+        e.stopPropagation();
+        endMatch();
+      });
+    }
+
+    const oppDef = OPPONENTS[currentOpponentKey];
+    if (typeof showToast === 'function') {
+      showToast(
+        'SHARK BEACH VOLLEYBALL 🏐',
+        `Match started vs ${oppDef.name}! Sharks use their snouts to header-boop the ball!`
+      );
+    }
+  }
+
+  function endMatch() {
+    if (!isMatchActiveState) return;
+    isMatchActiveState = false;
+
+    // Clean up opponent mesh
+    if (opponentActor.mesh && opponentActor.mesh.parent) {
+      opponentActor.mesh.parent.remove(opponentActor.mesh);
+      opponentActor.mesh = null;
+    }
+
+    // Clean up ball & shadow
+    if (ball.mesh && ball.mesh.parent) {
+      ball.mesh.parent.remove(ball.mesh);
+      ball.mesh = null;
+    }
+    if (ball.shadowMesh && ball.shadowMesh.parent) {
+      ball.shadowMesh.parent.remove(ball.shadowMesh);
+      ball.shadowMesh = null;
+    }
+
+    // Clean up particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+      p.mesh.geometry.dispose();
+      p.mesh.material.dispose();
+    }
+    particles.length = 0;
+
+    // Restore entrance signpost
+    if (activeScene) {
+      activeScene.traverse((obj) => {
+        if (obj.name === 'crescent_volleyball_sign') obj.visible = true;
+      });
+    }
+
+    // Restore HUD
+    document.body.classList.remove('volleyball-active');
+    const vHud = document.getElementById('volleyball-hud');
+    if (vHud) vHud.classList.add('hidden');
+
+    if (typeof showToast === 'function') {
+      showToast('CRESCENT BEACH 🏖️', 'Left volleyball court. Sunny continues lounging with his coconut drink!');
+    }
+  }
+
+  function updateScoreboardUI() {
+    const p1 = document.getElementById('vball-p1');
+    const p2 = document.getElementById('vball-p2');
+    const rally = document.getElementById('vball-rally');
+    if (p1) p1.textContent = playerScore;
+    if (p2) p2.textContent = opponentScore;
+    if (rally) rally.textContent = rallyCount;
+  }
+
+  // ==========================================================================
+  // SNOUT BOOP COLLISION & PHYSICS UPDATE
+  // ==========================================================================
+  function update(dt, player, isBoopKey) {
+    if (!isMatchActiveState) return;
+    dt = Math.min(dt || 0.016, 0.05);
+
+    updateParticles(dt);
+
+    // 1. Constrain Player to South Court
+    if (player) {
+      player.pos.x = THREE.MathUtils.clamp(player.pos.x, COURT.minX, COURT.maxX);
+      // Southern court runs from baseline to just before the net
+      player.pos.z = THREE.MathUtils.clamp(player.pos.z, COURT.minZ, COURT.netZ - 0.45);
+      player.pos.y = COURT.sandY;
+    }
+
+    // 2. Update Ball State & Physics
+    if (ball.state === 'serving') {
+      ball.serveTimer -= dt;
+      // Ball floats up and down gently before serve
+      ball.pos.y = COURT.sandY + 2.2 + Math.sin(Date.now() * 0.006) * 0.25;
+      if (ball.serveTimer <= 0) {
+        ball.state = 'in_play';
+        if (ball.nextServer === 'player') {
+          ball.vel.set(0, 4.8, 4.8);
+          ball.lastHitter = 'player';
+        } else {
+          ball.vel.set(0, 4.8, -4.8);
+          ball.lastHitter = 'opponent';
+        }
+      }
+    } else if (ball.state === 'in_play') {
+      // Floaty leisurely gravity
+      const GRAVITY = -7.2;
+      ball.vel.y += GRAVITY * dt;
+
+      // Gentle horizontal air drag
+      ball.vel.x *= 0.994;
+      ball.vel.z *= 0.994;
 
       ball.pos.addScaledVector(ball.vel, dt);
 
-      // Court side walls bounce softly
-      if (ball.pos.x < COURT.minX + BALL_RADIUS) {
-        ball.pos.x = COURT.minX + BALL_RADIUS;
-        ball.vel.x = Math.abs(ball.vel.x) * 0.75;
-      } else if (ball.pos.x > COURT.maxX - BALL_RADIUS) {
-        ball.pos.x = COURT.maxX - BALL_RADIUS;
-        ball.vel.x = -Math.abs(ball.vel.x) * 0.75;
+      // Rotate ball along flight trajectory
+      if (ball.mesh) {
+        ball.mesh.rotation.x += ball.vel.z * 1.5 * dt;
+        ball.mesh.rotation.z -= ball.vel.x * 1.5 * dt;
       }
 
-      // Net Collision (z = 0, between -3.6 and 3.6, height between 1.0 and 2.3)
-      if (Math.abs(ball.pos.z) < BALL_RADIUS + 0.1 && Math.abs(ball.pos.x) < COURT.netWidth / 2) {
-        if (ball.pos.y > COURT.netBottomY && ball.pos.y < COURT.netTopY) {
-          // Bounced into the net!
-          ball.vel.z = (ball.pos.z < 0 ? -1 : 1) * Math.max(Math.abs(ball.vel.z) * 0.5, 1.8);
-          ball.vel.y = 2.5;
-          ball.squish = 1.3;
-          if (typeof CozyAudio !== 'undefined' && CozyAudio.bounceBoing) CozyAudio.bounceBoing();
+      // Check Net Collision (Net at netZ = 52.0, top is 2.75)
+      const prevZ = ball.pos.z - ball.vel.z * dt;
+      const crossedNet = (prevZ < COURT.netZ && ball.pos.z >= COURT.netZ) || (prevZ > COURT.netZ && ball.pos.z <= COURT.netZ);
+      if (crossedNet && ball.pos.y < COURT.netTopY && ball.pos.x >= COURT.minX - 0.4 && ball.pos.x <= COURT.maxX + 0.4) {
+        // Net boing bounce!
+        ball.vel.z = -ball.vel.z * 0.45;
+        ball.vel.y = Math.max(1.8, ball.vel.y * 0.5);
+        ball.pos.z = prevZ;
+        spawnBoopParticles(ball.pos, 0xd4a373, 10);
+        if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
+      }
+
+      // Check Snout Boop by Player
+      if (player) {
+        const pSnout = new THREE.Vector3(
+          player.pos.x + Math.sin(player.rotY) * 0.85,
+          player.pos.y + 0.45,
+          player.pos.z + Math.cos(player.rotY) * 0.85
+        );
+        const distToPlayer = ball.pos.distanceTo(pSnout);
+        const distToCenter = ball.pos.distanceTo(player.pos);
+        const canBoop = distToPlayer < 1.45 || distToCenter < 1.6 || (isBoopKey && distToCenter < 2.0);
+
+        if (canBoop && ball.pos.z < COURT.netZ + 0.2 && ball.vel.z <= 0.5) {
+          // PLAYER SNOUT BOOP!
+          rallyCount++;
+          if (rallyCount > bestRally) bestRally = rallyCount;
+          ball.lastHitter = 'player';
+          ball.squish = 0.65;
+
+          const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+          // Float ball high across net into opponent territory
+          const targetZDist = COURT.oppStart.z - ball.pos.z;
+          ball.vel.z = Math.min(8.2, Math.max(5.8, targetZDist * 1.05 + 1.2));
+          ball.vel.y = 5.2 + Math.random() * 0.8;
+          // Direct laterally based on shark positioning
+          const deltaX = (player.pos.x - COURT.centerX);
+          ball.vel.x = -deltaX * 0.45 + (Math.random() - 0.5) * 1.5;
+          ball.vel.x = THREE.MathUtils.clamp(ball.vel.x, -2.4, 2.4);
+
+          spawnBoopParticles(pSnout, 0x38bdf8, 18);
+          if (typeof CozyAudio !== 'undefined' && CozyAudio.shonk) CozyAudio.shonk();
+          updateScoreboardUI();
         }
       }
 
-      // Ball Squish Recovery
-      ball.squish += (1.0 - ball.squish) * dt * 9.0;
-      ball.mesh.scale.set(ball.squish, 1.0 / Math.max(0.7, ball.squish), ball.squish);
+      // Check Snout Boop by Opponent AI
+      const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+      const oppSnout = new THREE.Vector3(
+        opponentActor.pos.x + Math.sin(opponentActor.rotY) * 0.85,
+        opponentActor.pos.y + 0.45,
+        opponentActor.pos.z + Math.cos(opponentActor.rotY) * 0.85
+      );
+      const distToOpp = ball.pos.distanceTo(oppSnout);
+      const distToOppCenter = ball.pos.distanceTo(opponentActor.pos);
 
-      // Roll ball rotation according to movement
-      ball.mesh.rotation.x += ball.vel.z * dt * 3.0;
-      ball.mesh.rotation.z -= ball.vel.x * dt * 3.0;
-      ball.mesh.position.copy(ball.pos);
-
-      // Drop shadow on the sand
-      if (ball.shadowMesh) {
-        const heightAboveSand = Math.max(0, ball.pos.y - COURT.sandY);
-        ball.shadowMesh.position.set(ball.pos.x, COURT.sandY + 0.02, ball.pos.z);
-        const s = 0.5 + Math.min(heightAboveSand * 0.1, 0.6);
-        ball.shadowMesh.scale.set(s, s, s);
-        ball.shadowMesh.material.opacity = Math.max(0.18, 0.65 - heightAboveSand * 0.08);
-      }
-
-      // Check Sand Landing
-      if (ball.pos.y <= COURT.sandY + BALL_RADIUS) {
-        ball.pos.y = COURT.sandY + BALL_RADIUS;
-        handleSandLanding();
-      }
-    } else if (ball.state === 'serving') {
-      ball.serveTimer -= dt;
-      if (ball.serveTimer <= 0) {
-        serveBall(ball.nextServer);
-      }
-    }
-
-    // 5. Player Snout / Header Collision
-    if (player && ball.mesh && ball.state === 'in_play') {
-      // Calculate player snout position based on forward direction
-      const fwd = new THREE.Vector3(-Math.sin(player.rotY), 0, -Math.cos(player.rotY));
-      const snout = player.pos.clone().addScaledVector(fwd, 1.25).add(new THREE.Vector3(0, 0.55, 0));
-
-      const dSnout = snout.distanceTo(ball.pos);
-      const dBody = player.pos.distanceTo(ball.pos);
-      const isBooping = Boolean(keys['f'] || keys['F']);
-
-      // Generous hit condition: Snout contact, or Body contact while jumping, or pressing [F]
-      const canHit = (dSnout < 1.45) || (dBody < 1.75 && ball.pos.y < player.pos.y + 1.8 && ball.pos.y > player.pos.y + 0.25) || (isBooping && dSnout < 2.5);
-
-      if (canHit && (ball.lastHitter !== 'player' || ball.vel.y < 0)) {
-        // Player Bounces the Ball over the net!
-        ball.lastHitter = 'player';
-        ball.squish = 1.45;
-
-        // High, floaty loft: 6.8 to 7.4 m/s gives >2.5s of airtime
-        ball.vel.y = 6.8 + Math.random() * 0.5;
-
-        // Forward trajectory into Sandy's court (Target Z around +2.8)
-        const targetZ = 2.8 + (Math.random() - 0.5) * 1.5;
-        ball.vel.z = (targetZ - ball.pos.z) / 1.75;
-
-        // Steering based on approach angle
-        ball.vel.x = (ball.pos.x - player.pos.x) * 1.4;
-        ball.vel.x = THREE.MathUtils.clamp(ball.vel.x, -2.6, 2.6);
-
-        spawnStars(snout, 0x38bdf8, 14);
-
-        if (typeof CozyAudio !== 'undefined') {
-          if (CozyAudio.bounceBoing) CozyAudio.bounceBoing();
-          if (CozyAudio.shonk) CozyAudio.shonk();
-        }
-
-        // Floating toast celebration on high header
-        if (typeof showToast === 'function') {
-          showToast('SNOUT BOOP! 🏐💥', `Lofted beach ball over the net! (Rally: ${rallyCount})`);
-        }
-      }
-    }
-
-    // 6. Sandy (AI Opponent) Logic
-    if (sandy.mesh && ball.mesh) {
-      updateSandyAI(dt, elapsed);
-    }
-  }
-
-  // ==========================================================================
-  // SANDY (AI OPPONENT) BEHAVIOR
-  // ==========================================================================
-  function updateSandyAI(dt, elapsed) {
-    const isBallOnSandySide = ball.pos.z > -0.2 && ball.state === 'in_play';
-    let isMoving = false;
-
-    if (isBallOnSandySide) {
-      // Track ball's shadow on sand
-      const targetX = THREE.MathUtils.clamp(ball.pos.x, COURT.minX + 0.8, COURT.maxX - 0.8);
-      const targetZ = THREE.MathUtils.clamp(ball.pos.z, 0.8, COURT.maxZ - 0.6);
-
-      const dx = targetX - sandy.pos.x;
-      const dz = targetZ - sandy.pos.z;
-      const dist = Math.hypot(dx, dz);
-
-      if (dist > 0.2) {
-        isMoving = true;
-        const moveDist = Math.min(dist, sandy.speed * dt);
-        sandy.pos.x += (dx / dist) * moveDist;
-        sandy.pos.z += (dz / dist) * moveDist;
-        // Face movement direction smoothly
-        sandy.rotY = Math.atan2(dx, dz);
-      } else {
-        // Face the net
-        sandy.rotY = Math.PI;
-      }
-
-      // Check if ball is low enough to header back over
-      const snoutPos = sandy.pos.clone().add(new THREE.Vector3(-Math.sin(sandy.rotY), 0, -Math.cos(sandy.rotY)).multiplyScalar(1.2)).add(new THREE.Vector3(0, 0.55, 0));
-      const dToBall = snoutPos.distanceTo(ball.pos);
-
-      if (dToBall < 1.6 && ball.pos.y < 2.5 && ball.lastHitter !== 'opponent') {
-        // Sandy hops and nose-boops it back!
-        sandy.velY = 4.2;
-        sandy.isGrounded = false;
-        ball.lastHitter = 'opponent';
-        ball.squish = 1.45;
-
-        // Return floaty arc back to Player's court (Target Z around -2.8)
-        ball.vel.y = 6.6 + Math.random() * 0.4;
-        const targetPlayerZ = -2.8 + (Math.random() - 0.5) * 1.5;
-        ball.vel.z = (targetPlayerZ - ball.pos.z) / 1.75;
-        ball.vel.x = (Math.random() - 0.5) * 2.0;
-
+      if ((distToOpp < 1.45 || distToOppCenter < 1.6) && ball.pos.z > COURT.netZ - 0.2 && ball.vel.z >= -0.5) {
+        // OPPONENT SNOUT BOOP!
         rallyCount++;
         if (rallyCount > bestRally) bestRally = rallyCount;
-        updateScoreboardCanvas();
+        ball.lastHitter = 'opponent';
+        ball.squish = 0.65;
 
-        spawnStars(snoutPos, 0xf59e0b, 14);
-        if (typeof CozyAudio !== 'undefined' && CozyAudio.bounceBoing) CozyAudio.bounceBoing();
+        // Opponent hops up to header-spike
+        opponentActor.velY = 3.6;
+        opponentActor.isGrounded = false;
 
-        if (typeof showToast === 'function') {
-          showToast(`SANDY HEADER! 🏐`, `Rally: ${rallyCount}! Keep the streak going!`);
-        }
+        const targetZDist = ball.pos.z - COURT.playerStart.z;
+        ball.vel.z = -Math.min(8.0, Math.max(5.6, targetZDist * 1.05 + 1.0));
+        ball.vel.y = oppDef.lobArc + (Math.random() - 0.5) * 0.6;
+        // Aim toward player or court center
+        const targetX = player ? player.pos.x : COURT.centerX;
+        const dirX = (targetX - opponentActor.pos.x) * 0.35 + (Math.random() - 0.5) * 1.2;
+        ball.vel.x = THREE.MathUtils.clamp(dirX, -2.4, 2.4);
+
+        spawnBoopParticles(oppSnout, 0xf59e0b, 18);
+        if (typeof CozyAudio !== 'undefined' && CozyAudio.teaPour) CozyAudio.teaPour();
+        updateScoreboardUI();
       }
-    } else {
-      // Idle at back-center and watch net
-      const homeX = 0;
-      const homeZ = 3.0;
-      const dx = homeX - sandy.pos.x;
-      const dz = homeZ - sandy.pos.z;
-      if (Math.hypot(dx, dz) > 0.25) {
-        isMoving = true;
-        sandy.pos.x += dx * dt * 2.0;
-        sandy.pos.z += dz * dt * 2.0;
-      }
-      sandy.rotY = Math.PI; // Face the net
-    }
 
-    // Sandy vertical hop physics
-    if (!sandy.isGrounded) {
-      sandy.velY -= 14.0 * dt;
-      sandy.pos.y += sandy.velY * dt;
-      if (sandy.pos.y <= COURT.sandY) {
-        sandy.pos.y = COURT.sandY;
-        sandy.velY = 0;
-        sandy.isGrounded = true;
+      // Check Sand Ground Landing & Scoring
+      if (ball.pos.y <= COURT.sandY + BALL_RADIUS) {
+        ball.pos.y = COURT.sandY + BALL_RADIUS;
+        handleBallLanding();
       }
     }
 
-    sandy.mesh.position.copy(sandy.pos);
-    sandy.mesh.rotation.y = sandy.rotY;
-
-    if (window.BlahajModels && window.BlahajModels.animateShark) {
-      window.BlahajModels.animateShark(sandy.mesh, dt, isMoving, elapsed);
+    // Update Ball Scale & Shadow
+    if (ball.squish < 1.0) {
+      ball.squish += dt * 3.5;
+      if (ball.squish > 1.0) ball.squish = 1.0;
     }
+    if (ball.mesh) {
+      ball.mesh.position.copy(ball.pos);
+      ball.mesh.scale.set(1.0 + (1.0 - ball.squish) * 0.35, ball.squish, 1.0 + (1.0 - ball.squish) * 0.35);
+    }
+    if (ball.shadowMesh) {
+      ball.shadowMesh.position.set(ball.pos.x, COURT.sandY + 0.02, ball.pos.z);
+      const heightAbove = Math.max(0, ball.pos.y - (COURT.sandY + BALL_RADIUS));
+      const shadowScale = Math.max(0.35, 1.0 - heightAbove * 0.12);
+      ball.shadowMesh.scale.set(shadowScale, shadowScale, shadowScale);
+      ball.shadowMesh.material.opacity = Math.max(0.08, 0.42 - heightAbove * 0.06);
+    }
+
+    // 3. Update Opponent AI Movement & Tracking
+    updateOpponentAI(dt);
   }
 
-  // ==========================================================================
-  // SAND LANDING & SCORING
-  // ==========================================================================
-  function handleSandLanding() {
-    ball.state = 'serving';
-    ball.serveTimer = 1.8;
-    ball.vel.set(0, 0, 0);
+  function handleBallLanding() {
+    ball.state = 'scored';
+    spawnBoopParticles(ball.pos, 0xd4a373, 20);
 
-    // Dust puff
-    spawnStars(ball.pos, 0xd4a373, 10);
-    if (typeof CozyAudio !== 'undefined' && CozyAudio.carrotBoop) CozyAudio.carrotBoop();
+    const isNorthSide = ball.pos.z >= COURT.netZ;
+    const isSouthSide = ball.pos.z < COURT.netZ;
+    const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
 
-    const landedOnPlayerSide = ball.pos.z < 0;
-
-    if (landedOnPlayerSide) {
+    if (isSouthSide) {
+      // Ball landed on player's half -> Opponent scores!
       opponentScore++;
       ball.nextServer = 'player';
+      opponentActor.celebrateTimer = 1.8;
       if (typeof showToast === 'function') {
-        showToast('SANDY SCORES! 🏐', `Ball landed on your sand! (Rally was ${rallyCount})`);
+        showToast(`${oppDef.name.toUpperCase()} SCORES! 🏐`, `Ball landed on your sand! (Rally: ${rallyCount})`);
       }
     } else {
+      // Ball landed on opponent's half -> Player scores!
       playerScore++;
       ball.nextServer = 'opponent';
       if (typeof showToast === 'function') {
-        showToast('POINT FOR YOU! 🏆', `Slick spike over the net! (Rally was ${rallyCount})`);
+        showToast('POINT TO YOU! 🔥', `Clean snout header into sand! (Rally: ${rallyCount})`);
       }
-      if (typeof CozyAudio !== 'undefined' && CozyAudio.birthdayFanfare) CozyAudio.birthdayFanfare();
+      if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) CozyAudio.portalChime();
     }
 
-    rallyCount = 0;
-    updateScoreboardCanvas();
-  }
+    updateScoreboardUI();
 
-  // ==========================================================================
-  // MOVEMENT RESOLUTION & BOUNDARIES
-  // ==========================================================================
-  function resolveMove(p, dir, dist) {
-    const nextX = THREE.MathUtils.clamp(p.x + dir.x * dist, COURT.minX + 0.4, COURT.maxX - 0.4);
-    // Player cannot cross the net to the opponent side: constrained to [-5.5, -0.4]
-    const nextZ = THREE.MathUtils.clamp(p.z + dir.z * dist, COURT.minZ - 1.2, -0.4);
-    return new THREE.Vector3(nextX, COURT.sandY, nextZ);
-  }
-
-  function getFloorHeight(x, z) {
-    return COURT.sandY;
-  }
-
-  function getInteractables(p) {
-    const out = [];
-    // Near exit log / bench at south baseline
-    if (p.z <= COURT.minZ + 0.6) {
-      out.push({
-        kind: 'exit_volleyball',
-        prompt: 'Leave Volleyball Court & Return to Crescent Beach [E / Esc] 🏖️'
-      });
-    }
-    return out;
-  }
-
-  // ==========================================================================
-  // PUBLIC EXPORTS
-  // ==========================================================================
-  return {
-    build,
-    isBuilt: () => built,
-    isActive: () => active,
-    setActive: (val) => {
-      active = val;
-      if (val) {
-        serveBall('player');
+    // Check Match Win (First to 5 points)
+    if (playerScore >= 5) {
+      if (typeof showToast === 'function') {
+        showToast(
+          '🏆 CRESCENT BEACH CHAMPION! 🏖️',
+          `You defeated ${oppDef.name} 5 - ${opponentScore}! (+3 Trial Points & 100% Stuffing)`
+        );
+      }
+      if (activePlayer) {
+        activePlayer.trialPoints = (activePlayer.trialPoints || 0) + 3;
+        activePlayer.stuffing = 100;
+        if (typeof updateMetersUI === 'function') updateMetersUI();
+      }
+      setTimeout(() => {
+        playerScore = 0;
+        opponentScore = 0;
         rallyCount = 0;
-        updateScoreboardCanvas();
+        updateScoreboardUI();
+        resetBallToServe('player');
+      }, 3500);
+      return;
+    }
+
+    if (opponentScore >= 5) {
+      if (typeof showToast === 'function') {
+        showToast(
+          'MATCH FINISHED 🏖️',
+          `${oppDef.name} won 5 - ${playerScore}. Sunny claps from his deckchair: "Spectacular rally!"`
+        );
       }
-    },
-    getScene: () => scn,
-    getStart: () => COURT.playerStart,
-    resolveMove,
-    getFloorHeight,
-    getInteractables,
+      setTimeout(() => {
+        playerScore = 0;
+        opponentScore = 0;
+        rallyCount = 0;
+        updateScoreboardUI();
+        resetBallToServe('player');
+      }, 3500);
+      return;
+    }
+
+    // Normal point reset
+    setTimeout(() => {
+      rallyCount = 0;
+      updateScoreboardUI();
+      resetBallToServe(ball.nextServer);
+    }, 1400);
+  }
+
+  function updateOpponentAI(dt) {
+    if (!opponentActor.mesh) return;
+
+    const oppDef = OPPONENTS[currentOpponentKey] || OPPONENTS.sandy;
+
+    // Celebration jump when opponent scores
+    if (opponentActor.celebrateTimer > 0) {
+      opponentActor.celebrateTimer -= dt;
+      opponentActor.rotY += Math.PI * 2 * dt;
+    } else {
+      opponentActor.rotY = COURT.oppStart.rotY;
+    }
+
+    // Track ball destination when ball is on northern court
+    if (ball.state === 'in_play' && ball.pos.z >= COURT.netZ - 1.0) {
+      // Project where ball will land
+      opponentActor.targetX = THREE.MathUtils.clamp(ball.pos.x, COURT.minX + 0.4, COURT.maxX - 0.4);
+      opponentActor.targetZ = THREE.MathUtils.clamp(ball.pos.z + 0.6, COURT.netZ + 0.6, COURT.maxZ - 0.4);
+    } else {
+      // Return to comfortable base guard position
+      opponentActor.targetX = COURT.centerX;
+      opponentActor.targetZ = COURT.oppStart.z;
+    }
+
+    // Move toward target position
+    const dx = opponentActor.targetX - opponentActor.pos.x;
+    const dz = opponentActor.targetZ - opponentActor.pos.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist > 0.15) {
+      const step = Math.min(dist, oppDef.speed * dt);
+      opponentActor.pos.x += (dx / dist) * step;
+      opponentActor.pos.z += (dz / dist) * step;
+    }
+
+    // Vertical jump physics for header spikes
+    if (!opponentActor.isGrounded) {
+      opponentActor.velY -= 12.0 * dt;
+      opponentActor.pos.y += opponentActor.velY * dt;
+      if (opponentActor.pos.y <= COURT.sandY) {
+        opponentActor.pos.y = COURT.sandY;
+        opponentActor.velY = 0;
+        opponentActor.isGrounded = true;
+      }
+    }
+
+    opponentActor.mesh.position.copy(opponentActor.pos);
+    opponentActor.mesh.rotation.y = opponentActor.rotY;
+
+    // Animate shark tail and fins
+    if (window.BlahajModels && window.BlahajModels.animateShark) {
+      window.BlahajModels.animateShark(opponentActor.mesh, dt, dist > 0.15, Date.now() * 0.001);
+    }
+  }
+
+  // ==========================================================================
+  // OPPONENT SELECTION MODAL WITH SUNNY THE BEACH CARROT
+  // ==========================================================================
+  function openOpponentSelectModal(openDialogueModalFn, closeDialogueModalFn) {
+    if (typeof openDialogueModalFn !== 'function') {
+      startMatch('sandy', activeScene, activePlayer);
+      return;
+    }
+
+    const actions = [
+      {
+        label: '🦈 Sandy the Beach Shonk (Crescent Beach Champion · Balanced)',
+        className: 'btn-primary',
+        onClick: () => {
+          if (closeDialogueModalFn) closeDialogueModalFn();
+          startMatch('sandy', activeScene, activePlayer);
+        }
+      },
+      {
+        label: '👑 Solomon the Wise Shark (Tactical Floaty Lobs & Drops)',
+        className: 'btn-accent',
+        onClick: () => {
+          if (closeDialogueModalFn) closeDialogueModalFn();
+          startMatch('solomon', activeScene, activePlayer);
+        }
+      },
+      {
+        label: '🔨 Hiram the Builder Shonk (Power Header Spikes)',
+        className: 'btn-accent',
+        onClick: () => {
+          if (closeDialogueModalFn) closeDialogueModalFn();
+          startMatch('hiram', activeScene, activePlayer);
+        }
+      },
+      {
+        label: '🐦 Captain Birb (Flutter Wing Bounces & High Cheeps)',
+        className: 'btn-secondary',
+        onClick: () => {
+          if (closeDialogueModalFn) closeDialogueModalFn();
+          startMatch('birb', activeScene, activePlayer);
+        }
+      },
+      {
+        label: '🏖️ Just Lounging for Now (Close)',
+        className: 'btn-secondary',
+        onClick: () => {
+          if (closeDialogueModalFn) closeDialogueModalFn();
+        }
+      }
+    ];
+
+    openDialogueModalFn({
+      speaker: 'Sunny the Beach Carrot',
+      role: 'CRESCENT BEACH REFEREE & CONNOISSEUR',
+      portrait: 'assets/gallery/Volcano-temple.png',
+      text: '“Welcome to Crescent Beach Shark Volleyball! The sand is warm, the ocean is rolling, and the bamboo net is strung tight. Sharks bounce the ball back and forth with their snouts! Who would you like to challenge on the court today?”',
+      actions
+    });
+  }
+
+  // Public API
+  return {
+    startMatch,
+    endMatch,
+    isMatchActive: () => isMatchActiveState,
     update,
-    serveBall,
-    getStats: () => ({ rallyCount, bestRally, playerScore, opponentScore }),
-    constants: COURT
+    openOpponentSelectModal,
+    getOpponents: () => OPPONENTS,
+    getScene: () => activeScene,
+    build: () => {},
+    setActive: (v) => { if (!v) endMatch(); },
+    getStart: () => COURT.playerStart,
+    getFloorHeight: (x, z) => COURT.sandY,
+    resolveMove: (p, dir, dist) => {
+      const nextX = THREE.MathUtils.clamp(p.x + dir.x * dist, COURT.minX, COURT.maxX);
+      const nextZ = THREE.MathUtils.clamp(p.z + dir.z * dist, COURT.minZ, COURT.netZ - 0.45);
+      return new THREE.Vector3(nextX, COURT.sandY, nextZ);
+    },
+    getInteractables: () => []
   };
 })();

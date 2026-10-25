@@ -802,15 +802,6 @@ body, html {
   color: #121824;
 }
 
-.quest-tracker {
-  background: var(--bg-deep);
-  border: 1.5px solid var(--brass);
-  border-radius: 14px;
-  padding: 12px 14px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(8px);
-}
-
 .quest-header {
   display: flex;
   align-items: center;
@@ -818,6 +809,66 @@ body, html {
   padding-bottom: 8px;
   margin-bottom: 8px;
   border-bottom: 1px solid rgba(212, 166, 86, 0.28);
+  cursor: pointer;
+  user-select: none;
+}
+
+.quest-header:hover h3 {
+  color: #ffe699;
+}
+
+.btn-hud-minimize {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(212, 166, 86, 0.4);
+  color: var(--brass-bright);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: auto;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+}
+
+.btn-hud-minimize:hover {
+  background: rgba(245, 205, 121, 0.25);
+  border-color: var(--brass-bright);
+}
+
+.quest-tracker {
+  background: var(--bg-deep);
+  border: 1.5px solid var(--brass);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+}
+
+.quest-tracker.minimized {
+  padding: 8px 12px;
+  width: auto;
+  min-width: 210px;
+}
+
+.quest-tracker.minimized .quest-header {
+  margin-bottom: 0 !important;
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+
+.quest-tracker.minimized .quest-list,
+.quest-tracker.minimized .controls-hint,
+.quest-tracker.minimized .quest-header p {
+  display: none !important;
+}
+
+.quest-tracker.minimized .btn-hud-minimize {
+  transform: rotate(-90deg);
 }
 
 .quest-icon {
@@ -3536,45 +3587,88 @@ body.minimal-hud .compass-strip {
   color: #ffffff;
 }
 
-/* ==================== VOLLEYBALL MATCH HUD ==================== */
+/* ==================== VOLLEYBALL MATCH HUD & DECLUTTERING ==================== */
+body.volleyball-active .hud-top-center,
+body.volleyball-active .compass-strip,
+body.volleyball-active .island-meters,
+body.volleyball-active #island-banner,
+body.volleyball-active .celestial-clock-btn,
+body.volleyball-active .party-frame,
+body.volleyball-active #interaction-prompt {
+  display: none !important;
+}
+
 #volleyball-hud {
   position: absolute;
-  top: 76px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.92));
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.93));
   border: 1.5px solid #38bdf8;
   border-radius: 12px;
-  padding: 8px 18px 6px;
+  padding: 8px 18px 7px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   z-index: 105;
   user-select: none;
   animation: popIn 0.3s ease;
+  min-width: 320px;
 }
 
 #volleyball-hud.hidden {
   display: none !important;
 }
 
+.vball-hud-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 14px;
+}
+
 .vball-hud-badge {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   color: #38bdf8;
   text-transform: uppercase;
+}
+
+.vball-btn-leave {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vball-btn-leave:hover {
+  background: rgba(239, 68, 68, 0.4);
+  color: #ffffff;
+  border-color: #ef4444;
 }
 
 .vball-hud-score {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   font-size: 15px;
   color: #f8fafc;
   font-family: var(--font-display, sans-serif);
+}
+
+.vball-vs {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: bold;
 }
 
 .vball-rally-box strong {
