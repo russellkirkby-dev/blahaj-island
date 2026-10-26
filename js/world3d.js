@@ -1001,6 +1001,7 @@ window.BlahajWorld = (function () {
     buildGreatPortalGateHeadland(scene);
     buildSphericalFoodsBluff(scene);
     buildQuietLibraryAndCrustCliffs(scene);
+    buildTheFirstWhirlingsRidgeShrine(scene);
     buildTeaDocksAndRegattaBoat(scene);
     buildEndlessPierToErf(scene);
     buildOuterSanctuaryIslands(scene);
@@ -1576,7 +1577,7 @@ window.BlahajWorld = (function () {
         x: 5.5,
         z: 18.5,
         title: '🪧 Central Plaza Crossroads',
-        directions: '⬆️ Volcano Causeway | ➡️ Portal Gate & Library | ⬅️ Café & Laundry | ⬇️ Harbour Docks',
+        directions: '⬆️ Volcano Causeway | ➡️ Portal Gate & Library | ⬅️ Bistro & The First Whirlings 🌀 | ⬇️ Harbour Docks',
         arrows: [0, Math.PI * 0.5, -Math.PI * 0.5, Math.PI]
       },
       {
@@ -4248,7 +4249,216 @@ window.BlahajWorld = (function () {
     scene.add(group);
   }
 
-  // Outdoor island spin dryer removed in favor of the full indoor laundromat zone.
+  // ==========================================================================
+  // THE FIRST WHIRLINGS · WESTERN RIDGE ENTRANCE SHRINE & CEREMONIAL WASHER PORTAL
+  // ==========================================================================
+  function buildTheFirstWhirlingsRidgeShrine(scene) {
+    const y0 = getTerrainHeight(-64, -14);
+    const shrineGroup = new THREE.Group();
+    shrineGroup.position.set(-64, y0, -14);
+    shrineGroup.rotation.y = 0.7; // Aligned with the Artisans' Ridge and path from Heartland
+
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.78 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.15, metalness: 0.88 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.28, metalness: 0.82 });
+    const seafoamMat = new THREE.MeshStandardMaterial({ color: 0x34d399, roughness: 0.35, metalness: 0.25 });
+
+    // 1. Foundation Plinth & Stepped Sandstone Terrace
+    // BoxGeometry(7.2, 0.8, 6.2) at y = 0.4 (top matches collision at y0 + 0.80)
+    const basePlinth = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.8, 6.2), stoneMat);
+    basePlinth.position.y = 0.4;
+    shrineGroup.add(basePlinth);
+
+    // Polished Seafoam & White Checkered Linoleum Patio
+    const patioMat = new THREE.MeshStandardMaterial({ color: 0xd1fae5, roughness: 0.25 });
+    const patio = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.05, 5.9), patioMat);
+    patio.position.y = 0.825;
+    shrineGroup.add(patio);
+
+    // Brass Plinth Rim Trim
+    const brassTrim = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.08, 6.3), brassMat);
+    brassTrim.position.y = 0.80;
+    shrineGroup.add(brassTrim);
+
+    // 2. Shrine Portico Pillars (4 Polished Chrome & Brass Columns)
+    const columnGeo = new THREE.CylinderGeometry(0.22, 0.26, 3.8, 16);
+    const pillarPositions = [
+      { x: -2.8, z: -2.2 },
+      { x: 2.8, z: -2.2 },
+      { x: -2.8, z: 2.2 },
+      { x: 2.8, z: 2.2 }
+    ];
+    pillarPositions.forEach(pos => {
+      const col = new THREE.Mesh(columnGeo, chromeMat);
+      col.position.set(pos.x, 2.7, pos.z);
+      shrineGroup.add(col);
+
+      // Brass base & top capitals
+      const colBase = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.22, 16), brassMat);
+      colBase.position.set(pos.x, 0.92, pos.z);
+      shrineGroup.add(colBase);
+
+      const colCap = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.32, 0.22, 16), brassMat);
+      colCap.position.set(pos.x, 4.5, pos.z);
+      shrineGroup.add(colCap);
+    });
+
+    // 3. Curved Enamel Roof Canopy
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.45, 5.4), seafoamMat);
+    roof.position.y = 4.75;
+    shrineGroup.add(roof);
+
+    const roofFascia = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.12, 5.6), brassMat);
+    roofFascia.position.y = 4.98;
+    shrineGroup.add(roofFascia);
+
+    // 4. Glowing Neon Marquee Sign: "THE FIRST WHIRLINGS · OPEN 24/7"
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 1024;
+    signCanvas.height = 320;
+    const sctx = signCanvas.getContext('2d');
+
+    // Deep midnight slate background
+    sctx.fillStyle = '#0a0f1d';
+    sctx.fillRect(0, 0, 1024, 320);
+
+    // Double neon borders
+    sctx.lineWidth = 10;
+    sctx.strokeStyle = '#00f0ff';
+    sctx.shadowColor = '#00f0ff';
+    sctx.shadowBlur = 24;
+    sctx.strokeRect(16, 16, 992, 288);
+
+    sctx.lineWidth = 4;
+    sctx.strokeStyle = '#ff007f';
+    sctx.shadowColor = '#ff007f';
+    sctx.shadowBlur = 18;
+    sctx.strokeRect(28, 28, 968, 264);
+
+    // Neon Main Title
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    sctx.font = '900 56px sans-serif';
+    sctx.shadowColor = '#00f0ff';
+    sctx.shadowBlur = 28;
+    sctx.fillStyle = '#6ee7b7';
+    sctx.fillText('THE FIRST WHIRLINGS', 512, 108);
+
+    // Neon Subtitle
+    sctx.font = '700 30px sans-serif';
+    sctx.shadowColor = '#ff007f';
+    sctx.shadowBlur = 20;
+    sctx.fillStyle = '#ff80bf';
+    sctx.fillText('SACRED SPIN & SUDS · OPEN 24/7', 512, 210);
+
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    signTex.minFilter = THREE.LinearFilter;
+    signTex.magFilter = THREE.LinearFilter;
+
+    const signMat = new THREE.MeshStandardMaterial({
+      map: signTex,
+      roughness: 0.3,
+      metalness: 0.2,
+      emissive: 0x112233,
+      emissiveIntensity: 0.7
+    });
+    // Front Marquee (Facing incoming path along local +Z)
+    const marquee = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.25, 0.12), signMat);
+    marquee.position.set(0, 5.4, 2.7);
+    shrineGroup.add(marquee);
+
+    // 3D Neon Tubes framing marquee
+    const neonPinkMat = new THREE.MeshBasicMaterial({ color: 0xff007f });
+    const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+    const mTopTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 5.22, 12), neonCyanMat);
+    mTopTube.rotation.z = Math.PI / 2;
+    mTopTube.position.set(0, 6.05, 2.77);
+    shrineGroup.add(mTopTube);
+
+    const mBtmTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 5.22, 12), neonPinkMat);
+    mBtmTube.rotation.z = Math.PI / 2;
+    mBtmTube.position.set(0, 4.75, 2.77);
+    shrineGroup.add(mBtmTube);
+
+    // Neon Shimmer Light
+    const neonShrineLight = new THREE.PointLight(0x00f0ff, 2.0, 14, 1.8);
+    neonShrineLight.position.set(0, 5.4, 3.2);
+    shrineGroup.add(neonShrineLight);
+
+    const neonPinkShrineLight = new THREE.PointLight(0xff007f, 1.6, 12, 1.8);
+    neonPinkShrineLight.position.set(0, 2.5, 0);
+    shrineGroup.add(neonPinkShrineLight);
+
+    // 5. Giant Ceremonial Washing Machine Drum Portal (Centerpiece)
+    const portalGroup = new THREE.Group();
+    portalGroup.position.set(0, 2.4, 0);
+
+    const washerBody = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.1, 2.2), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.2 }));
+    portalGroup.add(washerBody);
+
+    const doorRim = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.14, 16, 32), chromeMat);
+    doorRim.position.z = 1.12;
+    portalGroup.add(doorRim);
+
+    const vortexMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      roughness: 0.1,
+      metalness: 0.3,
+      transparent: true,
+      opacity: 0.75,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.45
+    });
+    const vortexGlass = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24), vortexMat);
+    vortexGlass.position.z = 1.13;
+    portalGroup.add(vortexGlass);
+
+    const bubbleCore = new THREE.Mesh(
+      new THREE.RingGeometry(0.35, 0.75, 16),
+      new THREE.MeshBasicMaterial({ color: 0xe0f2fe, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+    );
+    bubbleCore.position.z = 1.14;
+    portalGroup.add(bubbleCore);
+
+    const washerLight = new THREE.PointLight(0x38bdf8, 2.2, 6.0, 1.6);
+    washerLight.position.set(0, 0, 0.8);
+    portalGroup.add(washerLight);
+
+    shrineGroup.add(portalGroup);
+
+    // 6. Laundry Cart & Supplies Beside Portal
+    const cartGroup = new THREE.Group();
+    cartGroup.position.set(-2.0, 0.825, 1.2);
+    cartGroup.rotation.y = 0.4;
+
+    const basket = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.6, 1.1), chromeMat);
+    basket.position.y = 0.45;
+    cartGroup.add(basket);
+
+    const towelColors = [0xec4899, 0x3b82f6, 0xf59e0b, 0x10b981];
+    towelColors.forEach((col, idx) => {
+      const towel = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.10, 0.95), new THREE.MeshStandardMaterial({ color: col, roughness: 0.85 }));
+      towel.position.set(0, 0.35 + idx * 0.11, 0);
+      cartGroup.add(towel);
+    });
+    shrineGroup.add(cartGroup);
+
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.45, 1.6), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 }));
+    bench.position.set(2.1, 1.05, 0.8);
+    shrineGroup.add(bench);
+
+    const jug = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.38, 12), new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 }));
+    jug.position.set(2.1, 1.45, 0.8);
+    shrineGroup.add(jug);
+
+    animatedObjects.push({
+      mesh: bubbleCore,
+      type: 'spin_slow'
+    });
+
+    scene.add(shrineGroup);
+  }
 
   function createRegattaSailboatMesh(woodMat, sailColorHex, lanternColorHex) {
     const sailMat = new THREE.MeshStandardMaterial({

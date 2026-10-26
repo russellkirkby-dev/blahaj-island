@@ -80,6 +80,38 @@
       { name: 'Dm9',   bass: 146.83, notes: [293.66, 349.23, 440.00, 659.25] },
       { name: 'G13',   bass: 98.00,  notes: [246.94, 329.63, 349.23, 523.25] }
     ],
+    islandMusicGain: null,
+    islandNextChordTime: 0,
+    islandChordIdx: 0,
+    islandNextMelodyTime: 0,
+    islandChords: [
+      { name: 'Cmaj9',    bass: 130.81, notes: [261.63, 329.63, 392.00, 493.88, 587.33] },
+      { name: 'Fmaj7#11', bass: 87.31,  notes: [261.63, 329.63, 369.99, 392.00, 523.25] },
+      { name: 'Am9',      bass: 110.00, notes: [220.00, 261.63, 329.63, 392.00, 493.88] },
+      { name: 'G6add9',   bass: 98.00,  notes: [246.94, 293.66, 392.00, 440.00, 587.33] },
+      { name: 'Dm9',      bass: 146.83, notes: [293.66, 349.23, 440.00, 523.25, 659.25] },
+      { name: 'Em7',      bass: 164.81, notes: [329.63, 392.00, 493.88, 587.33, 659.25] }
+    ],
+    volcanoMusicGain: null,
+    volcanoNextBeatTime: 0,
+    volcanoBeatStep: 0,
+    volcanoChordIdx: 0,
+    volcanoChords: [
+      { name: 'D add9', bass: 146.83, notes: [293.66, 369.99, 440.00, 587.33], scale: [293.66, 329.63, 369.99, 440.00, 587.33] },
+      { name: 'G maj7', bass: 98.00,  notes: [293.66, 392.00, 493.88, 587.33], scale: [293.66, 392.00, 440.00, 493.88, 587.33] },
+      { name: 'A sus4', bass: 110.00, notes: [293.66, 329.63, 440.00, 554.37], scale: [329.63, 369.99, 440.00, 493.88, 659.25] },
+      { name: 'Bm7',    bass: 123.47, notes: [293.66, 369.99, 440.00, 493.88], scale: [293.66, 369.99, 440.00, 493.88, 587.33] }
+    ],
+    laundromatMusicGain: null,
+    laundromatNextBeatTime: 0,
+    laundromatBeatStep: 0,
+    laundromatChordIdx: 0,
+    laundromatChords: [
+      { name: 'Ebm9',   bass: 77.78,  notes: [311.13, 370.00, 466.16, 554.37, 622.25] },
+      { name: 'Ab13',   bass: 103.83, notes: [277.18, 349.23, 415.30, 523.25, 622.25] },
+      { name: 'Dbmaj9', bass: 69.30,  notes: [277.18, 349.23, 415.30, 523.25, 622.25] },
+      { name: 'Bbm7',   bass: 116.54, notes: [293.66, 349.23, 466.16, 554.37, 698.46] }
+    ],
     lastFootstepTime: 0,
     ambientInitialized: false,
 
@@ -199,8 +231,21 @@
         this.bistroGain = this.ctx.createGain();
         this.bistroGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
         this.bistroGain.connect(this.ambientGain || this.ctx.destination);
+
+        // Procedural Zone Music Sub-Busses
+        this.islandMusicGain = this.ctx.createGain();
+        this.islandMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        this.islandMusicGain.connect(this.ambientGain || this.ctx.destination);
+
+        this.volcanoMusicGain = this.ctx.createGain();
+        this.volcanoMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        this.volcanoMusicGain.connect(this.ambientGain || this.ctx.destination);
+
+        this.laundromatMusicGain = this.ctx.createGain();
+        this.laundromatMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+        this.laundromatMusicGain.connect(this.ambientGain || this.ctx.destination);
       } catch (e) {
-        console.warn('Bistro audio init error:', e);
+        console.warn('Zone music init error:', e);
       }
 
       // 4. Laundromat Interior Atmosphere: 60Hz/120Hz transformer hum + gentle duct air
@@ -243,22 +288,35 @@
       if (!this.ctx || !this.ambientInitialized) return;
       const now = this.ctx.currentTime;
 
+      // 1. Smooth Procedural Zone Music Cross-Fade
+      const isNearVolcanoOverworld = (zone === 'island' || zone === 'overworld') && playerPos && playerPos.z < -75;
+      const isVolcanoActive = zone === 'volcano' || isNearVolcanoOverworld;
+
+      const targetBistro = (zone === 'spherical_foods') ? 0.065 : 0.0001;
+      const targetLaundromat = (zone === 'laundromat') ? 0.060 : 0.0001;
+      const targetVolcano = isVolcanoActive ? 0.055 : 0.0001;
+      const targetIsland = (!isVolcanoActive && (zone === 'island' || zone === 'overworld' || zone === 'volleyball')) ? 0.052 : 0.0001;
+
+      if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(targetBistro, now, 0.45);
+      if (this.laundromatMusicGain) this.laundromatMusicGain.gain.setTargetAtTime(targetLaundromat, now, 0.45);
+      if (this.volcanoMusicGain) this.volcanoMusicGain.gain.setTargetAtTime(targetVolcano, now, 0.45);
+      if (this.islandMusicGain) this.islandMusicGain.gain.setTargetAtTime(targetIsland, now, 0.45);
+
+      if (targetBistro > 0.002) this.updateBistroMusic(elapsed, 0.016);
+      if (targetLaundromat > 0.002) this.updateLaundromatMusic(elapsed, 0.016);
+      if (targetVolcano > 0.002) this.updateVolcanoMusic(elapsed, 0.016);
+      if (targetIsland > 0.002) this.updateIslandMusic(elapsed, 0.016);
+
       if (zone === 'spherical_foods') {
-        // Inside Spherical Foods Bistro: romantic French Parisian jazz chords & intimate dining acoustic presence
         if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(0.065, now, 0.35);
-        this.updateBistroMusic(elapsed, 0.016);
         return;
-      } else {
-        if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(0.0001, now, 0.3);
       }
 
       if (zone === 'laundromat') {
-        // Inside Laundromat: fade outdoor surf and wind, fade in interior electric hum and duct breeze
         if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
         if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
@@ -427,6 +485,273 @@
 
           src.start(now + 1.15);
           src.stop(now + 1.36);
+        } catch (e) {}
+      }
+    },
+
+    updateIslandMusic(elapsed, dt) {
+      if (!this.ctx || !this.islandMusicGain) return;
+      const now = this.ctx.currentTime;
+      if (now < this.islandNextChordTime) {
+        if (now >= this.islandNextMelodyTime) {
+          this.islandNextMelodyTime = now + 1.3 + Math.random() * 1.8;
+          const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+          const melFreq = pentatonic[Math.floor(Math.random() * pentatonic.length)];
+          try {
+            const mOsc = this.ctx.createOscillator();
+            const mGain = this.ctx.createGain();
+            mOsc.type = 'sine';
+            mOsc.frequency.setValueAtTime(melFreq, now);
+            mGain.gain.setValueAtTime(0.0001, now);
+            mGain.gain.linearRampToValueAtTime(0.026, now + 0.015);
+            mGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
+            mOsc.connect(mGain);
+            mGain.connect(this.islandMusicGain);
+            mOsc.start(now);
+            mOsc.stop(now + 1.15);
+          } catch (e) {}
+        }
+        return;
+      }
+
+      this.islandNextChordTime = now + 3.4;
+      this.islandNextMelodyTime = now + 0.9;
+      const chord = this.islandChords[this.islandChordIdx % this.islandChords.length];
+      this.islandChordIdx++;
+
+      // Warm Acoustic Sub/Root Bass
+      try {
+        const bOsc = this.ctx.createOscillator();
+        const bFilt = this.ctx.createBiquadFilter();
+        const bGain = this.ctx.createGain();
+        bOsc.type = 'sine';
+        bOsc.frequency.setValueAtTime(chord.bass, now);
+        bFilt.type = 'lowpass';
+        bFilt.frequency.setValueAtTime(160, now);
+        bGain.gain.setValueAtTime(0.0001, now);
+        bGain.gain.linearRampToValueAtTime(0.12, now + 0.04);
+        bGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.1);
+        bOsc.connect(bFilt);
+        bFilt.connect(bGain);
+        bGain.connect(this.islandMusicGain);
+        bOsc.start(now);
+        bOsc.stop(now + 3.15);
+      } catch (e) {}
+
+      // Vintage Rhodes Electric Piano Chords (Lofi chill)
+      chord.notes.forEach((freq, nIdx) => {
+        try {
+          const noteTime = now + (nIdx * 0.024);
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const noteFilt = this.ctx.createBiquadFilter();
+          const noteGain = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(freq, noteTime);
+          osc2.type = 'triangle';
+          osc2.frequency.setValueAtTime(freq * 2, noteTime);
+
+          noteFilt.type = 'lowpass';
+          noteFilt.frequency.setValueAtTime(1100, noteTime);
+
+          const vol = 0.038 / Math.sqrt(chord.notes.length);
+          noteGain.gain.setValueAtTime(0.0001, noteTime);
+          noteGain.gain.linearRampToValueAtTime(vol, noteTime + 0.03);
+          noteGain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 3.0);
+
+          osc1.connect(noteFilt);
+          osc2.connect(noteFilt);
+          noteFilt.connect(noteGain);
+          noteGain.connect(this.islandMusicGain);
+
+          osc1.start(noteTime);
+          osc2.start(noteTime);
+          osc1.stop(noteTime + 3.05);
+          osc2.stop(noteTime + 3.05);
+        } catch (e) {}
+      });
+    },
+
+    updateVolcanoMusic(elapsed, dt) {
+      if (!this.ctx || !this.volcanoMusicGain) return;
+      const now = this.ctx.currentTime;
+      if (now < this.volcanoNextBeatTime) return;
+
+      const stepDur = 0.25; // 120 BPM 16th-note step
+      this.volcanoNextBeatTime = now + stepDur;
+      const step = this.volcanoBeatStep % 16;
+      this.volcanoBeatStep++;
+
+      const chordIdx = Math.floor(this.volcanoBeatStep / 16) % this.volcanoChords.length;
+      const chord = this.volcanoChords[chordIdx];
+
+      // 1. Driving Acoustic Hand Conga / Percussion (Beats 0, 4, 8, 11, 14)
+      if (step === 0 || step === 4 || step === 8 || step === 11 || step === 14) {
+        try {
+          const drumOsc = this.ctx.createOscillator();
+          const drumGain = this.ctx.createGain();
+          const basePitch = (step === 0 || step === 8) ? 140 : 190;
+          drumOsc.type = 'sine';
+          drumOsc.frequency.setValueAtTime(basePitch, now);
+          drumOsc.frequency.exponentialRampToValueAtTime(65, now + 0.08);
+
+          drumGain.gain.setValueAtTime(0.0001, now);
+          drumGain.gain.linearRampToValueAtTime(0.08, now + 0.005);
+          drumGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+          drumOsc.connect(drumGain);
+          drumGain.connect(this.volcanoMusicGain);
+          drumOsc.start(now);
+          drumOsc.stop(now + 0.13);
+        } catch (e) {}
+      }
+
+      // 2. Uplifting Syncopated Kalimba Arpeggio Pattern (Every 8th note: 0, 2, 4, 6, 8, 10, 12, 14)
+      if (step % 2 === 0) {
+        try {
+          const melIdx = (step / 2) % chord.scale.length;
+          const noteFreq = chord.scale[melIdx];
+          const kOsc = this.ctx.createOscillator();
+          const kFilt = this.ctx.createBiquadFilter();
+          const kGain = this.ctx.createGain();
+
+          kOsc.type = 'triangle';
+          kOsc.frequency.setValueAtTime(noteFreq, now);
+          kFilt.type = 'lowpass';
+          kFilt.frequency.setValueAtTime(2200, now);
+
+          kGain.gain.setValueAtTime(0.0001, now);
+          kGain.gain.linearRampToValueAtTime(0.035, now + 0.01);
+          kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+
+          kOsc.connect(kFilt);
+          kFilt.connect(kGain);
+          kGain.connect(this.volcanoMusicGain);
+          kOsc.start(now);
+          kOsc.stop(now + 0.4);
+        } catch (e) {}
+      }
+
+      // 3. Warm Brassy Heroic Synth Chords (Stabs on step 0 and 6)
+      if (step === 0 || step === 6) {
+        chord.notes.forEach((freq, idx) => {
+          try {
+            const bOsc = this.ctx.createOscillator();
+            const bFilt = this.ctx.createBiquadFilter();
+            const bGain = this.ctx.createGain();
+
+            bOsc.type = 'sawtooth';
+            bOsc.frequency.setValueAtTime(freq, now);
+
+            bFilt.type = 'lowpass';
+            bFilt.frequency.setValueAtTime(700, now);
+            bFilt.frequency.linearRampToValueAtTime(1800, now + 0.08);
+            bFilt.frequency.exponentialRampToValueAtTime(750, now + 0.45);
+
+            bGain.gain.setValueAtTime(0.0001, now);
+            bGain.gain.linearRampToValueAtTime(0.025, now + 0.02);
+            bGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+            bOsc.connect(bFilt);
+            bFilt.connect(bGain);
+            bGain.connect(this.volcanoMusicGain);
+            bOsc.start(now);
+            bOsc.stop(now + 0.58);
+          } catch (e) {}
+        });
+      }
+    },
+
+    updateLaundromatMusic(elapsed, dt) {
+      if (!this.ctx || !this.laundromatMusicGain) return;
+      const now = this.ctx.currentTime;
+      if (now < this.laundromatNextBeatTime) return;
+
+      const stepDur = 0.288; // 104 BPM 8th-note groove
+      this.laundromatNextBeatTime = now + stepDur;
+      const step = this.laundromatBeatStep % 16;
+      this.laundromatBeatStep++;
+
+      const chordIdx = Math.floor(this.laundromatBeatStep / 16) % this.laundromatChords.length;
+      const chord = this.laundromatChords[chordIdx];
+
+      // 1. Funky Slap Synth-Bass (Steps 0, 3, 6, 8, 10, 14)
+      if (step === 0 || step === 3 || step === 6 || step === 8 || step === 10 || step === 14) {
+        try {
+          const bassOsc = this.ctx.createOscillator();
+          const bassFilt = this.ctx.createBiquadFilter();
+          const bassGain = this.ctx.createGain();
+
+          const octaveMul = (step === 6 || step === 14) ? 2.0 : 1.0;
+          bassOsc.type = 'triangle';
+          bassOsc.frequency.setValueAtTime(chord.bass * octaveMul, now);
+
+          bassFilt.type = 'lowpass';
+          bassFilt.frequency.setValueAtTime(650, now);
+          bassFilt.frequency.exponentialRampToValueAtTime(180, now + 0.18);
+
+          bassGain.gain.setValueAtTime(0.0001, now);
+          bassGain.gain.linearRampToValueAtTime(0.13, now + 0.008);
+          bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+
+          bassOsc.connect(bassFilt);
+          bassFilt.connect(bassGain);
+          bassGain.connect(this.laundromatMusicGain);
+          bassOsc.start(now);
+          bassOsc.stop(now + 0.28);
+        } catch (e) {}
+      }
+
+      // 2. Offbeat Rhodes Comping Stabs (Steps 2, 7, 11)
+      if (step === 2 || step === 7 || step === 11) {
+        chord.notes.forEach((freq, idx) => {
+          try {
+            const rOsc = this.ctx.createOscillator();
+            const rFilt = this.ctx.createBiquadFilter();
+            const rGain = this.ctx.createGain();
+
+            rOsc.type = 'sine';
+            rOsc.frequency.setValueAtTime(freq, now);
+
+            rFilt.type = 'lowpass';
+            rFilt.frequency.setValueAtTime(1300, now);
+
+            rGain.gain.setValueAtTime(0.0001, now);
+            rGain.gain.linearRampToValueAtTime(0.032, now + 0.015);
+            rGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+
+            rOsc.connect(rFilt);
+            rFilt.connect(rGain);
+            rGain.connect(this.laundromatMusicGain);
+            rOsc.start(now);
+            rOsc.stop(now + 0.45);
+          } catch (e) {}
+        });
+      }
+
+      // 3. Rhythmic Mechanical Wash-Cycle Chimes & Soap-Bubble Pops
+      if (step % 2 === 1) {
+        try {
+          const noise = this.getNoiseBuffer();
+          if (noise) {
+            const hSrc = this.ctx.createBufferSource();
+            hSrc.buffer = noise;
+            const hFilt = this.ctx.createBiquadFilter();
+            hFilt.type = 'highpass';
+            hFilt.frequency.setValueAtTime(5500, now);
+
+            const hGain = this.ctx.createGain();
+            hGain.gain.setValueAtTime(0.0001, now);
+            hGain.gain.linearRampToValueAtTime(0.014, now + 0.004);
+            hGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+            hSrc.connect(hFilt);
+            hFilt.connect(hGain);
+            hGain.connect(this.laundromatMusicGain);
+            hSrc.start(now);
+            hSrc.stop(now + 0.06);
+          }
         } catch (e) {}
       }
     },
@@ -3868,8 +4193,8 @@
     const subEl = document.getElementById('instance-loading-sub');
     const barEl = document.getElementById('instance-progress-fill');
 
-    titleEl.textContent = 'The Midnight Liminal Laundromat';
-    subEl.textContent = 'Folding cosmic space to the 24/7 coin-op between worlds… 🌙🫧';
+    titleEl.textContent = 'The First Whirlings';
+    subEl.textContent = 'Folding cosmic space to the 24/7 sacred spin between worlds… 🌀🫧';
     barEl.style.width = '0%';
     overlay.classList.remove('hidden');
 
@@ -3903,8 +4228,8 @@
 
           overlay.classList.add('hidden');
           isTransitioningZone = false;
-          showToast('THE MIDNIGHT LAUNDROMAT 🧺🌙', 'Delicate Cycle · Open 24/7. Step inside Giant Washer #7 [E]!');
-          addChatLog('🧺 Stepped inside <strong>The Midnight Cosmic Laundromat</strong>. Fluorescent tubes hum softly over seafoam linoleum.', 'lore');
+          showToast('THE FIRST WHIRLINGS 🌀🫧', 'Delicate Cycle · Open 24/7. Step inside Giant Washer #7 [E]!');
+          addChatLog('🧺 Stepped inside <strong>The First Whirlings</strong>. Fluorescent tubes hum softly over seafoam linoleum.', 'lore');
           updateCoopPartnerVisibility();
 
           window.BlahajNetwork.send({
@@ -4875,7 +5200,7 @@
         text: 'The Great Portal Gate links Los Angeles and New Zealand across the Great Seam—and also folds space directly out to the 4 Outer Buildable Sanctuary Islands surrounding Blåhaj Island!',
         actions: [
           {
-            label: '🌙 The Midnight Cosmic Laundromat 🧺🫧',
+            label: '🌀 The First Whirlings (Sacred Spin & Suds) 🧺🫧',
             className: 'btn-primary',
             onClick: () => {
               closeDialogueModal();
@@ -5026,7 +5351,7 @@
         text: '“Not of the sea, but of change. You will emerge softer, wiser, more yourself.” Under the vigilant gaze of the Pink Guard, the warm cycle purges every fabric snag and restores your plush density!',
         actions: [
           {
-            label: 'Enter Midnight Laundromat (Mega Washer #7) 🧺🫧',
+            label: 'Enter The First Whirlings (Mega Washer #7) 🧺🫧',
             className: 'btn-accent',
             onClick: () => {
               closeDialogueModal();
@@ -7945,6 +8270,9 @@
       if (communityTrunk) {
         communityTrunk.update(dt);
       }
+      if (launchMortarStation && typeof launchMortarStation.update === 'function') {
+        launchMortarStation.update(elapsed, dt);
+      }
 
       // Animate active aerial fireworks rockets
       for (let r = activeRockets.length - 1; r >= 0; r--) {
@@ -9104,7 +9432,7 @@
 
     // Inside the Laundromat Instance: Giant Master Washer #7, Vending & Return Portal
     if (currentZone === 'laundromat' && window.BlahajLaundromat) {
-      document.getElementById('hud-zone-name').textContent = 'The Midnight Cosmic Laundromat (24/7)';
+      document.getElementById('hud-zone-name').textContent = 'The First Whirlings (Delicate Cycle 24/7)';
       const lItems = window.BlahajLaundromat.getInteractables(player.pos);
       if (lItems.length > 0) {
         nearestInteractable = lItems[0];

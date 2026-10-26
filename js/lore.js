@@ -129,7 +129,7 @@ window.BLAHAJ_LORE = {
       lines: [
         '“I am consulting the Security Clipboard. It contains nothing. It remains terrifying.”',
         '“During the Laundry of Initiation, Tatiana and I stood vigil outside the tumble dryer for the entire spin cycle.”',
-        '“If your stuffing gets singed in the Volcano Trial Dungeon, report immediately to the Sacred Tea House or the Laundry Shrine!”'
+        '“If your stuffing gets singed in the Volcano Trial Dungeon, report immediately to the Sacred Tea House or The First Whirlings!”'
       ]
     },
     {
@@ -241,6 +241,15 @@ window.BLAHAJ_LORE = {
       radius: 6.5,
       prompt: 'Enter Spherical Foods Bistro [E] 🧆',
       type: 'spherical'
+    },
+    {
+      id: 'the_first_whirlings',
+      name: 'The First Whirlings',
+      zoneTitle: 'Western Artisans’ Ridge · The First Whirlings',
+      pos: { x: -64, z: -14 },
+      radius: 12,
+      prompt: 'Enter The First Whirlings [E] 🌀🫧',
+      type: 'laundry'
     },
     {
       id: 'quiet_library',

@@ -1257,14 +1257,158 @@ window.BlahajInventory = (function () {
     stationGroup.add(tubeGroup);
 
     // Sparkle Beacon
-    const beacon = new THREE.PointLight(0xf43f5e, 0.9, 4.0, 1.6);
+    const beacon = new THREE.PointLight(0xf43f5e, 1.1, 4.5, 1.6);
     beacon.position.set(0, 1.8, 0);
     stationGroup.add(beacon);
+
+    // 4. RETRO/CYBERPUNK NEON LAUNCHPAD GANTRY ARCH & SIGN
+    const pylonGeo = new THREE.CylinderGeometry(0.08, 0.11, 3.6, 12);
+    const pylonL = new THREE.Mesh(pylonGeo, darkBrassMat);
+    pylonL.position.set(-1.9, 1.8, -0.15);
+    stationGroup.add(pylonL);
+
+    const pylonR = new THREE.Mesh(pylonGeo, darkBrassMat);
+    pylonR.position.set(1.9, 1.8, -0.15);
+    stationGroup.add(pylonR);
+
+    [-1.9, 1.9].forEach(px => {
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.35, 12), brassMat);
+      foot.position.set(px, 0.175, -0.15);
+      stationGroup.add(foot);
+
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), brassMat);
+      cap.position.set(px, 3.65, -0.15);
+      stationGroup.add(cap);
+    });
+
+    const archBeam = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.14, 0.14), darkBrassMat);
+    archBeam.position.set(0, 3.5, -0.15);
+    stationGroup.add(archBeam);
+
+    // Canvas Marquee Signboard Texture
+    const signCanvas = document.createElement('canvas');
+    signCanvas.width = 1024;
+    signCanvas.height = 340;
+    const sctx = signCanvas.getContext('2d');
+
+    sctx.fillStyle = '#080612';
+    sctx.fillRect(0, 0, 1024, 340);
+
+    sctx.lineWidth = 10;
+    sctx.strokeStyle = '#ff007f';
+    sctx.shadowColor = '#ff007f';
+    sctx.shadowBlur = 24;
+    sctx.strokeRect(18, 18, 988, 304);
+
+    sctx.lineWidth = 4;
+    sctx.strokeStyle = '#00f0ff';
+    sctx.shadowColor = '#00f0ff';
+    sctx.shadowBlur = 18;
+    sctx.strokeRect(30, 30, 964, 280);
+
+    sctx.textAlign = 'center';
+    sctx.textBaseline = 'middle';
+    sctx.font = '900 64px sans-serif';
+    sctx.shadowColor = '#ff0088';
+    sctx.shadowBlur = 32;
+    sctx.fillStyle = '#ff3399';
+    sctx.fillText('PYRO LAUNCHPAD', 512, 115);
+
+    sctx.font = '700 32px sans-serif';
+    sctx.shadowColor = '#00f0ff';
+    sctx.shadowBlur = 22;
+    sctx.fillStyle = '#00f0ff';
+    sctx.fillText('BLAST OFF · CELEBRATION 24/7', 512, 215);
+
+    sctx.font = '28px sans-serif';
+    sctx.fillStyle = '#fde047';
+    sctx.shadowColor = '#fde047';
+    sctx.shadowBlur = 16;
+    sctx.fillText('✦', 64, 64);
+    sctx.fillText('✦', 960, 64);
+    sctx.fillText('✦', 64, 276);
+    sctx.fillText('✦', 960, 276);
+
+    const signTex = new THREE.CanvasTexture(signCanvas);
+    signTex.minFilter = THREE.LinearFilter;
+    signTex.magFilter = THREE.LinearFilter;
+
+    const signMat = new THREE.MeshStandardMaterial({
+      map: signTex,
+      roughness: 0.35,
+      metalness: 0.2,
+      emissive: 0x221122,
+      emissiveIntensity: 0.6
+    });
+    const signboard = new THREE.Mesh(new THREE.BoxGeometry(3.3, 1.1, 0.1), signMat);
+    signboard.position.set(0, 3.3, -0.05);
+    stationGroup.add(signboard);
+
+    // 3D Bent Neon Tubes
+    const neonPinkMat = new THREE.MeshBasicMaterial({ color: 0xff007f });
+    const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const neonYellowMat = new THREE.MeshBasicMaterial({ color: 0xffe600 });
+
+    const topTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.32, 12), neonPinkMat);
+    topTube.rotation.z = Math.PI / 2;
+    topTube.position.set(0, 3.86, 0.02);
+    stationGroup.add(topTube);
+
+    const btmTube = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 3.32, 12), neonCyanMat);
+    btmTube.rotation.z = Math.PI / 2;
+    btmTube.position.set(0, 2.74, 0.02);
+    stationGroup.add(btmTube);
+
+    // Upward-pointing Neon Chevron Arrow atop sign
+    const chevronGroup = new THREE.Group();
+    chevronGroup.position.set(0, 4.15, 0.02);
+    const chevL = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.55, 8), neonCyanMat);
+    chevL.position.set(-0.18, 0, 0);
+    chevL.rotation.z = Math.PI * 0.25;
+    chevronGroup.add(chevL);
+
+    const chevR = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.55, 8), neonCyanMat);
+    chevR.position.set(0.18, 0, 0);
+    chevR.rotation.z = -Math.PI * 0.25;
+    chevronGroup.add(chevR);
+
+    const chevTip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 8), neonYellowMat);
+    chevTip.position.set(0, 0.25, 0);
+    chevronGroup.add(chevTip);
+
+    stationGroup.add(chevronGroup);
+
+    // Dynamic Neon Glow Lights
+    const neonPinkLight = new THREE.PointLight(0xff007f, 2.2, 10.0, 1.8);
+    neonPinkLight.position.set(0, 3.4, 0.45);
+    stationGroup.add(neonPinkLight);
+
+    const neonCyanLight = new THREE.PointLight(0x00f0ff, 1.6, 7.5, 1.8);
+    neonCyanLight.position.set(0, 1.2, 0.35);
+    stationGroup.add(neonCyanLight);
 
     return {
       group: stationGroup,
       tubeGroup,
       beacon,
+      neonPinkLight,
+      neonCyanLight,
+      chevronGroup,
+      update(elapsed, dt) {
+        if (beacon) {
+          beacon.intensity = 0.8 + Math.sin(elapsed * 5.0) * 0.4;
+        }
+        if (neonPinkLight) {
+          const flicker = Math.sin(elapsed * 11.0) * 0.25 + (Math.random() < 0.02 ? -0.45 : 0.0);
+          neonPinkLight.intensity = Math.max(1.0, 2.2 + flicker);
+        }
+        if (neonCyanLight) {
+          neonCyanLight.intensity = 1.6 + Math.cos(elapsed * 8.5) * 0.2;
+        }
+        if (chevronGroup) {
+          chevronGroup.position.y = 4.15 + Math.sin(elapsed * 4.0) * 0.04;
+        }
+      },
       worldPos: { x: 48.0, y: 1.45, z: 76.0 }
     };
   }

@@ -375,7 +375,7 @@ window.BlahajLaundromat = (function () {
     // Polaroid caption
     ctx.fillStyle = '#475569';
     ctx.font = 'italic 16px "Brush Script MT", cursive, sans-serif';
-    ctx.fillText('First Day at Blahaj Laundromat ♥', -100, 105);
+    ctx.fillText('Welcome to The First Whirlings ♥', -100, 105);
 
     // Pushpin
     ctx.fillStyle = '#10b981';
@@ -581,14 +581,42 @@ window.BlahajLaundromat = (function () {
     );
     scn.add(starSystem);
 
-    // 4. Glowing Neon Sign: "DELICATE CYCLE · OPEN 24/7" (Centered on Far Back Wall)
+    // 4. Glowing Neon Sign: "THE FIRST WHIRLINGS · DELICATE CYCLE 24/7" (Centered on Far Back Wall)
     const neonGroup = new THREE.Group();
     neonGroup.position.set(0, 4.25, -18.8);
+
+    // Dynamic Canvas Texture for the interior back marquee
+    const interiorSignCanvas = document.createElement('canvas');
+    interiorSignCanvas.width = 1024;
+    interiorSignCanvas.height = 128;
+    const isctx = interiorSignCanvas.getContext('2d');
+    isctx.fillStyle = '#0a0d16';
+    isctx.fillRect(0, 0, 1024, 128);
+
+    isctx.lineWidth = 4;
+    isctx.strokeStyle = '#ff3b94';
+    isctx.shadowColor = '#ff3b94';
+    isctx.shadowBlur = 16;
+    isctx.strokeRect(8, 8, 1008, 112);
+
+    isctx.textAlign = 'center';
+    isctx.textBaseline = 'middle';
+    isctx.font = '900 44px sans-serif';
+    isctx.shadowColor = '#ff3b94';
+    isctx.shadowBlur = 20;
+    isctx.fillStyle = '#ffffff';
+    isctx.fillText('🌀 THE FIRST WHIRLINGS · DELICATE CYCLE 24/7 🫧', 512, 64);
+    isctx.fillStyle = '#ff80bf';
+    isctx.fillText('🌀 THE FIRST WHIRLINGS · DELICATE CYCLE 24/7 🫧', 512, 64);
+
+    const intSignTex = new THREE.CanvasTexture(interiorSignCanvas);
+    intSignTex.minFilter = THREE.LinearFilter;
+    intSignTex.magFilter = THREE.LinearFilter;
 
     neonSignMat = new THREE.MeshBasicMaterial({ color: 0xff3b94 });
     const signBacking = new THREE.Mesh(
       new THREE.BoxGeometry(11.0, 1.15, 0.1),
-      new THREE.MeshStandardMaterial({ color: 0x101622, roughness: 0.8 })
+      new THREE.MeshStandardMaterial({ map: intSignTex, roughness: 0.4, emissive: 0x220511, emissiveIntensity: 0.5 })
     );
     neonGroup.add(signBacking);
 
