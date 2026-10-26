@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3.5" />
+  <link rel="stylesheet" href="styles.css?v=3.6" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1015,6 +1015,20 @@
             </label>
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Music Volume</span>
+            <span class="setting-desc">Procedural melodies, bistro jazz chords, laundromat hums, and volcano themes</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-music-vol" min="0" max="100" step="1" value="80" />
+            <span class="setting-val-badge" id="set-music-vol-val">80%</span>
+            <label class="setting-toggle-label">
+              <input type="checkbox" id="set-music-mute" />
+              <span>Mute Music</span>
+            </label>
+          </div>
+        </div>
 
         <div class="setting-row">
           <div class="setting-info">
@@ -1333,16 +1347,16 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=3.5"></script>
-  <script src="js/sharks3d.js?v=3.5"></script>
-  <script src="js/world3d.js?v=3.5"></script>
-  <script src="js/volcano.js?v=3.5"></script>
-  <script src="js/laundromat.js?v=3.5"></script>
-  <script src="js/sphericalFoods.js?v=3.5"></script>
-  <script src="js/volleyball.js?v=3.5"></script>
-  <script src="js/network.js?v=3.5"></script>
-  <script src="js/inventory.js?v=3.5"></script>
-  <script src="js/enemies.js?v=3.5"></script>
-  <script src="js/main.js?v=3.5"></script>
+  <script src="js/lore.js?v=3.6"></script>
+  <script src="js/sharks3d.js?v=3.6"></script>
+  <script src="js/world3d.js?v=3.6"></script>
+  <script src="js/volcano.js?v=3.6"></script>
+  <script src="js/laundromat.js?v=3.6"></script>
+  <script src="js/sphericalFoods.js?v=3.6"></script>
+  <script src="js/volleyball.js?v=3.6"></script>
+  <script src="js/network.js?v=3.6"></script>
+  <script src="js/inventory.js?v=3.6"></script>
+  <script src="js/enemies.js?v=3.6"></script>
+  <script src="js/main.js?v=3.6"></script>
 </body>
 </html>

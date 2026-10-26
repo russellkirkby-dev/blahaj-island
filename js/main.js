@@ -11,6 +11,8 @@
   const DEFAULT_SETTINGS = {
     masterVol: 80,
     masterMute: false,
+    musicVol: 80,
+    musicMute: false,
     sfxVol: 85,
     sfxMute: false,
     ambientVol: 65,
@@ -38,6 +40,7 @@
   const CozyAudio = {
     ctx: null,
     masterGain: null,
+    musicGain: null,
     sfxGain: null,
     ambientGain: null,
     noiseBuffer: null,
@@ -97,10 +100,14 @@
     volcanoBeatStep: 0,
     volcanoChordIdx: 0,
     volcanoChords: [
-      { name: 'D add9', bass: 146.83, notes: [293.66, 369.99, 440.00, 587.33], scale: [293.66, 329.63, 369.99, 440.00, 587.33] },
-      { name: 'G maj7', bass: 98.00,  notes: [293.66, 392.00, 493.88, 587.33], scale: [293.66, 392.00, 440.00, 493.88, 587.33] },
-      { name: 'A sus4', bass: 110.00, notes: [293.66, 329.63, 440.00, 554.37], scale: [329.63, 369.99, 440.00, 493.88, 659.25] },
-      { name: 'Bm7',    bass: 123.47, notes: [293.66, 369.99, 440.00, 493.88], scale: [293.66, 369.99, 440.00, 493.88, 587.33] }
+      // Dm9: Dark dramatic adventure, high-stakes peril (exciting, wholesome danger)
+      { name: 'Dm9',       bass: 73.42, notes: [293.66, 349.23, 440.00, 523.25, 659.25], scale: [293.66, 329.63, 349.23, 440.00, 523.25, 587.33, 659.25] },
+      // Bbmaj7#11: Epic cinematic Lydian lift, fiery molten cavern
+      { name: 'Bbmaj7#11', bass: 58.27, notes: [233.08, 293.66, 349.23, 440.00, 659.25], scale: [233.08, 261.63, 293.66, 349.23, 440.00, 493.88, 587.33] },
+      // Gm6: Suspenseful Dorian warmth, impending magma challenge
+      { name: 'Gm6',       bass: 49.00, notes: [196.00, 233.08, 293.66, 329.63, 392.00], scale: [196.00, 220.00, 233.08, 293.66, 329.63, 392.00, 466.16] },
+      // A7b9: Heart-racing dominant tension resolving with fiery resolve
+      { name: 'A7b9',      bass: 55.00, notes: [220.00, 277.18, 329.63, 392.00, 466.16], scale: [220.00, 233.08, 277.18, 329.63, 392.00, 440.00, 466.16] }
     ],
     laundromatMusicGain: null,
     laundromatNextBeatTime: 0,
@@ -123,9 +130,11 @@
       if (this.ctx && !this.masterGain) {
         try {
           this.masterGain = this.ctx.createGain();
+          this.musicGain = this.ctx.createGain();
           this.sfxGain = this.ctx.createGain();
           this.ambientGain = this.ctx.createGain();
 
+          this.musicGain.connect(this.masterGain);
           this.sfxGain.connect(this.masterGain);
           this.ambientGain.connect(this.masterGain);
           this.masterGain.connect(this.ctx.destination);
@@ -147,10 +156,12 @@
       const now = this.ctx.currentTime;
       const cfg = settings || DEFAULT_SETTINGS;
       const mVol = cfg.masterMute ? 0.0001 : Math.max(0.0001, (cfg.masterVol ?? 80) / 100);
+      const mscVol = cfg.musicMute ? 0.0001 : Math.max(0.0001, (cfg.musicVol ?? 80) / 100);
       const sVol = cfg.sfxMute ? 0.0001 : Math.max(0.0001, (cfg.sfxVol ?? 85) / 100);
       const aVol = cfg.ambientMute ? 0.0001 : Math.max(0.0001, (cfg.ambientVol ?? 65) / 100);
 
       this.masterGain.gain.setTargetAtTime(mVol, now, 0.05);
+      if (this.musicGain) this.musicGain.gain.setTargetAtTime(mscVol, now, 0.05);
       this.sfxGain.gain.setTargetAtTime(sVol, now, 0.05);
       this.ambientGain.gain.setTargetAtTime(aVol, now, 0.05);
     },
@@ -230,20 +241,20 @@
       try {
         this.bistroGain = this.ctx.createGain();
         this.bistroGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-        this.bistroGain.connect(this.ambientGain || this.ctx.destination);
+        this.bistroGain.connect(this.musicGain || this.ambientGain || this.ctx.destination);
 
         // Procedural Zone Music Sub-Busses
         this.islandMusicGain = this.ctx.createGain();
         this.islandMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-        this.islandMusicGain.connect(this.ambientGain || this.ctx.destination);
+        this.islandMusicGain.connect(this.musicGain || this.ambientGain || this.ctx.destination);
 
         this.volcanoMusicGain = this.ctx.createGain();
         this.volcanoMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-        this.volcanoMusicGain.connect(this.ambientGain || this.ctx.destination);
+        this.volcanoMusicGain.connect(this.musicGain || this.ambientGain || this.ctx.destination);
 
         this.laundromatMusicGain = this.ctx.createGain();
         this.laundromatMusicGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
-        this.laundromatMusicGain.connect(this.ambientGain || this.ctx.destination);
+        this.laundromatMusicGain.connect(this.musicGain || this.ambientGain || this.ctx.destination);
       } catch (e) {
         console.warn('Zone music init error:', e);
       }
@@ -584,7 +595,7 @@
       const now = this.ctx.currentTime;
       if (now < this.volcanoNextBeatTime) return;
 
-      const stepDur = 0.25; // 120 BPM 16th-note step
+      const stepDur = 0.24; // 124 BPM driving 16th-note pulse
       this.volcanoNextBeatTime = now + stepDur;
       const step = this.volcanoBeatStep % 16;
       this.volcanoBeatStep++;
@@ -592,28 +603,109 @@
       const chordIdx = Math.floor(this.volcanoBeatStep / 16) % this.volcanoChords.length;
       const chord = this.volcanoChords[chordIdx];
 
-      // 1. Driving Acoustic Hand Conga / Percussion (Beats 0, 4, 8, 11, 14)
-      if (step === 0 || step === 4 || step === 8 || step === 11 || step === 14) {
+      // 1. Driving Subterranean Taiko / War Drums (Steps 0, 3, 6, 8, 10, 11, 14)
+      if (step === 0 || step === 3 || step === 6 || step === 8 || step === 10 || step === 11 || step === 14) {
         try {
           const drumOsc = this.ctx.createOscillator();
           const drumGain = this.ctx.createGain();
-          const basePitch = (step === 0 || step === 8) ? 140 : 190;
+          const isHeavy = (step === 0 || step === 8);
+          const startPitch = isHeavy ? 130 : 175;
+          const endPitch = isHeavy ? 38 : 52;
+          const peakGain = isHeavy ? 0.32 : 0.22;
+
           drumOsc.type = 'sine';
-          drumOsc.frequency.setValueAtTime(basePitch, now);
-          drumOsc.frequency.exponentialRampToValueAtTime(65, now + 0.08);
+          drumOsc.frequency.setValueAtTime(startPitch, now);
+          drumOsc.frequency.exponentialRampToValueAtTime(endPitch, now + (isHeavy ? 0.16 : 0.09));
 
           drumGain.gain.setValueAtTime(0.0001, now);
-          drumGain.gain.linearRampToValueAtTime(0.24, now + 0.005);
-          drumGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+          drumGain.gain.linearRampToValueAtTime(peakGain, now + 0.004);
+          drumGain.gain.exponentialRampToValueAtTime(0.0001, now + (isHeavy ? 0.22 : 0.14));
 
           drumOsc.connect(drumGain);
           drumGain.connect(this.volcanoMusicGain);
           drumOsc.start(now);
-          drumOsc.stop(now + 0.13);
+          drumOsc.stop(now + 0.24);
         } catch (e) {}
       }
 
-      // 2. Uplifting Syncopated Kalimba Arpeggio Pattern (Every 8th note: 0, 2, 4, 6, 8, 10, 12, 14)
+      // 2. Urgent Volcanic Steam Shaker / Hi-Hat Ticks (Every 16th step)
+      try {
+        const noise = this.getNoiseBuffer();
+        const shakerSrc = this.ctx.createBufferSource();
+        shakerSrc.buffer = noise;
+        const shakerFilter = this.ctx.createBiquadFilter();
+        shakerFilter.type = 'bandpass';
+        shakerFilter.frequency.setValueAtTime(4600, now);
+        shakerFilter.Q.setValueAtTime(3.2, now);
+
+        const shakerGain = this.ctx.createGain();
+        const isAccent = (step % 4 === 2); // Syncopated off-beat accents
+        const sVol = isAccent ? 0.14 : 0.07;
+        shakerGain.gain.setValueAtTime(0.0001, now);
+        shakerGain.gain.linearRampToValueAtTime(sVol, now + 0.003);
+        shakerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+        shakerSrc.connect(shakerFilter);
+        shakerFilter.connect(shakerGain);
+        shakerGain.connect(this.volcanoMusicGain);
+        shakerSrc.start(now);
+        shakerSrc.stop(now + 0.06);
+      } catch (e) {}
+
+      // 3. Subterranean Bassline Pulse (Steps 0, 4, 8, 12)
+      if (step === 0 || step === 4 || step === 8 || step === 12) {
+        try {
+          const bassOsc = this.ctx.createOscillator();
+          const bassFilter = this.ctx.createBiquadFilter();
+          const bassGain = this.ctx.createGain();
+
+          bassOsc.type = 'triangle';
+          bassOsc.frequency.setValueAtTime(chord.bass, now);
+          bassFilter.type = 'lowpass';
+          bassFilter.frequency.setValueAtTime(160, now);
+
+          bassGain.gain.setValueAtTime(0.0001, now);
+          bassGain.gain.linearRampToValueAtTime(0.28, now + 0.015);
+          bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+
+          bassOsc.connect(bassFilter);
+          bassFilter.connect(bassGain);
+          bassGain.connect(this.volcanoMusicGain);
+          bassOsc.start(now);
+          bassOsc.stop(now + 0.38);
+        } catch (e) {}
+      }
+
+      // 4. Dramatic Brassy Synth Stabs (Steps 0, 6, 12)
+      if (step === 0 || step === 6 || step === 12) {
+        chord.notes.forEach((freq) => {
+          try {
+            const bOsc = this.ctx.createOscillator();
+            const bFilt = this.ctx.createBiquadFilter();
+            const bGain = this.ctx.createGain();
+
+            bOsc.type = 'sawtooth';
+            bOsc.frequency.setValueAtTime(freq, now);
+
+            bFilt.type = 'lowpass';
+            bFilt.frequency.setValueAtTime(500, now);
+            bFilt.frequency.linearRampToValueAtTime(2400, now + 0.06);
+            bFilt.frequency.exponentialRampToValueAtTime(650, now + 0.42);
+
+            bGain.gain.setValueAtTime(0.0001, now);
+            bGain.gain.linearRampToValueAtTime(0.22 / Math.sqrt(chord.notes.length), now + 0.018);
+            bGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+
+            bOsc.connect(bFilt);
+            bFilt.connect(bGain);
+            bGain.connect(this.volcanoMusicGain);
+            bOsc.start(now);
+            bOsc.stop(now + 0.50);
+          } catch (e) {}
+        });
+      }
+
+      // 5. Ember Kalimba / Obsidian Marimba Arpeggio (Even steps: 0, 2, 4, 6, 8, 10, 12, 14)
       if (step % 2 === 0) {
         try {
           const melIdx = (step / 2) % chord.scale.length;
@@ -628,44 +720,15 @@
           kFilt.frequency.setValueAtTime(2200, now);
 
           kGain.gain.setValueAtTime(0.0001, now);
-          kGain.gain.linearRampToValueAtTime(0.18, now + 0.01);
-          kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+          kGain.gain.linearRampToValueAtTime(0.16, now + 0.008);
+          kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
 
           kOsc.connect(kFilt);
           kFilt.connect(kGain);
           kGain.connect(this.volcanoMusicGain);
           kOsc.start(now);
-          kOsc.stop(now + 0.4);
+          kOsc.stop(now + 0.35);
         } catch (e) {}
-      }
-
-      // 3. Warm Brassy Heroic Synth Chords (Stabs on step 0 and 6)
-      if (step === 0 || step === 6) {
-        chord.notes.forEach((freq, idx) => {
-          try {
-            const bOsc = this.ctx.createOscillator();
-            const bFilt = this.ctx.createBiquadFilter();
-            const bGain = this.ctx.createGain();
-
-            bOsc.type = 'sawtooth';
-            bOsc.frequency.setValueAtTime(freq, now);
-
-            bFilt.type = 'lowpass';
-            bFilt.frequency.setValueAtTime(700, now);
-            bFilt.frequency.linearRampToValueAtTime(1800, now + 0.08);
-            bFilt.frequency.exponentialRampToValueAtTime(750, now + 0.45);
-
-            bGain.gain.setValueAtTime(0.0001, now);
-            bGain.gain.linearRampToValueAtTime(0.18 / Math.sqrt(chord.notes.length), now + 0.02);
-            bGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
-
-            bOsc.connect(bFilt);
-            bFilt.connect(bGain);
-            bGain.connect(this.volcanoMusicGain);
-            bOsc.start(now);
-            bOsc.stop(now + 0.58);
-          } catch (e) {}
-        });
       }
     },
 
@@ -5468,7 +5531,7 @@
     gameSettings[key] = val;
 
     // Audio volume & mutes
-    if (key === 'masterVol' || key === 'masterMute' || key === 'sfxVol' || key === 'sfxMute' || key === 'ambientVol' || key === 'ambientMute') {
+    if (key === 'masterVol' || key === 'masterMute' || key === 'musicVol' || key === 'musicMute' || key === 'sfxVol' || key === 'sfxMute' || key === 'ambientVol' || key === 'ambientMute') {
       CozyAudio.syncVolumes(gameSettings);
     }
 
@@ -5540,6 +5603,13 @@
     if (mVolVal) mVolVal.textContent = `${gameSettings.masterVol}%`;
     const mMute = document.getElementById('set-master-mute');
     if (mMute) mMute.checked = !!gameSettings.masterMute;
+
+    const mscVol = document.getElementById('set-music-vol');
+    if (mscVol) mscVol.value = gameSettings.musicVol;
+    const mscVolVal = document.getElementById('set-music-vol-val');
+    if (mscVolVal) mscVolVal.textContent = `${gameSettings.musicVol}%`;
+    const mscMute = document.getElementById('set-music-mute');
+    if (mscMute) mscMute.checked = !!gameSettings.musicMute;
 
     const sVol = document.getElementById('set-sfx-vol');
     if (sVol) sVol.value = gameSettings.sfxVol;
@@ -5682,6 +5752,16 @@
     });
     document.getElementById('set-master-mute')?.addEventListener('change', (e) => {
       applySetting('masterMute', e.target.checked);
+    });
+
+    document.getElementById('set-music-vol')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      const readout = document.getElementById('set-music-vol-val');
+      if (readout) readout.textContent = `${val}%`;
+      applySetting('musicVol', val);
+    });
+    document.getElementById('set-music-mute')?.addEventListener('change', (e) => {
+      applySetting('musicMute', e.target.checked);
     });
 
     document.getElementById('set-sfx-vol')?.addEventListener('input', (e) => {

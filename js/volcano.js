@@ -1290,7 +1290,7 @@ window.BlahajVolcano = (function () {
     scn.add(relic);
 
     // Stepping platforms across the lava.
-    // 8 stepping stones spaced ~7.5m - 8.0m apart for smooth, rhythmic leaping
+    // 8 stepping stones spaced ~7.5m apart requiring deliberate jumps and timing
     const stepSpots = [
       [0, -192.5],
       [3.2, -200.0],
@@ -1303,17 +1303,48 @@ window.BlahajVolcano = (function () {
     ];
     stepSpots.forEach(([x, z], i) => {
       const group = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 2.9, 0.8, 22), m.floor);
+      // Basalt pillar body plunging down into the molten lava sea
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 2.2, 8.5, 22), m.floor);
+      body.position.y = -3.85; // Top face at local +0.40
       group.add(body);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.12, 8, 36), m.glow);
+
+      // Glowing volcanic rune rim
+      const rimMat = m.glow.clone();
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.10, 8, 36), rimMat);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.42;
       group.add(rim);
+
+      // Carved obsidian center glyph
+      const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), m.brass);
+      rune.position.set(0, 0.46, 0);
+      group.add(rune);
+
       scn.add(group);
-      const p = { x, z, r: 3.3, phase: i * 1.1, y: 0, group };
+
+      // Stone 0 is a stable staging platform (gentle bobbing).
+      // Stones 1-7 alternate in a rhythmic raising & sinking cycle (Odd vs Even phases).
+      const isSinking = (i > 0);
+      const phase = (i % 2 === 1) ? 0 : 3.0; // 3.0s is half of the 6.0s cycle
+      const p = {
+        x, z,
+        r: 1.75,
+        collisionR: 1.90,
+        phase,
+        y: 0,
+        baseY: 0,
+        group,
+        rim,
+        isSinkingStone: isSinking,
+        index: i
+      };
       platforms.push(p);
-      // Generous landing collision margin (+0.75m plush body support)
-      addSurface((px, pz) => (Math.hypot(px - x, pz - z) <= p.r + 0.75 ? p.y : null), false);
+
+      // Player can only stand on the stone when it is above the molten lava threshold (y >= -0.8m)
+      addSurface((px, pz) => {
+        if (p.isSinkingStone && p.y < -0.8) return null;
+        return (Math.hypot(px - x, pz - z) <= p.collisionR ? p.y : null);
+      }, false);
     });
 
     // Exit platform + corridor to the spiral.
@@ -1331,6 +1362,11 @@ window.BlahajVolcano = (function () {
     addGeyser(-18, LAVA_Y, -125, 0.8, true);
     addGeyser(18, LAVA_Y, -142, 2.4, true);
     addGeyser(-16, LAVA_Y, -215, 1.6, true);
+
+    // Timed Volcanic Fumarole Geysers flanking the stepping stones
+    addGeyser(4.5, LAVA_Y, -203.5, 0.4, true);
+    addGeyser(-3.2, LAVA_Y, -218.5, 2.3, true);
+    addGeyser(-4.8, LAVA_Y, -233.0, 4.1, true);
     brazier(3.6, 0, -266);
   }
 
@@ -1978,10 +2014,42 @@ window.BlahajVolcano = (function () {
       }
     });
 
-    // Bobbing stepping platforms.
+    // Bobbing & timed raising/lowering stepping platforms.
     platforms.forEach((p) => {
-      const base = p.baseY || 0;
-      p.y = base + 0.45 * Math.sin(t * 1.4 + p.phase);
+      if (p.isSinkingStone) {
+        // 6.0 second cycle: Safe High -> Smooth Sinking -> Submerged in Lava -> Rising
+        const period = 6.0;
+        const u = (((t * 1.05 + p.phase) % period) + period) % period;
+        if (u < 2.8) {
+          // 1. High and safe: steady platform at +0.25m
+          p.y = 0.25;
+        } else if (u < 4.0) {
+          // 2. Sinking: smooth descent from +0.25m down to -3.20m
+          const prog = (u - 2.8) / 1.2;
+          const s = 0.5 - 0.5 * Math.cos(prog * Math.PI);
+          p.y = 0.25 - 3.45 * s;
+        } else if (u < 5.0) {
+          // 3. Submerged: below molten lava threshold
+          p.y = -3.20;
+        } else {
+          // 4. Rising: smooth ascent from -3.20m back up to +0.25m
+          const prog = (u - 5.0) / 1.0;
+          const s = 0.5 - 0.5 * Math.cos(prog * Math.PI);
+          p.y = -3.20 + 3.45 * s;
+        }
+
+        // Animate rune glow intensity based on elevation & safety
+        if (p.rim && p.rim.material) {
+          if (p.y >= -0.8) {
+            p.rim.material.emissiveIntensity = 0.7 + 0.35 * Math.sin(t * 8 + p.phase);
+          } else {
+            p.rim.material.emissiveIntensity = 0.15;
+          }
+        }
+      } else {
+        const base = p.baseY || 0;
+        p.y = base + 0.35 * Math.sin(t * 1.4 + p.phase);
+      }
       p.group.position.set(p.x, p.y - 0.4, p.z);
     });
 
@@ -2129,7 +2197,8 @@ window.BlahajVolcano = (function () {
     // 2. Realistic Erupting Lava Geysers
     for (let i = 0; i < geysers.length; i++) {
       const g = geysers[i];
-      if (g.active && Math.hypot(g.x - p.x, g.z - p.z) < 2.2 && p.y - g.y > -0.5 && p.y - g.y < 6.0) {
+      const maxH = g.y <= -4 ? 14.0 : 6.0;
+      if (g.active && Math.hypot(g.x - p.x, g.z - p.z) < 2.3 && p.y - g.y > -0.5 && p.y - g.y < maxH) {
         return 'Erupting Lava Geyser';
       }
     }
