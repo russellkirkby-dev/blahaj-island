@@ -1900,22 +1900,38 @@
   // ==========================================================================
   // HUD DECLUTTERING & MINIMAL ZEN MODE
   // ==========================================================================
-  let minimalHudActive = false;
+  let minimalHudActive = true;
+  try {
+    const saved = localStorage.getItem('blahaj_minimal_hud');
+    if (saved !== null) {
+      minimalHudActive = saved === 'true';
+    }
+  } catch (e) {}
 
-  function toggleMinimalHUD() {
-    minimalHudActive = !minimalHudActive;
+  function updateMinimalHUDUI() {
     document.body.classList.toggle('minimal-hud', minimalHudActive);
     const declutterBtn = document.getElementById('btn-hud-declutter');
     if (declutterBtn) {
       declutterBtn.classList.toggle('active', minimalHudActive);
-      declutterBtn.textContent = minimalHudActive ? '🧭 Minimal Mode [V] (Active)' : '👁️ Minimal Mode [V]';
+      declutterBtn.textContent = minimalHudActive ? '👁️ Minimal HUD [V]' : '🧭 Full HUD [V]';
+      declutterBtn.title = minimalHudActive
+        ? 'Minimal Mode active (Top panels and meters hidden). Press [V] or click to show Full HUD.'
+        : 'Full HUD active. Press [V] or click to switch to Minimal HUD.';
     }
+  }
+
+  function toggleMinimalHUD() {
+    minimalHudActive = !minimalHudActive;
+    try {
+      localStorage.setItem('blahaj_minimal_hud', String(minimalHudActive));
+    } catch (e) {}
+    updateMinimalHUDUI();
     if (minimalHudActive) {
       CozyAudio.shonk();
-      showToast('ZEN EXPLORATION MODE 🧭', 'Minimal HUD active! Side panels hidden, compass ribbon preserved. Press [V] to toggle full HUD.');
+      showToast('MINIMAL ZEN HUD 🧭', 'Top panels and meters hidden! Direction ribbon and clock preserved. Press [V] for Full HUD.');
     } else {
       CozyAudio.shonk();
-      showToast('FULL HUD RESTORED 🗺️', 'All panels and trackers restored.');
+      showToast('FULL HUD RESTORED 🗺️', 'Character frame, quest tracker, and island meters visible.');
     }
   }
 
@@ -2837,6 +2853,16 @@
       if (document.hidden) clearAllMovementKeys();
     });
     window.addEventListener('focus', clearAllMovementKeys);
+
+    // Declutter button click listener & initial UI sync
+    const declutterBtn = document.getElementById('btn-hud-declutter');
+    if (declutterBtn) {
+      declutterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMinimalHUD();
+      });
+    }
+    updateMinimalHUDUI();
 
     // Global user-gesture audio unlock on any key, pointer, or touch
     const unlockCozyAudio = () => {

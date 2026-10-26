@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2.5" />
+  <link rel="stylesheet" href="styles.css?v=3.5" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -18,7 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
-<body>
+<body class="minimal-hud">
   <!-- 3D WebGL Canvas Container -->
   <div id="canvas-container"></div>
 
@@ -180,7 +180,7 @@
         <div class="compass-needle">▼</div>
       </div>
       <div style="text-align: center;">
-        <button type="button" class="hud-declutter-btn" id="btn-hud-declutter" title="Toggle Minimal Zen HUD Mode [V] (Hides side panels, keeps navigation compass)">👁️ Minimal Mode [V]</button>
+        <button type="button" class="hud-declutter-btn active" id="btn-hud-declutter" title="Toggle Minimal Zen HUD Mode [V] (Hides top panels and meters, keeps time and navigation compass)">👁️ Minimal HUD [V]</button>
       </div>
       <div class="island-meters">
         <div class="meter-pill volcano-pill" title="Honor the Volcano with offerings at the Temple!">
@@ -1333,16 +1333,16 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=3.4"></script>
-  <script src="js/sharks3d.js?v=3.4"></script>
-  <script src="js/world3d.js?v=3.4"></script>
-  <script src="js/volcano.js?v=3.4"></script>
-  <script src="js/laundromat.js?v=3.4"></script>
-  <script src="js/sphericalFoods.js?v=3.4"></script>
-  <script src="js/volleyball.js?v=3.4"></script>
-  <script src="js/network.js?v=3.4"></script>
-  <script src="js/inventory.js?v=3.4"></script>
-  <script src="js/enemies.js?v=3.4"></script>
-  <script src="js/main.js?v=3.4"></script>
+  <script src="js/lore.js?v=3.5"></script>
+  <script src="js/sharks3d.js?v=3.5"></script>
+  <script src="js/world3d.js?v=3.5"></script>
+  <script src="js/volcano.js?v=3.5"></script>
+  <script src="js/laundromat.js?v=3.5"></script>
+  <script src="js/sphericalFoods.js?v=3.5"></script>
+  <script src="js/volleyball.js?v=3.5"></script>
+  <script src="js/network.js?v=3.5"></script>
+  <script src="js/inventory.js?v=3.5"></script>
+  <script src="js/enemies.js?v=3.5"></script>
+  <script src="js/main.js?v=3.5"></script>
 </body>
 </html>

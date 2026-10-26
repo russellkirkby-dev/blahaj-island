@@ -3548,20 +3548,35 @@ body.clean-streamer-mode #world-labels {
   padding-bottom: 8px;
 }
 
-/* Minimal Zen Mode (Hotkey [V] & Declutter Button) */
+/* Minimal Zen HUD Mode (Hotkey [V] & Declutter Button) */
+/* Turns off almost everything in the top half of the screen except the Time and Direction Ribbon */
+body.minimal-hud .hud-top-left,
 body.minimal-hud .hud-top-right,
+body.minimal-hud .zone-banner,
 body.minimal-hud .island-meters,
-body.minimal-hud .party-frame {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transform: translateY(-8px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+body.minimal-hud .party-frame,
+body.minimal-hud #player-unit-frame {
+  display: none !important;
 }
 
-body.minimal-hud .compass-strip {
-  /* Navigation Compass Ribbon stays prominent, centered, and pristine! */
+body.minimal-hud .hud-top-center {
+  top: 8px;
+}
+
+body.minimal-hud .compass-strip,
+body.minimal-hud .celestial-clock-container {
+  display: flex !important;
   opacity: 1 !important;
   pointer-events: auto !important;
+}
+
+body.minimal-hud .hud-declutter-btn {
+  display: inline-block !important;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+body.minimal-hud .hud-declutter-btn:hover {
+  opacity: 1.0;
 }
 
 .hud-declutter-btn {
