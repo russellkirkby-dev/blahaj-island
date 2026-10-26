@@ -285,27 +285,33 @@
     },
 
     updateAmbient(zone, elapsed, playerPos, inBoat, isMoving, camHeight) {
-      if (!this.ctx || !this.ambientInitialized) return;
+      if (!this.ctx) return;
+      if (!this.ambientInitialized) {
+        this.initAmbientAudio();
+      }
+      if (this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
       const now = this.ctx.currentTime;
 
-      // 1. Smooth Procedural Zone Music Cross-Fade
+      // 1. Smooth Procedural Zone Music Cross-Fade (Clearly audible rich presence)
       const isNearVolcanoOverworld = (zone === 'island' || zone === 'overworld') && playerPos && playerPos.z < -75;
       const isVolcanoActive = zone === 'volcano' || isNearVolcanoOverworld;
 
-      const targetBistro = (zone === 'spherical_foods') ? 0.065 : 0.0001;
-      const targetLaundromat = (zone === 'laundromat') ? 0.060 : 0.0001;
-      const targetVolcano = isVolcanoActive ? 0.055 : 0.0001;
-      const targetIsland = (!isVolcanoActive && (zone === 'island' || zone === 'overworld' || zone === 'volleyball')) ? 0.052 : 0.0001;
+      const targetBistro = (zone === 'spherical_foods') ? 0.75 : 0.0001;
+      const targetLaundromat = (zone === 'laundromat') ? 0.80 : 0.0001;
+      const targetVolcano = isVolcanoActive ? 0.85 : 0.0001;
+      const targetIsland = (!isVolcanoActive && (zone === 'island' || zone === 'overworld' || zone === 'volleyball')) ? 0.80 : 0.0001;
 
-      if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(targetBistro, now, 0.45);
-      if (this.laundromatMusicGain) this.laundromatMusicGain.gain.setTargetAtTime(targetLaundromat, now, 0.45);
-      if (this.volcanoMusicGain) this.volcanoMusicGain.gain.setTargetAtTime(targetVolcano, now, 0.45);
-      if (this.islandMusicGain) this.islandMusicGain.gain.setTargetAtTime(targetIsland, now, 0.45);
+      if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(targetBistro, now, 0.35);
+      if (this.laundromatMusicGain) this.laundromatMusicGain.gain.setTargetAtTime(targetLaundromat, now, 0.35);
+      if (this.volcanoMusicGain) this.volcanoMusicGain.gain.setTargetAtTime(targetVolcano, now, 0.35);
+      if (this.islandMusicGain) this.islandMusicGain.gain.setTargetAtTime(targetIsland, now, 0.35);
 
-      if (targetBistro > 0.002) this.updateBistroMusic(elapsed, 0.016);
-      if (targetLaundromat > 0.002) this.updateLaundromatMusic(elapsed, 0.016);
-      if (targetVolcano > 0.002) this.updateVolcanoMusic(elapsed, 0.016);
-      if (targetIsland > 0.002) this.updateIslandMusic(elapsed, 0.016);
+      if (targetBistro > 0.01) this.updateBistroMusic(elapsed, 0.016);
+      if (targetLaundromat > 0.01) this.updateLaundromatMusic(elapsed, 0.016);
+      if (targetVolcano > 0.01) this.updateVolcanoMusic(elapsed, 0.016);
+      if (targetIsland > 0.01) this.updateIslandMusic(elapsed, 0.016);
 
       if (zone === 'spherical_foods') {
         if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
@@ -503,7 +509,7 @@
             mOsc.type = 'sine';
             mOsc.frequency.setValueAtTime(melFreq, now);
             mGain.gain.setValueAtTime(0.0001, now);
-            mGain.gain.linearRampToValueAtTime(0.026, now + 0.015);
+            mGain.gain.linearRampToValueAtTime(0.16, now + 0.015);
             mGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
             mOsc.connect(mGain);
             mGain.connect(this.islandMusicGain);
@@ -527,9 +533,9 @@
         bOsc.type = 'sine';
         bOsc.frequency.setValueAtTime(chord.bass, now);
         bFilt.type = 'lowpass';
-        bFilt.frequency.setValueAtTime(160, now);
+        bFilt.frequency.setValueAtTime(180, now);
         bGain.gain.setValueAtTime(0.0001, now);
-        bGain.gain.linearRampToValueAtTime(0.12, now + 0.04);
+        bGain.gain.linearRampToValueAtTime(0.22, now + 0.04);
         bGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.1);
         bOsc.connect(bFilt);
         bFilt.connect(bGain);
@@ -553,9 +559,9 @@
           osc2.frequency.setValueAtTime(freq * 2, noteTime);
 
           noteFilt.type = 'lowpass';
-          noteFilt.frequency.setValueAtTime(1100, noteTime);
+          noteFilt.frequency.setValueAtTime(1200, noteTime);
 
-          const vol = 0.038 / Math.sqrt(chord.notes.length);
+          const vol = 0.16 / Math.sqrt(chord.notes.length);
           noteGain.gain.setValueAtTime(0.0001, noteTime);
           noteGain.gain.linearRampToValueAtTime(vol, noteTime + 0.03);
           noteGain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 3.0);
@@ -597,7 +603,7 @@
           drumOsc.frequency.exponentialRampToValueAtTime(65, now + 0.08);
 
           drumGain.gain.setValueAtTime(0.0001, now);
-          drumGain.gain.linearRampToValueAtTime(0.08, now + 0.005);
+          drumGain.gain.linearRampToValueAtTime(0.24, now + 0.005);
           drumGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
 
           drumOsc.connect(drumGain);
@@ -622,7 +628,7 @@
           kFilt.frequency.setValueAtTime(2200, now);
 
           kGain.gain.setValueAtTime(0.0001, now);
-          kGain.gain.linearRampToValueAtTime(0.035, now + 0.01);
+          kGain.gain.linearRampToValueAtTime(0.18, now + 0.01);
           kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
 
           kOsc.connect(kFilt);
@@ -650,7 +656,7 @@
             bFilt.frequency.exponentialRampToValueAtTime(750, now + 0.45);
 
             bGain.gain.setValueAtTime(0.0001, now);
-            bGain.gain.linearRampToValueAtTime(0.025, now + 0.02);
+            bGain.gain.linearRampToValueAtTime(0.18 / Math.sqrt(chord.notes.length), now + 0.02);
             bGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
 
             bOsc.connect(bFilt);
@@ -692,7 +698,7 @@
           bassFilt.frequency.exponentialRampToValueAtTime(180, now + 0.18);
 
           bassGain.gain.setValueAtTime(0.0001, now);
-          bassGain.gain.linearRampToValueAtTime(0.13, now + 0.008);
+          bassGain.gain.linearRampToValueAtTime(0.26, now + 0.008);
           bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
 
           bassOsc.connect(bassFilt);
@@ -718,7 +724,7 @@
             rFilt.frequency.setValueAtTime(1300, now);
 
             rGain.gain.setValueAtTime(0.0001, now);
-            rGain.gain.linearRampToValueAtTime(0.032, now + 0.015);
+            rGain.gain.linearRampToValueAtTime(0.16 / Math.sqrt(chord.notes.length), now + 0.015);
             rGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
 
             rOsc.connect(rFilt);
@@ -743,7 +749,7 @@
 
             const hGain = this.ctx.createGain();
             hGain.gain.setValueAtTime(0.0001, now);
-            hGain.gain.linearRampToValueAtTime(0.014, now + 0.004);
+            hGain.gain.linearRampToValueAtTime(0.075, now + 0.004);
             hGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
 
             hSrc.connect(hFilt);
@@ -2831,6 +2837,14 @@
       if (document.hidden) clearAllMovementKeys();
     });
     window.addEventListener('focus', clearAllMovementKeys);
+
+    // Global user-gesture audio unlock on any key, pointer, or touch
+    const unlockCozyAudio = () => {
+      if (window.CozyAudio) window.CozyAudio.ensure();
+    };
+    window.addEventListener('keydown', unlockCozyAudio, { passive: true });
+    window.addEventListener('pointerdown', unlockCozyAudio, { passive: true });
+    window.addEventListener('touchstart', unlockCozyAudio, { passive: true });
 
     // Global click-anywhere dismissal for Volcano HUD notice and toast banner
     window.addEventListener('pointerdown', (e) => {

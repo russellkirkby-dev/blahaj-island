@@ -551,9 +551,14 @@ window.BlahajLaundromat = (function () {
     frontWallRight.position.set(8.25, 2.6, 19);
     scn.add(frontWallRight);
 
+    // Wall header above window opening (from y = 4.2 to y = 5.2 ceiling)
+    const frontWallHeader = new THREE.Mesh(new THREE.BoxGeometry(13.0, 1.0, 0.3), wallMat);
+    frontWallHeader.position.set(0, 4.7, 19);
+    scn.add(frontWallHeader);
+
     // Translucent cosmic viewing glass
     const windowGlass = new THREE.Mesh(
-      new THREE.PlaneGeometry(13.0, 4.4),
+      new THREE.PlaneGeometry(13.0, 4.2),
       new THREE.MeshStandardMaterial({
         color: 0x4fa8d1,
         transparent: true,
@@ -562,7 +567,7 @@ window.BlahajLaundromat = (function () {
         metalness: 0.82
       })
     );
-    windowGlass.position.set(0, 2.6, 18.95);
+    windowGlass.position.set(0, 2.1, 18.95);
     scn.add(windowGlass);
 
     // Deep Cosmic Starfield & Drifting Nebulae visible through the front glass
@@ -581,11 +586,12 @@ window.BlahajLaundromat = (function () {
     );
     scn.add(starSystem);
 
-    // 4. Glowing Neon Sign: "THE FIRST WHIRLINGS · DELICATE CYCLE 24/7" (Centered on Far Back Wall)
+    // 4. Glowing Neon Sign: "THE FIRST WHIRLINGS · DELICATE CYCLE 24/7" (Centered on Front Wall Above Cosmic Window Space)
     const neonGroup = new THREE.Group();
-    neonGroup.position.set(0, 4.25, -18.8);
+    neonGroup.position.set(0, 4.70, 18.82);
+    neonGroup.rotation.y = Math.PI; // Facing into the laundromat aisle towards -Z!
 
-    // Dynamic Canvas Texture for the interior back marquee
+    // Dynamic Canvas Texture for the neon marquee
     const interiorSignCanvas = document.createElement('canvas');
     interiorSignCanvas.width = 1024;
     interiorSignCanvas.height = 128;
@@ -615,28 +621,28 @@ window.BlahajLaundromat = (function () {
 
     neonSignMat = new THREE.MeshBasicMaterial({ color: 0xff3b94 });
     const signBacking = new THREE.Mesh(
-      new THREE.BoxGeometry(11.0, 1.15, 0.1),
-      new THREE.MeshStandardMaterial({ map: intSignTex, roughness: 0.4, emissive: 0x220511, emissiveIntensity: 0.5 })
+      new THREE.BoxGeometry(11.8, 0.78, 0.08),
+      new THREE.MeshStandardMaterial({ map: intSignTex, roughness: 0.4, emissive: 0x220511, emissiveIntensity: 0.6 })
     );
     neonGroup.add(signBacking);
 
-    const neonBar1 = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.12, 0.08), neonSignMat);
-    neonBar1.position.y = 0.44;
+    const neonBar1 = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.08, 0.06), neonSignMat);
+    neonBar1.position.y = 0.35;
     neonGroup.add(neonBar1);
 
-    const neonBar2 = new THREE.Mesh(new THREE.BoxGeometry(10.2, 0.12, 0.08), neonSignMat);
-    neonBar2.position.y = -0.44;
+    const neonBar2 = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.08, 0.06), neonSignMat);
+    neonBar2.position.y = -0.35;
     neonGroup.add(neonBar2);
 
     // Cyan Washing Machine Ring Icon
     const neonIcon = new THREE.Mesh(
-      new THREE.RingGeometry(0.34, 0.44, 16),
+      new THREE.RingGeometry(0.26, 0.34, 16),
       new THREE.MeshBasicMaterial({ color: 0x4df0ff, side: THREE.DoubleSide })
     );
-    neonIcon.position.set(-4.5, 0, 0.08);
+    neonIcon.position.set(-4.8, 0, 0.06);
     neonGroup.add(neonIcon);
 
-    neonSignLight = new THREE.PointLight(0xff3b94, 2.0, 18, 2.0);
+    neonSignLight = new THREE.PointLight(0xff3b94, 2.5, 22, 1.8);
     neonSignLight.position.set(0, 0, 0.5);
     neonGroup.add(neonSignLight);
     scn.add(neonGroup);
