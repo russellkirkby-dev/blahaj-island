@@ -1890,6 +1890,41 @@ window.BlahajModels = (function () {
         ud.rightFinPivot.rotation.z = -p * 0.55;
       }
       rig.rotation.x = p * 0.18;
+    } else if (ud.groomTimer > 0) {
+      rig.position.z = 0;
+      ud.groomTimer = Math.max(0, ud.groomTimer - dt);
+      const p = 1.0 - (ud.groomTimer / 1.1);
+      const sweep = Math.sin(p * Math.PI * 6.0);
+      // Caring gentle forward lean
+      rig.rotation.x = -0.16 + Math.sin(p * Math.PI) * 0.08;
+      rig.position.y += Math.sin(p * Math.PI) * 0.06;
+      // Right fin performs gentle rhythmic grooming strokes
+      if (ud.rightFinPivot) {
+        ud.rightFinPivot.rotation.x = -0.65 + sweep * 0.32;
+        ud.rightFinPivot.rotation.y = -0.28 + sweep * 0.18;
+        ud.rightFinPivot.rotation.z = -0.25;
+      }
+      if (ud.leftFinPivot) {
+        ud.leftFinPivot.rotation.y = 0.20;
+        ud.leftFinPivot.rotation.z = 0.25;
+      }
+      if (ud.tailGroup) {
+        ud.tailGroup.rotation.y = Math.sin(p * Math.PI * 5.0) * 0.22;
+      }
+    } else if (ud.groomTargetTimer > 0) {
+      rig.position.z = 0;
+      ud.groomTargetTimer = Math.max(0, ud.groomTargetTimer - dt);
+      const p = 1.0 - (ud.groomTargetTimer / 1.1);
+      // Happy cozy wiggle while being groomed
+      rig.rotation.z = Math.sin(p * Math.PI * 6.0) * 0.06;
+      rig.position.y += Math.sin(p * Math.PI * 4.0) * 0.04;
+      if (ud.tailGroup) {
+        ud.tailGroup.rotation.y = Math.sin(p * Math.PI * 7.0) * 0.35;
+      }
+      if (ud.leftFinPivot && ud.rightFinPivot) {
+        ud.leftFinPivot.rotation.z = 0.15 + Math.sin(p * Math.PI * 6.0) * 0.12;
+        ud.rightFinPivot.rotation.z = -0.15 - Math.sin(p * Math.PI * 6.0) * 0.12;
+      }
     } else if (isSwimming) {
       rig.position.z = 0;
       // Tilt body pitch along climb/dive swim trajectory

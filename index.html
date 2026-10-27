@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.0" />
+  <link rel="stylesheet" href="styles.css?v=4.1" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -84,7 +84,10 @@
           <div class="party-title" id="coop-status-title">Solo Island Instance</div>
           <div class="party-sub" id="coop-status-sub">Press <strong>[P]</strong> to open a Portal between LA &amp; NZ</div>
         </div>
-        <button class="hud-mini-btn" id="btn-open-portal-hud">Portal [P]</button>
+        <div class="party-actions">
+          <button class="hud-mini-btn btn-groom-coop" id="btn-party-groom" title="Gently groom and de-mange your co-op partner [G]">🪮 Groom</button>
+          <button class="hud-mini-btn" id="btn-open-portal-hud">Portal [P]</button>
+        </div>
       </div>
     </div>
 
@@ -243,6 +246,7 @@
     <div id="interaction-prompt" class="hidden">
       <span class="key-badge">E</span>
       <span id="interaction-text">Interact</span>
+      <button type="button" id="btn-groom-prompt" class="groom-prompt-pill hidden" title="Gently groom and de-mange this avatar [G]">🪮 Groom Avatar [G]</button>
     </div>
 
     <!-- TOAST NOTIFICATION BANNER -->
@@ -413,11 +417,11 @@
           <span class="slot-power">Knockback [F]</span>
         </button>
 
-        <button class="action-slot ability-slot" id="slot-g" title="[G] Exclaim 'Shonk!' or 'Sharkitty?' with a plush hop">
+        <button class="action-slot ability-slot" id="slot-g" title="[G] Groom & De-Mange nearby avatars, or exclaim 'Shonk!'">
           <span class="slot-key">G</span>
-          <div class="slot-emoji">✨</div>
-          <span class="slot-name">“Shonk!”</span>
-          <span class="slot-power">Emote</span>
+          <div class="slot-emoji" id="slot-g-icon">🪮✨</div>
+          <span class="slot-name" id="slot-g-name">Groom</span>
+          <span class="slot-power" id="slot-g-sub">De-Mange [G]</span>
         </button>
 
         <div class="bar-divider"></div>
@@ -1349,16 +1353,16 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=4.0"></script>
-  <script src="js/sharks3d.js?v=4.0"></script>
-  <script src="js/world3d.js?v=4.0"></script>
-  <script src="js/volcano.js?v=4.0"></script>
-  <script src="js/laundromat.js?v=4.0"></script>
-  <script src="js/sphericalFoods.js?v=4.0"></script>
-  <script src="js/volleyball.js?v=4.0"></script>
-  <script src="js/network.js?v=4.0"></script>
-  <script src="js/inventory.js?v=4.0"></script>
-  <script src="js/enemies.js?v=4.0"></script>
-  <script src="js/main.js?v=4.0"></script>
+  <script src="js/lore.js?v=4.1"></script>
+  <script src="js/sharks3d.js?v=4.1"></script>
+  <script src="js/world3d.js?v=4.1"></script>
+  <script src="js/volcano.js?v=4.1"></script>
+  <script src="js/laundromat.js?v=4.1"></script>
+  <script src="js/sphericalFoods.js?v=4.1"></script>
+  <script src="js/volleyball.js?v=4.1"></script>
+  <script src="js/network.js?v=4.1"></script>
+  <script src="js/inventory.js?v=4.1"></script>
+  <script src="js/enemies.js?v=4.1"></script>
+  <script src="js/main.js?v=4.1"></script>
 </body>
 </html>

@@ -1559,6 +1559,10 @@
     shonk() {
       this.playTone(380, 0.12, 'triangle', 0.14, 620);
     },
+    shonkPop() {
+      this.playTone(420, 0.12, 'sine', 0.16, 840);
+      setTimeout(() => this.playTone(840, 0.10, 'triangle', 0.10, 1120), 50);
+    },
     birbChirp() {
       if (gameSettings && !gameSettings.birbCalls) return;
       const base = 960 + Math.random() * 120;
@@ -2631,7 +2635,7 @@
     const labelsRoot = document.getElementById('world-labels');
 
     Object.values(LORE.sharks).forEach((sCfg) => {
-      const mesh = window.BlahajModels.createPlushShark(sCfg);
+      const mesh = window.BlahajModels.createPlushShark(sCfg, getSharkMange(sCfg.id));
       const hy = worldApi.getGroundAndStructureHeight(sCfg.homePos.x, sCfg.homePos.z);
       mesh.position.set(sCfg.homePos.x, hy, sCfg.homePos.z);
       mesh.rotation.y = sCfg.homePos.rotY || 0;
@@ -2707,6 +2711,22 @@
         sp.labelEl = createWorldLabel(labelsRoot, sp.title, sp.directions);
       });
     }
+  }
+
+  function refreshWorldActorMesh(act, newMange) {
+    const sCfg = LORE.sharks[act.id];
+    if (!sCfg || !act.mesh) return null;
+    const parent = act.mesh.parent || scene;
+    const pos = act.mesh.position.clone();
+    const rotY = act.mesh.rotation.y;
+    parent.remove(act.mesh);
+    const newMesh = window.BlahajModels.createPlushShark(sCfg, newMange);
+    newMesh.position.copy(pos);
+    newMesh.rotation.y = rotY;
+    newMesh.visible = act.mesh.visible;
+    parent.add(newMesh);
+    act.mesh = newMesh;
+    return newMesh;
   }
 
   function createWorldLabel(parent, name, tagText) {
@@ -3219,7 +3239,7 @@
       if (k === 'b') triggerFeedBreb();
       if (k === 'f') triggerBeepNose();
       if (k === 'q') triggerSignatureAbility();
-      if (k === 'g') triggerShonkEmote();
+      if (k === 'g') triggerGroomAvatar();
       if (k === 'u') toggleUpgradesModal();
       if (k === 'm') {
         if (currentZone === 'spherical_foods' || player.isSeatedInBooth) {
@@ -4083,6 +4103,105 @@
     }
 
     window.BlahajNetwork.send({ type: 'emote', kind: 'beep' });
+  }
+
+  function triggerGroomAvatar() {
+    CozyAudio.ensure();
+    // 1. Find nearest groomable avatar (Co-op partner or blue shark NPC)
+    let bestTarget = null;
+    let minDist = 5.0;
+
+    // Check live co-op partner
+    if (coopPartner && coopPartner.active && coopPartner.mesh && coopPartner.mesh.visible) {
+      const dPartner = coopPartner.mesh.position.distanceTo(player.pos);
+      if (dPartner < minDist) {
+        minDist = dPartner;
+        bestTarget = {
+          isPartner: true,
+          id: coopPartner.sharkId || 'partner',
+          name: LORE.sharks[coopPartner.sharkId] ? LORE.sharks[coopPartner.sharkId].name : 'Partner',
+          mesh: coopPartner.mesh
+        };
+      }
+    }
+
+    // Check world actors (NPC sharks)
+    worldActors.forEach((act) => {
+      if (!act.mesh || !act.mesh.visible) return;
+      const d = act.mesh.position.distanceTo(player.pos);
+      if (d < minDist) {
+        minDist = d;
+        bestTarget = {
+          isPartner: false,
+          actor: act,
+          id: act.id,
+          name: act.name,
+          mesh: act.mesh
+        };
+      }
+    });
+
+    if (!bestTarget) {
+      showToast('APPROACH AN AVATAR 🪮✨', 'Get close to a fellow shark or your co-op partner to gently groom and de-mange their coat!');
+      triggerShonkEmote();
+      return;
+    }
+
+    // Trigger plush grooming animations
+    if (player.mesh && player.mesh.userData) {
+      player.mesh.userData.groomTimer = 1.1;
+    }
+    if (bestTarget.mesh && bestTarget.mesh.userData) {
+      bestTarget.mesh.userData.groomTargetTimer = 1.1;
+    }
+
+    // Visual & audio effects: soft squeak, chime, soothing mint puff & celestial gold stars
+    CozyAudio.shonkPop();
+    CozyAudio.bistroChime();
+
+    const targetPos = bestTarget.mesh.position.clone().add(new THREE.Vector3(0, 0.45, 0));
+    spawnFloatingBurst(targetPos, 0x58e3ff, 18); // Soothing mint / cyan fluff
+    spawnFloatingBurst(targetPos, 0xffd166, 16); // Golden celestial stars
+
+    // Award gentle player comfort
+    player.teaComfort = Math.min(100, player.teaComfort + 20);
+    updateMetersUI();
+
+    if (bestTarget.isPartner) {
+      const curM = coopPartner.mangeFactor !== undefined ? coopPartner.mangeFactor : 0.70;
+      const nextM = Math.max(0, Math.round((curM - 0.15) * 100) / 100);
+      coopPartner.mangeFactor = nextM;
+      spawnCoopPartnerShark(coopPartner.sharkId, nextM);
+      if (coopPartner.mesh && coopPartner.mesh.userData) {
+        coopPartner.mesh.userData.groomTargetTimer = 1.1;
+      }
+      window.BlahajNetwork.send({
+        type: 'groom_partner',
+        delta: -0.15,
+        fromShark: player.sharkId,
+        fromName: LORE.sharks[player.sharkId] ? LORE.sharks[player.sharkId].name : 'Partner'
+      });
+      const partnerMangePct = Math.round(nextM * 100);
+      showToast('GENTLE GROOMING ✨', `Brushed partner's plush coat! (-15% Mange · Partner at ${partnerMangePct}%)`);
+      addChatLog(`🪮✨ You tenderly groomed and brushed your partner's plush fleece (-15% Mange, now <strong>${partnerMangePct}%</strong>)!`, 'coop');
+    } else {
+      const nextMange = adjustSharkMange(bestTarget.id, -0.15, 'Tender plush grooming');
+      const refreshedMesh = refreshWorldActorMesh(bestTarget.actor, nextMange);
+      if (refreshedMesh && refreshedMesh.userData) {
+        refreshedMesh.userData.groomTargetTimer = 1.1;
+      }
+      const mangePct = Math.round(nextMange * 100);
+      const replies = [
+        '“Purrr... My plush seams feel so soft and silky again! ✨”',
+        '“Ah, thank you! That pesky mange was tickling my dorsal fin! 🪮”',
+        '“So fluffy! 100% cloud-grade softness restored! 💕”',
+        '“A tender brush is the highest form of shark hospitality! 🪮✨”'
+      ];
+      const pick = replies[Math.floor(Math.random() * replies.length)];
+      showActorSpeechBubble(bestTarget.actor, pick);
+      showToast('GENTLE GROOMING ✨', `Brushed ${bestTarget.name}’s fleece! (-15% Mange · Now ${mangePct}%)`);
+      addChatLog(`🪮✨ You gently groomed <strong>${bestTarget.name}</strong>'s plush coat (-15% Mange, now <strong>${mangePct}%</strong>)!`, 'lore');
+    }
   }
 
   function triggerShonkEmote() {
@@ -5864,7 +5983,9 @@
     document.getElementById('slot-q').addEventListener('click', triggerSignatureAbility);
     document.getElementById('slot-b').addEventListener('click', triggerFeedBreb);
     document.getElementById('slot-f').addEventListener('click', triggerBeepNose);
-    document.getElementById('slot-g').addEventListener('click', triggerShonkEmote);
+    document.getElementById('slot-g').addEventListener('click', triggerGroomAvatar);
+    document.getElementById('btn-party-groom')?.addEventListener('click', triggerGroomAvatar);
+    document.getElementById('btn-groom-prompt')?.addEventListener('click', triggerGroomAvatar);
     document.getElementById('slot-u').addEventListener('click', toggleUpgradesModal);
     document.getElementById('pill-open-upgrades').addEventListener('click', toggleUpgradesModal);
     document.getElementById('slot-m').addEventListener('click', toggleGalleryModal);
@@ -8236,6 +8357,24 @@
               spawnFloatingBurst(coopPartner.mesh.position, 0x9b6dff, 12);
             }
           }
+        } else if (data.type === 'groom_partner') {
+          if (coopPartner.mesh && coopPartner.mesh.userData) {
+            coopPartner.mesh.userData.groomTimer = 1.1;
+          }
+          if (player.mesh && player.mesh.userData) {
+            player.mesh.userData.groomTargetTimer = 1.1;
+          }
+          CozyAudio.shonkPop();
+          CozyAudio.bistroChime();
+          const pPos = player.pos.clone().add(new THREE.Vector3(0, 0.45, 0));
+          spawnFloatingBurst(pPos, 0x58e3ff, 18);
+          spawnFloatingBurst(pPos, 0xffd166, 16);
+          const delta = typeof data.delta === 'number' ? data.delta : -0.15;
+          const newMange = adjustSharkMange(player.sharkId, delta, 'Tender Partner Grooming');
+          const partnerName = data.fromName || (LORE.sharks[data.fromShark] ? LORE.sharks[data.fromShark].name : 'Partner');
+          const mangePct = Math.round(newMange * 100);
+          showToast('GENTLE GROOMING RECEIVED! 🪮✨', `${partnerName} groomed your plush fleece! (-15% Mange · Now ${mangePct}%)`);
+          addChatLog(`🪮✨ <strong>${partnerName}</strong> tenderly groomed your plush coat (-15% Mange, now <strong>${mangePct}%</strong>)!`, 'coop');
         } else if (data.type === 'chat') {
           addChatLog(`🌌 <strong>${data.sender}:</strong> ${data.text}`, 'coop');
         } else if (data.type === 'pier_note' && data.note) {
@@ -9859,6 +9998,17 @@
             : 'Ride Together on Partner’s Boat [E] ⛵🦈🦈'
         };
       }
+    } else if (coopPartner.active && !coopPartner.inBoat && coopPartner.mesh && coopPartner.mesh.visible) {
+      const dPartner = coopPartner.mesh.position.distanceTo(player.pos);
+      if (dPartner < 5.0 && dPartner < bestDist) {
+        bestDist = dPartner;
+        nearestInteractable = {
+          kind: 'coop_partner',
+          ref: coopPartner,
+          dist: dPartner,
+          prompt: 'Groom Partner [G] 🪮✨ · Nose-Beep [F] 👃'
+        };
+      }
     }
 
     // Check nearby Linked Pocket Portals
@@ -9929,7 +10079,7 @@
           kind: 'actor',
           ref: act,
           dist: d,
-          prompt: `Talk to ${act.name} [E] · Beep Nose [F]`
+          prompt: `Talk to ${act.name} [E] · Groom [G] 🪮 · Beep Nose [F]`
         };
       }
     });
@@ -10019,6 +10169,39 @@
       promptEl.classList.remove('hidden');
     } else {
       promptEl.classList.add('hidden');
+    }
+
+    // Check avatar grooming proximity for HUD button and prompt pill
+    let nearbyGroomAvatar = null;
+    let groomCheckDist = 5.0;
+    if (coopPartner && coopPartner.active && !coopPartner.inBoat && coopPartner.mesh && coopPartner.mesh.visible) {
+      const dP = coopPartner.mesh.position.distanceTo(player.pos);
+      if (dP < groomCheckDist) {
+        groomCheckDist = dP;
+        nearbyGroomAvatar = { name: LORE.sharks[coopPartner.sharkId] ? LORE.sharks[coopPartner.sharkId].name : 'Partner' };
+      }
+    }
+    worldActors.forEach((act) => {
+      if (!act.mesh || !act.mesh.visible) return;
+      const dA = act.mesh.position.distanceTo(player.pos);
+      if (dA < groomCheckDist) {
+        groomCheckDist = dA;
+        nearbyGroomAvatar = { name: act.name };
+      }
+    });
+
+    const slotG = document.getElementById('slot-g');
+    if (slotG) {
+      slotG.classList.toggle('groom-ready', !!nearbyGroomAvatar);
+    }
+    const btnGroomPrompt = document.getElementById('btn-groom-prompt');
+    if (btnGroomPrompt) {
+      if (nearbyGroomAvatar && !isAnyModalOpen()) {
+        btnGroomPrompt.classList.remove('hidden');
+        btnGroomPrompt.textContent = `🪮 Groom ${nearbyGroomAvatar.name} [G]`;
+      } else {
+        btnGroomPrompt.classList.add('hidden');
+      }
     }
 
     worldActors.forEach((act) => {
@@ -10328,6 +10511,9 @@
     adjustSharkMange,
     setSharkMange,
     getSharkMange,
+    triggerGroomAvatar,
+    spawnCoopPartnerShark,
+    refreshWorldActorMesh,
     handleVolcanoTrapHit,
     triggerSignatureAbility
   };

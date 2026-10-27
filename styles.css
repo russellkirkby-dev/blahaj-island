@@ -460,6 +460,12 @@ body, html {
   color: var(--parchment-muted);
 }
 
+.party-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .hud-mini-btn {
   padding: 5px 10px;
   border-radius: 8px;
@@ -474,6 +480,49 @@ body, html {
 
 .hud-mini-btn:hover {
   background: rgba(155, 109, 255, 0.45);
+}
+
+.btn-groom-coop {
+  border-color: #58e3ff;
+  background: rgba(88, 227, 255, 0.22);
+  color: #d8f8ff;
+}
+
+.btn-groom-coop:hover {
+  background: rgba(88, 227, 255, 0.45);
+  box-shadow: 0 0 12px rgba(88, 227, 255, 0.4);
+}
+
+.groom-prompt-pill {
+  margin-left: 8px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid #58e3ff;
+  background: rgba(88, 227, 255, 0.25);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+  pointer-events: auto;
+}
+
+.groom-prompt-pill:hover {
+  background: rgba(88, 227, 255, 0.5);
+  box-shadow: 0 0 10px rgba(88, 227, 255, 0.6);
+  transform: scale(1.05);
+}
+
+.action-slot.groom-ready {
+  border-color: #58e3ff !important;
+  box-shadow: 0 0 14px rgba(88, 227, 255, 0.5), inset 0 0 8px rgba(245, 205, 121, 0.3) !important;
+  animation: groomPulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes groomPulse {
+  0% { transform: translateY(0); filter: brightness(1.0); }
+  100% { transform: translateY(-3px); filter: brightness(1.22); }
 }
 
 /* TOP CENTER: Zone Banner, Compass & Meters */
