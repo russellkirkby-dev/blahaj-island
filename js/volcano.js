@@ -511,7 +511,7 @@ window.BlahajVolcano = (function () {
   // --------------------------------------------------------------------------
   // TRAPS & MECHANISMS
   // --------------------------------------------------------------------------
-  // Classic Sleek Swinging Obsidian Battleaxe
+  // Sleek, authentic Swinging Obsidian Battleaxe
   function addPendulum(z, phase, speed) {
     const m = getMats();
     const pivotY = 14;
@@ -525,75 +525,61 @@ window.BlahajVolcano = (function () {
     scn.add(beam);
 
     // Pivot mount ring
-    const mountRing = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 16), m.charredIron);
+    const mountRing = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.5, 16), m.charredIron);
     mountRing.rotation.x = Math.PI / 2;
     pivot.add(mountRing);
 
-    // Single sleek dark iron swinging shaft
+    // Sleek dark iron swinging shaft hanging from the ceiling
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, len, 12), m.charredIron);
     shaft.position.set(0, -len / 2, 0);
     pivot.add(shaft);
 
-    // Sleek, authentic Double-Bearded Black Obsidian Battleaxe Head
+    // Single unified obsidian battleaxe head hanging at the bottom of the rod
     const axeHead = new THREE.Group();
     axeHead.position.set(0, -len, 0);
 
-    // Central forged iron eye collar
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.55, 16), m.charredIron);
-    collar.rotation.x = Math.PI / 2;
+    // Polished dark iron collar fitting clamping the axe head
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.85, 16), m.charredIron);
     axeHead.add(collar);
 
-    // Left and Right glassy obsidian crescent blades
-    [-1, 1].forEach((side) => {
-      const bladeWing = new THREE.Group();
-      bladeWing.scale.x = side;
-
-      // Obsidian crescent blade
-      const blade = new THREE.Mesh(
-        new THREE.CylinderGeometry(1.65, 1.65, 0.16, 24, 1, false, -0.65, 1.3),
-        m.obsidian
-      );
-      blade.rotation.z = Math.PI / 2;
-      blade.position.set(1.3, 0, 0);
-      bladeWing.add(blade);
-
-      // Fine golden brass cutting bevel along the blade edge
-      const edge = new THREE.Mesh(
-        new THREE.TorusGeometry(1.66, 0.035, 8, 24, 1.3),
-        m.brass
-      );
-      edge.rotation.z = -0.65;
-      edge.position.set(1.3, 0, 0);
-      bladeWing.add(edge);
-
-      axeHead.add(bladeWing);
+    // Subtle decorative brass trim bands on the collar fitting
+    [-0.32, 0.32].forEach((by) => {
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.025, 8, 24), m.brass);
+      band.rotation.x = Math.PI / 2;
+      band.position.y = by;
+      axeHead.add(band);
     });
 
-    // Top spike finial
-    const topSpike = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 8), m.obsidian);
-    topSpike.position.set(0, 0.55, 0);
-    axeHead.add(topSpike);
+    // Solid double-bearded obsidian battleaxe blade
+    const axeShape = new THREE.Shape();
+    axeShape.moveTo(0.25, 0.40);
+    axeShape.bezierCurveTo(0.60, 0.40, 1.10, 0.75, 1.85, 1.35);
+    axeShape.bezierCurveTo(2.35, 0.65, 2.35, -0.65, 1.85, -1.35);
+    axeShape.bezierCurveTo(1.10, -0.75, 0.60, -0.40, 0.25, -0.40);
+    axeShape.lineTo(-0.25, -0.40);
+    axeShape.bezierCurveTo(-0.60, -0.40, -1.10, -0.75, -1.85, -1.35);
+    axeShape.bezierCurveTo(-2.35, -0.65, -2.35, 0.65, -1.85, 1.35);
+    axeShape.bezierCurveTo(-1.10, 0.75, -0.60, 0.40, -0.25, 0.40);
+    axeShape.lineTo(0.25, 0.40);
 
-    // Bottom piercing stiletto spike
-    const bottomSpike = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.9, 8), m.obsidian);
-    bottomSpike.rotation.x = Math.PI;
-    bottomSpike.position.set(0, -0.65, 0);
-    axeHead.add(bottomSpike);
-
-    // Subtle motion trail ring
-    const trail = new THREE.Mesh(
-      new THREE.RingGeometry(2.1, 2.7, 24, 1, -0.65, 1.3),
-      new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0, side: THREE.DoubleSide })
-    );
-    trail.position.set(0, 0, 0);
-    axeHead.add(trail);
+    const extrudeSettings = {
+      depth: 0.18,
+      bevelEnabled: true,
+      bevelSegments: 3,
+      steps: 1,
+      bevelSize: 0.05,
+      bevelThickness: 0.05
+    };
+    const axeGeo = new THREE.ExtrudeGeometry(axeShape, extrudeSettings);
+    axeGeo.center();
+    const blade = new THREE.Mesh(axeGeo, m.obsidian);
+    axeHead.add(blade);
 
     pivot.add(axeHead);
     scn.add(pivot);
 
     pendulums.push({
       pivot, len, pivotY, z, phase, speed,
-      trail,
       hit: new THREE.Vector3(0, pivotY - len, z)
     });
   }
@@ -1285,18 +1271,18 @@ window.BlahajVolcano = (function () {
     // =========================================================================
     // 2. ROUTE A: THE CALDERA CAUSEWAY (Piston Elevators & Interstitial Geysers)
     // =========================================================================
-    // 8 stepping stones spaced ~7.5m apart.
+    // 8 stepping stones spaced ~7.5m apart, shifted west (-4.5m) to widen chamber usage.
     // Stones 0, 1, 4, 6, 7 are rock-solid static stones.
     // Stones 2, 3, 5 are slow, heavy piston elevator platforms.
     const causewayConfig = [
-      { x: 0,    z: -192.5, isPiston: false },               // Stone 0: Static Staging Dais
-      { x: 3.2,  z: -200.0, isPiston: false },               // Stone 1: Static Landing Stone
-      { x: 4.2,  z: -207.5, isPiston: true, phase: 0 },      // Stone 2: Piston Elevator A (slow 8.6s cycle)
-      { x: 1.2,  z: -215.0, isPiston: true, phase: 4.3 },    // Stone 3: Piston Elevator B (out of phase)
-      { x: -2.5, z: -222.0, isPiston: false },               // Stone 4: Static Midway Rest Dais
-      { x: -3.8, z: -229.5, isPiston: true, phase: 2.1 },    // Stone 5: Piston Elevator C
-      { x: -1.5, z: -236.5, isPiston: false },               // Stone 6: Static Landing Stone
-      { x: 0,    z: -243.5, isPiston: false }                // Stone 7: Static Exit Leap Stone
+      { x: -4.5, z: -192.5, isPiston: false },               // Stone 0: Static Staging Dais
+      { x: -1.3, z: -200.0, isPiston: false },               // Stone 1: Static Landing Stone
+      { x: -0.3, z: -207.5, isPiston: true, phase: 0 },      // Stone 2: Piston Elevator A (slow 8.6s cycle)
+      { x: -3.3, z: -215.0, isPiston: true, phase: 4.3 },    // Stone 3: Piston Elevator B (out of phase)
+      { x: -7.0, z: -222.0, isPiston: false },               // Stone 4: Static Midway Rest Dais
+      { x: -8.3, z: -229.5, isPiston: true, phase: 2.1 },    // Stone 5: Piston Elevator C
+      { x: -6.0, z: -236.5, isPiston: false },               // Stone 6: Static Landing Stone
+      { x: -4.5, z: -243.5, isPiston: false }                // Stone 7: Static Exit Leap Stone
     ];
 
     causewayConfig.forEach((cfg, i) => {
@@ -1341,28 +1327,29 @@ window.BlahajVolcano = (function () {
     });
 
     // FUMAROLE GEYSERS SITTING DIRECTLY IN THE GAPS BETWEEN STATIC STONES:
-    // Geyser 1 sits directly between Static Stone 0 (0, -192.5) and Static Stone 1 (3.2, -200.0)
-    addGeyser(1.6, LAVA_Y, -196.25, 0.5, true);
+    // Geyser 1 sits directly between Static Stone 0 (-4.5, -192.5) and Static Stone 1 (-1.3, -200.0)
+    addGeyser(-2.9, LAVA_Y, -196.25, 0.5, true);
 
-    // Geyser 2 sits directly between Static Midway Stone 4 (-2.5, -222.0) and Piston Stone 5 (-3.8, -229.5)
-    addGeyser(-3.15, LAVA_Y, -225.75, 2.6, true);
+    // Geyser 2 sits directly between Static Midway Stone 4 (-7.0, -222.0) and Piston Stone 5 (-8.3, -229.5)
+    addGeyser(-7.65, LAVA_Y, -225.75, 2.6, true);
 
     // Flanking atmospheric geysers in the distance
-    addGeyser(-16, LAVA_Y, -215, 1.6, true);
+    addGeyser(-19, LAVA_Y, -215, 1.6, true);
     addGeyser(-18, LAVA_Y, -125, 0.8, true);
     addGeyser(18, LAVA_Y, -142, 2.4, true);
 
     // =========================================================================
     // 3. ROUTE B: THE EMBER RIDGE (High Flank Circuitous Path with Cracking Platforms)
     // =========================================================================
+    // Shifted east (+1.5m) to utilize the full width of the chamber and separate from Causeway exit.
     const ridgeConfig = [
-      { x: 10.5, z: -190.0, y: 0.2, isCracking: false },      // Ridge 1: Stable Entry Shelf
-      { x: 13.8, z: -198.5, y: 0.5, isCracking: true },       // Ridge 2: CRACKING STONE A (Breaks after 0.55s!)
-      { x: 15.5, z: -207.5, y: 1.2, isCracking: false },      // Ridge 3: High Pinnacle & Secret Ember Relic
-      { x: 14.2, z: -217.0, y: 0.8, isCracking: true },       // Ridge 4: CRACKING STONE B (Breaks after 0.55s!)
-      { x: 11.0, z: -226.5, y: 0.4, isCracking: false },      // Ridge 5: Narrow Basalt Needle
-      { x: 6.5,  z: -235.5, y: 0.2, isCracking: false },      // Ridge 6: Descent Stepping Stone
-      { x: 2.8,  z: -243.5, y: 0.0, isCracking: false }       // Ridge 7: Rejoin Stone before Exit
+      { x: 12.0, z: -190.0, y: 0.2, isCracking: false },      // Ridge 1: Stable Entry Shelf
+      { x: 15.3, z: -198.5, y: 0.5, isCracking: true },       // Ridge 2: CRACKING STONE A (Breaks after 0.55s!)
+      { x: 17.0, z: -207.5, y: 1.2, isCracking: false },      // Ridge 3: High Pinnacle & Secret Ember Relic
+      { x: 15.7, z: -217.0, y: 0.8, isCracking: true },       // Ridge 4: CRACKING STONE B (Breaks after 0.55s!)
+      { x: 12.5, z: -226.5, y: 0.4, isCracking: false },      // Ridge 5: Narrow Basalt Needle
+      { x: 8.0,  z: -235.5, y: 0.2, isCracking: false },      // Ridge 6: Descent Stepping Stone
+      { x: 4.3,  z: -243.5, y: 0.0, isCracking: false }       // Ridge 7: Rejoin Stone before Exit
     ];
 
     ridgeConfig.forEach((cfg, idx) => {
@@ -1439,9 +1426,9 @@ window.BlahajVolcano = (function () {
       }
     });
 
-    // Secret Ember Relic / Star Chest on High Pinnacle (Ridge Stone 3 at x = 15.5, z = -207.5)
+    // Secret Ember Relic / Star Chest on High Pinnacle (Ridge Stone 3 at x = 17.0, z = -207.5)
     emberChest = new THREE.Group();
-    emberChest.position.set(15.5, 1.2 + 0.45, -207.5);
+    emberChest.position.set(17.0, 1.2 + 0.45, -207.5);
     const chestGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 1), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
     emberChest.add(chestGem);
     const chestRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 32), m.brass);
@@ -2000,15 +1987,11 @@ window.BlahajVolcano = (function () {
     });
     if (camPos) skyMesh.position.copy(camPos);
 
-    // Pendulums: kinetic trail flares up at high velocity.
+    // Pendulums: swing smoothly in arcs across the gatehall corridor
     pendulums.forEach((p) => {
       const a = Math.sin(t * p.speed + p.phase) * 0.92;
       p.pivot.rotation.z = a;
       p.hit.set(Math.sin(a) * p.len, p.pivotY - Math.cos(a) * p.len, p.z);
-      if (p.trail) {
-        const velMag = Math.abs(Math.cos(t * p.speed + p.phase));
-        p.trail.material.opacity = Math.pow(velMag, 3.0) * 0.65;
-      }
     });
 
     // Realistic Geysers: telegraph warning, erupt with billowing ash & light, rest.
