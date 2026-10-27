@@ -2268,13 +2268,31 @@ window.BlahajWorld = (function () {
     }
     emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
     emberGeo.setAttribute('color', new THREE.BufferAttribute(emberColors, 3));
+
+    function createEmberTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grad.addColorStop(0.0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(0.35, 'rgba(255, 190, 70, 0.95)');
+      grad.addColorStop(0.7, 'rgba(255, 75, 20, 0.45)');
+      grad.addColorStop(1.0, 'rgba(255, 30, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 32, 32);
+      const tex = new THREE.CanvasTexture(canvas);
+      return tex;
+    }
+
     emberSystem = new THREE.Points(
       emberGeo,
       new THREE.PointsMaterial({
-        size: 1.8,
+        size: 2.4,
+        map: createEmberTexture(),
         vertexColors: true,
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.92,
         blending: THREE.AdditiveBlending,
         depthWrite: false
       })
@@ -5181,7 +5199,13 @@ window.BlahajWorld = (function () {
       const camX = lastCamera ? lastCamera.position.x : 0;
       const camZ = lastCamera ? lastCamera.position.z : 0;
       const distToCraterSq = (camX - (-28)) * (camX - (-28)) + (camZ - (-148)) * (camZ - (-148));
-      if (distToCraterSq < 130 * 130) {
+
+      // Embers smoothly ascend and swirl across all playable islands without ever freezing.
+      // Beyond far fog range (320m), hide the mesh cleanly so no static billboards linger.
+      const inViewRange = distToCraterSq < 320 * 320;
+      emberSystem.visible = inViewRange;
+
+      if (inViewRange) {
         const pos = emberSystem.geometry.attributes.position;
         for (let i = 0; i < pos.count; i++) {
           let y = pos.getY(i) + 0.18 + (i % 5) * 0.02;
