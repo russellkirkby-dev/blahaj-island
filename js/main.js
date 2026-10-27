@@ -2447,6 +2447,29 @@
   let loadingTipInterval = null;
   let isGameLoaded = false;
 
+  function syncLoadingAudioState() {
+    const isMuted = !!gameSettings.masterMute;
+    const btnAudio = document.getElementById('btn-loading-audio-toggle');
+    const iconAudio = document.getElementById('loading-audio-icon');
+    const textAudio = document.getElementById('loading-audio-text');
+    const subNote = document.getElementById('embark-audio-sub');
+
+    if (btnAudio) {
+      btnAudio.classList.toggle('muted', isMuted);
+    }
+    if (iconAudio) {
+      iconAudio.textContent = isMuted ? '🔇' : '🔊';
+    }
+    if (textAudio) {
+      textAudio.textContent = isMuted ? 'Audio: OFF' : 'Audio: ON';
+    }
+    if (subNote) {
+      subNote.textContent = isMuted
+        ? 'Click to Enter · Audio Muted 🔇'
+        : 'Click to Enter · Audio Enabled 🦈✨';
+    }
+  }
+
   function initLoadingScreen() {
     const tipEl = document.getElementById('game-loading-tip-text');
     if (tipEl) {
@@ -2461,6 +2484,27 @@
         }, 250);
       }, 3400);
     }
+
+    // Audio toggle switch on loading screen
+    const btnAudio = document.getElementById('btn-loading-audio-toggle');
+    if (btnAudio) {
+      btnAudio.addEventListener('click', () => {
+        const nextMute = !gameSettings.masterMute;
+        applySetting('masterMute', nextMute);
+        syncLoadingAudioState();
+        syncSettingsUI();
+      });
+    }
+
+    // Settings panel button on loading screen
+    const btnSettings = document.getElementById('btn-loading-settings');
+    if (btnSettings) {
+      btnSettings.addEventListener('click', () => {
+        openSettingsModal('audio');
+      });
+    }
+
+    syncLoadingAudioState();
   }
 
   function setLoadingProgress(pct, statusText) {
@@ -2489,6 +2533,8 @@
     if (pctEl) pctEl.textContent = '100%';
     if (statusEl) statusEl.textContent = 'Archipelago ready! Welcome to Blåhaj Island 🦈✨';
 
+    syncLoadingAudioState();
+
     if (btn) {
       btn.classList.remove('hidden');
       btn.focus();
@@ -2498,6 +2544,8 @@
         embarkIntoGame();
       };
       const onKeyDownEmbark = (e) => {
+        const setModal = document.getElementById('settings-modal');
+        if (setModal && !setModal.classList.contains('hidden')) return;
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'e' || e.key === 'E') {
           onEmbark();
         }
@@ -2514,8 +2562,10 @@
       clearInterval(loadingTipInterval);
       loadingTipInterval = null;
     }
-    CozyAudio.ensure();
-    if (CozyAudio.bistroChime) CozyAudio.bistroChime();
+    if (!gameSettings.masterMute) {
+      CozyAudio.ensure();
+      if (CozyAudio.bistroChime) CozyAudio.bistroChime();
+    }
 
     const overlay = document.getElementById('game-loading-screen');
     if (overlay) {
@@ -5806,6 +5856,7 @@
     // Audio volume & mutes
     if (key === 'masterVol' || key === 'masterMute' || key === 'musicVol' || key === 'musicMute' || key === 'sfxVol' || key === 'sfxMute' || key === 'ambientVol' || key === 'ambientMute') {
       CozyAudio.syncVolumes(gameSettings);
+      syncLoadingAudioState();
     }
 
     // Camera perspective
@@ -5945,6 +5996,8 @@
     if (qVis) qVis.checked = !!gameSettings.questVis;
     const cVis = document.getElementById('set-chat-vis');
     if (cVis) cVis.checked = !!gameSettings.chatVis;
+
+    syncLoadingAudioState();
   }
 
   function openSettingsModal(defaultTab = 'audio') {

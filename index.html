@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.2" />
+  <link rel="stylesheet" href="styles.css?v=4.3" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -43,9 +43,19 @@
         <span class="loading-tip-icon">💡</span>
         <span class="loading-tip-text" id="game-loading-tip-text">“Press [B] to toss warm Breb to the Birbs in the Heartland Meadow!”</span>
       </div>
+      <!-- Loading Preferences Row: Audio Switch & Settings Modal -->
+      <div class="loading-controls-row">
+        <button type="button" id="btn-loading-audio-toggle" class="loading-toggle-btn" title="Toggle audio on/off before embarking">
+          <span class="toggle-icon" id="loading-audio-icon">🔊</span>
+          <span class="toggle-text" id="loading-audio-text">Audio: ON</span>
+        </button>
+        <button type="button" id="btn-loading-settings" class="loading-settings-btn" title="Open Island Settings & Preferences">
+          ⚙️ Settings
+        </button>
+      </div>
       <button type="button" id="btn-enter-game" class="btn-enter-game hidden" title="Embark onto Blåhaj Island">
         <span class="enter-main">EMBARK TO BLÅHAJ ISLAND</span>
-        <span class="enter-sub">Click to Enter · Audio Enabled 🦈✨</span>
+        <span class="enter-sub" id="embark-audio-sub">Click to Enter · Audio Enabled 🦈✨</span>
       </button>
     </div>
   </div>
@@ -1384,16 +1394,16 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=4.2"></script>
-  <script src="js/sharks3d.js?v=4.2"></script>
-  <script src="js/world3d.js?v=4.2"></script>
-  <script src="js/volcano.js?v=4.2"></script>
-  <script src="js/laundromat.js?v=4.2"></script>
-  <script src="js/sphericalFoods.js?v=4.2"></script>
-  <script src="js/volleyball.js?v=4.2"></script>
-  <script src="js/network.js?v=4.2"></script>
-  <script src="js/inventory.js?v=4.2"></script>
-  <script src="js/enemies.js?v=4.2"></script>
-  <script src="js/main.js?v=4.2"></script>
+  <script src="js/lore.js?v=4.3"></script>
+  <script src="js/sharks3d.js?v=4.3"></script>
+  <script src="js/world3d.js?v=4.3"></script>
+  <script src="js/volcano.js?v=4.3"></script>
+  <script src="js/laundromat.js?v=4.3"></script>
+  <script src="js/sphericalFoods.js?v=4.3"></script>
+  <script src="js/volleyball.js?v=4.3"></script>
+  <script src="js/network.js?v=4.3"></script>
+  <script src="js/inventory.js?v=4.3"></script>
+  <script src="js/enemies.js?v=4.3"></script>
+  <script src="js/main.js?v=4.3"></script>
 </body>
 </html>
