@@ -706,7 +706,18 @@ window.BlahajEnemies = (function () {
           enemy.vel.set(0, 0, 0);
           enemy.rotVel.set(0, 0, 0);
 
-          if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
+          if (enemy.isIncursionInvader) {
+            // INVASION OVERCOME: Invader splashes down into ocean and joins deep sea patrol!
+            enemy.isIncursionInvader = false;
+            enemy.isWaterBased = true;
+            enemy.tag = 'PACIFIED SEA ROVER · BANISHED TO OCEAN';
+            enemy.patrolRoute = ROUTE_GRAND_ARCHIPELAGO;
+            const targetWp = ROUTE_GRAND_ARCHIPELAGO[Math.floor(Math.random() * ROUTE_GRAND_ARCHIPELAGO.length)];
+            enemy.pos.set(targetWp.x, -0.65, targetWp.z);
+            if (window.BlahajSeam && typeof window.BlahajSeam.onInvaderExpelledToSea === 'function') {
+              window.BlahajSeam.onInvaderExpelledToSea(enemy);
+            }
+          } else if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
             // Pick closest waypoint to splashdown location so shark smoothly resumes route
             let bestIdx = 0;
             let bestD = Infinity;
@@ -754,7 +765,7 @@ window.BlahajEnemies = (function () {
       if (enemy.vel.lengthSq() > 0.01) {
         const nextRecoilX = enemy.pos.x + enemy.vel.x * dt;
         const nextRecoilZ = enemy.pos.z + enemy.vel.z * dt;
-        if (enemy.isWaterBased && worldApi) {
+        if (enemy.isWaterBased && !enemy.isIncursionInvader && worldApi) {
           const testGround = worldApi.getGroundAndStructureHeight(nextRecoilX, nextRecoilZ);
           const testWave = worldApi.getWaveHeight(nextRecoilX, nextRecoilZ, elapsed);
           // Keep water creatures inside water during recoil!
@@ -797,7 +808,7 @@ window.BlahajEnemies = (function () {
           const tryX = enemy.pos.x + stepX;
           const tryZ = enemy.pos.z + stepZ;
 
-          if (enemy.isWaterBased && worldApi) {
+          if (enemy.isWaterBased && !enemy.isIncursionInvader && worldApi) {
             const tryGroundY = worldApi.getGroundAndStructureHeight(tryX, tryZ);
             const tryWaveY = worldApi.getWaveHeight(tryX, tryZ, elapsed);
             const tryDepth = tryWaveY - tryGroundY;
@@ -894,7 +905,7 @@ window.BlahajEnemies = (function () {
           const tryX = enemy.pos.x + fwdX;
           const tryZ = enemy.pos.z + fwdZ;
 
-          if (enemy.isWaterBased && worldApi) {
+          if (enemy.isWaterBased && !enemy.isIncursionInvader && worldApi) {
             const tryGroundY = worldApi.getGroundAndStructureHeight(tryX, tryZ);
             const tryWaveY = worldApi.getWaveHeight(tryX, tryZ, elapsed);
             if (tryWaveY - tryGroundY >= 0.55) {
@@ -931,7 +942,7 @@ window.BlahajEnemies = (function () {
         : 0.22;
 
       // Vertical positioning & animations
-      if (enemy.isWaterBased) {
+      if (enemy.isWaterBased && !enemy.isIncursionInvader) {
         if (enemy.type === 'shark') {
           // Mean Shark swims submerged in the water column!
           // Depth fluctuates gently with swimming stroke, with dorsal fin slicing near the water surface
@@ -944,6 +955,15 @@ window.BlahajEnemies = (function () {
           // Starfish crawls on the underwater seabed / reef floor
           enemy.mesh.position.y = finalGroundY + 0.14 + Math.abs(Math.sin(enemy.animPhase * 2.2)) * 0.12;
           enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 2.2) * 0.10;
+        }
+      } else if (enemy.isIncursionInvader) {
+        // Incursion creature flopping across island land!
+        if (enemy.type === 'shark') {
+          // Shark flopping on land with energetic tail thrash
+          enemy.mesh.position.y = finalGroundY + 0.38 + Math.abs(Math.sin(enemy.animPhase * 4.5)) * 0.15;
+          enemy.mesh.rotation.z = Math.sin(enemy.animPhase * 5.0) * 0.22;
+        } else {
+          enemy.mesh.position.y = finalGroundY + 0.22 + Math.abs(Math.sin(enemy.animPhase * 3.5)) * 0.25;
         }
       } else {
         // Land-based puffball hops merrily across meadow grass
@@ -987,7 +1007,134 @@ window.BlahajEnemies = (function () {
   // --------------------------------------------------------------------------
   // 7. BOOP ATTACK HIT CHECK
   // --------------------------------------------------------------------------
-  function checkBoopHit(playerPos, playerRotY) {
+    // --------------------------------------------------------------------------
+  // 5b. COSMIC SEAM INCURSION: SPAWN & BANISH LAND INVADERS
+  // --------------------------------------------------------------------------
+  function spawnIncursionInvaders(count = 6) {
+    if (!scene) return;
+    clearIncursionInvaders();
+
+    const spawnPoints = [
+      { name: 'Crescent Beach Dunes', x: 22.0, z: 46.0 },
+      { name: 'Crescent Cove Shallows', x: 8.0, z: 52.0 },
+      { name: 'Heartland Meadow North', x: -14.0, z: 24.0 },
+      { name: 'Heartland Plaza Crossroads', x: -4.0, z: 10.0 },
+      { name: 'Artisans Shore Shallows', x: 26.0, z: -8.0 },
+      { name: 'Solomon Bread Oven Path', x: -16.0, z: 14.0 },
+      { name: 'Endless Pier Boardwalk', x: 42.0, z: 62.0 },
+      { name: 'Crust Cliffs Base', x: 32.0, z: -32.0 },
+      { name: 'Windmill Meadow Approach', x: -24.0, z: 28.0 },
+      { name: 'Between Portal Shallows', x: 56.0, z: 8.0 },
+      { name: 'South Shoreline Shallows', x: -8.0, z: -55.0 },
+      { name: 'Crescent Beach Palm Line', x: -18.0, z: 42.0 }
+    ];
+
+    const sharkThemes = [
+      { body: 0x334155, eye: 0xf59e0b, title: 'Mink Shark Marauder 🦈' },
+      { body: 0x1e3a8a, eye: 0xef4444, title: 'Dune Crasher Shark 🦈' },
+      { body: 0x0f766e, eye: 0xa3e635, title: 'Plaza Raider Shark 🦈' },
+      { body: 0x475569, eye: 0x38bdf8, title: 'Reef Marauder Shark 🦈' },
+      { body: 0x7c2d12, eye: 0xfacc15, title: 'Tide Strider Shark 🦈' },
+      { body: 0x3b0764, eye: 0xf472b6, title: 'Cosmic Seam Shark 🦈' }
+    ];
+
+    for (let i = 0; i < count; i++) {
+      const sp = spawnPoints[i % spawnPoints.length];
+      const kind = (i % 3 === 2) ? 'urchin' : (i % 3 === 1 ? 'starfish' : 'shark');
+
+      let mesh = null;
+      let title = '';
+      let type = kind;
+      let isWater = false;
+      let speed = 3.8;
+
+      if (kind === 'shark') {
+        const col = sharkThemes[i % sharkThemes.length];
+        mesh = createMeanSharkMesh({ bodyColor: col.body, eyeColor: col.eye, hasScars: i % 2 === 1 });
+        title = col.title;
+        isWater = true;
+        speed = 4.0;
+      } else if (kind === 'starfish') {
+        mesh = createStarfishMesh();
+        title = `Cosmic Brine Star #${i + 1} 🌟`;
+        isWater = true;
+        speed = 2.6;
+      } else {
+        mesh = createKelpUrchinMesh();
+        title = `Prickly Dune Urchin #${i + 1} 🦔`;
+        isWater = false;
+        speed = 3.2;
+      }
+
+      const groundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
+        ? worldApi.getGroundAndStructureHeight(sp.x, sp.z)
+        : 1.0;
+
+      const pos = new THREE.Vector3(sp.x, groundY + 0.35, sp.z);
+      mesh.position.copy(pos);
+      scene.add(mesh);
+
+      const eObj = {
+        id: `incursion_invader_${i + 1}`,
+        type,
+        title,
+        tag: 'COSMIC SEAM INVADER · BREACHED ONTO LAND',
+        isWaterBased: isWater,
+        isIncursionInvader: true,
+        homePos: pos.clone(),
+        pos: pos.clone(),
+        vel: new THREE.Vector3(),
+        rotY: Math.random() * Math.PI * 2,
+        rotVel: new THREE.Vector3(),
+        speed,
+        patrolSpeedMult: 0.8,
+        aggroDist: 16.0,
+        mange: 0.0,
+        mesh,
+        labelEl: null,
+        isFlying: false,
+        flyTimer: 0,
+        respawnTimer: 0,
+        animPhase: Math.random() * Math.PI * 2,
+        state: 'chasing',
+        isChasing: true,
+        patrolRoute: null,
+        waypointIdx: 0,
+        takeBoop(dmg, knockDir) {
+          handleEnemyBoop(this, dmg, knockDir);
+        }
+      };
+
+      eObj.labelEl = createEnemyLabel(eObj);
+      enemies.push(eObj);
+    }
+
+    console.log(`[BlahajEnemies] Spawned ${count} incursion invaders across land zones!`);
+  }
+
+  function clearIncursionInvaders() {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      if (e.isIncursionInvader) {
+        if (e.mesh && e.mesh.parent) e.mesh.parent.remove(e.mesh);
+        if (e.labelEl) e.labelEl.remove();
+        enemies.splice(i, 1);
+      }
+    }
+  }
+
+  function banishAllInvaders() {
+    enemies.forEach((enemy) => {
+      if (enemy.isIncursionInvader && !enemy.isFlying) {
+        enemy.mange = 1.0;
+        updateEnemyLabelUI(enemy);
+        const randDir = new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5).normalize();
+        launchEnemyIntoStratosphere(enemy, randDir);
+      }
+    });
+  }
+
+function checkBoopHit(playerPos, playerRotY) {
     if (!playerPos) return false;
 
     // Forward direction from shark's yaw (positive sin/cos in our coordinate system!)
@@ -1047,6 +1194,10 @@ window.BlahajEnemies = (function () {
     update,
     checkBoopHit,
     getEnemies: () => enemies,
-    launchEnemyIntoStratosphere
+    launchEnemyIntoStratosphere,
+    spawnIncursionInvaders,
+    clearIncursionInvaders,
+    banishAllInvaders,
+    getIncursionInvaders: () => enemies.filter((e) => e.isIncursionInvader)
   };
 })();

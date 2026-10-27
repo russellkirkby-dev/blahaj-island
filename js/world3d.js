@@ -1034,7 +1034,7 @@ window.BlahajWorld = (function () {
         if (b) boatMesh = b;
       },
       getPartnerBoatMesh: () => partnerBoatMesh,
-      getSeamRifts: () => seamRifts,
+      getSeamRifts: () => (window.BlahajSeam && typeof window.BlahajSeam.getSeamRifts === 'function' ? window.BlahajSeam.getSeamRifts() : seamRifts),
       getBalconyCarrots: () => balconyCarrots,
       getBirbFlock: () => birbFlock,
       getBeachBalls: () => beachBalls,
@@ -4657,6 +4657,10 @@ window.BlahajWorld = (function () {
   }
 
   function buildGreatSeamRifts(scene) {
+    if (window.BlahajSeam && typeof window.BlahajSeam.init === 'function') {
+      window.BlahajSeam.init(scene);
+      return;
+    }
     const riftCoords = [
       { id: 'rift-1', x: 24, z: 6, mended: true },
       { id: 'rift-2', x: -24, z: 24, mended: true },

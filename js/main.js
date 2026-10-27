@@ -2272,7 +2272,7 @@
     warmth: 100,
     teaComfort: 88,
     volcanoHonour: 72,
-    seamMendedCount: 3,
+    seamMendedCount: 0,
     teaSharedCount: 0,
     carrotsKnockedCount: 4, // Starter Carrot Sparks + earn more on the Volcano Balcony!
     birbsFedCount: 6, // Starter Birb Crumbs + earn more by tossing Breb [B]!
@@ -2638,6 +2638,12 @@
 
       communityTrunk = window.BlahajInventory.createCommunityTrunk();
       scene.add(communityTrunk.group);
+
+    // Initialize The Great Seam & Recurring Mini-Game System
+    if (window.BlahajSeam) {
+      window.BlahajSeam.init(scene);
+      window.BlahajSeam.onZoneChanged(currentZone);
+    }
 
       launchMortarStation = window.BlahajInventory.createLaunchMortarStation();
       scene.add(launchMortarStation.group);
@@ -4464,6 +4470,35 @@
   }
 
   function mendNearbyRift(maxRadius = 12) {
+    if (window.BlahajSeam) {
+      const allRifts = window.BlahajSeam.getAllActiveRifts();
+      let mendedOne = false;
+      allRifts.forEach((r) => {
+        if (!r.mended && (r.zone === currentZone || (r.zone === 'island' && currentZone === 'overworld'))) {
+          const d = Math.hypot(r.pos.x - player.pos.x, r.pos.z - player.pos.z);
+          const dy = Math.abs(r.pos.y - player.pos.y);
+          if (d < maxRadius && dy < 6.0) {
+            window.BlahajSeam.mendRift(r.id);
+            mendedOne = true;
+            window.BlahajNetwork.send({ type: 'rift_mend', riftId: r.id });
+          }
+        }
+      });
+
+      if (mendedOne) {
+        player.seamMendedCount = window.BlahajSeam.getState().mendedCount;
+        updateMetersUI();
+        CozyAudio.portalChime();
+        spawnFloatingBurst(player.pos, 0x52f29c, 16);
+        showToast('GREAT SEAM MENDED', `Stitched a cosmic rift! (${player.seamMendedCount} / 6 Mended)`);
+        completeQuest('q-seam');
+        if (player.seamMendedCount >= 6) {
+          completeQuest('q-sw-seam');
+        }
+      }
+      return mendedOne;
+    }
+
     const rifts = worldApi.getSeamRifts();
     let mendedOne = false;
     rifts.forEach((r) => {
@@ -4516,7 +4551,7 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(() => {
-          currentZone = 'volcano';
+          currentZone = 'volcano'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajVolcano) {
             window.BlahajVolcano.setActive(true);
             if (typeof window.BlahajVolcano.resetVolunteerCarrots === 'function') {
@@ -4647,7 +4682,7 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(async () => {
-          currentZone = 'laundromat';
+          currentZone = 'laundromat'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajLaundromat) {
             await window.BlahajLaundromat.build();
             window.BlahajLaundromat.setActive(true);
@@ -4730,7 +4765,7 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(async () => {
-          currentZone = 'spherical_foods';
+          currentZone = 'spherical_foods'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajSphericalFoods) {
             await window.BlahajSphericalFoods.build();
             window.BlahajSphericalFoods.setActive(true);
@@ -6051,7 +6086,256 @@
     });
   }
 
+
+  // ==========================================================================
+  // DEVELOPER DEBUG CONSOLE & GREAT SEAM SYSTEM CONTROLS
+  // (UNLOCKED BY TYPING "BLAHAJ")
+  // ==========================================================================
+  let secretCheatBuffer = '';
+  window.addEventListener('keydown', (e) => {
+    // Listen for secret word "blahaj" (case-insensitive)
+    if (e.key && e.key.length === 1) {
+      secretCheatBuffer = (secretCheatBuffer + e.key.toLowerCase()).slice(-10);
+      if (secretCheatBuffer.endsWith('blahaj')) {
+        secretCheatBuffer = '';
+        unlockDeveloperDebugPanel();
+      }
+    }
+  });
+
+  function unlockDeveloperDebugPanel() {
+    const tabBtn = document.getElementById('tab-btn-debug');
+    if (tabBtn) tabBtn.classList.remove('hidden');
+    openSettingsModal('debug');
+    switchSettingsTab('debug');
+    renderDebugPanelState();
+    CozyAudio.portalChime();
+    showToast('🛠️ DEVELOPER DEBUG PANEL UNLOCKED!', 'Welcome Architect! Great Seam controls & systems diagnostics revealed.');
+    addChatLog('🛠️ <strong>DEVELOPER DEBUG UNLOCKED:</strong> Great Seam & Incursion simulation controls enabled in Settings!', 'system');
+  }
+
+  function teleportToRift(rift) {
+    if (!rift) return;
+    closeSettingsModal();
+
+    if (rift.zone === 'volcano') {
+      if (currentZone !== 'volcano') {
+        enterVolcanoTrial();
+      }
+      setTimeout(() => {
+        player.pos.set(rift.pos.x, rift.pos.y + 0.35, rift.pos.z + 1.8);
+      }, 300);
+    } else if (rift.zone === 'laundromat') {
+      if (currentZone !== 'laundromat') {
+        enterLaundromat();
+      }
+      setTimeout(() => {
+        player.pos.set(rift.pos.x, rift.pos.y + 0.35, rift.pos.z + 1.5);
+      }, 300);
+    } else if (rift.zone === 'spherical_foods') {
+      if (currentZone !== 'spherical_foods') {
+        currentZone = 'spherical_foods';
+        if (window.BlahajSphericalFoods) window.BlahajSphericalFoods.setActive(true);
+      }
+      setTimeout(() => {
+        player.pos.set(rift.pos.x, rift.pos.y + 0.35, rift.pos.z + 1.5);
+      }, 300);
+    } else {
+      if (currentZone !== 'island') {
+        currentZone = 'island';
+        if (window.BlahajVolcano) window.BlahajVolcano.setActive(false);
+        if (window.BlahajLaundromat) window.BlahajLaundromat.setActive(false);
+        if (window.BlahajSphericalFoods) window.BlahajSphericalFoods.setActive(false);
+      }
+      player.pos.set(rift.pos.x, rift.pos.y + 0.35, rift.pos.z + 1.8);
+    }
+
+    if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
+    showToast('WARPED TO RIFT! 🌀', `Arrived at ${rift.name}`);
+  }
+
+  function renderDebugPanelState() {
+    if (!window.BlahajSeam) return;
+    const st = window.BlahajSeam.getState();
+
+    // 1. Badge & State Text
+    const badge = document.getElementById('dbg-seam-status-badge');
+    const stateVal = document.getElementById('dbg-cycle-state');
+    if (badge && stateVal) {
+      if (st.state === 'incursion') {
+        badge.className = 'debug-status-pill status-incursion';
+        badge.textContent = '🚨 COSMIC INCURSION ACTIVE';
+        stateVal.textContent = 'BREACHED (Invaders on Land!)';
+        stateVal.style.color = '#f43f5e';
+      } else {
+        badge.className = 'debug-status-pill status-calm';
+        badge.textContent = '🟢 PEACEFUL HUNT';
+        stateVal.textContent = 'Calm (Seam Stable)';
+        stateVal.style.color = '#10b981';
+      }
+    }
+
+    // 2. Timer Readout
+    const timerVal = document.getElementById('dbg-cycle-timer');
+    if (timerVal) {
+      const mins = Math.floor(st.timer / 60);
+      const secs = Math.floor(st.timer % 60);
+      timerVal.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // 3. Rifts Count
+    const riftsVal = document.getElementById('dbg-rifts-count');
+    if (riftsVal) {
+      riftsVal.textContent = `${st.mendedCount} / ${st.totalRifts}`;
+      player.seamMendedCount = st.mendedCount;
+      updateMetersUI();
+    }
+
+    // 4. Invaders Count
+    const invVal = document.getElementById('dbg-invaders-count');
+    if (invVal) {
+      if (st.state === 'incursion') {
+        const remaining = Math.max(0, st.invadersNeeded - st.invadersBanished);
+        invVal.textContent = `${remaining} Remaining on Land! (${st.invadersBanished} banished)`;
+        invVal.style.color = '#f43f5e';
+      } else {
+        invVal.textContent = '0 (Pacified in Ocean)';
+        invVal.style.color = '#10b981';
+      }
+    }
+
+    // 5. Active Rifts Directory List
+    const riftsList = document.getElementById('dbg-rifts-list');
+    if (riftsList && st.rifts) {
+      riftsList.innerHTML = '';
+      st.rifts.forEach((r, idx) => {
+        const item = document.createElement('div');
+        item.className = 'debug-rift-item';
+
+        const info = document.createElement('div');
+        info.className = 'debug-rift-info';
+
+        const nameRow = document.createElement('div');
+        nameRow.className = 'debug-rift-name-row';
+
+        const title = document.createElement('span');
+        title.className = 'debug-rift-title';
+        title.innerHTML = `${r.mended ? '✅' : '🌌'} Rift #${idx + 1}: ${r.name}`;
+
+        const badge = document.createElement('span');
+        badge.className = `debug-rift-zone-badge debug-rift-zone-${r.zone}`;
+        badge.textContent = r.zone;
+
+        nameRow.appendChild(title);
+        nameRow.appendChild(badge);
+
+        const desc = document.createElement('span');
+        desc.className = 'debug-rift-desc';
+        desc.textContent = `${r.desc} · Pos: [${Math.round(r.pos.x)}, ${Math.round(r.pos.y)}, ${Math.round(r.pos.z)}] · ${r.mended ? 'Mended ✨' : 'OPEN TEAR'}`;
+
+        info.appendChild(nameRow);
+        info.appendChild(desc);
+
+        const warpBtn = document.createElement('button');
+        warpBtn.type = 'button';
+        warpBtn.className = 'btn-debug btn-accent';
+        warpBtn.textContent = `Warp to Rift #${idx + 1} 🌀`;
+        warpBtn.addEventListener('click', () => teleportToRift(r));
+
+        item.appendChild(info);
+        item.appendChild(warpBtn);
+        riftsList.appendChild(item);
+      });
+    }
+  }
+
+  function setupDebugPanelUI() {
+    // Great Seam Action Buttons
+    document.getElementById('dbg-btn-trigger-incursion')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.triggerIncursion(true);
+        renderDebugPanelState();
+      }
+    });
+
+    document.getElementById('dbg-btn-ff-15m')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.fastForward(900);
+        renderDebugPanelState();
+      }
+    });
+
+    document.getElementById('dbg-btn-rewind-15m')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.rewind(900);
+        renderDebugPanelState();
+      }
+    });
+
+    document.getElementById('dbg-btn-set-30s')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.setCountdown(30);
+        renderDebugPanelState();
+      }
+    });
+
+    document.getElementById('dbg-btn-reroll-rifts')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.rerollRifts();
+        renderDebugPanelState();
+        showToast('6 RIFTS REROLLED! 🎲', 'Scattered fresh cosmic rifts across island & dungeon instances!');
+      }
+    });
+
+    document.getElementById('dbg-btn-mend-all')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.instaMendAll();
+        renderDebugPanelState();
+      }
+    });
+
+    document.getElementById('dbg-btn-banish-invaders')?.addEventListener('click', () => {
+      if (window.BlahajSeam) {
+        window.BlahajSeam.banishAllInvaders();
+        renderDebugPanelState();
+      }
+    });
+
+    // Extensible Tools
+    document.getElementById('dbg-btn-wipe-mange')?.addEventListener('click', () => {
+      setSharkMange(0.0);
+      showToast('DEMANGED! ✨', 'Your shark coat is fresh, clean and silk-smooth!');
+    });
+
+    document.getElementById('dbg-btn-give-trial-pts')?.addEventListener('click', () => {
+      player.trialPoints += 5;
+      updateMetersUI();
+      renderUpgradesGrid();
+      showToast('+5 TRIAL POINTS! ⭐', 'Trial currency added to your pouch!');
+    });
+
+    document.getElementById('dbg-btn-give-crafting-pack')?.addEventListener('click', () => {
+      if (player.inventory) {
+        player.inventory.addItem('sulfur', 3);
+        player.inventory.addItem('birb_down', 4);
+        player.inventory.addItem('guano', 3);
+        player.inventory.addItem('driftwood', 4);
+        showToast('CRAFTING PACK GRANTED! 🎒', 'Received Volcanic Sulfur, Birb Down, Guano & Driftwood!');
+      }
+    });
+
+    document.getElementById('dbg-btn-toggle-hud')?.addEventListener('click', () => {
+      toggleMinimalHUD();
+    });
+
+    // Listen to live state updates
+    if (window.BlahajSeam) {
+      window.BlahajSeam.onStateChange(renderDebugPanelState);
+    }
+  }
+
   function setupSettingsUI() {
+    setupDebugPanelUI();
     // Tab switching
     document.querySelectorAll('#settings-tabs .settings-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -8893,6 +9177,9 @@
       if (worldPickups) {
         worldPickups.update(dt, elapsed);
       }
+      if (window.BlahajSeam) {
+        window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
+      }
       if (solomonBreadOven && solomonBreadOven.smokeParticles) {
         solomonBreadOven.smokeParticles.forEach((sp, idx) => {
           const t = (elapsed * 0.8 + idx * 0.35) % 1.5;
@@ -10736,7 +11023,16 @@
     finishLoadingScreen,
     isGameLoaded: () => isGameLoaded,
     getCompletedQuests: () => completedQuests,
-    completeQuest
+    completeQuest,
+    unlockDeveloperDebugPanel,
+    renderDebugPanelState,
+    teleportToRift,
+    triggerIncursion: () => window.BlahajSeam && window.BlahajSeam.triggerIncursion(true),
+    fastForwardSeam: (sec) => window.BlahajSeam && window.BlahajSeam.fastForward(sec),
+    rerollSeamRifts: () => window.BlahajSeam && window.BlahajSeam.rerollRifts(),
+    instaMendAllSeams: () => window.BlahajSeam && window.BlahajSeam.instaMendAll(),
+    banishAllInvaders: () => window.BlahajSeam && window.BlahajSeam.banishAllInvaders(),
+    getSeamState: () => window.BlahajSeam && window.BlahajSeam.getState()
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.4" />
+  <link rel="stylesheet" href="styles.css?v=4.5" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1044,6 +1044,7 @@
         <button class="settings-tab" data-tab="display">✨ Visuals &amp; Graphics</button>
         <button class="settings-tab" data-tab="hud">🖥️ HUD &amp; Interface</button>
         <button class="settings-tab" data-tab="keybinds">⌨️ Keybindings</button>
+        <button class="settings-tab hidden" id="tab-btn-debug" data-tab="debug">🛠️ Developer Debug</button>
       </div>
 
       <!-- Tab 1: Audio & SFX -->
@@ -1331,6 +1332,75 @@
         </div>
       </div>
 
+      <!-- Tab 6: Developer Debug & Architecture Panel (Unlocked by typing "Blahaj") -->
+      <div class="settings-panel hidden" id="panel-debug">
+        <div class="debug-panel-banner">
+          <div class="debug-banner-badge">ARCHITECT CONSOLE · UNLOCKED VIA &quot;BLAHAJ&quot;</div>
+          <h3>🛠️ Great Seam &amp; Systems Architecture Debug</h3>
+          <p>Real-time simulation controls for the 1-hour Great Seam cycle, cosmic rift hunting across instances, and co-op land incursion defense.</p>
+        </div>
+
+        <!-- Section 1: Great Seam Cycle Diagnostics -->
+        <div class="debug-card">
+          <div class="debug-card-header">
+            <span class="debug-card-title">🌌 The Great Seam &amp; Incursion Status</span>
+            <span class="debug-status-pill status-calm" id="dbg-seam-status-badge">🟢 PEACEFUL HUNT</span>
+          </div>
+          <div class="debug-metrics-grid">
+            <div class="debug-metric">
+              <span class="metric-label">Cycle State</span>
+              <span class="metric-val" id="dbg-cycle-state">Calm (Seam Stable)</span>
+            </div>
+            <div class="debug-metric">
+              <span class="metric-label">Time Remaining</span>
+              <span class="metric-val" id="dbg-cycle-timer">60:00</span>
+            </div>
+            <div class="debug-metric">
+              <span class="metric-label">Rifts Sealed</span>
+              <span class="metric-val" id="dbg-rifts-count">0 / 6</span>
+            </div>
+            <div class="debug-metric">
+              <span class="metric-label">Land Invaders</span>
+              <span class="metric-val" id="dbg-invaders-count">0 (Pacified in Ocean)</span>
+            </div>
+          </div>
+
+          <div class="debug-btn-row">
+            <button type="button" class="btn-debug btn-danger" id="dbg-btn-trigger-incursion">⚡ Trigger Incursion Now (Rip Seam)</button>
+            <button type="button" class="btn-debug" id="dbg-btn-ff-15m">⏩ Fast-Forward +15m</button>
+            <button type="button" class="btn-debug" id="dbg-btn-rewind-15m">⏪ Rewind -15m</button>
+            <button type="button" class="btn-debug" id="dbg-btn-set-30s">⏳ Set 30s Countdown</button>
+            <button type="button" class="btn-debug btn-accent" id="dbg-btn-reroll-rifts">🎲 Reroll 6 Rifts</button>
+            <button type="button" class="btn-debug btn-success" id="dbg-btn-mend-all">🪡 Insta-Mend All (6/6)</button>
+            <button type="button" class="btn-debug btn-warning" id="dbg-btn-banish-invaders">🚀 Banish All Invaders (Boop to Sea)</button>
+          </div>
+        </div>
+
+        <!-- Section 2: Active 6 Rifts Location Directory & Teleporter -->
+        <div class="debug-card">
+          <div class="debug-card-header">
+            <span class="debug-card-title">📍 Active 6 Rifts Directory &amp; Instance Teleporter</span>
+            <span class="debug-hint-text">Click any rift to warp directly in front of it (auto-transitions zones)</span>
+          </div>
+          <div class="debug-rifts-list" id="dbg-rifts-list">
+            <!-- Dynamically populated with Rift cards & warp buttons -->
+          </div>
+        </div>
+
+        <!-- Section 3: Extensible Architect Container for Future Systems -->
+        <div class="debug-card">
+          <div class="debug-card-header">
+            <span class="debug-card-title">🧩 Future Architect Tools (Extensible Container)</span>
+          </div>
+          <div class="debug-extensible-grid">
+            <button type="button" class="btn-debug" id="dbg-btn-wipe-mange">✨ Demange Player (0% Mange)</button>
+            <button type="button" class="btn-debug" id="dbg-btn-give-trial-pts">⭐ Give +5 Trial Points</button>
+            <button type="button" class="btn-debug" id="dbg-btn-give-crafting-pack">🎒 Give Fireworks Crafting Pack</button>
+            <button type="button" class="btn-debug" id="dbg-btn-toggle-hud">🖥️ Toggle Minimal HUD</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Settings Footer -->
       <div class="settings-footer">
         <button class="btn-secondary" id="btn-reset-settings" title="Restore all default settings">↺ Reset to Defaults</button>
@@ -1394,16 +1464,17 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=4.4"></script>
-  <script src="js/sharks3d.js?v=4.4"></script>
-  <script src="js/world3d.js?v=4.4"></script>
-  <script src="js/volcano.js?v=4.4"></script>
-  <script src="js/laundromat.js?v=4.4"></script>
-  <script src="js/sphericalFoods.js?v=4.4"></script>
-  <script src="js/volleyball.js?v=4.4"></script>
-  <script src="js/network.js?v=4.4"></script>
-  <script src="js/inventory.js?v=4.4"></script>
-  <script src="js/enemies.js?v=4.4"></script>
-  <script src="js/main.js?v=4.4"></script>
+  <script src="js/lore.js?v=4.5"></script>
+  <script src="js/sharks3d.js?v=4.5"></script>
+  <script src="js/world3d.js?v=4.5"></script>
+  <script src="js/volcano.js?v=4.5"></script>
+  <script src="js/laundromat.js?v=4.5"></script>
+  <script src="js/sphericalFoods.js?v=4.5"></script>
+  <script src="js/volleyball.js?v=4.5"></script>
+  <script src="js/network.js?v=4.5"></script>
+  <script src="js/inventory.js?v=4.5"></script>
+  <script src="js/enemies.js?v=4.5"></script>
+  <script src="js/seam.js?v=4.5"></script>
+  <script src="js/main.js?v=4.5"></script>
 </body>
 </html>
