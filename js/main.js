@@ -100,14 +100,14 @@
     volcanoBeatStep: 0,
     volcanoChordIdx: 0,
     volcanoChords: [
-      // Dm9: Dark dramatic adventure, high-stakes peril (exciting, wholesome danger)
-      { name: 'Dm9',       bass: 73.42, notes: [293.66, 349.23, 440.00, 523.25, 659.25], scale: [293.66, 329.63, 349.23, 440.00, 523.25, 587.33, 659.25] },
-      // Bbmaj7#11: Epic cinematic Lydian lift, fiery molten cavern
-      { name: 'Bbmaj7#11', bass: 58.27, notes: [233.08, 293.66, 349.23, 440.00, 659.25], scale: [233.08, 261.63, 293.66, 349.23, 440.00, 493.88, 587.33] },
-      // Gm6: Suspenseful Dorian warmth, impending magma challenge
-      { name: 'Gm6',       bass: 49.00, notes: [196.00, 233.08, 293.66, 329.63, 392.00], scale: [196.00, 220.00, 233.08, 293.66, 329.63, 392.00, 466.16] },
-      // A7b9: Heart-racing dominant tension resolving with fiery resolve
-      { name: 'A7b9',      bass: 55.00, notes: [220.00, 277.18, 329.63, 392.00, 466.16], scale: [220.00, 233.08, 277.18, 329.63, 392.00, 440.00, 466.16] }
+      // Dm(add b5) / Tritone Tension: Suspended anxiety, creeping uncertainty
+      { name: 'Dm(b5)', bass: 73.42, notes: [207.65, 293.66, 311.13, 440.00], motif: [587.33, 622.25, 440.00, 415.30] },
+      // Bbmaj7(#11) / The Chasm: Hollow, expansive dread
+      { name: 'Bb(#11)', bass: 58.27, notes: [233.08, 329.63, 349.23, 466.16], motif: [659.25, 698.46, 587.33, 466.16] },
+      // D dim7 / Looming Peril: Clustered dissonance, fragile foothold
+      { name: 'Ddim7',  bass: 43.65, notes: [174.61, 207.65, 246.94, 293.66], motif: [493.88, 523.25, 415.30, 349.23] },
+      // A7b9 / Pre-eruption Climax: Unresolved dominant crisis
+      { name: 'A7b9',   bass: 55.00, notes: [220.00, 233.08, 277.18, 392.00], motif: [466.16, 440.00, 554.37, 523.25] }
     ],
     laundromatMusicGain: null,
     laundromatNextBeatTime: 0,
@@ -595,7 +595,7 @@
       const now = this.ctx.currentTime;
       if (now < this.volcanoNextBeatTime) return;
 
-      const stepDur = 0.24; // 124 BPM driving 16th-note pulse
+      const stepDur = 0.30; // ~100 BPM deliberate, tense pacing
       this.volcanoNextBeatTime = now + stepDur;
       const step = this.volcanoBeatStep % 16;
       this.volcanoBeatStep++;
@@ -603,135 +603,141 @@
       const chordIdx = Math.floor(this.volcanoBeatStep / 16) % this.volcanoChords.length;
       const chord = this.volcanoChords[chordIdx];
 
-      // 1. Driving Subterranean Taiko / War Drums (Steps 0, 3, 6, 8, 10, 11, 14)
-      if (step === 0 || step === 3 || step === 6 || step === 8 || step === 10 || step === 11 || step === 14) {
+      // 1. Tense Subterranean Heartbeat Thump (Steps 0 and 2)
+      if (step === 0 || step === 2) {
         try {
-          const drumOsc = this.ctx.createOscillator();
-          const drumGain = this.ctx.createGain();
-          const isHeavy = (step === 0 || step === 8);
-          const startPitch = isHeavy ? 130 : 175;
-          const endPitch = isHeavy ? 38 : 52;
-          const peakGain = isHeavy ? 0.32 : 0.22;
+          const heartOsc = this.ctx.createOscillator();
+          const heartFilt = this.ctx.createBiquadFilter();
+          const heartGain = this.ctx.createGain();
 
-          drumOsc.type = 'sine';
-          drumOsc.frequency.setValueAtTime(startPitch, now);
-          drumOsc.frequency.exponentialRampToValueAtTime(endPitch, now + (isHeavy ? 0.16 : 0.09));
+          heartOsc.type = 'sine';
+          heartOsc.frequency.setValueAtTime(62, now);
+          heartOsc.frequency.exponentialRampToValueAtTime(28, now + 0.12);
 
-          drumGain.gain.setValueAtTime(0.0001, now);
-          drumGain.gain.linearRampToValueAtTime(peakGain, now + 0.004);
-          drumGain.gain.exponentialRampToValueAtTime(0.0001, now + (isHeavy ? 0.22 : 0.14));
+          heartFilt.type = 'lowpass';
+          heartFilt.frequency.setValueAtTime(90, now);
 
-          drumOsc.connect(drumGain);
-          drumGain.connect(this.volcanoMusicGain);
-          drumOsc.start(now);
-          drumOsc.stop(now + 0.24);
+          const vol = (step === 0) ? 0.32 : 0.20; // First beat heavy, second softer
+          heartGain.gain.setValueAtTime(0.0001, now);
+          heartGain.gain.linearRampToValueAtTime(vol, now + 0.005);
+          heartGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+          heartOsc.connect(heartFilt);
+          heartFilt.connect(heartGain);
+          heartGain.connect(this.volcanoMusicGain);
+          heartOsc.start(now);
+          heartOsc.stop(now + 0.20);
         } catch (e) {}
       }
 
-      // 2. Urgent Volcanic Steam Shaker / Hi-Hat Ticks (Every 16th step)
+      // 2. Anxious Clockwork / Obsidian Fissure Ticks (Every 16th step)
       try {
         const noise = this.getNoiseBuffer();
-        const shakerSrc = this.ctx.createBufferSource();
-        shakerSrc.buffer = noise;
-        const shakerFilter = this.ctx.createBiquadFilter();
-        shakerFilter.type = 'bandpass';
-        shakerFilter.frequency.setValueAtTime(4600, now);
-        shakerFilter.Q.setValueAtTime(3.2, now);
+        const tickSrc = this.ctx.createBufferSource();
+        tickSrc.buffer = noise;
+        const tickFilter = this.ctx.createBiquadFilter();
+        tickFilter.type = 'bandpass';
+        tickFilter.frequency.setValueAtTime(5400, now);
+        tickFilter.Q.setValueAtTime(4.5, now);
 
-        const shakerGain = this.ctx.createGain();
-        const isAccent = (step % 4 === 2); // Syncopated off-beat accents
-        const sVol = isAccent ? 0.14 : 0.07;
-        shakerGain.gain.setValueAtTime(0.0001, now);
-        shakerGain.gain.linearRampToValueAtTime(sVol, now + 0.003);
-        shakerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+        const tickGain = this.ctx.createGain();
+        const isAccent = (step % 4 === 2);
+        const tVol = isAccent ? 0.09 : 0.04;
+        tickGain.gain.setValueAtTime(0.0001, now);
+        tickGain.gain.linearRampToValueAtTime(tVol, now + 0.002);
+        tickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
 
-        shakerSrc.connect(shakerFilter);
-        shakerFilter.connect(shakerGain);
-        shakerGain.connect(this.volcanoMusicGain);
-        shakerSrc.start(now);
-        shakerSrc.stop(now + 0.06);
+        tickSrc.connect(tickFilter);
+        tickFilter.connect(tickGain);
+        tickGain.connect(this.volcanoMusicGain);
+        tickSrc.start(now);
+        tickSrc.stop(now + 0.04);
       } catch (e) {}
 
-      // 3. Subterranean Bassline Pulse (Steps 0, 4, 8, 12)
-      if (step === 0 || step === 4 || step === 8 || step === 12) {
+      // 3. Deep Breathing Magma Sub-Drone (Steps 0 and 8)
+      if (step === 0 || step === 8) {
         try {
-          const bassOsc = this.ctx.createOscillator();
-          const bassFilter = this.ctx.createBiquadFilter();
-          const bassGain = this.ctx.createGain();
+          const droneOsc = this.ctx.createOscillator();
+          const droneFilter = this.ctx.createBiquadFilter();
+          const droneGain = this.ctx.createGain();
 
-          bassOsc.type = 'triangle';
-          bassOsc.frequency.setValueAtTime(chord.bass, now);
-          bassFilter.type = 'lowpass';
-          bassFilter.frequency.setValueAtTime(160, now);
+          droneOsc.type = 'triangle';
+          droneOsc.frequency.setValueAtTime(chord.bass, now);
 
-          bassGain.gain.setValueAtTime(0.0001, now);
-          bassGain.gain.linearRampToValueAtTime(0.28, now + 0.015);
-          bassGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+          droneFilter.type = 'lowpass';
+          droneFilter.frequency.setValueAtTime(75, now);
+          droneFilter.frequency.linearRampToValueAtTime(220, now + 0.6);
+          droneFilter.frequency.exponentialRampToValueAtTime(70, now + 1.8);
 
-          bassOsc.connect(bassFilter);
-          bassFilter.connect(bassGain);
-          bassGain.connect(this.volcanoMusicGain);
-          bassOsc.start(now);
-          bassOsc.stop(now + 0.38);
+          droneGain.gain.setValueAtTime(0.0001, now);
+          droneGain.gain.linearRampToValueAtTime(0.30, now + 0.08);
+          droneGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.0);
+
+          droneOsc.connect(droneFilter);
+          droneFilter.connect(droneGain);
+          droneGain.connect(this.volcanoMusicGain);
+          droneOsc.start(now);
+          droneOsc.stop(now + 2.1);
         } catch (e) {}
       }
 
-      // 4. Dramatic Brassy Synth Stabs (Steps 0, 6, 12)
-      if (step === 0 || step === 6 || step === 12) {
+      // 4. Sparse Eerie Echoing Mineral Pings (Steps 4, 9, 13)
+      if (step === 4 || step === 9 || step === 13) {
+        try {
+          const pingIdx = (step === 4) ? 0 : (step === 9 ? 1 : 2);
+          const freq = chord.motif[pingIdx % chord.motif.length];
+
+          const pingOsc = this.ctx.createOscillator();
+          const pingFilt = this.ctx.createBiquadFilter();
+          const pingGain = this.ctx.createGain();
+
+          pingOsc.type = 'sine';
+          pingOsc.frequency.setValueAtTime(freq, now);
+
+          pingFilt.type = 'bandpass';
+          pingFilt.frequency.setValueAtTime(freq, now);
+          pingFilt.Q.setValueAtTime(6.0, now);
+
+          pingGain.gain.setValueAtTime(0.0001, now);
+          pingGain.gain.linearRampToValueAtTime(0.14, now + 0.006);
+          pingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55); // Long cavernous decay
+
+          pingOsc.connect(pingFilt);
+          pingFilt.connect(pingGain);
+          pingGain.connect(this.volcanoMusicGain);
+          pingOsc.start(now);
+          pingOsc.stop(now + 0.60);
+        } catch (e) {}
+      }
+
+      // 5. Creeping Tension Swell (Steps 12 to 15, right before next bar)
+      if (step >= 12) {
         chord.notes.forEach((freq) => {
           try {
-            const bOsc = this.ctx.createOscillator();
-            const bFilt = this.ctx.createBiquadFilter();
-            const bGain = this.ctx.createGain();
+            const sOsc = this.ctx.createOscillator();
+            const sFilt = this.ctx.createBiquadFilter();
+            const sGain = this.ctx.createGain();
 
-            bOsc.type = 'sawtooth';
-            bOsc.frequency.setValueAtTime(freq, now);
+            sOsc.type = 'sawtooth';
+            sOsc.frequency.setValueAtTime(freq, now);
 
-            bFilt.type = 'lowpass';
-            bFilt.frequency.setValueAtTime(500, now);
-            bFilt.frequency.linearRampToValueAtTime(2400, now + 0.06);
-            bFilt.frequency.exponentialRampToValueAtTime(650, now + 0.42);
+            sFilt.type = 'lowpass';
+            const progress = (step - 12) / 4.0;
+            sFilt.frequency.setValueAtTime(260 + progress * 500, now);
 
-            bGain.gain.setValueAtTime(0.0001, now);
-            bGain.gain.linearRampToValueAtTime(0.22 / Math.sqrt(chord.notes.length), now + 0.018);
-            bGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.48);
+            sGain.gain.setValueAtTime(0.0001, now);
+            sGain.gain.linearRampToValueAtTime(0.07 / Math.sqrt(chord.notes.length), now + 0.02);
+            sGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
 
-            bOsc.connect(bFilt);
-            bFilt.connect(bGain);
-            bGain.connect(this.volcanoMusicGain);
-            bOsc.start(now);
-            bOsc.stop(now + 0.50);
+            sOsc.connect(sFilt);
+            sFilt.connect(sGain);
+            sGain.connect(this.volcanoMusicGain);
+            sOsc.start(now);
+            sOsc.stop(now + 0.30);
           } catch (e) {}
         });
       }
-
-      // 5. Ember Kalimba / Obsidian Marimba Arpeggio (Even steps: 0, 2, 4, 6, 8, 10, 12, 14)
-      if (step % 2 === 0) {
-        try {
-          const melIdx = (step / 2) % chord.scale.length;
-          const noteFreq = chord.scale[melIdx];
-          const kOsc = this.ctx.createOscillator();
-          const kFilt = this.ctx.createBiquadFilter();
-          const kGain = this.ctx.createGain();
-
-          kOsc.type = 'triangle';
-          kOsc.frequency.setValueAtTime(noteFreq, now);
-          kFilt.type = 'lowpass';
-          kFilt.frequency.setValueAtTime(2200, now);
-
-          kGain.gain.setValueAtTime(0.0001, now);
-          kGain.gain.linearRampToValueAtTime(0.16, now + 0.008);
-          kGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
-
-          kOsc.connect(kFilt);
-          kFilt.connect(kGain);
-          kGain.connect(this.volcanoMusicGain);
-          kOsc.start(now);
-          kOsc.stop(now + 0.35);
-        } catch (e) {}
-      }
     },
-
     updateLaundromatMusic(elapsed, dt) {
       if (!this.ctx || !this.laundromatMusicGain) return;
       const now = this.ctx.currentTime;

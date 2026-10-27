@@ -511,7 +511,7 @@ window.BlahajVolcano = (function () {
   // --------------------------------------------------------------------------
   // TRAPS & MECHANISMS
   // --------------------------------------------------------------------------
-  // Detailed Swinging Obsidian Battleaxe (Guillotine Pendulum)
+  // Classic Sleek Swinging Obsidian Battleaxe
   function addPendulum(z, phase, speed) {
     const m = getMats();
     const pivotY = 14;
@@ -519,114 +519,70 @@ window.BlahajVolcano = (function () {
     const pivot = new THREE.Group();
     pivot.position.set(0, pivotY, z);
 
-    // Heavy overhead gantry beam spanning the vault
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(26, 1.4, 2.2), m.basalt);
-    beam.position.set(0, pivotY + 0.9, z);
+    // Overhead basalt crossbeam spanning the ceiling vault
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(22, 1.0, 1.6), m.basalt);
+    beam.position.set(0, pivotY + 0.5, z);
     scn.add(beam);
 
-    // Forged iron gantry flanges with bolts
-    [-11, 11].forEach((bx) => {
-      const gBrace = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.2, 2.4), m.charredIron);
-      gBrace.position.set(bx, pivotY + 1.2, z);
-      scn.add(gBrace);
-    });
+    // Pivot mount ring
+    const mountRing = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 16), m.charredIron);
+    mountRing.rotation.x = Math.PI / 2;
+    pivot.add(mountRing);
 
-    // Massive Iron Swivel Hub with Brass Teeth Cog
-    const cogHub = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.8, 20), m.charredIron);
-    cogHub.rotation.x = Math.PI / 2;
-    pivot.add(cogHub);
+    // Single sleek dark iron swinging shaft
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, len, 12), m.charredIron);
+    shaft.position.set(0, -len / 2, 0);
+    pivot.add(shaft);
 
-    const brassCog = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.35, 12), m.brass);
-    brassCog.rotation.x = Math.PI / 2;
-    pivot.add(brassCog);
-
-    const hubCore = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 12), m.magmaVein);
-    pivot.add(hubCore);
-
-    // Heavy Dual-Strut Reinforced Truss Shaft
-    [-0.28, 0.28].forEach((ox) => {
-      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, len, 8), m.charredIron);
-      strut.position.set(ox, -len / 2, 0);
-      pivot.add(strut);
-    });
-
-    // Cross-bracing diamond plates and runic collars along the shaft
-    for (let k = 1; k <= 3; k++) {
-      const cy = (-len * k) / 4;
-      const collar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.35, 0.45), m.brass);
-      collar.position.set(0, cy, 0);
-      pivot.add(collar);
-
-      const runeStitch = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.48), m.magmaVein);
-      runeStitch.position.set(0, cy, 0);
-      pivot.add(runeStitch);
-    }
-
-    // Heavy wrought iron suspension chains flanking the shaft
-    [-0.65, 0.65].forEach((cx) => {
-      const chainRod = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, len * 0.75, 6), m.brass);
-      chainRod.position.set(cx, -len * 0.45, 0);
-      pivot.add(chainRod);
-    });
-
-    // The Massive Double-Bearded Obsidian Battleaxe Cleaver
+    // Sleek, authentic Double-Bearded Black Obsidian Battleaxe Head
     const axeHead = new THREE.Group();
     axeHead.position.set(0, -len, 0);
 
-    // Heavy socket eye collar with brass studs
-    const socket = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.6, 0.7), m.charredIron);
-    axeHead.add(socket);
+    // Central forged iron eye collar
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.55, 16), m.charredIron);
+    collar.rotation.x = Math.PI / 2;
+    axeHead.add(collar);
 
-    const socketRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.12, 8, 24), m.brass);
-    socketRing.rotation.y = Math.PI / 2;
-    axeHead.add(socketRing);
-
-    // Glassy Pitch-Black Obsidian Crescent Blades (Left & Right Wings)
+    // Left and Right glassy obsidian crescent blades
     [-1, 1].forEach((side) => {
       const bladeWing = new THREE.Group();
       bladeWing.scale.x = side;
 
-      // Curved crescent blade body
-      const c1 = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.22, 24, 1, false, -0.65, 1.3), m.obsidian);
-      c1.rotation.z = Math.PI / 2;
-      c1.position.set(1.5, 0, 0);
-      bladeWing.add(c1);
+      // Obsidian crescent blade
+      const blade = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.65, 1.65, 0.16, 24, 1, false, -0.65, 1.3),
+        m.obsidian
+      );
+      blade.rotation.z = Math.PI / 2;
+      blade.position.set(1.3, 0, 0);
+      bladeWing.add(blade);
 
-      // Razor-sharp glowing molten cutting edge inlay
-      const edge = new THREE.Mesh(new THREE.TorusGeometry(1.92, 0.08, 8, 28, 1.3), m.magmaVein);
+      // Fine golden brass cutting bevel along the blade edge
+      const edge = new THREE.Mesh(
+        new THREE.TorusGeometry(1.66, 0.035, 8, 24, 1.3),
+        m.brass
+      );
       edge.rotation.z = -0.65;
-      edge.position.set(1.5, 0, 0);
+      edge.position.set(1.3, 0, 0);
       bladeWing.add(edge);
-
-      // Serrated obsidian horn spike at upper tip
-      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.95, 6), m.obsidian);
-      horn.rotation.z = -1.1;
-      horn.position.set(2.8, 1.1, 0);
-      bladeWing.add(horn);
-
-      // Lower beard hook spike
-      const beardSpike = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.85, 6), m.obsidian);
-      beardSpike.rotation.z = 1.2;
-      beardSpike.position.set(2.7, -1.0, 0);
-      bladeWing.add(beardSpike);
-
-      // Runic glyph plate on blade face
-      const glyph = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.15, 0.26), m.glow);
-      glyph.position.set(1.4, 0, 0);
-      bladeWing.add(glyph);
 
       axeHead.add(bladeWing);
     });
 
-    // Bottom Piercing Obsidian Stiletto Spike
-    const bottomSpike = new THREE.Mesh(new THREE.ConeGeometry(0.32, 1.4, 6), m.obsidian);
+    // Top spike finial
+    const topSpike = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 8), m.obsidian);
+    topSpike.position.set(0, 0.55, 0);
+    axeHead.add(topSpike);
+
+    // Bottom piercing stiletto spike
+    const bottomSpike = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.9, 8), m.obsidian);
     bottomSpike.rotation.x = Math.PI;
-    bottomSpike.position.set(0, -1.3, 0);
+    bottomSpike.position.set(0, -0.65, 0);
     axeHead.add(bottomSpike);
 
-    // Glowing motion-blur kinetic trail crescent (flares at high swing velocity)
+    // Subtle motion trail ring
     const trail = new THREE.Mesh(
-      new THREE.RingGeometry(2.4, 3.1, 24, 1, -0.7, 1.4),
+      new THREE.RingGeometry(2.1, 2.7, 24, 1, -0.65, 1.3),
       new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0, side: THREE.DoubleSide })
     );
     trail.position.set(0, 0, 0);
@@ -1351,7 +1307,7 @@ window.BlahajVolcano = (function () {
       group.add(body);
 
       // Glowing volcanic rune rim
-      const rimMat = m.glow.clone();
+      const rimMat = new THREE.MeshBasicMaterial({ color: 0xff7a2a });
       const rim = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.10, 8, 36), rimMat);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.42;
@@ -1391,7 +1347,7 @@ window.BlahajVolcano = (function () {
     // Geyser 2 sits directly between Static Midway Stone 4 (-2.5, -222.0) and Piston Stone 5 (-3.8, -229.5)
     addGeyser(-3.15, LAVA_Y, -225.75, 2.6, true);
 
-    // Flanking atmospheric geyser in the distance
+    // Flanking atmospheric geysers in the distance
     addGeyser(-16, LAVA_Y, -215, 1.6, true);
     addGeyser(-18, LAVA_Y, -125, 0.8, true);
     addGeyser(18, LAVA_Y, -142, 2.4, true);
@@ -1416,12 +1372,8 @@ window.BlahajVolcano = (function () {
       body.position.y = -4.35;
       group.add(body);
 
-      // Rune rim
-      const rimMat = m.glow.clone();
-      if (cfg.isCracking) {
-        rimMat.color.setHex(0xff5511);
-        rimMat.emissive.setHex(0xff3300);
-      }
+      // Safe MeshBasicMaterial for rims (no .setHex crash!)
+      const rimMat = new THREE.MeshBasicMaterial({ color: cfg.isCracking ? 0xff4400 : 0xff7a2a });
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.08, 0.09, 8, 32), rimMat);
       rim.rotation.x = Math.PI / 2;
       rim.position.y = 0.42;
@@ -1429,12 +1381,12 @@ window.BlahajVolcano = (function () {
 
       // Subtle hairline fracture veins on cracking platforms
       if (cfg.isCracking) {
-        const crackCross1 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, 0.04, 0.08), m.lava);
+        const crackCross1 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, 0.04, 0.08), m.flame);
         crackCross1.position.y = 0.43;
         crackCross1.rotation.y = 0.4;
         group.add(crackCross1);
 
-        const crackCross2 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.4, 0.04, 0.08), m.lava);
+        const crackCross2 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.4, 0.04, 0.08), m.flame);
         crackCross2.position.y = 0.43;
         crackCross2.rotation.y = -0.7;
         group.add(crackCross2);
@@ -1498,6 +1450,19 @@ window.BlahajVolcano = (function () {
     const chestLight = new THREE.PointLight(0xffb700, 1.8, 14);
     emberChest.add(chestLight);
     scn.add(emberChest);
+
+    // =========================================================================
+    // 4. EXIT PLATFORM & CORRIDOR TO THE SPIRAL (RESTORED!)
+    // =========================================================================
+    rectSurface(0, -253.5, 8, 7, 0);
+    slab(0, -253.5, 8, 7, 0);
+    [-8.3, 8.3].forEach((x) => wallBlock(x, -253.5, 0.6, 14, 1.1));
+    rectSurface(0, -272.5, 4.2, 12, 0);
+    slab(0, -272.5, 4.2, 12, 0);
+    [-4.5, 4.5].forEach((x) => wallBlock(x, -271, 0.6, 24, 1.1));
+    brazier(-7.5, 0, -250);
+    brazier(7.5, 0, -250);
+    brazier(-3.6, 0, -266);
     brazier(3.6, 0, -266);
   }
 
