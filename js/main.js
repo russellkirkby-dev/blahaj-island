@@ -2694,6 +2694,15 @@
             },
             lavaFall: () => {
               handleVolcanoTrapHit('Molten Lava Sea');
+            },
+            pickup: (itemType) => {
+              if (player.inventory) {
+                player.inventory.addItem(itemType, 1);
+                CozyAudio.bistroChime();
+                showToast('VOLCANIC SULFUR HARVESTED! 🟡✨', 'Chiseled a pure crystalline sulfur cluster from the volcanic stone!');
+                addChatLog('🟡 Harvested <strong>1x Volcanic Sulfur Crystal</strong> from the subterranean volcanic rock!', 'cozy');
+                updateMetersUI();
+              }
             }
           });
         }
@@ -8009,6 +8018,7 @@
 
     showToast('💖 HAPPY BIRTHDAY HELEN! 💖', 'Grand Starlight Peony & Heart Constellation illuminate Blåhaj Island!');
     addChatLog('🎆💖 <strong>HAPPY BIRTHDAY HELEN!</strong> The Grand Celebration Rocket detonated in rose-gold peonies, cascading willow starlight, and glowing celestial hearts over the ocean!', 'lore');
+    completeQuest('q-sw-fireworks');
   }
 
   function popBirthdayCracker(boothIndex) {
@@ -10724,7 +10734,9 @@
     triggerSignatureAbility,
     embarkIntoGame,
     finishLoadingScreen,
-    isGameLoaded: () => isGameLoaded
+    isGameLoaded: () => isGameLoaded,
+    getCompletedQuests: () => completedQuests,
+    completeQuest
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;

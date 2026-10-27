@@ -85,6 +85,42 @@ window.BlahajVolcano = (function () {
   let embersCave = null;
   let embersCrater = null;
   let splash = null;
+  const dungeonSulfurNodes = [];
+
+  function createVolcanoSulfurCluster(x, y, z, id = 'sulfur_node') {
+    const g = new THREE.Group();
+    g.position.set(x, y, z);
+
+    const sulfurMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      emissive: 0xeab308,
+      emissiveIntensity: 0.65,
+      roughness: 0.35,
+      metalness: 0.2
+    });
+
+    const s1 = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 5), sulfurMat);
+    s1.position.set(0, 0.32, 0);
+    g.add(s1);
+
+    const s2 = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.48, 5), sulfurMat);
+    s2.position.set(0.18, 0.22, 0.12);
+    s2.rotation.z = -0.35;
+    g.add(s2);
+
+    const s3 = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.42, 5), sulfurMat);
+    s3.position.set(-0.16, 0.20, -0.14);
+    s3.rotation.z = 0.38;
+    g.add(s3);
+
+    const pLight = new THREE.PointLight(0xfde047, 1.4, 4.5);
+    pLight.position.set(0, 0.35, 0);
+    g.add(pLight);
+
+    scn.add(g);
+    dungeonSulfurNodes.push({ id, mesh: g, x, y, z, collected: false });
+    return g;
+  }
 
   // Callbacks wired up by main.js.
   const on = {
@@ -1107,6 +1143,7 @@ window.BlahajVolcano = (function () {
 
   function stepGatehall() {
     const m = getMats();
+    createVolcanoSulfurCluster(-3.8, 0.25, -28.0, 'gatehall_sulfur');
     // Entry floor: z 10 .. -72, plus the neck into the causeway.
     rectSurface(0, -31, 9, 41, 0);
     slab(0, -31, 9, 41, 0);
@@ -1325,6 +1362,8 @@ window.BlahajVolcano = (function () {
       // When at bottom (-1.8m), jumping forward misses due to vertical deficit; player must wait to be lifted!
       addSurface((px, pz) => (Math.hypot(px - cfg.x, pz - cfg.z) <= p.collisionR ? p.y : null), false);
     });
+
+    createVolcanoSulfurCluster(6.5, 0.35, -122.0, 'causeway_sulfur');
 
     // FUMAROLE GEYSERS SITTING DIRECTLY IN THE GAPS BETWEEN STATIC STONES:
     // Geyser 1 sits directly between Static Stone 0 (-4.5, -192.5) and Static Stone 1 (-1.3, -200.0)
@@ -1843,6 +1882,8 @@ window.BlahajVolcano = (function () {
         respawn: 0
       });
     });
+
+    createVolcanoSulfurCluster(-14.5, BALCONY.y + 0.35, BALCONY.cz, 'overlook_sulfur');
   }
 
   function stepParticles() {
@@ -2188,6 +2229,20 @@ window.BlahajVolcano = (function () {
       });
     }
 
+    // Collectible Volcanic Sulfur Crystals
+    dungeonSulfurNodes.forEach((node) => {
+      if (!node.collected) {
+        node.mesh.rotation.y += dt * 1.6;
+        actors.forEach((a) => {
+          if (!node.collected && Math.hypot(a.x - node.x, a.z - node.z) < 2.4 && Math.abs(a.y - node.y) < 2.2) {
+            node.collected = true;
+            node.mesh.visible = false;
+            if (typeof on.pickup === 'function') on.pickup('sulfur', node.id);
+          }
+        });
+      }
+    });
+
     // Flames.
     flames.forEach((f) => {
       const s = 1 + 0.2 * Math.sin(t * 9 + f.phase);
@@ -2414,6 +2469,8 @@ window.BlahajVolcano = (function () {
     getInteractables,
     getCarrots: () => carrots,
     knockCarrot,
+    dungeonSulfurNodes,
+    getSulfurNodes: () => dungeonSulfurNodes,
     getTraps: () => ({ pendulums, geysers, flameJets, floorSpikes }),
     constants: { LAVA_Y, BALCONY }
   };

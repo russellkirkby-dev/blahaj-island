@@ -629,7 +629,8 @@ window.BLAHAJ_LORE = {
         { id: 'q-sw-seam', text: '<strong>Mending the Great Seam:</strong> Stitch all 6 cosmic rifts around Blåhaj Island' },
         { id: 'q-sw-regatta', text: '<strong>Sunset Regatta:</strong> Boop a Beach Ball across the harbour on the Water That Doth Not Wet' },
         { id: 'q-sw-feast', text: '<strong>Spherical Banquet:</strong> Order a Round Feast with Solomon at Spherical Foods' },
-        { id: 'q-sw-wedding', text: '<strong>Different Shores, Same Ocean:</strong> Leave or read a message on the Endless Pier' }
+        { id: 'q-sw-wedding', text: '<strong>Different Shores, Same Ocean:</strong> Leave or read a message on the Endless Pier' },
+        { id: 'q-sw-fireworks', text: '<strong>Helen’s Birthday Fireworks:</strong> Craft Star Powder (Solomon), Mortar (Hiram), Fuse (Nimue) & launch from Endless Pier!' }
       ]
     }
   },

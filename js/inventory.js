@@ -762,7 +762,11 @@ window.BlahajInventory = (function () {
 
       // Volcano Trial Instance Rare Drops (Gatehall Dungeon)
       { id: 'brimstone_1', type: 'brimstone_core', pos: { x: -2.0, y: 0.45, z: -202.0 } },
-      { id: 'obsidian_rare_1', type: 'pure_obsidian', pos: { x: 5.5, y: 0.45, z: -214.0 } }
+      { id: 'obsidian_rare_1', type: 'pure_obsidian', pos: { x: 5.5, y: 0.45, z: -214.0 } },
+      // Soft Birb Down fallen tufts in Heartland Birb Meadow
+      { id: 'down_meadow_1', type: 'birb_down', pos: { x: -12.0, y: 0.15, z: 22.0 } },
+      { id: 'down_meadow_2', type: 'birb_down', pos: { x: -16.5, y: 0.15, z: 14.5 } },
+      { id: 'down_meadow_3', type: 'birb_down', pos: { x: -8.0, y: 0.15, z: 34.0 } }
     ];
 
     function createGuanoMesh() {
@@ -938,7 +942,36 @@ window.BlahajInventory = (function () {
       return g;
     }
 
+    function createBirbDownMesh() {
+      const g = new THREE.Group();
+      const downMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        emissive: 0x93c5fd,
+        emissiveIntensity: 0.35,
+        roughness: 0.9,
+        metalness: 0.05
+      });
+      const c1 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), downMat);
+      c1.scale.set(1.1, 0.7, 0.9);
+      c1.position.y = 0.12;
+      g.add(c1);
+
+      const c2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 5, 5), downMat);
+      c2.position.set(0.1, 0.14, 0.08);
+      g.add(c2);
+
+      const c3 = new THREE.Mesh(new THREE.SphereGeometry(0.13, 5, 5), downMat);
+      c3.position.set(-0.09, 0.13, -0.07);
+      g.add(c3);
+
+      const pLight = new THREE.PointLight(0xbfdbfe, 1.2, 3.5);
+      pLight.position.set(0, 0.25, 0);
+      g.add(pLight);
+      return g;
+    }
+
     function createMeshForType(type) {
+      if (type === 'birb_down') return createBirbDownMesh();
       if (type === 'guano') return createGuanoMesh();
       if (type === 'sulfur') return createSulfurMesh();
       if (type === 'driftwood') return createDriftwoodMesh();
