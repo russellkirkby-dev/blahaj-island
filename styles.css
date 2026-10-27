@@ -976,47 +976,88 @@ kbd {
 /* TOAST NOTIFICATION BANNER */
 #toast-banner {
   position: absolute;
-  top: 138px;
+  top: 110px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 28px;
-  background: linear-gradient(135deg, rgba(24, 35, 56, 0.96), rgba(45, 28, 68, 0.96));
-  border: 2px solid var(--brass-bright);
-  border-radius: 14px;
+  padding: 10px 24px 8px;
+  background: linear-gradient(135deg, rgba(20, 28, 44, 0.96), rgba(38, 22, 54, 0.96));
+  border: 1.5px solid var(--brass-bright);
+  border-radius: 12px;
   text-align: center;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.65);
-  animation: popIn 0.3s ease;
-  z-index: 110;
-  transition: top 0.25s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(212, 166, 86, 0.25);
+  animation: popIn 0.25s ease;
+  z-index: 130;
+  transition: top 0.28s cubic-bezier(0.2, 0.85, 0.3, 1), opacity 0.2s ease, transform 0.2s ease;
   cursor: pointer;
   pointer-events: auto;
+  user-select: none;
+  max-width: 90vw;
+  min-width: 240px;
 }
 
-body.has-volcano-notice #toast-banner {
-  top: 195px;
+#toast-banner.hidden {
+  display: none !important;
+}
+
+#toast-banner.fading-out {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px) scale(0.97);
+  pointer-events: none;
+}
+
+.toast-close-btn {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(245, 205, 121, 0.35);
+  color: rgba(245, 205, 121, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+.toast-close-btn:hover {
+  color: #fff;
+  background: rgba(232, 111, 56, 0.45);
+  border-color: #f5cd79;
 }
 
 .toast-subtitle {
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   color: var(--brass-bright);
   font-weight: 800;
+  text-transform: uppercase;
 }
 
 .toast-title {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 16px;
   color: #fff;
   margin-top: 2px;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.toast-dismiss-hint {
+  font-size: 9px;
+  color: #e2c07a;
+  opacity: 0.75;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
 }
 
 /* ==================== VOLCANO DUNGEON HUD POPUP NOTIFICATION ==================== */
 #volcano-hud-card {
   position: absolute;
-  top: 80px;
+  top: 75px;
   left: 50%;
   transform: translateX(-50%);
-  width: 430px;
+  width: 440px;
   max-width: 90vw;
   background: linear-gradient(135deg, rgba(18, 12, 16, 0.96) 0%, rgba(32, 16, 24, 0.96) 60%, rgba(46, 18, 22, 0.94) 100%);
   border: 1.5px solid #d4a656;
@@ -1027,7 +1068,7 @@ body.has-volcano-notice #toast-banner {
   z-index: 120;
   cursor: pointer;
   animation: vhudSlideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: top 0.28s cubic-bezier(0.2, 0.85, 0.3, 1), opacity 0.2s ease, transform 0.2s ease;
   user-select: none;
 }
 

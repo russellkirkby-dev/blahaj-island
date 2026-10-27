@@ -2948,11 +2948,8 @@
         hideVolcanoHUDCard();
       }
       const toastBanner = document.getElementById('toast-banner');
-      if (toastBanner && !toastBanner.classList.contains('hidden')) {
-        if (toastBanner.contains(e.target)) {
-          toastBanner.classList.add('hidden');
-          clearTimeout(showToast._t);
-        }
+      if (toastBanner && !toastBanner.classList.contains('hidden') && !toastBanner.classList.contains('fading-out')) {
+        dismissCurrentToast(false);
       }
     }, true);
 
@@ -3054,17 +3051,25 @@
         return;
       }
 
-      // Immediate keyboard dismissal for volcano HUD card
+      // 1. Immediate Escape dismissal for any active on-screen messages (Volcano card and Toast banners)
       const activeVhudCard = document.getElementById('volcano-hud-card');
-      if (activeVhudCard && !activeVhudCard.classList.contains('hidden') && !activeVhudCard.classList.contains('fading-out')) {
-        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e') {
-          hideVolcanoHUDCard();
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
+      const isVhudOpen = activeVhudCard && !activeVhudCard.classList.contains('hidden') && !activeVhudCard.classList.contains('fading-out');
+      const activeToast = document.getElementById('toast-banner');
+      const isToastOpen = activeToast && !activeToast.classList.contains('hidden') && !activeToast.classList.contains('fading-out');
+
+      if (e.key === 'Escape') {
+        if (isVhudOpen || isToastOpen) {
+          if (isVhudOpen) hideVolcanoHUDCard();
+          if (isToastOpen) dismissCurrentToast(true);
+          e.preventDefault();
+          e.stopPropagation();
+          return;
         }
+      }
+
+      // Volcano HUD card also dismissable on Space, Enter, or E
+      if (isVhudOpen && (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e')) {
+        hideVolcanoHUDCard();
       }
 
       if (e.key === 'Escape') {
@@ -4582,12 +4587,7 @@
     camState.pitch = 0.08;
     camState.heightOffset = 1.35;
 
-    showToast('SPIN CYCLE COMMENCED! 🧧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => {
-      const banner = document.getElementById('toast-banner');
-      if (banner) banner.classList.add('hidden');
-    }, 1200);
+    showToast('SPIN CYCLE COMMENCED! 🧧🌀', 'Ka-chunk! Door latched. 40°C Warm Delicate Cycle underway!', 4500);
     addChatLog('🌀 <strong>Giant Master Washer & Spin Dryer #7</strong> started! Soapy suds swirl around you.', 'cozy');
 
     window.BlahajNetwork.send({
@@ -6051,6 +6051,8 @@
     const vhudCard = document.getElementById('volcano-hud-card');
     if (vhudCard) {
       vhudCard.addEventListener('click', () => hideVolcanoHUDCard());
+      vhudCard.addEventListener('pointerenter', () => pauseVolcanoNoticeTimer());
+      vhudCard.addEventListener('pointerleave', () => resumeVolcanoNoticeTimer());
     }
     const vhudClose = document.getElementById('vhud-close');
     if (vhudClose) {
@@ -6062,8 +6064,16 @@
     const toastBanner = document.getElementById('toast-banner');
     if (toastBanner) {
       toastBanner.addEventListener('click', () => {
-        toastBanner.classList.add('hidden');
-        clearTimeout(showToast._t);
+        dismissCurrentToast(false);
+      });
+      toastBanner.addEventListener('pointerenter', () => pauseToastTimer());
+      toastBanner.addEventListener('pointerleave', () => resumeToastTimer());
+    }
+    const toastClose = document.getElementById('toast-close');
+    if (toastClose) {
+      toastClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dismissCurrentToast(false);
       });
     }
 
@@ -6499,6 +6509,45 @@
   let currentVolcanoNoticeTimer = null;
   let currentVolcanoNoticeKey = null;
   const shownVolcanoNotices = new Set();
+  let vhudPausedRemaining = null;
+  let vhudTimerStartTime = 0;
+  let vhudTotalDuration = 7500;
+
+  function updateToastBannerPosition() {
+    const banner = document.getElementById('toast-banner');
+    if (!banner) return;
+    const vhudCard = document.getElementById('volcano-hud-card');
+    const isVhudVisible = vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out');
+
+    if (isVhudVisible) {
+      const rect = vhudCard.getBoundingClientRect();
+      const targetTop = Math.max(285, Math.round(rect.bottom + 14));
+      banner.style.top = `${targetTop}px`;
+    } else {
+      banner.style.top = '';
+    }
+  }
+
+  function pauseVolcanoNoticeTimer() {
+    const timerFill = document.getElementById('vhud-timer-fill');
+    if (timerFill) timerFill.style.animationPlayState = 'paused';
+    if (currentVolcanoNoticeTimer) {
+      clearTimeout(currentVolcanoNoticeTimer);
+      currentVolcanoNoticeTimer = null;
+      const elapsed = Date.now() - vhudTimerStartTime;
+      vhudPausedRemaining = Math.max(2000, vhudTotalDuration - elapsed);
+    }
+  }
+
+  function resumeVolcanoNoticeTimer() {
+    const timerFill = document.getElementById('vhud-timer-fill');
+    if (timerFill) timerFill.style.animationPlayState = 'running';
+    if (currentVolcanoNoticeTimer) clearTimeout(currentVolcanoNoticeTimer);
+    const remaining = vhudPausedRemaining || 3000;
+    currentVolcanoNoticeTimer = setTimeout(() => {
+      hideVolcanoHUDCard();
+    }, remaining);
+  }
 
   function showVolcanoHUDNotice(key, force = false) {
     if (!force && shownVolcanoNotices.has(key)) return;
@@ -6527,10 +6576,16 @@
     card.classList.remove('hidden', 'fading-out');
     document.body.classList.add('has-volcano-notice');
 
+    // 7.5 seconds allows comfortable reading of lore and mechanics
+    vhudTotalDuration = 7500;
+    vhudTimerStartTime = Date.now();
+    vhudPausedRemaining = null;
+
     if (timerFill) {
       timerFill.style.animation = 'none';
+      timerFill.style.animationPlayState = 'running';
       void timerFill.offsetWidth;
-      timerFill.style.animation = 'vhudTimerDrain 3.8s linear forwards';
+      timerFill.style.animation = 'vhudTimerDrain 7.5s linear forwards';
     }
 
     if (typeof CozyAudio !== 'undefined' && CozyAudio.portalChime) {
@@ -6539,10 +6594,13 @@
 
     addChatLog(`${data.icon} <strong>${data.title}:</strong> ${data.plainText}`, 'lore');
 
+    // Ensure any currently active toast immediately adjusts position below the card
+    updateToastBannerPosition();
+
     if (currentVolcanoNoticeTimer) clearTimeout(currentVolcanoNoticeTimer);
     currentVolcanoNoticeTimer = setTimeout(() => {
       hideVolcanoHUDCard();
-    }, 3800);
+    }, vhudTotalDuration);
   }
 
   function hideVolcanoHUDCard() {
@@ -6555,6 +6613,8 @@
       card.classList.add('hidden');
       card.classList.remove('fading-out');
       document.body.classList.remove('has-volcano-notice');
+      // Toast smoothly glides back up to default position if still visible
+      updateToastBannerPosition();
     }, 200);
   }
 
@@ -6568,13 +6628,113 @@
     return null;
   }
 
-  function showToast(sub, title) {
+  // --- TOAST NOTIFICATION QUEUE & TIMING SYSTEM ---
+  const toastQueue = [];
+  let isToastShowing = false;
+  let toastTimer = null;
+  let toastStartTime = 0;
+  let toastTotalDuration = 4500;
+  let toastPausedRemaining = null;
+
+  function pauseToastTimer() {
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+      const elapsed = Date.now() - toastStartTime;
+      toastPausedRemaining = Math.max(2000, toastTotalDuration - elapsed);
+    }
+  }
+
+  function resumeToastTimer() {
+    if (toastTimer) clearTimeout(toastTimer);
+    const rem = toastPausedRemaining || 2500;
+    toastTimer = setTimeout(() => {
+      dismissCurrentToast(false);
+    }, rem);
+  }
+
+  function showToast(sub, title, customDuration = null) {
+    if (!title && !sub) return;
+
+    // Deduplication: don't double-post identical toast if already visible or queued
+    const activeTitle = document.getElementById('toast-title')?.textContent;
+    const activeSub = document.getElementById('toast-sub')?.textContent;
+    if (isToastShowing && activeTitle === title && activeSub === sub) {
+      return;
+    }
+    if (toastQueue.some((item) => item.title === title && item.sub === sub)) {
+      return;
+    }
+
+    // If already showing a toast, queue it cleanly so they don't clobber each other
+    if (isToastShowing) {
+      toastQueue.push({ sub, title, customDuration });
+      return;
+    }
+
+    displayToast({ sub, title, customDuration });
+  }
+
+  // Backwards compatibility alias for showToast._t
+  Object.defineProperty(showToast, '_t', {
+    get() { return toastTimer; },
+    set(v) { toastTimer = v; },
+    configurable: true
+  });
+
+  function displayToast(item) {
     const banner = document.getElementById('toast-banner');
-    document.getElementById('toast-sub').textContent = sub;
-    document.getElementById('toast-title').textContent = title;
-    banner.classList.remove('hidden');
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => banner.classList.add('hidden'), 3600);
+    if (!banner) return;
+
+    isToastShowing = true;
+    const subEl = document.getElementById('toast-sub');
+    const titleEl = document.getElementById('toast-title');
+    if (subEl) subEl.textContent = item.sub || '';
+    if (titleEl) titleEl.textContent = item.title || '';
+
+    // Calculate reading time carefully based on word count (minimum 4.5s up to 8.5s)
+    const words = `${item.sub || ''} ${item.title || ''}`.trim().split(/\s+/).length;
+    toastTotalDuration = item.customDuration || Math.max(4500, Math.min(8500, 2600 + words * 280));
+    toastStartTime = Date.now();
+    toastPausedRemaining = null;
+
+    updateToastBannerPosition();
+    banner.classList.remove('hidden', 'fading-out');
+
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      dismissCurrentToast(false);
+    }, toastTotalDuration);
+  }
+
+  function dismissCurrentToast(clearRemainingQueue = false) {
+    if (clearRemainingQueue) {
+      toastQueue.length = 0;
+    }
+
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+
+    const banner = document.getElementById('toast-banner');
+    if (!banner || banner.classList.contains('hidden')) {
+      isToastShowing = false;
+      return;
+    }
+
+    banner.classList.add('fading-out');
+    setTimeout(() => {
+      banner.classList.add('hidden');
+      banner.classList.remove('fading-out');
+      isToastShowing = false;
+
+      // If more toasts are waiting in queue, display next one after a brief breather
+      if (toastQueue.length > 0) {
+        const next = toastQueue.shift();
+        setTimeout(() => displayToast(next), 220);
+      }
+    }, 200);
   }
 
   function addChatLog(html, cls = 'lore') {
