@@ -2430,9 +2430,107 @@
   }
 
   // ==========================================================================
-  // INITIALIZATION
+  // INITIALIZATION & PRE-WARM LOADING SCREEN
   // ==========================================================================
-  function init() {
+  const LOADING_TIPS = [
+    '“Press [B] to toss warm Breb to the Birbs in the Heartland Meadow!”',
+    '“Press [G] or click Groom to gently brush fellow sharks and de-mange their coats.”',
+    '“Visit the Sacred Tea House in Heartland Plaza to restore Tea Comfort with Solomon.”',
+    '“The between-portal connects shores across the ocean—even when far apart, the road is short.”',
+    '“Survive the traps of the Volcano Trial Dungeon to earn Trial Points for Turbo Hydro-Fins!”',
+    '“Step into Master Washer #7 at the Laundromat for a fresh tumble-fluffing spin cycle!”',
+    '“Play beach volleyball on Crescent Beach and boop the ball over the net with your snout!”',
+    '“Hiram’s Sacred Allen Key lets you build cozy seaside cabins and linked pocket portals.”',
+    '“Sip a chilled Piña Colada while reclining in a luxury deck chair on Crescent Beach!”'
+  ];
+
+  let loadingTipInterval = null;
+  let isGameLoaded = false;
+
+  function initLoadingScreen() {
+    const tipEl = document.getElementById('game-loading-tip-text');
+    if (tipEl) {
+      let tipIdx = Math.floor(Math.random() * LOADING_TIPS.length);
+      tipEl.textContent = LOADING_TIPS[tipIdx];
+      loadingTipInterval = setInterval(() => {
+        tipIdx = (tipIdx + 1) % LOADING_TIPS.length;
+        tipEl.style.opacity = '0';
+        setTimeout(() => {
+          tipEl.textContent = LOADING_TIPS[tipIdx];
+          tipEl.style.opacity = '1';
+        }, 250);
+      }, 3400);
+    }
+  }
+
+  function setLoadingProgress(pct, statusText) {
+    const bar = document.getElementById('game-loading-progress-bar');
+    const pctEl = document.getElementById('game-loading-pct');
+    const statusEl = document.getElementById('game-loading-status-text');
+    if (bar) bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+    if (pctEl) pctEl.textContent = `${Math.round(pct)}%`;
+    if (statusEl && statusText) statusEl.textContent = statusText;
+  }
+
+  function yieldFrame() {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => setTimeout(resolve, 24));
+    });
+  }
+
+  function finishLoadingScreen() {
+    isGameLoaded = true;
+    const btn = document.getElementById('btn-enter-game');
+    const bar = document.getElementById('game-loading-progress-bar');
+    const pctEl = document.getElementById('game-loading-pct');
+    const statusEl = document.getElementById('game-loading-status-text');
+
+    if (bar) bar.style.width = '100%';
+    if (pctEl) pctEl.textContent = '100%';
+    if (statusEl) statusEl.textContent = 'Archipelago ready! Welcome to Blåhaj Island 🦈✨';
+
+    if (btn) {
+      btn.classList.remove('hidden');
+      btn.focus();
+      const onEmbark = () => {
+        btn.removeEventListener('click', onEmbark);
+        window.removeEventListener('keydown', onKeyDownEmbark);
+        embarkIntoGame();
+      };
+      const onKeyDownEmbark = (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'e' || e.key === 'E') {
+          onEmbark();
+        }
+      };
+      btn.addEventListener('click', onEmbark);
+      window.addEventListener('keydown', onKeyDownEmbark);
+    } else {
+      setTimeout(embarkIntoGame, 400);
+    }
+  }
+
+  function embarkIntoGame() {
+    if (loadingTipInterval) {
+      clearInterval(loadingTipInterval);
+      loadingTipInterval = null;
+    }
+    CozyAudio.ensure();
+    if (CozyAudio.bistroChime) CozyAudio.bistroChime();
+
+    const overlay = document.getElementById('game-loading-screen');
+    if (overlay) {
+      overlay.classList.add('fade-out');
+      setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 800);
+    }
+  }
+
+  async function init() {
+    initLoadingScreen();
+    setLoadingProgress(12, 'Initializing WebGL 3D renderer & scene…');
+    await yieldFrame();
+
     const container = document.getElementById('canvas-container');
     clock = new THREE.Clock();
 
@@ -2464,10 +2562,16 @@
       composer.addPass(bloomPassInstance);
     }
 
+    setLoadingProgress(32, 'Generating 3D Archipelago terrain & sandy shores…');
+    await yieldFrame();
+
     // 1. Build Expanded Blåhaj Archipelago (Main Island + 4 Outer Sanctuary Islands)
     worldApi = window.BlahajWorld.buildWorld(scene);
     loadSavedStructures();
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
+
+    setLoadingProgress(48, 'Placing landmarks, Birb sanctuary & bread oven…');
+    await yieldFrame();
 
     // Initialize Modular Inventory System, Solomon's Bread Oven & World Pickups
     if (window.BlahajInventory) {
@@ -2505,6 +2609,20 @@
       };
     }
 
+    setLoadingProgress(62, 'Spawning player plush shark & island characters…');
+    await yieldFrame();
+
+    // 2. Spawn High-Polygon Player Shark & All Island Characters
+    spawnPlayerShark('hermes');
+    spawnWorldCharacters();
+
+    if (window.BlahajEnemies && typeof window.BlahajEnemies.init === 'function') {
+      window.BlahajEnemies.init(scene, worldApi);
+    }
+
+    setLoadingProgress(76, 'Constructing Volcano dungeon halls & instances…');
+    await yieldFrame();
+
     // 1b. Build Instanced Volcano Trial Dungeon Scene
     if (window.BlahajVolcano) {
       try {
@@ -2529,20 +2647,12 @@
             }
           });
         }
-        window.BlahajVolcano.build().catch((err) => {
+        await window.BlahajVolcano.build().catch((err) => {
           console.warn('Volcano background build warning:', err);
         });
       } catch (err) {
         console.error('Failed to init BlahajVolcano:', err);
       }
-    }
-
-    // 2. Spawn High-Polygon Player Shark & All Island Characters
-    spawnPlayerShark('hermes');
-    spawnWorldCharacters();
-
-    if (window.BlahajEnemies && typeof window.BlahajEnemies.init === 'function') {
-      window.BlahajEnemies.init(scene, worldApi);
     }
 
     // 3. Setup Controls, UI, Builder Toolbar, Gallery, Upgrades & Co-op Networking
@@ -2557,8 +2667,46 @@
     updateMetersUI();
     renderUpgradesGrid();
 
+    setLoadingProgress(88, 'Pre-compiling WebGL shaders & GPU materials…');
+    await yieldFrame();
+
+    // 4. Pre-compile all WebGL shaders on GPU upfront (eliminates 10-20s runtime stutter!)
+    try {
+      if (renderer && scene && camera) {
+        renderer.compile(scene, camera);
+      }
+      if (window.BlahajVolcano?.getScene && window.BlahajVolcano?.getCamera) {
+        const vScene = window.BlahajVolcano.getScene();
+        const vCam = window.BlahajVolcano.getCamera();
+        if (vScene && vCam && renderer) {
+          renderer.compile(vScene, vCam);
+        }
+      }
+    } catch (e) {
+      console.warn('Shader pre-compilation warning:', e);
+    }
+
+    setLoadingProgress(96, 'Pre-warming render passes & shadow buffers…');
+    await yieldFrame();
+
+    // 5. Pre-warm 2 silent render passes to allocate render targets & shadow maps
+    try {
+      if (composer) {
+        composer.render();
+        composer.render();
+      } else if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+        renderer.render(scene, camera);
+      }
+    } catch (e) {
+      console.warn('Warmup render warning:', e);
+    }
+
     window.addEventListener('resize', onWindowResize);
     requestAnimationFrame(animate);
+
+    setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
+    finishLoadingScreen();
   }
 
   function spawnPlayerShark(sharkId) {
@@ -9592,6 +9740,11 @@
   }
 
   function updateCamera(elapsed = 0) {
+    if (camState.customOverride) {
+      camera.position.copy(camState.customOverride.pos);
+      camera.lookAt(camState.customOverride.lookAt);
+      return;
+    }
     const rightVec = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
     const lookTarget = new THREE.Vector3(
       player.pos.x + rightVec.x * camState.shoulderRight,
@@ -10515,7 +10668,10 @@
     spawnCoopPartnerShark,
     refreshWorldActorMesh,
     handleVolcanoTrapHit,
-    triggerSignatureAbility
+    triggerSignatureAbility,
+    embarkIntoGame,
+    finishLoadingScreen,
+    isGameLoaded: () => isGameLoaded
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;
