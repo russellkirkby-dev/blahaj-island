@@ -47,6 +47,7 @@ window.BlahajVolcano = (function () {
   const ROOM_TITLES = {
     gate: 'The Obsidian Gatehall',
     causeway: 'The Molten Causeway',
+    crossing: 'The Molten Crossing',
     spiral: 'The Ember Spiral',
     overlook: 'The Crater Overlook'
   };
@@ -72,6 +73,10 @@ window.BlahajVolcano = (function () {
   const flameJets = [];
   const floorSpikes = [];
   const platforms = [];
+  const crackingPlatforms = [];
+  let hearthCrystal = null;
+  let emberChest = null;
+  let emberChestCollected = false;
   const flames = [];
   const carrots = [];
   const lavaMaterials = [];
@@ -238,7 +243,8 @@ window.BlahajVolcano = (function () {
 
   function getRoom(z) {
     if (z > -76) return 'gate';
-    if (z > -268) return 'causeway';
+    if (z > -165) return 'causeway';
+    if (z > -268) return 'crossing';
     if (z > -319) return 'spiral';
     return 'overlook';
   }
@@ -1289,23 +1295,59 @@ window.BlahajVolcano = (function () {
     relic.add(relicLight);
     scn.add(relic);
 
-    // Stepping platforms across the lava.
-    // 8 stepping stones spaced ~7.5m apart requiring deliberate jumps and timing
-    const stepSpots = [
-      [0, -192.5],
-      [3.2, -200.0],
-      [4.2, -207.5],
-      [1.2, -215.0],
-      [-2.5, -222.0],
-      [-3.8, -229.5],
-      [-1.5, -236.5],
-      [0, -243.5]
+    // =========================================================================
+    // 1. CENTRAL HEARTH SAVE SHRINE & CHECKPOINT (z = -180)
+    // =========================================================================
+    // Basalt dais plinth
+    const shrineDais = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.8, 0.25, 24), m.basalt);
+    shrineDais.position.set(0, 0.125, -180);
+    scn.add(shrineDais);
+
+    // Glowing ceremonial threshold seal
+    const shrineSeal = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.08, 8, 36), m.glow);
+    shrineSeal.rotation.x = Math.PI / 2;
+    shrineSeal.position.set(0, 0.26, -180);
+    scn.add(shrineSeal);
+
+    // Carved altar pedestal
+    const shrineAltar = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.1, 12), m.basalt);
+    shrineAltar.position.set(0, 0.70, -180);
+    scn.add(shrineAltar);
+
+    // Floating Ancient Hearth Crystal (Warm amber beacon)
+    hearthCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 1), m.brass);
+    hearthCrystal.position.set(0, 1.85, -180);
+    scn.add(hearthCrystal);
+
+    const shrineLight = new THREE.PointLight(0xffaa44, 2.2, 18);
+    shrineLight.position.set(0, 2.2, -180);
+    scn.add(shrineLight);
+
+    brazier(-2.8, 0, -180);
+    brazier(2.8, 0, -180);
+
+    // =========================================================================
+    // 2. ROUTE A: THE CALDERA CAUSEWAY (Piston Elevators & Interstitial Geysers)
+    // =========================================================================
+    // 8 stepping stones spaced ~7.5m apart.
+    // Stones 0, 1, 4, 6, 7 are rock-solid static stones.
+    // Stones 2, 3, 5 are slow, heavy piston elevator platforms.
+    const causewayConfig = [
+      { x: 0,    z: -192.5, isPiston: false },               // Stone 0: Static Staging Dais
+      { x: 3.2,  z: -200.0, isPiston: false },               // Stone 1: Static Landing Stone
+      { x: 4.2,  z: -207.5, isPiston: true, phase: 0 },      // Stone 2: Piston Elevator A (slow 8.6s cycle)
+      { x: 1.2,  z: -215.0, isPiston: true, phase: 4.3 },    // Stone 3: Piston Elevator B (out of phase)
+      { x: -2.5, z: -222.0, isPiston: false },               // Stone 4: Static Midway Rest Dais
+      { x: -3.8, z: -229.5, isPiston: true, phase: 2.1 },    // Stone 5: Piston Elevator C
+      { x: -1.5, z: -236.5, isPiston: false },               // Stone 6: Static Landing Stone
+      { x: 0,    z: -243.5, isPiston: false }                // Stone 7: Static Exit Leap Stone
     ];
-    stepSpots.forEach(([x, z], i) => {
+
+    causewayConfig.forEach((cfg, i) => {
       const group = new THREE.Group();
-      // Basalt pillar body plunging down into the molten lava sea
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 2.2, 8.5, 22), m.floor);
-      body.position.y = -3.85; // Top face at local +0.40
+      // Basalt pillar plunging deep down into the molten lava sea
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.75, 2.2, 9.0, 22), m.floor);
+      body.position.y = -4.1; // Top face at local +0.40
       group.add(body);
 
       // Glowing volcanic rune rim
@@ -1315,58 +1357,147 @@ window.BlahajVolcano = (function () {
       rim.position.y = 0.42;
       group.add(rim);
 
-      // Carved obsidian center glyph
+      // Carved obsidian glyph
       const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), m.brass);
       rune.position.set(0, 0.46, 0);
       group.add(rune);
 
       scn.add(group);
 
-      // Stone 0 is a stable staging platform (gentle bobbing).
-      // Stones 1-7 alternate in a rhythmic raising & sinking cycle (Odd vs Even phases).
-      const isSinking = (i > 0);
-      const phase = (i % 2 === 1) ? 0 : 3.0; // 3.0s is half of the 6.0s cycle
       const p = {
-        x, z,
+        x: cfg.x,
+        z: cfg.z,
         r: 1.75,
         collisionR: 1.90,
-        phase,
+        isPiston: !!cfg.isPiston,
+        phase: cfg.phase || 0,
         y: 0,
         baseY: 0,
         group,
         rim,
-        isSinkingStone: isSinking,
         index: i
       };
       platforms.push(p);
 
-      // Player can only stand on the stone when it is above the molten lava threshold (y >= -0.8m)
-      addSurface((px, pz) => {
-        if (p.isSinkingStone && p.y < -0.8) return null;
-        return (Math.hypot(px - x, pz - z) <= p.collisionR ? p.y : null);
-      }, false);
+      // Fully landable at any height in its stroke (y >= -2.4m, always well above the -6.0m lava sea).
+      // When at bottom (-1.8m), jumping forward misses due to vertical deficit; player must wait to be lifted!
+      addSurface((px, pz) => (Math.hypot(px - cfg.x, pz - cfg.z) <= p.collisionR ? p.y : null), false);
     });
 
-    // Exit platform + corridor to the spiral.
-    rectSurface(0, -253.5, 8, 7, 0);
-    slab(0, -253.5, 8, 7, 0);
-    [-8.3, 8.3].forEach((x) => wallBlock(x, -253.5, 0.6, 14, 1.1));
-    rectSurface(0, -272.5, 4.2, 12, 0);
-    slab(0, -272.5, 4.2, 12, 0);
-    [-4.5, 4.5].forEach((x) => wallBlock(x, -271, 0.6, 24, 1.1));
-    brazier(-7.5, 0, -250);
-    brazier(7.5, 0, -250);
-    brazier(-3.6, 0, -266);
+    // FUMAROLE GEYSERS SITTING DIRECTLY IN THE GAPS BETWEEN STATIC STONES:
+    // Geyser 1 sits directly between Static Stone 0 (0, -192.5) and Static Stone 1 (3.2, -200.0)
+    addGeyser(1.6, LAVA_Y, -196.25, 0.5, true);
 
-    // Majestic Volcanic Fumarole Geysers erupting out of the Molten Lava Sea
+    // Geyser 2 sits directly between Static Midway Stone 4 (-2.5, -222.0) and Piston Stone 5 (-3.8, -229.5)
+    addGeyser(-3.15, LAVA_Y, -225.75, 2.6, true);
+
+    // Flanking atmospheric geyser in the distance
+    addGeyser(-16, LAVA_Y, -215, 1.6, true);
     addGeyser(-18, LAVA_Y, -125, 0.8, true);
     addGeyser(18, LAVA_Y, -142, 2.4, true);
-    addGeyser(-16, LAVA_Y, -215, 1.6, true);
 
-    // Timed Volcanic Fumarole Geysers flanking the stepping stones
-    addGeyser(4.5, LAVA_Y, -203.5, 0.4, true);
-    addGeyser(-3.2, LAVA_Y, -218.5, 2.3, true);
-    addGeyser(-4.8, LAVA_Y, -233.0, 4.1, true);
+    // =========================================================================
+    // 3. ROUTE B: THE EMBER RIDGE (High Flank Circuitous Path with Cracking Platforms)
+    // =========================================================================
+    const ridgeConfig = [
+      { x: 10.5, z: -190.0, y: 0.2, isCracking: false },      // Ridge 1: Stable Entry Shelf
+      { x: 13.8, z: -198.5, y: 0.5, isCracking: true },       // Ridge 2: CRACKING STONE A (Breaks after 0.55s!)
+      { x: 15.5, z: -207.5, y: 1.2, isCracking: false },      // Ridge 3: High Pinnacle & Secret Ember Relic
+      { x: 14.2, z: -217.0, y: 0.8, isCracking: true },       // Ridge 4: CRACKING STONE B (Breaks after 0.55s!)
+      { x: 11.0, z: -226.5, y: 0.4, isCracking: false },      // Ridge 5: Narrow Basalt Needle
+      { x: 6.5,  z: -235.5, y: 0.2, isCracking: false },      // Ridge 6: Descent Stepping Stone
+      { x: 2.8,  z: -243.5, y: 0.0, isCracking: false }       // Ridge 7: Rejoin Stone before Exit
+    ];
+
+    ridgeConfig.forEach((cfg, idx) => {
+      const group = new THREE.Group();
+      const r = cfg.isCracking ? 1.60 : 1.70;
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.35, 9.5, 20), m.basalt);
+      body.position.y = -4.35;
+      group.add(body);
+
+      // Rune rim
+      const rimMat = m.glow.clone();
+      if (cfg.isCracking) {
+        rimMat.color.setHex(0xff5511);
+        rimMat.emissive.setHex(0xff3300);
+      }
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r - 0.08, 0.09, 8, 32), rimMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = 0.42;
+      group.add(rim);
+
+      // Subtle hairline fracture veins on cracking platforms
+      if (cfg.isCracking) {
+        const crackCross1 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.6, 0.04, 0.08), m.lava);
+        crackCross1.position.y = 0.43;
+        crackCross1.rotation.y = 0.4;
+        group.add(crackCross1);
+
+        const crackCross2 = new THREE.Mesh(new THREE.BoxGeometry(r * 1.4, 0.04, 0.08), m.lava);
+        crackCross2.position.y = 0.43;
+        crackCross2.rotation.y = -0.7;
+        group.add(crackCross2);
+      } else {
+        const glyph = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), m.brass);
+        glyph.position.set(0, 0.45, 0);
+        group.add(glyph);
+      }
+
+      group.position.set(cfg.x, cfg.y - 0.4, cfg.z);
+      scn.add(group);
+
+      if (cfg.isCracking) {
+        const cp = {
+          x: cfg.x,
+          z: cfg.z,
+          baseY: cfg.y,
+          y: cfg.y,
+          r,
+          collisionR: r + 0.15,
+          state: 'intact', // 'intact' | 'tremble' | 'fall' | 'reform'
+          timer: 0,
+          fallVy: 0,
+          phase: idx * 1.1,
+          group,
+          rim
+        };
+        crackingPlatforms.push(cp);
+
+        // Collision is active while intact or trembling; drops when falling/reforming
+        addSurface((px, pz) => {
+          if (cp.state === 'fall' || cp.state === 'reform') return null;
+          return (Math.hypot(px - cp.x, pz - cp.z) <= cp.collisionR ? cp.y : null);
+        }, false);
+      } else {
+        const p = {
+          x: cfg.x,
+          z: cfg.z,
+          r,
+          collisionR: r + 0.15,
+          baseY: cfg.y,
+          y: cfg.y,
+          phase: idx * 0.9,
+          group,
+          rim,
+          isPiston: false
+        };
+        platforms.push(p);
+        addSurface((px, pz) => (Math.hypot(px - cfg.x, pz - cfg.z) <= p.collisionR ? p.y : null), false);
+      }
+    });
+
+    // Secret Ember Relic / Star Chest on High Pinnacle (Ridge Stone 3 at x = 15.5, z = -207.5)
+    emberChest = new THREE.Group();
+    emberChest.position.set(15.5, 1.2 + 0.45, -207.5);
+    const chestGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 1), new THREE.MeshBasicMaterial({ color: 0xffaa00 }));
+    emberChest.add(chestGem);
+    const chestRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 32), m.brass);
+    chestRing.rotation.x = Math.PI / 2;
+    emberChest.add(chestRing);
+    const chestLight = new THREE.PointLight(0xffb700, 1.8, 14);
+    emberChest.add(chestLight);
+    scn.add(emberChest);
     brazier(3.6, 0, -266);
   }
 
@@ -2014,44 +2145,100 @@ window.BlahajVolcano = (function () {
       }
     });
 
-    // Bobbing & timed raising/lowering stepping platforms.
+    // A. Bobbing and Slow Piston Elevator Platforms
     platforms.forEach((p) => {
-      if (p.isSinkingStone) {
-        // 6.0 second cycle: Safe High -> Smooth Sinking -> Submerged in Lava -> Rising
-        const period = 6.0;
-        const u = (((t * 1.05 + p.phase) % period) + period) % period;
-        if (u < 2.8) {
-          // 1. High and safe: steady platform at +0.25m
-          p.y = 0.25;
-        } else if (u < 4.0) {
-          // 2. Sinking: smooth descent from +0.25m down to -3.20m
-          const prog = (u - 2.8) / 1.2;
-          const s = 0.5 - 0.5 * Math.cos(prog * Math.PI);
-          p.y = 0.25 - 3.45 * s;
-        } else if (u < 5.0) {
-          // 3. Submerged: below molten lava threshold
-          p.y = -3.20;
-        } else {
-          // 4. Rising: smooth ascent from -3.20m back up to +0.25m
-          const prog = (u - 5.0) / 1.0;
-          const s = 0.5 - 0.5 * Math.cos(prog * Math.PI);
-          p.y = -3.20 + 3.45 * s;
-        }
+      if (p.isPiston) {
+        // Slow, ponderous 8.6s elevator stroke: Low dwell (-1.8m) -> smooth climb -> High crest (+0.4m)
+        const period = 8.6;
+        const u = (((t + p.phase) % period) + period) % period;
+        const s = Math.sin((u / period) * Math.PI * 2);
+        // Moves between -1.8m (submerged near pillar base) and +0.4m (raised leap height)
+        p.y = -0.7 + 1.1 * s;
 
-        // Animate rune glow intensity based on elevation & safety
+        // Visual telegraph: Rim pulses bright golden when cresting near the top
         if (p.rim && p.rim.material) {
-          if (p.y >= -0.8) {
-            p.rim.material.emissiveIntensity = 0.7 + 0.35 * Math.sin(t * 8 + p.phase);
-          } else {
-            p.rim.material.emissiveIntensity = 0.15;
-          }
+          const isNearCrest = (p.y >= 0.0);
+          p.rim.material.emissiveIntensity = isNearCrest ? (1.0 + 0.4 * Math.sin(t * 10)) : 0.25;
         }
       } else {
         const base = p.baseY || 0;
-        p.y = base + 0.35 * Math.sin(t * 1.4 + p.phase);
+        p.y = base + 0.15 * Math.sin(t * 1.4 + p.phase);
       }
       p.group.position.set(p.x, p.y - 0.4, p.z);
     });
+
+    // B. Cracking & Falling Platforms on the Ember Ridge
+    crackingPlatforms.forEach((cp) => {
+      if (cp.state === 'intact') {
+        cp.y = cp.baseY + 0.08 * Math.sin(t * 1.6 + cp.phase);
+        cp.group.position.set(cp.x, cp.y - 0.4, cp.z);
+        if (cp.rim && cp.rim.material) cp.rim.material.emissiveIntensity = 0.5 + 0.2 * Math.sin(t * 4);
+
+        // Check if player is standing on this cracking stone
+        actors.forEach((a) => {
+          if (Math.hypot(a.x - cp.x, a.z - cp.z) < cp.r && Math.abs(a.y - cp.y) < 1.0) {
+            cp.state = 'tremble';
+            cp.timer = 0.55; // 0.55s trembling warning window to jump off!
+            if (typeof on.shonk === 'function') on.shonk();
+          }
+        });
+      } else if (cp.state === 'tremble') {
+        cp.timer -= dt;
+        // Violent warning jitter
+        const jx = (Math.random() - 0.5) * 0.14;
+        const jz = (Math.random() - 0.5) * 0.14;
+        cp.group.position.set(cp.x + jx, cp.y - 0.4, cp.z + jz);
+        if (cp.rim && cp.rim.material) cp.rim.material.emissiveIntensity = 2.4; // Warning flare!
+
+        if (cp.timer <= 0) {
+          cp.state = 'fall';
+          cp.timer = 1.3;
+          cp.fallVy = 0;
+        }
+      } else if (cp.state === 'fall') {
+        cp.timer -= dt;
+        cp.fallVy += dt * 18.0;
+        cp.y -= cp.fallVy * dt;
+        cp.group.position.set(cp.x, cp.y - 0.4, cp.z);
+        cp.group.rotation.z += dt * 1.2;
+        cp.group.rotation.x += dt * 0.8;
+
+        if (cp.timer <= 0) {
+          cp.state = 'reform';
+          cp.timer = 4.2; // 4.2s reformation cooldown
+          cp.group.visible = false;
+        }
+      } else if (cp.state === 'reform') {
+        cp.timer -= dt;
+        if (cp.timer <= 0) {
+          // Re-solidify from lava!
+          cp.state = 'intact';
+          cp.y = cp.baseY;
+          cp.group.position.set(cp.x, cp.y - 0.4, cp.z);
+          cp.group.rotation.set(0, 0, 0);
+          cp.group.visible = true;
+        }
+      }
+    });
+
+    // C. Central Hearth Crystal & Ember Chest Animations
+    if (hearthCrystal) {
+      hearthCrystal.rotation.y += dt * 1.5;
+      hearthCrystal.position.y = 1.85 + 0.12 * Math.sin(t * 2.2);
+    }
+    if (emberChest && !emberChestCollected) {
+      emberChest.rotation.y += dt * 1.8;
+      emberChest.position.y = 1.2 + 0.45 + 0.15 * Math.sin(t * 2.5);
+
+      actors.forEach((a) => {
+        if (!emberChestCollected && Math.hypot(a.x - emberChest.position.x, a.z - emberChest.position.z) < 2.5 && Math.abs(a.y - emberChest.position.y) < 2.2) {
+          emberChestCollected = true;
+          emberChest.visible = false;
+          if (typeof on.toast === 'function') on.toast('✨ EMBER CHEST CLAIMED!', 'High-risk ridge conquered! (+2 Trial Points)');
+          if (typeof on.relic === 'function') on.relic();
+        }
+      });
+    }
 
     // Flames.
     flames.forEach((f) => {
@@ -2165,7 +2352,9 @@ window.BlahajVolcano = (function () {
       if (room !== currentRoom) {
         currentRoom = room;
         if (typeof on.toast === 'function') on.toast(ROOM_TITLES[room].toUpperCase(), roomSubtitle(room));
-        if (typeof on.checkpoint === 'function') on.checkpoint(room, { x: me.x, y: me.y, z: me.z });
+        // Crossing checkpoint spawns directly at the Central Hearth Save Shrine overlooking the stones!
+        const pt = (room === 'crossing') ? { x: 0, y: 0.2, z: -180, rotY: Math.PI } : { x: me.x, y: me.y, z: me.z };
+        if (typeof on.checkpoint === 'function') on.checkpoint(room, pt);
       }
       if (!completed && me.z < -349 && me.y > 18) {
         completed = true;
@@ -2178,6 +2367,7 @@ window.BlahajVolcano = (function () {
     return {
       gate: 'Time the axes and watch the geysers!',
       causeway: 'Stand on the plate, then sprint the bridge. Friends make it easier!',
+      crossing: 'Ride the lava elevators to their peak. Watch the cracking stone ridge!',
       spiral: 'Climb the Ember Spiral. Mind the geysers.',
       overlook: 'You made it! Bump the volunteer carrots, or take the portal home.'
     }[room];
