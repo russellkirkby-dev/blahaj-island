@@ -24,7 +24,7 @@
     shoulder: 'right',
     invertY: false,
     mouseSens: 1.0,
-    bloom: true,
+    bloom: false,
     shadows: true,
     oceanWaves: true,
     streamerMode: false,
@@ -9215,7 +9215,8 @@
       }
     }
 
-    if (composer) {
+    const useBloom = !!(gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled);
+    if (useBloom && composer) {
       if (renderPass) renderPass.scene = activeScene;
       composer.render();
     } else {
@@ -10240,6 +10241,8 @@
     }
   }
 
+  let hudZoneNameEl = null;
+  let lastReportedZoneTitle = '';
   function updateInteractionsAndHUD() {
     nearestInteractable = null;
     let bestDist = 999;
@@ -10651,7 +10654,11 @@
       ? (nearestInteractable.ref ? (nearestInteractable.ref.id || nearestInteractable.kind) : nearestInteractable.kind)
       : null;
 
-    document.getElementById('hud-zone-name').textContent = currentZoneTitle;
+    if (!hudZoneNameEl) hudZoneNameEl = document.getElementById('hud-zone-name');
+    if (hudZoneNameEl && lastReportedZoneTitle !== currentZoneTitle) {
+      hudZoneNameEl.textContent = currentZoneTitle;
+      lastReportedZoneTitle = currentZoneTitle;
+    }
 
     const promptEl = document.getElementById('interaction-prompt');
     const isSailingNow = player.inBoat || player.ridingWithPartner;
@@ -10812,30 +10819,44 @@
     }
   }
 
+  const _projScratch = new THREE.Vector3();
   function projectLabel(worldPos, domEl, heightOffset) {
-    const p = worldPos.clone();
-    p.y += heightOffset;
-    const dist = p.distanceTo(camera.position);
+    if (!domEl) return;
+    _projScratch.copy(worldPos);
+    _projScratch.y += heightOffset;
+    const dist = _projScratch.distanceTo(camera.position);
 
     // Proximity Fade: Smoothly fade between 8m and 18m. Completely hidden beyond 18m!
     if (dist > 18.0) {
-      domEl.style.opacity = '0';
-      domEl.style.display = 'none';
+      if (domEl._lastDisplay !== 'none') {
+        domEl.style.opacity = '0';
+        domEl.style.display = 'none';
+        domEl._lastDisplay = 'none';
+      }
       return;
     }
 
-    p.project(camera);
-    if (p.z > 1) {
-      domEl.style.opacity = '0';
-      domEl.style.display = 'none';
+    _projScratch.project(camera);
+    if (_projScratch.z > 1) {
+      if (domEl._lastDisplay !== 'none') {
+        domEl.style.opacity = '0';
+        domEl.style.display = 'none';
+        domEl._lastDisplay = 'none';
+      }
       return;
     }
 
-    const x = (p.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-(p.y * 0.5) + 0.5) * window.innerHeight;
-    domEl.style.display = '';
-    const opacity = dist <= 8.0 ? 1.0 : Math.max(0, (18.0 - dist) / 10.0);
-    domEl.style.opacity = opacity.toFixed(2);
+    const x = (_projScratch.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-(_projScratch.y * 0.5) + 0.5) * window.innerHeight;
+    if (domEl._lastDisplay !== '') {
+      domEl.style.display = '';
+      domEl._lastDisplay = '';
+    }
+    const opacity = (dist <= 8.0 ? 1.0 : Math.max(0, (18.0 - dist) / 10.0)).toFixed(2);
+    if (domEl._lastOpacity !== opacity) {
+      domEl.style.opacity = opacity;
+      domEl._lastOpacity = opacity;
+    }
     domEl.style.left = `${x}px`;
     domEl.style.top = `${y}px`;
   }
@@ -11022,6 +11043,10 @@
     embarkIntoGame,
     finishLoadingScreen,
     isGameLoaded: () => isGameLoaded,
+    getRenderer: () => renderer,
+    getCamera: () => camera,
+    getComposer: () => composer,
+    getScene: () => scene,
     getCompletedQuests: () => completedQuests,
     completeQuest,
     unlockDeveloperDebugPanel,

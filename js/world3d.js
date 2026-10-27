@@ -867,17 +867,18 @@ window.BlahajWorld = (function () {
     dirLight = new THREE.DirectionalLight(0xffb163, 1.28);
     dirLight.position.set(-90, 140, 80);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
     dirLight.shadow.camera.near = 10;
-    dirLight.shadow.camera.far = 520;
-    const d = 240;
+    dirLight.shadow.camera.far = 380;
+    const d = 70;
     dirLight.shadow.camera.left = -d;
     dirLight.shadow.camera.right = d;
     dirLight.shadow.camera.top = d;
     dirLight.shadow.camera.bottom = -d;
-    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.bias = -0.0003;
     scene.add(dirLight);
+    scene.add(dirLight.target);
 
     buildSkyDomeAndSkySeam(scene);
     updateDayNight(scene, true);
@@ -1170,7 +1171,7 @@ window.BlahajWorld = (function () {
   // Covers Main Island Meadows, Volcano Base Foothills, Isthmus, and Outer Sanctuaries!
   // ==========================================================================
   function buildInstancedMeadowGrass(scene) {
-    const tuftCount = 25000;
+    const tuftCount = 7500;
     const tuftGeo = createPlushTuftGeometry();
 
     grassUniforms = {
@@ -1226,8 +1227,8 @@ window.BlahajWorld = (function () {
     const color = new THREE.Color();
     let placed = 0;
 
-    // 1. Place 15,000 Astroturf Tufts across Main Island Meadows & Highlands (Strictly Green Surfaces Only)
-    for (let attempt = 0; attempt < 45000 && placed < 15000; attempt++) {
+    // 1. Place 4,500 Astroturf Tufts across Main Island Meadows & Highlands (Strictly Green Surfaces Only)
+    for (let attempt = 0; attempt < 12000 && placed < 4500; attempt++) {
       const gx = (Math.random() - 0.5) * 165;
       const gz = (Math.random() - 0.5) * 150 + 10;
 
@@ -1243,10 +1244,10 @@ window.BlahajWorld = (function () {
         (Math.random() - 0.5) * 0.15
       );
 
-      // Near road edges: neater, clipped astroturf border (0.24m). Out in hills/trees: fluffier (0.40m).
-      const s = dRoad < 2.5
+      // Near road edges: neater, clipped astroturf border (0.30m). Out in hills/trees: fluffier (0.50m).
+      const s = (dRoad < 2.5
         ? (0.65 + Math.random() * 0.20)
-        : (0.88 + Math.random() * 0.35);
+        : (0.88 + Math.random() * 0.35)) * 1.25;
       dummy.scale.set(s, s, s);
       dummy.updateMatrix();
       instMesh.setMatrixAt(placed, dummy.matrix);
@@ -1257,9 +1258,9 @@ window.BlahajWorld = (function () {
       placed++;
     }
 
-    // 2. Place 3,500 Astroturf Tufts around the Volcano Base Foothills (Strictly Green Surfaces Only)
-    const targetVolcano = placed + 3500;
-    for (let attempt = 0; attempt < 12000 && placed < targetVolcano && placed < tuftCount; attempt++) {
+    // 2. Place 1,200 Astroturf Tufts around the Volcano Base Foothills (Strictly Green Surfaces Only)
+    const targetVolcano = placed + 1200;
+    for (let attempt = 0; attempt < 3500 && placed < targetVolcano && placed < tuftCount; attempt++) {
       const r = 58 + Math.random() * 18; // dVol between 35 and 76
       const th = Math.random() * Math.PI * 2;
       const gx = -28 + Math.cos(th) * r;
@@ -1276,9 +1277,9 @@ window.BlahajWorld = (function () {
         Math.random() * Math.PI * 2,
         (Math.random() - 0.5) * 0.15
       );
-      const s = dRoad < 2.5
+      const s = (dRoad < 2.5
         ? (0.68 + Math.random() * 0.18)
-        : (0.90 + Math.random() * 0.35);
+        : (0.90 + Math.random() * 0.35)) * 1.25;
       dummy.scale.set(s, s, s);
       dummy.updateMatrix();
       instMesh.setMatrixAt(placed, dummy.matrix);
@@ -1288,9 +1289,9 @@ window.BlahajWorld = (function () {
       placed++;
     }
 
-    // 3. Place 2,000 Astroturf Tufts on the Green Isthmus Spine Ridge (Strictly Green Surfaces Only)
-    const targetIsthmus = placed + 2000;
-    for (let attempt = 0; attempt < 9000 && placed < targetIsthmus && placed < tuftCount; attempt++) {
+    // 3. Place 600 Astroturf Tufts on the Green Isthmus Spine Ridge (Strictly Green Surfaces Only)
+    const targetIsthmus = placed + 600;
+    for (let attempt = 0; attempt < 2000 && placed < targetIsthmus && placed < tuftCount; attempt++) {
       const gz = -33 - Math.random() * 42; // gz in [-33, -75]
       const tIsth = (-gz - 32) / 73;
       const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
@@ -1307,9 +1308,9 @@ window.BlahajWorld = (function () {
         Math.random() * Math.PI * 2,
         (Math.random() - 0.5) * 0.15
       );
-      const s = dRoad < 2.5
+      const s = (dRoad < 2.5
         ? (0.68 + Math.random() * 0.18)
-        : (0.90 + Math.random() * 0.35);
+        : (0.90 + Math.random() * 0.35)) * 1.25;
       dummy.scale.set(s, s, s);
       dummy.updateMatrix();
       instMesh.setMatrixAt(placed, dummy.matrix);
@@ -1319,10 +1320,10 @@ window.BlahajWorld = (function () {
       placed++;
     }
 
-    // 4. Place 4,500 Astroturf Tufts across the 4 Outer Sanctuary Islands (Strictly Green Surfaces Only)
+    // 4. Place 1,200 Astroturf Tufts across the 4 Outer Sanctuary Islands (Strictly Green Surfaces Only)
     OUTER_ISLANDS.forEach((isl, idx) => {
-      const targetForIsl = placed + 1125;
-      for (let attempt = 0; attempt < 5000 && placed < targetForIsl && placed < tuftCount; attempt++) {
+      const targetForIsl = placed + 300;
+      for (let attempt = 0; attempt < 1200 && placed < targetForIsl && placed < tuftCount; attempt++) {
         const r = Math.sqrt(Math.random()) * (isl.radius * 0.84);
         const th = Math.random() * Math.PI * 2;
         const gx = isl.x + Math.cos(th) * r;
@@ -1337,7 +1338,7 @@ window.BlahajWorld = (function () {
           Math.random() * Math.PI * 2,
           (Math.random() - 0.5) * 0.15
         );
-        const s = 0.80 + Math.random() * 0.35;
+        const s = (0.80 + Math.random() * 0.35) * 1.25;
         dummy.scale.set(s, s, s);
         dummy.updateMatrix();
         instMesh.setMatrixAt(placed, dummy.matrix);
@@ -1969,6 +1970,10 @@ window.BlahajWorld = (function () {
     }
 
     // Directional light (Sun by day, Moon by night)
+    if (dirLight.target) {
+      dirLight.target.position.set(camX, 0, camZ);
+      dirLight.target.updateMatrixWorld();
+    }
     if (sunY > 0) {
       dirLight.position.set(camX + sunX * 0.45, Math.max(30, sunY * 0.45), camZ + sunZ * 0.45);
       dirLight.color.copy(state.sunColor);
@@ -5173,28 +5178,33 @@ window.BlahajWorld = (function () {
     updateDayNight(scene);
 
     if (emberSystem) {
-      const pos = emberSystem.geometry.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        let y = pos.getY(i) + 0.18 + (i % 5) * 0.02;
-        let x = pos.getX(i);
-        let z = pos.getZ(i);
+      const camX = lastCamera ? lastCamera.position.x : 0;
+      const camZ = lastCamera ? lastCamera.position.z : 0;
+      const distToCraterSq = (camX - (-28)) * (camX - (-28)) + (camZ - (-148)) * (camZ - (-148));
+      if (distToCraterSq < 130 * 130) {
+        const pos = emberSystem.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          let y = pos.getY(i) + 0.18 + (i % 5) * 0.02;
+          let x = pos.getX(i);
+          let z = pos.getZ(i);
 
-        // Gentle natural atmospheric swirl and drift
-        x += Math.sin(time * 1.2 + i * 0.37) * 0.035;
-        z += Math.cos(time * 1.1 + i * 0.41) * 0.035;
+          // Gentle natural atmospheric swirl and drift
+          x += Math.sin(time * 1.2 + i * 0.37) * 0.035;
+          z += Math.cos(time * 1.1 + i * 0.41) * 0.035;
 
-        // Reset into deep crater floor when reaching skyward apex
-        if (y > 122) {
-          y = 32.5 + Math.random() * 4.0;
-          const ang = Math.random() * Math.PI * 2;
-          const rad = Math.sqrt(Math.random()) * 13.5;
-          x = -28 + Math.cos(ang) * rad;
-          z = -148 + Math.sin(ang) * rad;
+          // Reset into deep crater floor when reaching skyward apex
+          if (y > 122) {
+            y = 32.5 + Math.random() * 4.0;
+            const ang = Math.random() * Math.PI * 2;
+            const rad = Math.sqrt(Math.random()) * 13.5;
+            x = -28 + Math.cos(ang) * rad;
+            z = -148 + Math.sin(ang) * rad;
+          }
+
+          pos.setXYZ(i, x, y, z);
         }
-
-        pos.setXYZ(i, x, y, z);
+        pos.needsUpdate = true;
       }
-      pos.needsUpdate = true;
     }
 
     // 0. Update Hiram's Built Structures (Sacred Allen Key Assembly, Obelisks & Breb Ovens!)
@@ -5540,6 +5550,11 @@ window.BlahajWorld = (function () {
 
     [...fleetBoats, partnerBoatMesh].forEach((bm) => {
       if (bm && bm.visible) {
+        if (lastCamera) {
+          const dcamSq = (bm.position.x - lastCamera.position.x) * (bm.position.x - lastCamera.position.x) +
+                         (bm.position.z - lastCamera.position.z) * (bm.position.z - lastCamera.position.z);
+          if (dcamSq > 85 * 85) return;
+        }
         bm.rotation.order = 'YXZ';
         const heading = bm.rotation.y;
         const cosH = Math.cos(heading);
