@@ -4717,13 +4717,14 @@ body.in-binocular-mode .hotbar-track {
   display: none !important;
 }
 
-.telescope-mask {
+.telescope-vignette {
   position: absolute;
   inset: 0;
   width: 100vw;
   height: 100vh;
   pointer-events: none;
   z-index: 2;
+  background: radial-gradient(circle at center, transparent min(41vw, 41vh), rgba(8, 11, 22, 0.96) calc(min(41vw, 41vh) + 1px));
 }
 
 .telescope-cloud-canvas {

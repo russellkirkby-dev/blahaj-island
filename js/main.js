@@ -3178,6 +3178,11 @@
     });
     window.addEventListener('focus', clearAllMovementKeys);
 
+    // Make interaction prompt clickable
+    document.getElementById('interaction-prompt')?.addEventListener('click', () => {
+      triggerInteract();
+    });
+
     // Declutter button click listener & initial UI sync
     const declutterBtn = document.getElementById('btn-hud-declutter');
     if (declutterBtn) {
@@ -5290,40 +5295,13 @@
     }
 
     if (isUsingBinoculars) {
-      nearestInteractable = {
-        kind: 'binoculars_active',
-        prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
-      };
-      const promptEl = document.getElementById('interaction-prompt');
-      if (promptEl && !isAnyModalOpen()) {
-        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
-        promptEl.classList.remove('hidden');
-      }
+      exitBinocularMode();
       return;
     }
 
     if (isUsingTelescope) {
-      nearestInteractable = {
-        kind: 'telescope_active',
-        prompt: '🔭 Starlight Telescope · [Space / Click] Wave to Cloud Sharks 👋 · [Esc / E] Step Away'
-      };
-      const promptEl = document.getElementById('interaction-prompt');
-      if (promptEl && !isAnyModalOpen()) {
-        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
-        promptEl.classList.remove('hidden');
-      }
+      exitTelescopeMode();
       return;
-    }
-
-    // Direct telescope proximity check on Crust Cliffs Observatory Terrace (52, -43)
-    const dObsTele = Math.hypot(player.pos.x - 52.0, player.pos.z - (-43.0));
-    if (dObsTele < 6.5 && dObsTele < bestDist) {
-      bestDist = dObsTele;
-      nearestInteractable = {
-        kind: 'observatory_telescope',
-        dist: dObsTele,
-        prompt: 'Peer into Starlight Observatory Telescope [E] 🔭☁️'
-      };
     }
 
     if (player.isLounging) {
@@ -11729,6 +11707,30 @@
         promptEl.classList.remove('hidden');
       }
       return;
+    }
+
+    if (isUsingTelescope) {
+      nearestInteractable = {
+        kind: 'telescope_active',
+        prompt: '🔭 Starlight Telescope · [Space / Click] Wave to Cloud Sharks 👋 · [Esc / E] Step Away'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Direct telescope proximity check on Crust Cliffs Observatory Terrace (52, -43)
+    const dObsTele = Math.hypot(player.pos.x - 52.0, player.pos.z - (-43.0));
+    if (dObsTele < 8.5 && dObsTele < bestDist) {
+      bestDist = dObsTele;
+      nearestInteractable = {
+        kind: 'observatory_telescope',
+        dist: dObsTele,
+        prompt: 'Look through Starlight Observatory Telescope [E] 🔭✨'
+      };
     }
 
     if (player.isLounging) {

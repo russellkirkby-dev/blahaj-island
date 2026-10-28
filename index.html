@@ -1468,16 +1468,8 @@
 
   <!-- 9. OBSERVATORY CELESTIAL TELESCOPE & CLOUD SHARK OVERLAY -->
   <div id="telescope-overlay" class="telescope-overlay hidden">
-    <!-- Brass Celestial Telescope Vignette Mask (Large circular refractor aperture) -->
-    <svg class="telescope-mask" viewBox="0 0 100 100" preserveAspectRatio="none">
-      <defs>
-        <mask id="telescope-cutout">
-          <rect width="100%" height="100%" fill="white" />
-          <circle cx="50" cy="50" r="41" fill="black" />
-        </mask>
-      </defs>
-      <rect width="100%" height="100%" fill="rgba(8, 11, 22, 0.96)" mask="url(#telescope-cutout)" />
-    </svg>
+    <!-- Brass Celestial Telescope Circular Vignette -->
+    <div class="telescope-vignette"></div>
 
     <!-- Canvas for Floating Close-Up Clouds & Waving Cloud Sharks -->
     <canvas id="telescope-cloud-canvas" class="telescope-cloud-canvas"></canvas>
