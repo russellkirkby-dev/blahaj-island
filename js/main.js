@@ -2918,12 +2918,8 @@
       });
     });
 
-    // Attach floating directional labels to all 6 High Island Crossroads Signposts
-    if (worldApi.getSignposts) {
-      worldApi.getSignposts().forEach((sp) => {
-        sp.labelEl = createWorldLabel(labelsRoot, sp.title, sp.directions);
-      });
-    }
+    // Crossroads Signposts use physical 3D painted signs and clean bottom interaction prompts,
+    // avoiding bulky floating 3D text strips that obstruct exploration.
   }
 
   function refreshWorldActorMesh(act, newMange) {
@@ -5174,7 +5170,7 @@
       enterBinocularMode();
       return;
     }
-    if (item.kind === 'signpost_spawn') {
+    if (item.kind === 'signpost_spawn' || item.kind === 'signpost') {
       openFastTravelModal();
       return;
     }
@@ -10408,14 +10404,19 @@
       }
     }
 
-    // East Cape Arrival Crossroads Signpost
-    const dSpawnSign = Math.hypot(player.pos.x - 55.0, player.pos.z - (-9.5));
-    if (dSpawnSign < 3.2 && dSpawnSign < bestDist) {
-      bestDist = dSpawnSign;
-      nearestInteractable = {
-        kind: 'signpost_spawn',
-        prompt: '🪧 East Cape Arrival & Travel Hub · [E] Open Island Travel Map'
-      };
+    // Crossroads Signposts Interaction (Travel Hub & Regional Guideposts)
+    if (worldApi.getSignposts) {
+      worldApi.getSignposts().forEach((sp) => {
+        const dSp = Math.hypot(player.pos.x - sp.pos.x, player.pos.z - sp.pos.z);
+        if (dSp < 3.2 && dSp < bestDist) {
+          bestDist = dSp;
+          nearestInteractable = {
+            kind: 'signpost',
+            sign: sp,
+            prompt: `${sp.title} · [E] Open Island Travel Map`
+          };
+        }
+      });
     }
 
     // Solomon's Stone Bread Oven in Heartland Meadow
@@ -10718,18 +10719,7 @@
       if (!act.mesh.visible) return;
       projectLabel(act.mesh.position, act.labelEl, 3.25);
     });
-    if (worldApi.getSignposts) {
-      worldApi.getSignposts().forEach((sp) => {
-        if (sp.labelEl) {
-          const d = sp.pos.distanceTo(player.pos);
-          if (d < 18) {
-            projectLabel(sp.pos, sp.labelEl, 0.35);
-          } else {
-            sp.labelEl.style.opacity = '0';
-          }
-        }
-      });
-    }
+
     if (coopPartner.active && coopPartner.mesh && coopPartner.labelEl) {
       const sameZone = (coopPartner.zone || 'island') === currentZone;
       if (sameZone && coopPartner.mesh.visible) {
