@@ -876,6 +876,28 @@
       }, 50);
     },
 
+    telescopeFocus() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(330, 0.18, 'triangle', 0.08, 523);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(659, 0.22, 'sine', 0.09, 1046);
+        this.playTone(1318, 0.25, 'triangle', 0.06);
+      }, 65);
+    },
+
+    cloudSharkWaveChime() {
+      this.ensure();
+      if (!this.ctx) return;
+      this.playTone(587, 0.15, 'sine', 0.08);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(880, 0.18, 'triangle', 0.09);
+        this.playTone(1174, 0.22, 'sine', 0.07);
+      }, 70);
+    },
+
     hurtSqueak() {
       this.ensure();
       if (!this.ctx) return;
@@ -3115,6 +3137,7 @@
   // ==========================================================================
   function setupInputs() {
     initIslandMapEvents();
+    initTelescopeEvents();
     const canvas = renderer.domElement;
 
     canvas.addEventListener('click', () => {
@@ -3267,6 +3290,12 @@
           const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
           camState.yaw -= dx * 0.0022 * sens * bInvertX;
           camState.pitch = Math.max(-0.65, Math.min(0.75, camState.pitch - dy * 0.0022 * sens * bInvertY));
+        } else if (isUsingTelescope) {
+          // Observatory telescope celestial cloud scanning with switchable axis inversion
+          const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
+          const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
+          camState.yaw -= dx * 0.0020 * sens * bInvertX;
+          camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch - dy * 0.0020 * sens * bInvertY));
         } else {
           // Standard third-person orbit camera
           const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
@@ -3299,6 +3328,16 @@
       const isToastOpen = activeToast && !activeToast.classList.contains('hidden') && !activeToast.classList.contains('fading-out');
 
       if (e.key === 'Escape') {
+        if (isUsingTelescope) {
+          exitTelescopeMode();
+          e.preventDefault();
+          return;
+        }
+        if (isUsingBinoculars) {
+          exitBinocularMode();
+          e.preventDefault();
+          return;
+        }
         if (isVhudOpen || isToastOpen) {
           if (isVhudOpen) hideVolcanoHUDCard();
           if (isToastOpen) dismissCurrentToast(true);
@@ -3315,6 +3354,10 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        if (isUsingTelescope) {
+          exitTelescopeMode();
+          return;
+        }
         if (window.BlahajVolleyball) {
           if (window.BlahajVolleyball.isMatchActive()) {
             window.BlahajVolleyball.endMatch();
@@ -3401,6 +3444,26 @@
         if (k === 'escape' || k === 'f' || k === ' ' || k === 't' || k === 'e' || k === 'h' || k === 'enter') {
           e.preventDefault();
           exitBinocularMode();
+          return;
+        }
+      }
+
+      // If in observatory telescope mode
+      if (isUsingTelescope) {
+        if (k === 'i') {
+          e.preventDefault();
+          toggleBinocularInvertY();
+          updateTelescopeControlButtons();
+          return;
+        }
+        if (k === ' ' || k === 'enter') {
+          e.preventDefault();
+          waveToCloudSharks();
+          return;
+        }
+        if (k === 'escape' || k === 'e' || k === 'f' || k === 't' || k === 'h') {
+          e.preventDefault();
+          exitTelescopeMode();
           return;
         }
       }
@@ -5192,6 +5255,11 @@
       enterBinocularMode();
       return;
     }
+
+    if (item.kind === 'observatory_telescope') {
+      enterTelescopeMode();
+      return;
+    }
     if (item.kind === 'signpost_spawn' || item.kind === 'signpost') {
       openFastTravelModal();
       return;
@@ -5232,6 +5300,30 @@
         promptEl.classList.remove('hidden');
       }
       return;
+    }
+
+    if (isUsingTelescope) {
+      nearestInteractable = {
+        kind: 'telescope_active',
+        prompt: '🔭 Starlight Telescope · [Space / Click] Wave to Cloud Sharks 👋 · [Esc / E] Step Away'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    // Direct telescope proximity check on Crust Cliffs Observatory Terrace (52, -43)
+    const dObsTele = Math.hypot(player.pos.x - 52.0, player.pos.z - (-43.0));
+    if (dObsTele < 6.5 && dObsTele < bestDist) {
+      bestDist = dObsTele;
+      nearestInteractable = {
+        kind: 'observatory_telescope',
+        dist: dObsTele,
+        prompt: 'Peer into Starlight Observatory Telescope [E] 🔭☁️'
+      };
     }
 
     if (player.isLounging) {
@@ -5741,7 +5833,7 @@
     }
 
     if (lm.type === 'library') {
-      toggleGalleryModal();
+      enterTelescopeMode();
       return;
     }
 
@@ -8568,6 +8660,730 @@
     showToast('LOWERED BINOCULARS 🔭', 'Back to standard third-person view.');
   }
 
+  // ==========================================================================
+  // CELESTIAL OBSERVATORY TELESCOPE & CLOUD SHARK SYSTEM
+  // ==========================================================================
+  let isUsingTelescope = false;
+  let telescopeSavedDistance = 7.4;
+  let telescopeSavedFov = 60;
+  let telescopeSavedShoulderRight = 0.85;
+  let telescopeSavedHeightOffset = 2.35;
+  let telescopeSavedYaw = 0;
+  let telescopeSavedPitch = 0.15;
+  let telescopeCanvas = null;
+  let telescopeCtx = null;
+  let targetedCloudShark = null;
+  let cloudParticles = [];
+
+  // 6 Cloud Sharks nestled in close-up drifting cloud strata
+  const CELESTIAL_CLOUD_SHARKS = [
+    {
+      id: 'snowball',
+      name: 'Snowball',
+      type: 'white',
+      species: 'Great White Cloud Shark',
+      desc: 'Fluffy White Fleece · Gentle Smile',
+      quip: 'Snowball smiles warmly and waves their little white fin right back at you!',
+      azimuth: 0.38,
+      pitch: 0.45,
+      cloudRadius: 95,
+      depth: 1.0,
+      scale: 1.15,
+      phase: 0.0,
+      waveTimer: 0
+    },
+    {
+      id: 'pearl',
+      name: 'Pearl',
+      type: 'white_pup',
+      species: 'Snowy Cloud Pup',
+      desc: 'Playful Baby White Shark · Rosy Cheeks',
+      quip: 'Tiny Pearl gives enthusiastic double-fin waves from behind a cloud puff!',
+      azimuth: 1.35,
+      pitch: 0.58,
+      cloudRadius: 80,
+      depth: 0.92,
+      scale: 0.88,
+      phase: 1.6,
+      waveTimer: 0
+    },
+    {
+      id: 'barnaby',
+      name: 'Barnaby',
+      type: 'blahaj',
+      species: 'Cumulus Blåhaj',
+      desc: 'Classic Blue Plushie · Cloud Hammock',
+      quip: 'Barnaby stretches comfortably on a cloud bed and gives a slow, cozy fin wave!',
+      azimuth: 2.32,
+      pitch: 0.36,
+      cloudRadius: 105,
+      depth: 1.05,
+      scale: 1.1,
+      phase: 3.1,
+      waveTimer: 0
+    },
+    {
+      id: 'nimbus',
+      name: 'Captain Nimbus',
+      type: 'white_pilot',
+      species: 'Aviator White Shark',
+      desc: 'White Shark in Brass Aviator Goggles',
+      quip: 'Captain Nimbus adjusts their tiny brass goggles and gives a crisp pilot fin salute!',
+      azimuth: 3.45,
+      pitch: 0.52,
+      cloudRadius: 110,
+      depth: 1.15,
+      scale: 1.2,
+      phase: 4.5,
+      waveTimer: 0
+    },
+    {
+      id: 'stardust',
+      name: 'Stardust',
+      type: 'frost_white',
+      species: 'Celestial Frost Great White',
+      desc: 'Gleaming Starlight Coat · Sparkling Fin',
+      quip: 'Stardust pirouettes through a cloud ring and showers glittering star motes down!',
+      azimuth: 4.65,
+      pitch: 0.68,
+      cloudRadius: 90,
+      depth: 0.95,
+      scale: 1.05,
+      phase: 2.2,
+      waveTimer: 0
+    },
+    {
+      id: 'fluff',
+      name: 'Fluff',
+      type: 'white',
+      species: 'Cotton Fleece White Shark',
+      desc: 'Pure White Cloud Swimmer',
+      quip: 'Fluff waves their little fin happily, thrilled to be spotted through the telescope!',
+      azimuth: 5.55,
+      pitch: 0.40,
+      cloudRadius: 100,
+      depth: 1.0,
+      scale: 1.08,
+      phase: 5.4,
+      waveTimer: 0
+    }
+  ];
+
+  // Procedural cloud formations drifting across azimuths
+  const CELESTIAL_CLOUDS = [];
+  (function initCelestialClouds() {
+    for (let i = 0; i < 22; i++) {
+      const az = (i / 22) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
+      const pt = 0.20 + Math.random() * 0.70;
+      const strata = i % 3; // 0 = far, 1 = mid, 2 = close foreground
+      const driftSpeed = 0.008 + strata * 0.006 + Math.random() * 0.004;
+      const numLobes = 4 + Math.floor(Math.random() * 4);
+      const lobes = [];
+      for (let j = 0; j < numLobes; j++) {
+        lobes.push({
+          ox: (Math.random() - 0.5) * 110,
+          oy: (Math.random() - 0.5) * 45,
+          rx: 40 + Math.random() * 55,
+          ry: 28 + Math.random() * 38,
+          alpha: 0.65 + Math.random() * 0.30
+        });
+      }
+      CELESTIAL_CLOUDS.push({ az, pt, strata, driftSpeed, lobes });
+    }
+  })();
+
+  function initTelescopeEvents() {
+    telescopeCanvas = document.getElementById('telescope-cloud-canvas');
+    if (telescopeCanvas) {
+      telescopeCtx = telescopeCanvas.getContext('2d');
+      telescopeCanvas.addEventListener('click', () => {
+        waveToCloudSharks();
+      });
+    }
+
+    document.getElementById('btn-close-telescope')?.addEventListener('click', () => {
+      exitTelescopeMode();
+    });
+
+    document.getElementById('btn-tele-wave')?.addEventListener('click', () => {
+      waveToCloudSharks();
+    });
+
+    document.getElementById('btn-tele-flip-y')?.addEventListener('click', () => {
+      gameSettings.binocularInvertY = !gameSettings.binocularInvertY;
+      saveSettings();
+      updateTelescopeControlButtons();
+      updateBinocularControlButtons();
+      showToast('↕ TELESCOPE PITCH', `Vertical Look: ${gameSettings.binocularInvertY ? 'INVERTED' : 'NORMAL'}`);
+    });
+
+    document.getElementById('btn-tele-flip-x')?.addEventListener('click', () => {
+      gameSettings.binocularInvertX = !gameSettings.binocularInvertX;
+      saveSettings();
+      updateTelescopeControlButtons();
+      updateBinocularControlButtons();
+      showToast('↔ TELESCOPE PAN', `Horizontal Look: ${gameSettings.binocularInvertX ? 'INVERTED' : 'NORMAL'}`);
+    });
+
+    document.getElementById('btn-tele-gallery')?.addEventListener('click', () => {
+      exitTelescopeMode();
+      toggleGalleryModal();
+    });
+  }
+
+  function updateTelescopeControlButtons() {
+    const lblY = document.getElementById('lbl-tele-flip-y');
+    if (lblY) lblY.textContent = gameSettings.binocularInvertY ? 'INVERTED' : 'NORMAL';
+    const lblX = document.getElementById('lbl-tele-flip-x');
+    if (lblX) lblX.textContent = gameSettings.binocularInvertX ? 'INVERTED' : 'NORMAL';
+  }
+
+  function enterTelescopeMode() {
+    if (isUsingTelescope) return;
+    if (isUsingBinoculars) exitBinocularMode();
+    if (isAnyModalOpen()) return;
+
+    isUsingTelescope = true;
+    telescopeSavedDistance = camState.distance;
+    telescopeSavedFov = camera.fov;
+    telescopeSavedShoulderRight = camState.shoulderRight;
+    telescopeSavedHeightOffset = camState.heightOffset;
+    telescopeSavedYaw = camState.yaw;
+    telescopeSavedPitch = camState.pitch;
+
+    if (player.mesh) {
+      player.mesh.visible = false;
+    }
+
+    camState.distance = 0.0;
+    camState.shoulderRight = 0.0;
+    camState.heightOffset = 1.15;
+    // Initial celestial telescope view looks up towards the cloud deck
+    camState.pitch = 0.46; // ~26 deg upward
+    camera.fov = 18.0; // 12x magnification
+    camera.updateProjectionMatrix();
+
+    const overlay = document.getElementById('telescope-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.classList.add('in-telescope-mode');
+
+    updateTelescopeControlButtons();
+    CozyAudio.telescopeFocus();
+    showToast('🔭 OBSERVATORY TELESCOPE', 'Scanning close-up cloud strata! Watch for waving cloud sharks · [Space / Click] Wave back.');
+    addChatLog('🔭 You leaned into the brass eyepiece of the Starlight Observatory Telescope! Puffy celestial clouds drift past above the island.', 'lore');
+  }
+
+  function exitTelescopeMode() {
+    if (!isUsingTelescope) return;
+    isUsingTelescope = false;
+
+    if (player.mesh) {
+      player.mesh.visible = true;
+    }
+
+    camState.distance = telescopeSavedDistance || 7.4;
+    camState.shoulderRight = telescopeSavedShoulderRight || 0.85;
+    camState.heightOffset = telescopeSavedHeightOffset || 2.35;
+    camState.pitch = telescopeSavedPitch || 0.15;
+    camera.fov = telescopeSavedFov || 60;
+    camera.updateProjectionMatrix();
+
+    const overlay = document.getElementById('telescope-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    document.body.classList.remove('in-telescope-mode');
+
+    CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk();
+    showToast('STEPPED FROM TELESCOPE 🔭', 'Back to observatory terrace view.');
+  }
+
+  function toggleTelescopeMode() {
+    if (isUsingTelescope) exitTelescopeMode();
+    else enterTelescopeMode();
+  }
+
+  function waveToCloudSharks() {
+    if (!isUsingTelescope) return;
+
+    if (targetedCloudShark) {
+      targetedCloudShark.waveTimer = 3.8;
+      CozyAudio.cloudSharkWaveChime();
+      spawnTelescopeHeartsAndSparkles(window.innerWidth / 2, window.innerHeight / 2);
+      showToast(`👋 WAVED TO ${targetedCloudShark.name.toUpperCase()}! 🦈✨`, targetedCloudShark.quip);
+      addChatLog(`🔭 <strong>Observatory Sighting:</strong> You waved to <strong>${targetedCloudShark.name}</strong> (${targetedCloudShark.species}) drifting in the clouds! They waved their little fin happily back at you!`, 'lore');
+    } else {
+      // Wave generally into the sky
+      CELESTIAL_CLOUD_SHARKS.forEach(s => { s.waveTimer = 3.2; });
+      CozyAudio.cloudSharkWaveChime();
+      spawnTelescopeHeartsAndSparkles(window.innerWidth / 2, window.innerHeight / 2);
+      showToast('WAVED INTO THE CLOUDS! 👋☁️✨', 'The cloud sharks spotted your wave and all waved their little fins together!');
+      addChatLog('🔭 You waved your fin up through the telescope! White sharks nestled in the clouds waved right back!', 'cozy');
+    }
+  }
+
+  function spawnTelescopeHeartsAndSparkles(cx, cy) {
+    const symbols = ['✨', '💕', '⭐', '🦈', '🌸', '✨'];
+    for (let i = 0; i < 14; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 40 + Math.random() * 90;
+      cloudParticles.push({
+        x: cx + Math.cos(ang) * 20,
+        y: cy + Math.sin(ang) * 20,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 40,
+        symbol: symbols[i % symbols.length],
+        alpha: 1.0,
+        size: 16 + Math.random() * 14,
+        rot: (Math.random() - 0.5) * 1.5
+      });
+    }
+  }
+
+  function updateTelescopeCloudCanvas(dt, elapsed) {
+    if (!telescopeCanvas || !telescopeCtx) return;
+    dt = (typeof dt === 'number' && !isNaN(dt) && dt > 0) ? Math.min(dt, 0.1) : 0.016;
+    elapsed = (typeof elapsed === 'number' && !isNaN(elapsed)) ? elapsed : (clock ? clock.getElapsedTime() : 0);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (telescopeCanvas.width !== w || telescopeCanvas.height !== h) {
+      telescopeCanvas.width = w;
+      telescopeCanvas.height = h;
+    }
+
+    const ctx = telescopeCtx;
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const apRadius = Math.min(w, h) * 0.41;
+
+    // Clip rendering strictly within circular telescope aperture
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, apRadius, 0, Math.PI * 2);
+    ctx.clip();
+
+    // 1. Celestial Atmosphere Sky Background Gradient
+    const skyGrad = ctx.createRadialGradient(cx, cy * 0.7, 50, cx, cy, apRadius * 1.15);
+    skyGrad.addColorStop(0, '#7dd3fc'); // bright sunlit high atmosphere
+    skyGrad.addColorStop(0.45, '#38bdf8');
+    skyGrad.addColorStop(0.85, '#0284c7');
+    skyGrad.addColorStop(1, '#0369a1');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle twinkling celestial star motes in upper stratosphere
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    for (let i = 0; i < 30; i++) {
+      const sx = (Math.sin(i * 123.4 + elapsed * 0.2) * 0.5 + 0.5) * w;
+      const sy = (Math.cos(i * 789.1 + elapsed * 0.2) * 0.5 + 0.5) * h;
+      const sr = 1.0 + Math.sin(elapsed * 3.0 + i) * 0.7;
+      if (Math.hypot(sx - cx, sy - cy) < apRadius - 10) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(0.4, sr), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Camera angles
+    const curYaw = ((-camState.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const curPitch = camState.pitch; // 0.08 .. 1.35
+    const fovScale = (Math.min(w, h) / 0.32); // Angular scale in pixels per radian
+
+    // 2. Draw drifting cloud formations across 3 depth strata
+    CELESTIAL_CLOUDS.forEach(c => {
+      c.az = (c.az + c.driftSpeed * dt) % (Math.PI * 2);
+
+      // Relative angle to camera view
+      let dAz = c.az - curYaw;
+      while (dAz > Math.PI) dAz -= Math.PI * 2;
+      while (dAz < -Math.PI) dAz += Math.PI * 2;
+      const dPt = c.pt - curPitch;
+
+      const px = cx + dAz * fovScale * (0.8 + c.strata * 0.25);
+      const py = cy - dPt * fovScale * (0.8 + c.strata * 0.25);
+
+      // Cull clouds far outside aperture
+      if (Math.hypot(px - cx, py - cy) > apRadius + 220) return;
+
+      drawSingleCloudFormation(ctx, px, py, c.strata, c.lobes, elapsed);
+    });
+
+    // 3. Draw Cloud Sharks with Waving Little Fins!
+    let bestAimShark = null;
+    let minAimDist = 140; // Reticle targeting threshold
+
+    CELESTIAL_CLOUD_SHARKS.forEach(s => {
+      // Advance wave timers
+      if (s.waveTimer > 0) s.waveTimer -= dt;
+
+      // Drift shark slowly with the clouds
+      s.azimuth = (s.azimuth + 0.007 * dt) % (Math.PI * 2);
+
+      let dAz = s.azimuth - curYaw;
+      while (dAz > Math.PI) dAz -= Math.PI * 2;
+      while (dAz < -Math.PI) dAz += Math.PI * 2;
+      const dPt = s.pitch - curPitch;
+
+      const sx = cx + dAz * fovScale * s.depth;
+      const sy = cy - dPt * fovScale * s.depth;
+
+      const distToCenter = Math.hypot(sx - cx, sy - cy);
+      if (distToCenter < apRadius + 140) {
+        drawCloudShark(ctx, s, sx, sy, s.scale, elapsed);
+
+        if (distToCenter < minAimDist) {
+          minAimDist = distToCenter;
+          bestAimShark = s;
+        }
+      }
+    });
+
+    targetedCloudShark = bestAimShark;
+
+    // 4. Update Particle Sparkles / Hearts
+    for (let i = cloudParticles.length - 1; i >= 0; i--) {
+      const p = cloudParticles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.alpha -= dt * 0.55;
+      if (p.alpha <= 0) {
+        cloudParticles.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.alpha);
+      ctx.font = `${p.size}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.symbol, p.x, p.y);
+      ctx.restore();
+    }
+
+    ctx.restore(); // Restore unclipped state for HUD & targeting
+
+    // 5. Update Target Box & Readout HUD
+    const targetBox = document.getElementById('telescope-target-box');
+    const labelEl = document.getElementById('telescope-target-label');
+    const coordsEl = document.getElementById('telescope-coords-text');
+
+    if (coordsEl) {
+      const altM = Math.round(2800 + curPitch * 1400);
+      const headingDeg = Math.round((curYaw * 180 / Math.PI) % 360);
+      coordsEl.innerHTML = `<span>ALT: ${altM}m</span> · <span>BEARING: ${headingDeg}°</span> · <span>STRATA: CUMULUS &amp; CIRRUS</span> · <span>MAG: 12.0x</span>`;
+    }
+
+    if (targetedCloudShark) {
+      if (targetBox) {
+        targetBox.style.display = 'block';
+        targetBox.style.borderColor = (targetedCloudShark.type === 'blahaj') ? '#38bdf8' : '#fef08a';
+      }
+      if (labelEl) {
+        const isWavingExtra = targetedCloudShark.waveTimer > 0;
+        const waveText = isWavingExtra ? 'WAVING EXCITEDLY! 👋💕✨' : 'WAVING LITTLE FIN! 👋';
+        labelEl.innerHTML = `🎯 <strong>${targetedCloudShark.name}</strong> (${targetedCloudShark.species}) · <span style="color: #fef08a;">${waveText}</span><br><span style="font-size: 0.82rem; color: #94a3b8;">${targetedCloudShark.desc} · [Space / Click] Wave Back!</span>`;
+        labelEl.style.borderColor = '#fef08a';
+      }
+    } else {
+      if (targetBox) targetBox.style.display = 'none';
+      if (labelEl) {
+        labelEl.innerHTML = `☁️ SCANNING CELESTIAL CLOUDS · 12.0x MAGNIFICATION<br><span style="font-size: 0.82rem; color: #94a3b8;">Aim at drifting cloud sharks to wave back! [WASD / Mouse] Scan</span>`;
+        labelEl.style.borderColor = 'rgba(216, 170, 91, 0.75)';
+      }
+    }
+  }
+
+  function drawSingleCloudFormation(ctx, x, y, strata, lobes, elapsed) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Multi-lobe soft volumetric cloud
+    lobes.forEach((l, idx) => {
+      const bob = Math.sin(elapsed * 1.5 + idx) * 3;
+      const lx = l.ox;
+      const ly = l.oy + bob;
+
+      // Soft billowy radial gradient
+      const grad = ctx.createRadialGradient(lx, ly, l.rx * 0.15, lx, ly, l.rx);
+      if (strata === 0) {
+        // High Cirrus: delicate translucent lilac/white
+        grad.addColorStop(0, `rgba(255, 255, 255, ${l.alpha * 0.55})`);
+        grad.addColorStop(0.7, `rgba(243, 232, 255, ${l.alpha * 0.35})`);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      } else if (strata === 1) {
+        // Mid Cumulus: soft warm white with gentle shadow
+        grad.addColorStop(0, `rgba(255, 255, 255, ${l.alpha * 0.85})`);
+        grad.addColorStop(0.65, `rgba(241, 245, 249, ${l.alpha * 0.65})`);
+        grad.addColorStop(1, 'rgba(226, 232, 240, 0)');
+      } else {
+        // Close Foreground: large puffy dreamy cloud
+        grad.addColorStop(0, `rgba(255, 255, 255, ${l.alpha * 0.95})`);
+        grad.addColorStop(0.5, `rgba(248, 250, 252, ${l.alpha * 0.80})`);
+        grad.addColorStop(0.85, `rgba(226, 232, 240, ${l.alpha * 0.40})`);
+        grad.addColorStop(1, 'rgba(203, 213, 225, 0)');
+      }
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, l.rx, l.ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    ctx.restore();
+  }
+
+  function drawCloudShark(ctx, shark, sx, sy, scale, elapsed) {
+    ctx.save();
+
+    // Harmonic bobbing motion
+    const bobY = Math.sin(elapsed * 2.5 + shark.phase) * 6;
+    const tilt = Math.cos(elapsed * 2.0 + shark.phase) * 0.05;
+
+    ctx.translate(sx, sy + bobY);
+    ctx.rotate(tilt);
+    ctx.scale(scale, scale);
+
+    // 1. Soft Cloud Hammock Cushion Underneath Shark
+    const cloudBed = ctx.createRadialGradient(0, 24, 10, 0, 24, 75);
+    cloudBed.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
+    cloudBed.addColorStop(0.55, 'rgba(241, 245, 249, 0.75)');
+    cloudBed.addColorStop(1, 'rgba(226, 232, 240, 0)');
+    ctx.fillStyle = cloudBed;
+    ctx.beginPath();
+    ctx.ellipse(0, 24, 75, 34, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Tail swish
+    const tailSwish = Math.sin(elapsed * 3.2 + shark.phase) * 0.14;
+
+    const isWhite = shark.type.includes('white');
+    const isBlahaj = shark.type === 'blahaj';
+    const isPilot = shark.type === 'white_pilot';
+    const isFrost = shark.type === 'frost_white';
+
+    // Body Colors
+    let bodyColorTop = '#ffffff';
+    let bodyColorBot = '#e2e8f0';
+    let bellyColor = '#ffffff';
+    let outlineColor = 'rgba(148, 163, 184, 0.55)';
+
+    if (isBlahaj) {
+      bodyColorTop = '#5b8db8';
+      bodyColorBot = '#3b658d';
+      bellyColor = '#f8fafc';
+      outlineColor = 'rgba(30, 58, 95, 0.45)';
+    } else if (isFrost) {
+      bodyColorTop = '#ffffff';
+      bodyColorBot = '#e0f2fe';
+      bellyColor = '#ffffff';
+      outlineColor = 'rgba(56, 189, 248, 0.6)';
+    }
+
+    // Draw Tail (Caudal Fin)
+    ctx.save();
+    ctx.translate(-42, 0);
+    ctx.rotate(tailSwish);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-16, -22, -26, -24);
+    ctx.quadraticCurveTo(-20, -8, -10, 0);
+    ctx.quadraticCurveTo(-20, 8, -24, 18);
+    ctx.quadraticCurveTo(-14, 16, 0, 0);
+    ctx.fillStyle = bodyColorTop;
+    ctx.fill();
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // Draw Dorsal Fin
+    ctx.beginPath();
+    ctx.moveTo(-10, -10);
+    ctx.quadraticCurveTo(-4, -34, 4, -35);
+    ctx.quadraticCurveTo(12, -22, 16, -10);
+    ctx.closePath();
+    ctx.fillStyle = bodyColorTop;
+    ctx.fill();
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // Draw Main Plush Shark Torpedo Body
+    const bodyGrad = ctx.createLinearGradient(0, -18, 0, 16);
+    bodyGrad.addColorStop(0, bodyColorTop);
+    bodyGrad.addColorStop(0.65, bodyColorBot);
+    bodyGrad.addColorStop(1, bellyColor);
+
+    ctx.beginPath();
+    ctx.moveTo(48, 4); // Snout
+    ctx.quadraticCurveTo(34, -18, 0, -18); // Head & back
+    ctx.quadraticCurveTo(-32, -16, -42, 0); // Peduncle
+    ctx.quadraticCurveTo(-28, 16, 0, 16); // Lower belly
+    ctx.quadraticCurveTo(32, 16, 48, 4); // Chin to snout
+    ctx.closePath();
+    ctx.fillStyle = bodyGrad;
+    ctx.fill();
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // White Plush Belly Patch
+    ctx.beginPath();
+    ctx.moveTo(42, 6);
+    ctx.quadraticCurveTo(24, 15, 0, 15);
+    ctx.quadraticCurveTo(-24, 15, -36, 4);
+    ctx.quadraticCurveTo(-18, 8, 0, 8);
+    ctx.quadraticCurveTo(24, 8, 42, 6);
+    ctx.closePath();
+    ctx.fillStyle = bellyColor;
+    ctx.fill();
+
+    // Gill Stitch Lines
+    ctx.strokeStyle = isBlahaj ? 'rgba(255, 255, 255, 0.65)' : 'rgba(203, 213, 225, 0.85)';
+    ctx.lineWidth = 1.2;
+    for (let g = 0; g < 3; g++) {
+      ctx.beginPath();
+      ctx.arc(8 + g * 5, 2, 6, Math.PI * 0.7, Math.PI * 1.3);
+      ctx.stroke();
+    }
+
+    // Cheerful Smile with Cute Felt Teeth
+    ctx.strokeStyle = isBlahaj ? '#1e293b' : '#334155';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(32, 7);
+    ctx.quadraticCurveTo(38, 12, 44, 6);
+    ctx.stroke();
+
+    // Tiny white felt triangular teeth!
+    ctx.fillStyle = '#ffffff';
+    for (let t = 0; t < 3; t++) {
+      const tx = 34 + t * 3.5;
+      const ty = 8.5;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + 1.8, ty + 2.8);
+      ctx.lineTo(tx + 3.6, ty);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Rosy Pink Cheeks
+    ctx.fillStyle = 'rgba(255, 140, 165, 0.42)';
+    ctx.beginPath();
+    ctx.ellipse(33, 2, 4.5, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Adorable Black Bead Eye with White Catchlight Sparkle
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(32, -4, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Catchlight dot
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(33.2, -5.2, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Special Accessories: Aviator Goggles
+    if (isPilot) {
+      ctx.strokeStyle = '#92400e';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(14, -6);
+      ctx.lineTo(36, -6);
+      ctx.stroke();
+
+      // Brass goggle rims
+      ctx.fillStyle = '#fef08a';
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(24, -9, 4.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Cyan tinted glass
+      ctx.fillStyle = '#67e8f9';
+      ctx.beginPath();
+      ctx.arc(24, -9, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Special Sparkles for Frost White Shark
+    if (isFrost) {
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+      const spRot = elapsed * 3.0;
+      for (let s = 0; s < 3; s++) {
+        const spx = 45 + Math.cos(spRot + s * 2.1) * 14;
+        const spy = -5 + Math.sin(spRot + s * 2.1) * 14;
+        ctx.beginPath();
+        ctx.arc(spx, spy, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // ========================================================================
+    // 3. THE WAVING LITTLE FIN! (Front Pectoral Fin)
+    // ========================================================================
+    // Waving fin angle rotates up and down in a cozy, rhythmic hello!
+    const isExcited = shark.waveTimer > 0;
+    const waveFreq = isExcited ? 13.5 : 4.0;
+    const waveAmp = isExcited ? 0.75 : 0.48;
+    const waveAng = Math.sin(elapsed * waveFreq + shark.phase) * waveAmp - 0.25;
+
+    ctx.save();
+    // Fin pivot near lower chest
+    ctx.translate(18, 6);
+    ctx.rotate(waveAng);
+
+    // Cute rounded plush pectoral fin
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(14, -10, 24, -4);
+    ctx.quadraticCurveTo(20, 14, 2, 10);
+    ctx.closePath();
+
+    const finGrad = ctx.createLinearGradient(0, -6, 20, 8);
+    finGrad.addColorStop(0, bodyColorTop);
+    finGrad.addColorStop(1, bodyColorBot);
+    ctx.fillStyle = finGrad;
+    ctx.fill();
+    ctx.strokeStyle = outlineColor;
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+
+    // Little fin seam highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.moveTo(4, 1);
+    ctx.quadraticCurveTo(12, -4, 18, 0);
+    ctx.stroke();
+
+    // Waving motion sparkle at tip of little fin
+    if (isExcited || Math.sin(elapsed * 4.0) > 0.4) {
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(23, -3, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    // 4. Foreground Cloud Puffs overlapping belly (nestled inside cloud!)
+    const cloudFG = ctx.createRadialGradient(8, 20, 4, 8, 20, 42);
+    cloudFG.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    cloudFG.addColorStop(0.65, 'rgba(248, 250, 252, 0.65)');
+    cloudFG.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = cloudFG;
+    ctx.beginPath();
+    ctx.ellipse(8, 20, 42, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   function updateBinocularCrosshairHUD() {
     const headingDeg = Math.round(((-camState.yaw * 180) / Math.PI % 360 + 360) % 360);
     const compassEl = document.getElementById('binocular-compass-text');
@@ -9771,7 +10587,7 @@
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
-    updateCamera(elapsed);
+    updateCamera(elapsed, dt);
     updateInteractionsAndHUD();
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
@@ -9862,6 +10678,19 @@
       nearestInteractable = {
         kind: 'binoculars_active',
         prompt: '🔭 Binocular Zoom · [F / Space] Lower Binoculars · [WASD / Mouse] Scan Horizon'
+      };
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (isUsingTelescope) {
+      nearestInteractable = {
+        kind: 'telescope_active',
+        prompt: '🔭 Starlight Telescope · [Space / Click] Wave to Cloud Sharks 👋 · [Esc / E] Step Away'
       };
       const promptEl = document.getElementById('interaction-prompt');
       if (promptEl && !isAnyModalOpen()) {
@@ -10712,7 +11541,7 @@
     // 3. Volcano Trial Dungeon Traps & Core Ascent Portal (Legacy cleanup)
   }
 
-  function updateCamera(elapsed = 0) {
+  function updateCamera(elapsed = 0, dt = 0.016) {
     if (camState.customOverride) {
       camera.position.copy(camState.customOverride.pos);
       camera.lookAt(camState.customOverride.lookAt);
@@ -10829,6 +11658,25 @@
       camera.position.set(camX, camY, camZ);
       camera.lookAt(camX + fwdX * 100, camY + fwdY * 100, camZ + fwdZ * 100);
       updateBinocularCrosshairHUD();
+      return;
+    }
+
+    if (isUsingTelescope) {
+      const fwdX = -Math.sin(camState.yaw) * Math.cos(camState.pitch);
+      const fwdY = Math.sin(camState.pitch);
+      const fwdZ = -Math.cos(camState.yaw) * Math.cos(camState.pitch);
+
+      // Eyepiece on Crust Cliffs Observatory Terrace at (52.0, y0 + 2.75, -43.0)
+      const baseGround = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
+        ? worldApi.getGroundAndStructureHeight(52.0, -43.0, 30.0)
+        : 22.0;
+      camX = 52.0;
+      camY = baseGround + 2.75;
+      camZ = -43.0;
+
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(camX + fwdX * 100, camY + fwdY * 100, camZ + fwdZ * 100);
+      updateTelescopeCloudCanvas(dt, elapsed);
       return;
     }
 
@@ -11638,6 +12486,11 @@
     exitBinoculars: exitBinocularMode,
     exitBinocularMode,
     toggleBinocularMode,
+    enterTelescopeMode,
+    exitTelescopeMode,
+    toggleTelescopeMode,
+    isUsingTelescope: () => isUsingTelescope,
+    waveToCloudSharks,
     equipHeldItem,
     isUsingBinoculars: () => isUsingBinoculars,
     openSphericalPaintingModal,

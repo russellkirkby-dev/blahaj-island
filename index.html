@@ -1466,6 +1466,73 @@
     </div>
   </div>
 
+  <!-- 9. OBSERVATORY CELESTIAL TELESCOPE & CLOUD SHARK OVERLAY -->
+  <div id="telescope-overlay" class="telescope-overlay hidden">
+    <!-- Brass Celestial Telescope Vignette Mask (Large circular refractor aperture) -->
+    <svg class="telescope-mask" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <defs>
+        <mask id="telescope-cutout">
+          <rect width="100%" height="100%" fill="white" />
+          <circle cx="50" cy="50" r="41" fill="black" />
+        </mask>
+      </defs>
+      <rect width="100%" height="100%" fill="rgba(8, 11, 22, 0.96)" mask="url(#telescope-cutout)" />
+    </svg>
+
+    <!-- Canvas for Floating Close-Up Clouds & Waving Cloud Sharks -->
+    <canvas id="telescope-cloud-canvas" class="telescope-cloud-canvas"></canvas>
+
+    <!-- Ornate Brass Telescope Eyepiece Rings & Etched Reticle -->
+    <div class="telescope-aperture-ring">
+      <div class="telescope-reticle">
+        <div class="reticle-line h-line"></div>
+        <div class="reticle-line v-line"></div>
+        <div class="reticle-ring inner-ring"></div>
+        <div class="reticle-ring outer-ring"></div>
+      </div>
+    </div>
+
+    <!-- HUD Overlay for Telescope -->
+    <div class="telescope-hud">
+      <div class="telescope-top-bar">
+        <span class="telescope-badge">🔭 CELESTIAL OBSERVATORY TELESCOPE · CRUST CLIFFS HIGHLANDS</span>
+        <div class="telescope-coords" id="telescope-coords-text">
+          <span>ALT: 3,450m</span> · <span>STRATA: CUMULUS &amp; CIRRUS</span> · <span>MAG: 12.0x</span>
+        </div>
+      </div>
+
+      <div class="telescope-center-target" id="telescope-target-container">
+        <div class="telescope-target-box" id="telescope-target-box" style="display: none;"></div>
+        <div class="telescope-readout" id="telescope-target-label">
+          ☁️ SCANNING CLOUD FORMATIONS · 12.0x MAGNIFICATION
+        </div>
+      </div>
+
+      <div class="telescope-bottom-controls">
+        <div class="telescope-controls-bar">
+          <button id="btn-tele-flip-y" class="binoc-axis-btn" type="button" title="Flip Vertical Pitch Axis [I]">
+            ↕ Vertical (Y): <strong id="lbl-tele-flip-y">NORMAL</strong>
+          </button>
+          <button id="btn-tele-flip-x" class="binoc-axis-btn" type="button" title="Flip Horizontal Yaw Axis">
+            ↔ Horizontal (X): <strong id="lbl-tele-flip-x">NORMAL</strong>
+          </button>
+          <button id="btn-tele-wave" class="binoc-axis-btn btn-wave-sharks" type="button" title="Wave to the Cloud Sharks! [Space / Click]">
+            👋 Wave to Cloud Sharks! [Space / Click]
+          </button>
+          <button id="btn-tele-gallery" class="binoc-axis-btn" type="button" title="Open Nimue's Quiet Library Story Gallery">
+            📖 Story Tapestries
+          </button>
+        </div>
+        <div class="telescope-hint">
+          [WASD / Mouse] Scan Celestial Clouds · [Space / Click] Wave to Sharks · [I] Invert Pitch · [Esc / E] Step Away
+        </div>
+        <button id="btn-close-telescope" class="binocular-close-btn" type="button">
+          ✕ Step Away from Telescope [Esc / E]
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
   <script src="js/lore.js?v=4.9"></script>
   <script src="js/sharks3d.js?v=4.9"></script>
