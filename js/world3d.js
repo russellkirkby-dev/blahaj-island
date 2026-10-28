@@ -1564,13 +1564,59 @@ window.BlahajWorld = (function () {
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.7, roughness: 0.25 });
     const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe299 });
 
+    function createSignPlankMaterial(text) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+
+      // Weathered warm wood plank base
+      ctx.fillStyle = '#b68953';
+      ctx.fillRect(0, 0, 256, 64);
+
+      // Subtle wood grain lines
+      ctx.strokeStyle = '#9c6f3d';
+      ctx.lineWidth = 1.5;
+      for (let i = 8; i < 64; i += 12) {
+        ctx.beginPath();
+        ctx.moveTo(0, i + Math.sin(i) * 3);
+        ctx.bezierCurveTo(80, i - 4, 160, i + 4, 256, i + Math.sin(i) * 2);
+        ctx.stroke();
+      }
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 20px "Cinzel", Georgia, serif';
+
+      // Drop shadow carve
+      ctx.fillStyle = 'rgba(254, 243, 199, 0.45)';
+      ctx.fillText(text, 128, 34);
+
+      // Deep carved lettering
+      ctx.fillStyle = '#26170d';
+      ctx.fillText(text, 128, 31);
+
+      // Weathered wood edge border
+      ctx.strokeStyle = '#5a3d20';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(2, 2, 252, 60);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 4;
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: 0.82,
+        metalness: 0.05
+      });
+    }
+
     const signpostSpecs = [
       {
         id: 'sign-spawn',
         x: 55.0,
         z: -9.5,
         title: '🪧 East Cape Arrival & Travel Hub',
-        directions: '⬅️ West: Heartland Plaza & Solomon\'s Stone Bread Oven (65m) | ⬇️ South: Crescent Beach Deck Chairs (60m) | 🌅 Here: Ocean Loungers & Binoculars',
+        labels: ['HEARTLAND PLAZA', 'CRESCENT BEACH', 'OCEAN LOUNGE'],
         arrows: [-Math.PI * 0.5, Math.PI * 0.5, 0]
       },
       {
@@ -1578,7 +1624,7 @@ window.BlahajWorld = (function () {
         x: 5.5,
         z: 18.5,
         title: '🪧 Central Plaza Crossroads',
-        directions: '⬆️ Volcano Causeway | ➡️ Portal Gate & Library | ⬅️ Bistro & The First Whirlings 🌀 | ⬇️ Harbour Docks',
+        labels: ['VOLCANO SUMMIT', 'GREAT PORTAL', 'SPHERICAL CAFE', 'SOUTH HARBOUR'],
         arrows: [0, Math.PI * 0.5, -Math.PI * 0.5, Math.PI]
       },
       {
@@ -1586,7 +1632,7 @@ window.BlahajWorld = (function () {
         x: 4.2,
         z: 44.0,
         title: '🪧 South Crescent Harbour',
-        directions: '⬆️ Sacred Tea House (35m) | ⛵ Regatta Sailboats & Endless Pier ➡️',
+        labels: ['TOWN PLAZA', 'REGATTA PIER'],
         arrows: [Math.PI, -Math.PI * 0.5]
       },
       {
@@ -1594,7 +1640,7 @@ window.BlahajWorld = (function () {
         x: -11.5,
         z: -33.0,
         title: '🪧 Volcano Isthmus Pass',
-        directions: '⬆️ Volcano Balcony & Carrots (70m) | ⬇️ Tea House Village (45m)',
+        labels: ['VOLCANO BALCONY', 'TOWN VILLAGE'],
         arrows: [Math.PI, 0]
       },
       {
@@ -1602,7 +1648,7 @@ window.BlahajWorld = (function () {
         x: 44.0,
         z: -4.0,
         title: '🪧 East Headland Fork',
-        directions: '➡️ Great Portal Gate (28m) | ↗️ Quiet Library Cliffs (42m) | ⬅️ Tea House',
+        labels: ['PORTAL GATE', 'OBSERVATORY', 'TOWN PLAZA'],
         arrows: [-Math.PI * 0.4, -Math.PI * 0.8, Math.PI * 0.5]
       },
       {
@@ -1610,7 +1656,7 @@ window.BlahajWorld = (function () {
         x: -36.0,
         z: 12.0,
         title: '🪧 Artisans & Café Junction',
-        directions: '↙️ Spherical Foods Café (26m) | ↖️ Western Sunset Ridge (34m) | ➡️ Tea House',
+        labels: ['SPHERICAL CAFE', 'SUNSET RIDGE', 'TOWN PLAZA'],
         arrows: [Math.PI * 0.3, Math.PI * 0.75, -Math.PI * 0.5]
       },
       {
@@ -1618,7 +1664,7 @@ window.BlahajWorld = (function () {
         x: -17.0,
         z: -83.5,
         title: '🪧 Exoteric Volcano Shrine & Causeway',
-        directions: '⬆️ Exoteric Shrine & Offering Altar | 🌋 Esoteric Sea Cave Wharf (Behind) | ⬇️ Return to High Island',
+        labels: ['EXOTERIC SHRINE', 'SEA CAVE WHARF'],
         arrows: [Math.PI * 0.5, 0]
       }
     ];
@@ -1642,7 +1688,11 @@ window.BlahajWorld = (function () {
         arrowGroup.position.y = 3.25 - idx * 0.42;
         arrowGroup.rotation.y = ang;
 
-        const plank = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.28, 0.10), boardWoodMat);
+        const labelText = (sp.labels && sp.labels[idx]) ? sp.labels[idx] : 'WAYFINDER';
+        const textMat = createSignPlankMaterial(labelText);
+        const plankMats = [boardWoodMat, boardWoodMat, boardWoodMat, boardWoodMat, textMat, textMat];
+
+        const plank = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.28, 0.10), plankMats);
         plank.position.x = 0.72;
         plank.castShadow = true;
         arrowGroup.add(plank);

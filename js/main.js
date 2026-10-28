@@ -23,6 +23,8 @@
     camDist: 6.5,
     shoulder: 'right',
     invertY: false,
+    binocularInvertY: false,
+    binocularInvertX: false,
     mouseSens: 1.0,
     bloom: false,
     shadows: true,
@@ -3112,6 +3114,7 @@
   // CONTROLS & OVER-THE-SHOULDER MMO CAMERA
   // ==========================================================================
   function setupInputs() {
+    initIslandMapEvents();
     const canvas = renderer.domElement;
 
     canvas.addEventListener('click', () => {
@@ -3257,10 +3260,19 @@
         }
 
         const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
-        const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
 
-        camState.yaw -= dx * 0.0032 * sens;
-        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
+        if (isUsingBinoculars) {
+          // Binocular first-person horizon scanning with switchable axis inversion
+          const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
+          const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
+          camState.yaw -= dx * 0.0022 * sens * bInvertX;
+          camState.pitch = Math.max(-0.65, Math.min(0.75, camState.pitch - dy * 0.0022 * sens * bInvertY));
+        } else {
+          // Standard third-person orbit camera
+          const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
+          camState.yaw -= dx * 0.0032 * sens;
+          camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
+        }
 
         // Keep yaw cleanly wrapped within [-PI, PI] to prevent floating point drift
         while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
@@ -3352,6 +3364,11 @@
           gModal.classList.add('hidden');
           return;
         }
+        const mapModal = document.getElementById('modal-island-map');
+        if (mapModal && mapModal.classList.contains('open')) {
+          closeIslandMap();
+          return;
+        }
         const uModal = document.getElementById('upgrades-modal');
         if (uModal && !uModal.classList.contains('hidden')) {
           uModal.classList.add('hidden');
@@ -3370,12 +3387,17 @@
 
       if (k === 'm') {
         e.preventDefault();
-        toggleFastTravelModal();
+        toggleIslandMap();
         return;
       }
 
-      // If in binocular mode, pressing Esc, Space, F, T, E, H or Enter lowers them immediately!
+      // If in binocular mode, pressing I toggles vertical pitch inversion immediately!
       if (isUsingBinoculars) {
+        if (k === 'i') {
+          e.preventDefault();
+          toggleBinocularInvertY();
+          return;
+        }
         if (k === 'escape' || k === 'f' || k === ' ' || k === 't' || k === 'e' || k === 'h' || k === 'enter') {
           e.preventDefault();
           exitBinocularMode();
@@ -5916,6 +5938,9 @@
     }
 
     // Graphics & Visuals
+    if (key === 'binocularInvertY' || key === 'binocularInvertX') {
+      updateBinocularControlButtons();
+    }
     if (key === 'bloom') {
       if (bloomPassInstance) bloomPassInstance.enabled = !!val;
     }
@@ -6011,6 +6036,10 @@
 
     const invY = document.getElementById('set-invert-y');
     if (invY) invY.checked = !!gameSettings.invertY;
+    const bInY = document.getElementById('set-binoc-invert-y');
+    if (bInY) bInY.checked = !!gameSettings.binocularInvertY;
+    const bInX = document.getElementById('set-binoc-invert-x');
+    if (bInX) bInX.checked = !!gameSettings.binocularInvertX;
 
     const mSens = document.getElementById('set-mouse-sens');
     if (mSens) mSens.value = Math.round(gameSettings.mouseSens * 10);
@@ -6426,6 +6455,12 @@
 
     document.getElementById('set-invert-y')?.addEventListener('change', (e) => {
       applySetting('invertY', e.target.checked);
+    });
+    document.getElementById('set-binoc-invert-y')?.addEventListener('change', (e) => {
+      applySetting('binocularInvertY', e.target.checked);
+    });
+    document.getElementById('set-binoc-invert-x')?.addEventListener('change', (e) => {
+      applySetting('binocularInvertX', e.target.checked);
     });
     document.getElementById('set-mouse-sens')?.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value) / 10.0;
@@ -7432,95 +7467,287 @@
   // ==========================================================================
   // FAST TRAVEL & ARCHIPELAGO NAVIGATION MODAL [M]
   // ==========================================================================
-  const FAST_TRAVEL_DESTINATIONS = {
-    meadow: {
-      name: "Solomon's Stone Bread Oven & Birb Meadow",
-      x: -12.5,
-      z: 19.2,
-      rotY: -Math.PI, // Right in front of the grand bread oven terrace with unobstructed view!
-      toast: "HEARTLAND MEADOW BREAD OVEN 🥖",
-      desc: "Arrived at Solomon's Grand Stone Bread Oven & Birb Meadow!"
-    },
-    beach: {
-      name: "Crescent Beach Volleyball & Deck Chairs",
-      x: 38.0,
-      z: 43.5,
-      rotY: 0.0, // Arrives on the beach sand walkway facing south towards the loungers & ocean!
-      toast: "CRESCENT BEACH & DECK CHAIRS 🏖️",
-      desc: "Arrived on the warm golden sand by Russell & Helen's sun loungers!"
-    },
-    spawn: {
-      name: "East Cape Arrival & Ocean Loungers",
-      x: 54.0,
-      z: -10.0,
-      rotY: -Math.PI * 0.5,
-      toast: "EAST CAPE ARRIVAL 🌅",
-      desc: "Arrived at the East Cape Portal Gate, crossroads signpost & binoculars viewpoint!"
-    },
-    plaza: {
-      name: "Heartland Town Plaza & Crossroads",
-      x: 1.0,
-      z: 22.0,
-      rotY: 0.0,
-      toast: "HEARTLAND TOWN PLAZA 🏛️",
-      desc: "Arrived at the Central Plaza crossroads and artisan stalls!"
-    },
-    pier: {
-      name: "Heartland Pier Promenade",
-      x: 7.0,
-      z: 28.0,
-      rotY: -Math.PI * 0.4,
-      toast: "HEARTLAND PIER PROMENADE ⚓",
-      desc: "Arrived at the ocean pier loungers and panoramic sea overlook!"
-    },
-    volcano: {
-      name: "The Sacred Volcano Balcony",
-      x: 0.0,
-      z: -125.0,
-      rotY: Math.PI,
-      toast: "SACRED VOLCANO BALCONY 🌋",
-      desc: "Arrived at the high summit caldera and eternal flame brazier!"
-    }
+  // ==========================================================================
+  // ARCHIPELAGO CHART, EXPLORATION DISCOVERY & HERMES BETWEEN PORTALS [M]
+  // ==========================================================================
+  const ALL_MAP_LANDMARKS = [
+    { id: 'spawn', name: 'East Cape Arrival & Loungers', icon: '🌅', x: 54.0, z: -10.0, zone: 'East Cape', tier: 1, desc: 'Arrival Portal Gate, ocean loungers & starlight overlook.' },
+    { id: 'meadow', name: "Solomon's Stone Bread Oven", icon: '🥖', x: -12.5, z: 19.2, zone: 'Heartland Meadow', tier: 1, desc: 'Fresh Breb loaves, stone hearth sizzle & birb flocks.' },
+    { id: 'plaza', name: 'Heartland Town Plaza', icon: '🏛️', x: 1.0, z: 22.0, zone: 'Town Center', tier: 1, desc: 'Central crossroads, palm deck chairs & artisan craft benches.' },
+    { id: 'beach', name: 'Crescent Beach Deck Chairs', icon: '🏖️', x: 38.0, z: 43.5, zone: 'South Shore', tier: 1, desc: "Russell & Helen's sun loungers, Piña Coladas & ocean surf." },
+    { id: 'pier', name: 'Heartland Pier Promenade', icon: '⚓', x: 7.0, z: 28.0, zone: 'Crescent Harbour', tier: 1, desc: 'Regatta sailboats, salt air boardwalk & endless sea view.' },
+    { id: 'volleyball', name: 'Crescent Beach Volleyball', icon: '🏐', x: 28.0, z: 52.0, zone: 'South Sand Bar', tier: 2, desc: 'Official Shark Beach Volleyball court & spectator stands.' },
+    { id: 'spherical', name: 'Spherical Foods Bistro & Café', icon: '🧆', x: -47.7, z: 41.0, zone: 'Southwest Bluff', tier: 2, desc: 'Cozy diner booths, Swedish meatballs & lingonberry drinks.' },
+    { id: 'laundromat', name: 'The First Whirlings Laundromat', icon: '🧺', x: -64.0, z: -14.0, zone: 'Artisans Ridge', tier: 2, desc: 'Giant Master Washer #7, laundry carts & spin cycle chamber.' },
+    { id: 'volcano', name: 'Sacred Volcano Balcony & Altar', icon: '🌋', x: 0.0, z: -125.0, zone: 'Caldera Summit', tier: 2, desc: 'Eternal flame brazier, knockable carrots & panoramic peak.' },
+    { id: 'rear_wharf', name: 'Rear Sea Cave & Dungeon Wharf', icon: '⚔️', x: -28.0, z: -198.0, zone: 'North Shore', tier: 2, desc: 'Hidden cavern docks leading into the Volcano Trial Dungeon.' },
+    { id: 'isl_hermes', name: "Hermes' Starlight Atoll", icon: '⭐', x: 175.0, z: -10.0, zone: 'East Ocean Sanctuary', tier: 3, desc: 'Starlight atoll with between-portal threshold and deep waters.' },
+    { id: 'isl_solomon', name: "Solomon's Sunlit Meadow Cay", icon: '🌻', x: -175.0, z: 115.0, zone: 'SW Ocean Sanctuary', tier: 3, desc: 'Lush offshore wildflower cay with quiet picnic groves.' },
+    { id: 'isl_hiram', name: "Hiram's Forge & Birch Isle", icon: '🔨', x: -175.0, z: -115.0, zone: 'NW Ocean Sanctuary', tier: 3, desc: 'Nordic birch grove and sacred offshore assembly sanctuary.' },
+    { id: 'isl_nimue', name: "Nimue's Whispering Sanctuary", icon: '🌸', x: 175.0, z: -115.0, zone: 'NE Ocean Sanctuary', tier: 3, desc: 'Pink reef coral and serene meditation sanctuary.' }
+  ];
+
+  const discoveredLandmarks = new Set(['spawn']);
+  let selectedLandmarkId = 'spawn';
+  let isMapAnimRunning = false;
+
+  const hermesPortalMastery = {
+    level: 1,
+    exp: 0,
+    nextExp: 250,
+    cooldownUntil: 0
   };
 
-  function updateFastTravelDistances() {
-    for (const [key, dest] of Object.entries(FAST_TRAVEL_DESTINATIONS)) {
-      const el = document.getElementById(`dist-dest-${key}`);
-      if (el && player && player.pos) {
-        const d = Math.round(Math.hypot(player.pos.x - dest.x, player.pos.z - dest.z));
-        el.textContent = `${d}m away`;
+  function loadDiscoveredLandmarks() {
+    try {
+      const raw = localStorage.getItem('blahaj_discovered_landmarks');
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) arr.forEach(id => discoveredLandmarks.add(id));
+      }
+    } catch (e) {}
+    try {
+      const pRaw = localStorage.getItem('blahaj_hermes_portal');
+      if (pRaw) Object.assign(hermesPortalMastery, JSON.parse(pRaw));
+    } catch (e) {}
+  }
+
+  function saveDiscoveredLandmarks() {
+    try {
+      localStorage.setItem('blahaj_discovered_landmarks', JSON.stringify([...discoveredLandmarks]));
+    } catch (e) {}
+  }
+
+  function saveHermesPortalMastery() {
+    try {
+      localStorage.setItem('blahaj_hermes_portal', JSON.stringify(hermesPortalMastery));
+    } catch (e) {}
+  }
+
+  function addHermesPortalExp(amount) {
+    hermesPortalMastery.exp += amount;
+    if (hermesPortalMastery.exp >= hermesPortalMastery.nextExp && hermesPortalMastery.level < 3) {
+      hermesPortalMastery.level++;
+      hermesPortalMastery.exp -= hermesPortalMastery.nextExp;
+      hermesPortalMastery.nextExp = hermesPortalMastery.level === 2 ? 600 : 99999;
+      saveHermesPortalMastery();
+      showToast('🌀 PORTAL MASTERY UPGRADED!', `Hermes reached Portal Level ${hermesPortalMastery.level}! Dimensional range expanded.`);
+      addChatLog(`🌀 <strong>Hermes</strong> reached Portal Mastery <strong>Level ${hermesPortalMastery.level}</strong>! Can now weave rifts to more distant locations faster.`, 'lore');
+    } else {
+      saveHermesPortalMastery();
+    }
+  }
+
+  function checkLandmarkDiscovery() {
+    if (!player || !player.pos) return;
+    for (const lm of ALL_MAP_LANDMARKS) {
+      if (!discoveredLandmarks.has(lm.id)) {
+        const d = Math.hypot(player.pos.x - lm.x, player.pos.z - lm.z);
+        if (d < 36.0) {
+          discoveredLandmarks.add(lm.id);
+          saveDiscoveredLandmarks();
+          showToast('🧭 NEW LANDMARK CHARTED!', `Discovered ${lm.name}! Pin revealed on your map [M].`);
+          addChatLog(`🧭 You explored and charted <strong>${lm.name}</strong> (${lm.zone})! Check your map with [M].`, 'lore');
+          addHermesPortalExp(100);
+        }
       }
     }
   }
 
-  function openFastTravelModal() {
+  function openIslandMap() {
     releasePointerLock();
-    const modal = document.getElementById('modal-fast-travel');
+    const modal = document.getElementById('modal-island-map');
     if (!modal) return;
-    updateFastTravelDistances();
     modal.classList.remove('hidden');
+
+    updateMapStatusPills();
+    selectMapLandmark(selectedLandmarkId || 'spawn');
+
+    isMapAnimRunning = true;
+    requestAnimationFrame(mapAnimLoop);
+
     CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk();
   }
 
-  function closeFastTravelModal() {
-    const modal = document.getElementById('modal-fast-travel');
+  function closeIslandMap() {
+    const modal = document.getElementById('modal-island-map');
     if (modal) modal.classList.add('hidden');
+    isMapAnimRunning = false;
   }
 
-  function toggleFastTravelModal() {
-    const modal = document.getElementById('modal-fast-travel');
+  function toggleIslandMap() {
+    const modal = document.getElementById('modal-island-map');
     if (!modal) return;
     if (modal.classList.contains('hidden')) {
-      openFastTravelModal();
+      openIslandMap();
     } else {
-      closeFastTravelModal();
+      closeIslandMap();
     }
   }
 
-  function fastTravelTo(destKey) {
-    const dest = FAST_TRAVEL_DESTINATIONS[destKey];
+  function mapAnimLoop() {
+    if (!isMapAnimRunning) return;
+    const modal = document.getElementById('modal-island-map');
+    if (!modal || modal.classList.contains('hidden')) {
+      isMapAnimRunning = false;
+      return;
+    }
+    renderIslandMap();
+    requestAnimationFrame(mapAnimLoop);
+  }
+
+  function updateMapStatusPills() {
+    const charEl = document.getElementById('map-val-character');
+    if (charEl && player && player.sharkId) {
+      const sCfg = LORE.sharks[player.sharkId];
+      charEl.textContent = sCfg ? sCfg.name : player.sharkId;
+    }
+    const lvlEl = document.getElementById('map-val-portal-lvl');
+    if (lvlEl) {
+      const lvl = hermesPortalMastery.level;
+      const title = lvl === 1 ? 'Lv. 1 (Mainland Hubs)' : (lvl === 2 ? 'Lv. 2 (Mainland & Volcano)' : 'Lv. 3 (Archipelago Master)');
+      lvlEl.textContent = title;
+    }
+    const discEl = document.getElementById('map-val-discovery');
+    if (discEl) {
+      discEl.textContent = `${discoveredLandmarks.size} / ${ALL_MAP_LANDMARKS.length} Landmarks`;
+    }
+  }
+
+  function selectMapLandmark(lmId) {
+    const lm = ALL_MAP_LANDMARKS.find(l => l.id === lmId) || ALL_MAP_LANDMARKS[0];
+    selectedLandmarkId = lm.id;
+
+    const iconEl = document.getElementById('landmark-sel-icon');
+    const nameEl = document.getElementById('landmark-sel-name');
+    const descEl = document.getElementById('landmark-sel-desc');
+    const statusEl = document.getElementById('landmark-sel-status');
+    const btnWeave = document.getElementById('btn-fast-travel-portal');
+
+    const isDiscovered = discoveredLandmarks.has(lm.id);
+    const d = player && player.pos ? Math.round(Math.hypot(player.pos.x - lm.x, player.pos.z - lm.z)) : 0;
+
+    if (iconEl) iconEl.textContent = isDiscovered ? lm.icon : '❓';
+    if (nameEl) nameEl.textContent = isDiscovered ? `${lm.name} (${lm.zone})` : 'Uncharted Territory (Unexplored)';
+    if (descEl) descEl.textContent = isDiscovered ? `${lm.desc} · Distance: ${d}m away` : 'This area has not been charted yet. Explore this region on foot or by boat to reveal its landmarks!';
+
+    if (!btnWeave) return;
+
+    // Fast travel restrictions:
+    // 1. Shark check: Must be Hermes
+    if (player.sharkId !== 'hermes') {
+      btnWeave.disabled = true;
+      btnWeave.classList.add('disabled');
+      btnWeave.textContent = '🔒 Hermes Only (Portal Opener) · Press [1]';
+      if (statusEl) statusEl.textContent = 'Spatial rift folding is the unique signature ability of Hermes. Switch to Hermes [1] to weave Between Portals!';
+      return;
+    }
+
+    // 2. Must be discovered
+    if (!isDiscovered) {
+      btnWeave.disabled = true;
+      btnWeave.classList.add('disabled');
+      btnWeave.textContent = '🔒 Unexplored (Must Visit First)';
+      if (statusEl) statusEl.textContent = 'Between Portals cannot bridge unknown space. Explore and discover this landmark on foot first!';
+      return;
+    }
+
+    // 3. Level check
+    const lvl = hermesPortalMastery.level;
+    if (lm.tier > lvl) {
+      btnWeave.disabled = true;
+      btnWeave.classList.add('disabled');
+      btnWeave.textContent = `🔒 Requires Portal Lv. ${lm.tier} (Current: Lv. ${lvl})`;
+      if (statusEl) statusEl.textContent = `This distant landmark requires higher dimensional mastery. Discover more landmarks (+100 EXP) or mend Seams (+300 EXP) to unlock!`;
+      return;
+    }
+
+    // 4. Cooldown check
+    const now = Date.now();
+    if (now < hermesPortalMastery.cooldownUntil) {
+      const rem = Math.ceil((hermesPortalMastery.cooldownUntil - now) / 1000);
+      btnWeave.disabled = true;
+      btnWeave.classList.add('disabled');
+      btnWeave.textContent = `⏳ Portal Exhaustion (${rem}s)`;
+      if (statusEl) statusEl.textContent = `Hermes is catching his breath after folding dimensional space. Available in ${rem} seconds.`;
+      return;
+    }
+
+    // Ready to weave!
+    btnWeave.disabled = false;
+    btnWeave.classList.remove('disabled');
+    btnWeave.textContent = `🌀 Weave Between Portal (${d}m)`;
+    if (statusEl) statusEl.textContent = `Hermes is ready to fold space along the Great Seam directly to ${lm.name}!`;
+  }
+
+  function spawnBetweenPortalVFX(pos, callback) {
+    const activeScene = getActiveScene();
+    if (!activeScene) {
+      if (callback) callback();
+      return;
+    }
+
+    // Swirling violet-blue portal ring
+    const ringGeo = new THREE.RingGeometry(0.8, 2.2, 32);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x818cf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+    const portalMesh = new THREE.Mesh(ringGeo, ringMat);
+    portalMesh.position.set(pos.x, pos.y + 0.12, pos.z);
+    activeScene.add(portalMesh);
+
+    // Particle spark ring
+    if (typeof spawnFloatingBurst === 'function') {
+      spawnFloatingBurst(new THREE.Vector3(pos.x, pos.y + 0.8, pos.z), 0xa855f7, 16);
+    }
+    CozyAudio.portalChime ? CozyAudio.portalChime() : (CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk());
+
+    let life = 0;
+    const interval = setInterval(() => {
+      life += 0.05;
+      portalMesh.rotation.y += 0.35;
+      const s = life < 0.4 ? (life / 0.4) * 1.3 : Math.max(0, 1.3 - (life - 0.4) * 2.5);
+      portalMesh.scale.set(s, 1, s);
+      ringMat.opacity = Math.max(0, 1 - life);
+
+      if (life >= 0.7) {
+        clearInterval(interval);
+        activeScene.remove(portalMesh);
+        if (callback) callback();
+      }
+    }, 40);
+  }
+
+  function castBetweenPortalFastTravel(destId) {
+    const dest = ALL_MAP_LANDMARKS.find(l => l.id === destId);
     if (!dest) return;
-    closeFastTravelModal();
+
+    if (player.sharkId !== 'hermes') {
+      showToast('🔒 PORTAL WEAVING LOCKED', 'Only Hermes (The Weary Guide & Portal Opener) can weave Between Portals! Press [1] to switch.');
+      return;
+    }
+    if (!discoveredLandmarks.has(dest.id)) {
+      showToast('🔒 UNEXPLORED DESTINATION', 'You have not discovered this location yet! Explore on foot or by boat first.');
+      return;
+    }
+    const lvl = hermesPortalMastery.level;
+    if (dest.tier > lvl) {
+      showToast('🔒 INSUFFICIENT PORTAL MASTERY', `Requires Hermes Portal Level ${dest.tier} (Current: Lv. ${lvl}). Chart more landmarks to level up!`);
+      return;
+    }
+    const now = Date.now();
+    if (now < hermesPortalMastery.cooldownUntil) {
+      const rem = Math.ceil((hermesPortalMastery.cooldownUntil - now) / 1000);
+      showToast('⏳ PORTAL EXHAUSTION', `Hermes is catching his breath (${rem}s remaining).`);
+      return;
+    }
+
+    closeIslandMap();
 
     if (player.isLounging) standUpFromDeckChair();
     if (player.isSeatedInBooth) standUpFromBooth();
@@ -7528,23 +7755,421 @@
     if (player.inCart) dismountLaundryCart();
     if (isUsingBinoculars) exitBinocularMode();
 
-    const groundY = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
-      ? worldApi.getGroundAndStructureHeight(dest.x, dest.z)
-      : (worldApi && typeof worldApi.getTerrainHeight === 'function')
-        ? worldApi.getTerrainHeight(dest.x, dest.z)
-        : player.pos.y;
+    const startPos = player.pos.clone();
+    spawnBetweenPortalVFX(startPos, () => {
+      const groundY = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
+        ? worldApi.getGroundAndStructureHeight(dest.x, dest.z)
+        : (worldApi && typeof worldApi.getTerrainHeight === 'function')
+          ? worldApi.getTerrainHeight(dest.x, dest.z)
+          : player.pos.y;
 
-    player.pos.set(dest.x, groundY, dest.z);
-    player.rotY = dest.rotY;
-    player.velY = 0;
-    player.isGrounded = true;
+      player.pos.set(dest.x, groundY, dest.z);
+      player.rotY = 0;
+      player.velY = 0;
+      player.isGrounded = true;
 
-    camState.yaw = dest.rotY;
-    camState.pitch = 0.08;
+      camState.yaw = 0;
+      camState.pitch = 0.08;
 
-    CozyAudio.portalChime();
-    showToast(dest.toast, dest.desc);
-    addChatLog(`✨ Teleported across the island to <strong>${dest.name}</strong>!`, 'lore');
+      spawnBetweenPortalVFX(player.pos);
+
+      // Cooldown: Lv 1: 20s, Lv 2: 12s, Lv 3: 4s
+      const cdMs = lvl === 1 ? 20000 : (lvl === 2 ? 12000 : 4000);
+      hermesPortalMastery.cooldownUntil = Date.now() + cdMs;
+      saveHermesPortalMastery();
+
+      addHermesPortalExp(40);
+      showToast('🌀 BETWEEN PORTAL FOLDED', `Hermes folded space along the Great Seam to ${dest.name}! (+40 EXP)`);
+      addChatLog(`🌀 <strong>Hermes</strong> wove a Between Portal rift across the Great Seam to <strong>${dest.name}</strong>!`, 'lore');
+    });
+  }
+
+  function renderIslandMap() {
+    const canvas = document.getElementById('island-map-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    function w2c(wx, wz) {
+      return {
+        x: 360 + (wx - 0) * 1.45,
+        y: 255 + (wz - (-30)) * 1.45
+      };
+    }
+
+    // 1. Deep Ocean Background
+    const oceanGrad = ctx.createRadialGradient(360, 250, 40, 360, 250, 380);
+    oceanGrad.addColorStop(0, '#0c1b2e');
+    oceanGrad.addColorStop(0.7, '#07101c');
+    oceanGrad.addColorStop(1, '#040912');
+    ctx.fillStyle = oceanGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Navigational Grid
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.lineWidth = 1;
+    for (let x = 40; x < W; x += 60) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    for (let y = 40; y < H; y += 60) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+
+    // Concentric nautical depth circles
+    ctx.strokeStyle = 'rgba(14, 165, 233, 0.06)';
+    ctx.beginPath();
+    ctx.arc(360, 250, 160, 0, Math.PI * 2);
+    ctx.arc(360, 250, 260, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 2. Draw 4 Outer Sanctuary Islands
+    const outerIslands = [
+      { name: "Hermes' Atoll", x: 175, z: -10, rad: 34 },
+      { name: "Solomon's Cay", x: -175, z: 115, rad: 34 },
+      { name: "Hiram's Isle", x: -175, z: -115, rad: 34 },
+      { name: "Nimue's Sanctuary", x: 175, z: -115, rad: 34 }
+    ];
+
+    outerIslands.forEach(isl => {
+      const c = w2c(isl.x, isl.z);
+      const r = isl.rad * 1.45;
+
+      ctx.fillStyle = '#d4b07b';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r + 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#22543d';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0e4a68';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(isl.name, c.x, c.y + r + 14);
+    });
+
+    // 3. Draw Volcano Peninsula & Isthmus
+    const pVolcano = w2c(-28, -148);
+    const pIsthmusMid = w2c(-18, -60);
+    const pMainNorth = w2c(-5, -20);
+
+    ctx.strokeStyle = '#c49a6c';
+    ctx.lineWidth = 26;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pMainNorth.x, pMainNorth.y);
+    ctx.quadraticCurveTo(pIsthmusMid.x, pIsthmusMid.y, pVolcano.x, pVolcano.y);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#2b2927';
+    ctx.lineWidth = 20;
+    ctx.beginPath();
+    ctx.moveTo(pMainNorth.x, pMainNorth.y);
+    ctx.quadraticCurveTo(pIsthmusMid.x, pIsthmusMid.y, pVolcano.x, pVolcano.y);
+    ctx.stroke();
+
+    // Caldera
+    const rVol = 32 * 1.45;
+    ctx.fillStyle = '#785b3e';
+    ctx.beginPath();
+    ctx.arc(pVolcano.x, pVolcano.y, rVol + 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1c1917';
+    ctx.beginPath();
+    ctx.arc(pVolcano.x, pVolcano.y, rVol, 0, Math.PI * 2);
+    ctx.fill();
+
+    const magmaGrad = ctx.createRadialGradient(pVolcano.x, pVolcano.y, 2, pVolcano.x, pVolcano.y, rVol * 0.55);
+    magmaGrad.addColorStop(0, '#fef08a');
+    magmaGrad.addColorStop(0.3, '#f97316');
+    magmaGrad.addColorStop(0.8, '#dc2626');
+    magmaGrad.addColorStop(1, '#7f1d1d');
+    ctx.fillStyle = magmaGrad;
+    ctx.beginPath();
+    ctx.arc(pVolcano.x, pVolcano.y, rVol * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Draw Main Island Landmass
+    const pCenter = w2c(0, 12);
+    const rMain = 76 * 1.45;
+
+    ctx.fillStyle = '#d4b07b';
+    ctx.beginPath();
+    ctx.ellipse(pCenter.x, pCenter.y, rMain + 5, rMain * 0.88 + 5, 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#22543d';
+    ctx.beginPath();
+    ctx.ellipse(pCenter.x, pCenter.y, rMain, rMain * 0.88, 0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#1b4332';
+    ctx.beginPath();
+    ctx.ellipse(pCenter.x - 10, pCenter.y - 12, rMain * 0.55, rMain * 0.45, -0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    const pBeach = w2c(38, 43.5);
+    ctx.fillStyle = '#fde68a';
+    ctx.beginPath();
+    ctx.arc(pBeach.x, pBeach.y, 26, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 5. Cobblestone Island Roads
+    ctx.strokeStyle = 'rgba(254, 243, 199, 0.45)';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    const pSpawn = w2c(54, -10);
+    const pPlaza = w2c(1, 22);
+    const pOven = w2c(-12.5, 19.2);
+    const pPier = w2c(7, 28);
+    const pBistro = w2c(-47.7, 41);
+    const pLaundry = w2c(-64, -14);
+
+    ctx.moveTo(pSpawn.x, pSpawn.y);
+    ctx.lineTo(pPlaza.x, pPlaza.y);
+    ctx.lineTo(pOven.x, pOven.y);
+    ctx.lineTo(pBistro.x, pBistro.y);
+    ctx.lineTo(pLaundry.x, pLaundry.y);
+
+    ctx.moveTo(pPlaza.x, pPlaza.y);
+    ctx.lineTo(pPier.x, pPier.y);
+    ctx.lineTo(pBeach.x, pBeach.y);
+
+    ctx.moveTo(pPlaza.x, pPlaza.y);
+    ctx.lineTo(pMainNorth.x, pMainNorth.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 6. Nautical Compass Rose
+    drawCompassRose(ctx, 60, 60, 32);
+
+    // 7. Draw Landmarks
+    ALL_MAP_LANDMARKS.forEach(lm => {
+      const c = w2c(lm.x, lm.z);
+      const isDiscovered = discoveredLandmarks.has(lm.id);
+      const isSelected = selectedLandmarkId === lm.id;
+
+      if (!isDiscovered) {
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 13, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', c.x, c.y);
+      } else {
+        if (isSelected) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 17, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = isSelected ? '#0284c7' : '#1e293b';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = isSelected ? '#38bdf8' : '#64748b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = '13px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(lm.icon, c.x, c.y);
+
+        ctx.font = 'bold 10px "Plus Jakarta Sans", sans-serif';
+        ctx.fillStyle = isSelected ? '#38bdf8' : '#f1f5f9';
+        ctx.textAlign = 'center';
+        ctx.fillText(lm.name.split('·')[0].split('&')[0].trim(), c.x, c.y - 16);
+      }
+    });
+
+    // 8. Draw Live Player Marker Pin & Direction Cone
+    if (player && player.pos) {
+      const pLoc = w2c(player.pos.x, player.pos.z);
+      const angle = (player.rotY || 0) + Math.PI / 2;
+
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.25)';
+      ctx.beginPath();
+      ctx.moveTo(pLoc.x, pLoc.y);
+      ctx.arc(pLoc.x, pLoc.y, 30, angle - 0.45, angle + 0.45);
+      ctx.closePath();
+      ctx.fill();
+
+      const pulse = (Date.now() % 1400) / 1400;
+      ctx.strokeStyle = `rgba(56, 189, 248, ${1 - pulse})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pLoc.x, pLoc.y, 8 + pulse * 14, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.arc(pLoc.x, pLoc.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(pLoc.x, pLoc.y);
+      ctx.lineTo(pLoc.x + Math.cos(angle) * 14, pLoc.y + Math.sin(angle) * 14);
+      ctx.stroke();
+    }
+  }
+
+  function drawCompassRose(ctx, cx, cy, r) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const points = [
+      { text: 'N', x: cx, y: cy - r - 4, color: '#ef4444' },
+      { text: 'S', x: cx, y: cy + r + 12, color: '#f59e0b' },
+      { text: 'E', x: cx + r + 8, y: cy + 4, color: '#f59e0b' },
+      { text: 'W', x: cx - r - 8, y: cy + 4, color: '#f59e0b' }
+    ];
+    ctx.font = 'bold 11px "Cinzel", serif';
+    ctx.textAlign = 'center';
+    points.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, p.x, p.y);
+    });
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + 4, cy);
+    ctx.lineTo(cx, cy + r);
+    ctx.lineTo(cx - 4, cy);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx, cy + 4);
+    ctx.lineTo(cx + r, cy);
+    ctx.lineTo(cx, cy - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function initIslandMapEvents() {
+    loadDiscoveredLandmarks();
+
+    const canvas = document.getElementById('island-map-canvas');
+    if (canvas) {
+      canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        function w2c(wx, wz) {
+          return {
+            x: 360 + (wx - 0) * 1.45,
+            y: 255 + (wz - (-30)) * 1.45
+          };
+        }
+
+        let bestLm = null;
+        let minD = 32;
+        ALL_MAP_LANDMARKS.forEach(lm => {
+          const c = w2c(lm.x, lm.z);
+          const d = Math.hypot(clickX - c.x, clickY - c.y);
+          if (d < minD) {
+            minD = d;
+            bestLm = lm;
+          }
+        });
+
+        if (bestLm) {
+          selectMapLandmark(bestLm.id);
+          CozyAudio.shonkPop ? CozyAudio.shonkPop() : CozyAudio.shonk();
+        }
+      });
+    }
+
+    document.getElementById('btn-close-island-map')?.addEventListener('click', () => {
+      closeIslandMap();
+    });
+
+    document.getElementById('pill-open-fast-travel')?.addEventListener('click', () => {
+      openIslandMap();
+    });
+
+    document.getElementById('btn-fast-travel-portal')?.addEventListener('click', () => {
+      if (selectedLandmarkId) {
+        castBetweenPortalFastTravel(selectedLandmarkId);
+      }
+    });
+
+    document.getElementById('btn-binoc-flip-y')?.addEventListener('click', () => {
+      toggleBinocularInvertY();
+    });
+    document.getElementById('btn-binoc-flip-x')?.addEventListener('click', () => {
+      toggleBinocularInvertX();
+    });
+  }
+
+  function toggleBinocularInvertY() {
+    gameSettings.binocularInvertY = !gameSettings.binocularInvertY;
+    saveSettings();
+    updateBinocularControlButtons();
+    showToast('↕ BINOCULARS PITCH', `Vertical Look: ${gameSettings.binocularInvertY ? 'INVERTED' : 'NORMAL'}`);
+  }
+
+  function toggleBinocularInvertX() {
+    gameSettings.binocularInvertX = !gameSettings.binocularInvertX;
+    saveSettings();
+    updateBinocularControlButtons();
+    showToast('↔ BINOCULARS YAW', `Horizontal Look: ${gameSettings.binocularInvertX ? 'INVERTED' : 'NORMAL'}`);
+  }
+
+  function updateBinocularControlButtons() {
+    const lblY = document.getElementById('lbl-binoc-flip-y');
+    if (lblY) lblY.textContent = gameSettings.binocularInvertY ? 'INVERTED' : 'NORMAL';
+    const lblX = document.getElementById('lbl-binoc-flip-x');
+    if (lblX) lblX.textContent = gameSettings.binocularInvertX ? 'INVERTED' : 'NORMAL';
+
+    const chkY = document.getElementById('set-binoc-invert-y');
+    if (chkY) chkY.checked = !!gameSettings.binocularInvertY;
+    const chkX = document.getElementById('set-binoc-invert-x');
+    if (chkX) chkX.checked = !!gameSettings.binocularInvertX;
   }
 
   function sitOnDeckChair(chairId) {
@@ -7915,8 +8540,9 @@
     if (overlay) overlay.classList.remove('hidden');
     document.body.classList.add('in-binocular-mode');
 
+    updateBinocularControlButtons();
     CozyAudio.binocularZoom();
-    showToast('🔭 BINOCULAR HORIZON VIEW', 'Looking through brass lenses! Press [Esc / Space / F / T] or click Lower Binoculars to exit.');
+    showToast('🔭 BINOCULAR HORIZON VIEW', 'Looking through brass lenses! Press [Esc / Space / F / T] to exit · [I] Invert Pitch.');
   }
 
   function exitBinocularMode() {
@@ -10240,6 +10866,7 @@
   let hudZoneNameEl = null;
   let lastReportedZoneTitle = '';
   function updateInteractionsAndHUD() {
+    checkLandmarkDiscovery();
     nearestInteractable = null;
     let bestDist = 999;
 
@@ -10404,20 +11031,7 @@
       }
     }
 
-    // Crossroads Signposts Interaction (Travel Hub & Regional Guideposts)
-    if (worldApi.getSignposts) {
-      worldApi.getSignposts().forEach((sp) => {
-        const dSp = Math.hypot(player.pos.x - sp.pos.x, player.pos.z - sp.pos.z);
-        if (dSp < 3.2 && dSp < bestDist) {
-          bestDist = dSp;
-          nearestInteractable = {
-            kind: 'signpost',
-            sign: sp,
-            prompt: `${sp.title} · [E] Open Island Travel Map`
-          };
-        }
-      });
-    }
+    // (Signposts are non-interactive 3D wooden carved road markers; exploration is unhindered)
 
     // Solomon's Stone Bread Oven in Heartland Meadow
     if (solomonBreadOven && (currentZone === 'island' || currentZone === 'overworld')) {
@@ -11007,11 +11621,21 @@
     standUpFromDeckChair,
     sipPinaColada,
     damagePlayer,
-    openFastTravelModal,
-    closeFastTravelModal,
-    toggleFastTravelModal,
-    fastTravelTo,
+    openFastTravelModal: openIslandMap,
+    closeFastTravelModal: closeIslandMap,
+    toggleFastTravelModal: toggleIslandMap,
+    fastTravelTo: castBetweenPortalFastTravel,
+    openIslandMap,
+    closeIslandMap,
+    toggleIslandMap,
+    castBetweenPortalFastTravel,
+    selectMapLandmark,
+    renderIslandMap,
+    spawnPlayerShark,
+    switchShark: (sharkId) => spawnPlayerShark(sharkId),
     enterBinocularMode,
+    enterBinoculars: enterBinocularMode,
+    exitBinoculars: exitBinocularMode,
     exitBinocularMode,
     toggleBinocularMode,
     equipHeldItem,
@@ -11032,6 +11656,9 @@
     triggerSignatureAbility,
     embarkIntoGame,
     finishLoadingScreen,
+    openIslandMap,
+    closeIslandMap,
+    toggleIslandMap,
     isGameLoaded: () => isGameLoaded,
     getRenderer: () => renderer,
     getCamera: () => camera,
