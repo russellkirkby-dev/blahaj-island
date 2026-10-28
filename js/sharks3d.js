@@ -44,11 +44,19 @@ window.BlahajModels = (function () {
       side: THREE.DoubleSide
     });
 
-    mat.customProgramCacheKey = () => `plush_mat_${useVertexColors ? 'vtx' : hexColor}_m${Math.round(mangeVal * 100)}`;
+    // Uniform holder shared across JS and GLSL (never triggers shader recompilation!)
+    mat.userData.uMange = { value: mangeVal };
+
+    // Static program cache key so Three.js compiles this shader ONCE and reuses it for all mange levels!
+    mat.customProgramCacheKey = () => `plush_mat_${useVertexColors ? 'vtx' : hexColor}`;
 
     mat.onBeforeCompile = (shader) => {
+      // Connect uniform to material's uniform holder
+      shader.uniforms.uMange = mat.userData.uMange;
+
       shader.vertexShader =
-        `varying vec3 vPlushObjPos;\n` +
+        `varying vec3 vPlushObjPos;
+` +
         shader.vertexShader.replace(
           '#include <begin_vertex>',
           `
@@ -57,16 +65,16 @@ window.BlahajModels = (function () {
           `
         );
 
-      const mangeFloat = mangeVal.toFixed(3);
-
       shader.fragmentShader =
-        `varying vec3 vPlushObjPos;\n` +
+        `varying vec3 vPlushObjPos;
+` +
+        `uniform float uMange;
+` +
         shader.fragmentShader.replace(
           '#include <dithering_fragment>',
           `
           vec3 viewDir = normalize(vViewPosition);
           float ndotv = clamp(abs(dot(normal, viewDir)), 0.0, 1.0);
-          float uMange = ${mangeFloat};
 
           // High-frequency 3D plush micro-tuft fiber grain across the entire shark surface
           float tuft1 = sin(vPlushObjPos.x * 125.0 + vPlushObjPos.y * 45.0) * cos(vPlushObjPos.y * 140.0 - vPlushObjPos.z * 55.0);
@@ -89,7 +97,6 @@ window.BlahajModels = (function () {
           gl_FragColor.rgb += velvetColor * velvetSheen * 0.42 * fuzzyEdgeTufts;
           gl_FragColor.rgb += (plushTint * 0.5 + vec3(0.96, 0.94, 0.90) * 0.5) * sharpFuzzyRim * 0.58 * fuzzyEdgeTufts;
 
-          #if ${mangeVal > 0.01 ? '1' : '0'}
           // --- PROCEDURAL DIRT, TEA STAINS, SOOT & GROUND PATINA ---
           // 1. Ground contact mud / floor dust (rising smoothly from base cushion)
           float groundHeight = clamp((vPlushObjPos.y - 0.14) / 0.95, 0.0, 1.0);
@@ -137,7 +144,6 @@ window.BlahajModels = (function () {
           // Loved, sun-bleached plush desaturation
           float lum = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
           gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(lum), uMange * 0.32);
-          #endif
 
           #include <dithering_fragment>
           `
@@ -182,7 +188,10 @@ window.BlahajModels = (function () {
     const depthFrontZ = (0.50 + frontBelly + slump) * envelope * plump;
     const depthBackZ = (0.52 + Math.sin(s * Math.PI * 0.75) * 0.18) * envelope * plump;
 
-    return { y, centerZ, widthX, depthFrontZ, depthBackZ };
+  
+
+
+  return { y, centerZ, widthX, depthFrontZ, depthBackZ };
   }
 
   function buildAuthenticBlahajBodyGeometry(plump, topColorHex, bellyColorHex, mange) {
@@ -1957,8 +1966,25 @@ window.BlahajModels = (function () {
     });
   }
 
+
+  function updateSharkMange(sharkMesh, mangeVal) {
+    if (!sharkMesh) return;
+    const mVal = typeof mangeVal === 'number' ? Math.max(0.0, Math.min(1.0, mangeVal)) : 0.0;
+    sharkMesh.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const mat = child.material;
+        if (mat.userData && mat.userData.uMange) {
+          mat.userData.uMange.value = mVal;
+          mat.roughness = 0.85 + mVal * 0.10;
+          mat.bumpScale = 0.055 * (1.0 - mVal * 0.35);
+        }
+      }
+    });
+  }
+
   return {
     createPlushShark,
+    updateSharkMange,
     updateSharkAccessories,
     createBirb,
     createTropicalFish,

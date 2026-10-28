@@ -1730,15 +1730,19 @@
     if (player.sharkId === sharkId) {
       window.__BLAHAJ_MANGE__ = val;
       const cfg = LORE.sharks[sharkId];
-      if (player.mesh && player.mesh.parent) {
-        player.mesh.parent.remove(player.mesh);
+      if (player.mesh && window.BlahajModels && typeof window.BlahajModels.updateSharkMange === 'function') {
+        window.BlahajModels.updateSharkMange(player.mesh, val);
+      } else {
+        if (player.mesh && player.mesh.parent) {
+          player.mesh.parent.remove(player.mesh);
+        }
+        const acc = getSharkAccessories(sharkId);
+        player.mesh = window.BlahajModels.createPlushShark(cfg, val, acc);
+        player.mesh.position.copy(player.pos);
+        player.mesh.rotation.y = player.rotY;
+        const activeScene = getActiveScene();
+        activeScene.add(player.mesh);
       }
-      const acc = getSharkAccessories(sharkId);
-      player.mesh = window.BlahajModels.createPlushShark(cfg, val, acc);
-      player.mesh.position.copy(player.pos);
-      player.mesh.rotation.y = player.rotY;
-      const activeScene = getActiveScene();
-      activeScene.add(player.mesh);
 
       // Sync HUD slider
       const hudSlider = document.getElementById('mange-factor-slider');
