@@ -1119,6 +1119,7 @@
         <button class="settings-tab" data-tab="display">✨ Visuals &amp; Graphics</button>
         <button class="settings-tab" data-tab="hud">🖥️ HUD &amp; Interface</button>
         <button class="settings-tab" data-tab="keybinds">⌨️ Keybindings</button>
+        <button class="settings-tab" data-tab="passport">🧭 Passport &amp; Account</button>
         <button class="settings-tab hidden" id="tab-btn-debug" data-tab="debug">🛠️ Developer Debug</button>
       </div>
 
@@ -1433,7 +1434,68 @@
         </div>
       </div>
 
-      <!-- Tab 6: Developer Debug & Architecture Panel (Unlocked by typing "Blahaj") -->
+      <!-- Tab: Island Passport & Google Cloud Account -->
+      <div class="settings-panel hidden" id="panel-passport">
+        <div class="passport-card-container">
+          <div class="passport-hero-badge">
+            <div class="passport-hero-left">
+              <span class="passport-seal">🦈✨</span>
+              <div class="passport-hero-titles">
+                <span class="passport-tag">ARCHIPELAGO PASSPORT</span>
+                <h3 class="passport-shark-title" id="passport-shark-name">Solomon</h3>
+                <span class="passport-id-code" id="passport-id-badge">SHK-0000</span>
+              </div>
+            </div>
+            <div class="passport-hero-right">
+              <span class="passport-status-pill">● Auto-Saved Locally</span>
+              <div class="passport-metrics-preview">
+                <span id="passport-items-count">0 Items</span> · <span id="passport-rifts-count">0 Seams</span>
+              </div>
+              <span class="passport-timestamp" id="passport-last-saved">Last Saved: Just now</span>
+            </div>
+          </div>
+
+          <!-- Google Account & Cloud Sync Section -->
+          <div class="passport-section-card">
+            <div class="section-card-header">
+              <h4>🌐 Google Account &amp; Cross-Device Sync</h4>
+              <span class="section-card-hint">Sign in with Google to sync your shark &amp; inventory across any device</span>
+            </div>
+            <div class="section-card-body" id="google-account-status">
+              <!-- Dynamically populated by saveSystem.js -->
+            </div>
+          </div>
+
+          <!-- Multi-Save Slots Section -->
+          <div class="passport-section-card">
+            <div class="section-card-header">
+              <h4>💾 Save Profiles (3 Slots)</h4>
+              <span class="section-card-hint">Switch profiles or start a fresh expedition</span>
+            </div>
+            <div class="save-slots-grid" id="passport-slots-grid">
+              <!-- Dynamically populated with Slot 1, Slot 2, Slot 3 -->
+            </div>
+          </div>
+
+          <!-- File Backup & Transfer Section -->
+          <div class="passport-section-card">
+            <div class="section-card-header">
+              <h4>📦 File Backup &amp; Offline Transfer</h4>
+              <span class="section-card-hint">Download your save file (.blahaj) to keep progress safe</span>
+            </div>
+            <div class="backup-actions-row">
+              <button type="button" class="btn-passport-action" id="btn-export-save">⬇️ Export Save File (.blahaj)</button>
+              <label class="btn-passport-action btn-import-label" for="input-import-save">
+                ⬆️ Import Save File
+                <input type="file" id="input-import-save" accept=".blahaj,.json" style="display:none;" />
+              </label>
+              <button type="button" class="btn-passport-action btn-danger" id="btn-reset-save">⚠️ Reset Slot (New Game)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 6: Developer Debug (Hidden by Default) -->
       <div class="settings-panel hidden" id="panel-debug">
         <div class="debug-panel-banner">
           <div class="debug-banner-badge">ARCHITECT CONSOLE · UNLOCKED VIA &quot;BLAHAJ&quot;</div>
@@ -1644,6 +1706,8 @@
   <script src="js/inventory.js?v=4.9"></script>
   <script src="js/enemies.js?v=4.9"></script>
   <script src="js/seam.js?v=4.9"></script>
-  <script src="js/main.js?v=4.9"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="js/saveSystem.js?v=5.0"></script>
+  <script src="js/main.js?v=5.0"></script>
 </body>
 </html>

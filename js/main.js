@@ -2201,6 +2201,7 @@
         duration
       });
     }
+    if (window.BlahajSaveSystem) window.BlahajSaveSystem.queueAutoSave();
 
     if (isTimed) {
       CozyAudio.bistroChime();
@@ -2832,6 +2833,14 @@
 
     setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
     finishLoadingScreen();
+
+    // Restore saved game state from active Island Passport slot!
+    if (window.BlahajSaveSystem) {
+      const save = window.BlahajSaveSystem.getSaveState();
+      if (save) {
+        window.BlahajSaveSystem.restoreGameFromSave(save);
+      }
+    }
   }
 
   function spawnPlayerShark(sharkId) {
@@ -6657,6 +6666,32 @@
     document.getElementById('set-compass-vis')?.addEventListener('change', (e) => {
       applySetting('compassVis', e.target.checked);
     });
+
+    // Passport & Account Action Listeners
+    document.getElementById('btn-export-save')?.addEventListener('click', () => {
+      if (window.BlahajSaveSystem) window.BlahajSaveSystem.exportSaveFile();
+    });
+
+    document.getElementById('input-import-save')?.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file && window.BlahajSaveSystem) {
+        try {
+          await window.BlahajSaveSystem.importSaveFile(file);
+          showToast('PASSPORT IMPORTED! 📦✨', 'Your save file was loaded successfully!');
+        } catch (err) {
+          showToast('IMPORT FAILED ⚠️', err.message || 'Could not parse save file.');
+        }
+      }
+    });
+
+    document.getElementById('btn-reset-save')?.addEventListener('click', () => {
+      if (confirm('Start a fresh expedition on this save slot? Your current items and progression will be reset.')) {
+        if (window.BlahajSaveSystem) {
+          window.BlahajSaveSystem.resetCurrentSlot();
+          showToast('NEW EXPEDITION COMMENCED 🌅', 'Save slot reset to fresh Island Passport.');
+        }
+      }
+    });
     document.getElementById('set-nametags-vis')?.addEventListener('change', (e) => {
       applySetting('nametagsVis', e.target.checked);
     });
@@ -7190,6 +7225,7 @@
     if (!completedQuests.has(qid)) {
       completedQuests.add(qid);
       renderQuestList();
+      if (window.BlahajSaveSystem) window.BlahajSaveSystem.queueAutoSave();
     }
   }
 
@@ -7706,6 +7742,7 @@
       addChatLog(`🌀 <strong>Hermes</strong> reached Portal Mastery <strong>Level ${hermesPortalMastery.level}</strong>! Can now weave rifts to more distant locations faster.`, 'lore');
     } else {
       saveHermesPortalMastery();
+      if (window.BlahajSaveSystem) window.BlahajSaveSystem.queueAutoSave();
     }
   }
 
@@ -7717,6 +7754,7 @@
         if (d < 36.0) {
           discoveredLandmarks.add(lm.id);
           saveDiscoveredLandmarks();
+          if (window.BlahajSaveSystem) window.BlahajSaveSystem.queueAutoSave();
           showToast('🧭 NEW LANDMARK CHARTED!', `Discovered ${lm.name}! Pin revealed on your map [M].`);
           addChatLog(`🧭 You explored and charted <strong>${lm.name}</strong> (${lm.zone})! Check your map with [M].`, 'lore');
           addHermesPortalExp(100);
@@ -12913,6 +12951,51 @@
     unlockDeveloperDebugPanel,
     renderDebugPanelState,
     teleportToRift,
+    getDiscoveredLandmarks: () => discoveredLandmarks,
+    getHermesMastery: () => hermesPortalMastery,
+    getMangeFactors: () => {
+      const out = {};
+      ['solomon', 'nimue', 'hiram', 'hermes'].forEach((id) => { out[id] = getSharkMange(id); });
+      return out;
+    },
+    getSharkAccessories: () => {
+      const out = {};
+      ['solomon', 'nimue', 'hiram', 'hermes'].forEach((id) => { out[id] = getSharkAccessories(id); });
+      return out;
+    },
+    restoreMangeFactors: (m) => {
+      if (m && typeof m === 'object') {
+        Object.keys(m).forEach((id) => setSharkMange(id, m[id]));
+      }
+    },
+    restoreSharkAccessories: (a) => {
+      if (a && typeof a === 'object') {
+        Object.keys(a).forEach((id) => setSharkAccessories(id, a[id]));
+      }
+    },
+    restoreCompletedQuests: (arr) => {
+      completedQuests.clear();
+      (arr || []).forEach((q) => completedQuests.add(q));
+      renderQuestList();
+    },
+    restoreDiscoveredLandmarks: (arr) => {
+      discoveredLandmarks.clear();
+      (arr || []).forEach((l) => discoveredLandmarks.add(l));
+      saveDiscoveredLandmarks();
+    },
+    restoreHermesMastery: (m) => {
+      if (m) {
+        hermesPortalMastery.level = m.level || 1;
+        hermesPortalMastery.exp = m.exp || 0;
+        saveHermesPortalMastery();
+      }
+    },
+    saveGame: () => window.BlahajSaveSystem && window.BlahajSaveSystem.saveNow(),
+    getSaveState: () => window.BlahajSaveSystem && window.BlahajSaveSystem.getSaveState(),
+    exportSaveFile: () => window.BlahajSaveSystem && window.BlahajSaveSystem.exportSaveFile(),
+    importSaveFile: (data) => window.BlahajSaveSystem && window.BlahajSaveSystem.importSaveFile(data),
+    switchSaveSlot: (slot) => window.BlahajSaveSystem && window.BlahajSaveSystem.switchSlot(slot),
+    resetSaveSlot: () => window.BlahajSaveSystem && window.BlahajSaveSystem.resetCurrentSlot(),
     triggerIncursion: () => window.BlahajSeam && window.BlahajSeam.triggerIncursion(true),
     fastForwardSeam: (sec) => window.BlahajSeam && window.BlahajSeam.fastForward(sec),
     rerollSeamRifts: () => window.BlahajSeam && window.BlahajSeam.rerollRifts(),

@@ -475,6 +475,23 @@ window.BlahajInventory = (function () {
       return list;
     }
 
+    function serialize() {
+      return slots.map((s) => (s && s.id && s.qty > 0 ? { id: s.id, qty: s.qty } : null));
+    }
+
+    function restore(savedSlots) {
+      if (!Array.isArray(savedSlots)) return false;
+      for (let i = 0; i < NUM_SLOTS; i++) {
+        const item = savedSlots[i];
+        if (item && item.id && ITEMS[item.id] && item.qty > 0) {
+          slots[i] = { id: item.id, qty: Math.min(item.qty, ITEMS[item.id].maxStack || 99) };
+        } else {
+          slots[i] = null;
+        }
+      }
+      return true;
+    }
+
     return {
       slots,
       numSlots: NUM_SLOTS,
@@ -484,7 +501,9 @@ window.BlahajInventory = (function () {
       hasItem,
       getSlot,
       getSlots,
-      getUsedSlotCount
+      getUsedSlotCount,
+      serialize,
+      restore
     };
   }
 
