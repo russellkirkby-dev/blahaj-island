@@ -2589,12 +2589,21 @@
     const bar = document.getElementById('game-loading-progress-bar');
     const pctEl = document.getElementById('game-loading-pct');
     const statusEl = document.getElementById('game-loading-status-text');
+    const progressSection = document.getElementById('game-loading-progress-section');
+    const gatewayPanel = document.getElementById('launch-gateway-panel');
 
     if (bar) bar.style.width = '100%';
     if (pctEl) pctEl.textContent = '100%';
-    if (statusEl) statusEl.textContent = 'Archipelago ready! Welcome to Blåhaj Island 🦈✨';
+    if (statusEl) statusEl.textContent = 'Archipelago ready! Choose how to embark 🦈✨';
 
     syncLoadingAudioState();
+
+    if (progressSection) progressSection.classList.add('loading-done');
+    if (gatewayPanel) gatewayPanel.classList.remove('hidden');
+
+    if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateLaunchGatewayUI === 'function') {
+      window.BlahajSaveSystem.updateLaunchGatewayUI();
+    }
 
     if (btn) {
       btn.classList.remove('hidden');
@@ -2606,7 +2615,9 @@
       };
       const onKeyDownEmbark = (e) => {
         const setModal = document.getElementById('settings-modal');
+        const googleModal = document.getElementById('modal-google-connect');
         if (setModal && !setModal.classList.contains('hidden')) return;
+        if (googleModal && !googleModal.classList.contains('hidden')) return;
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'e' || e.key === 'E') {
           onEmbark();
         }

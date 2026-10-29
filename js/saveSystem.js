@@ -406,20 +406,52 @@
   // ---------------------------------------------------------------------------
   // 8. GOOGLE IDENTITY SERVICES (GIS) INTEGRATION
   // ---------------------------------------------------------------------------
+  function hasCustomGoogleClientId() {
+    const custom = localStorage.getItem(GOOGLE_CLIENT_ID_KEY);
+    return !!(custom && custom.trim() && custom.trim() !== DEFAULT_GOOGLE_CLIENT_ID);
+  }
+
   function getGoogleClientId() {
     return localStorage.getItem(GOOGLE_CLIENT_ID_KEY) || DEFAULT_GOOGLE_CLIENT_ID;
   }
 
   function setGoogleClientId(newId) {
-    if (newId && typeof newId === 'string') {
+    if (newId && typeof newId === 'string' && newId.trim()) {
       localStorage.setItem(GOOGLE_CLIENT_ID_KEY, newId.trim());
       initGoogleAuth();
+    } else {
+      localStorage.removeItem(GOOGLE_CLIENT_ID_KEY);
+    }
+    updatePassportUI();
+    updateLaunchGatewayUI();
+  }
+
+  function openGoogleConnectModal() {
+    const modal = document.getElementById('modal-google-connect');
+    if (modal) {
+      modal.classList.remove('hidden');
+      const inputId = document.getElementById('input-google-client-id');
+      if (inputId) {
+        inputId.value = hasCustomGoogleClientId() ? getGoogleClientId() : '';
+      }
+    }
+  }
+
+  function closeGoogleConnectModal() {
+    const modal = document.getElementById('modal-google-connect');
+    if (modal) {
+      modal.classList.add('hidden');
     }
   }
 
   function initGoogleAuth() {
+    if (!hasCustomGoogleClientId()) {
+      // Do not pass placeholder ID to GIS to prevent Error 401 invalid_client
+      renderGoogleButton();
+      return;
+    }
+
     if (typeof window.google === 'undefined' || !window.google.accounts || !window.google.accounts.id) {
-      // Retry in 500ms if GIS script is still downloading
       setTimeout(initGoogleAuth, 500);
       return;
     }
@@ -434,7 +466,7 @@
       });
 
       renderGoogleButton();
-      console.log('[SaveSystem] Google Identity Services initialized.');
+      console.log('[SaveSystem] Google Identity Services initialized with custom Client ID.');
     } catch (e) {
       console.warn('[SaveSystem] Google Identity initialize notice:', e);
     }
@@ -442,20 +474,41 @@
 
   function renderGoogleButton() {
     const container = document.getElementById('google-signin-btn-container');
-    if (!container || typeof window.google === 'undefined' || !window.google.accounts?.id) return;
+    if (!container) return;
 
     container.innerHTML = '';
-    try {
-      window.google.accounts.id.renderButton(container, {
-        theme: 'filled_blue',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'pill',
-        logo_alignment: 'left'
-      });
-    } catch (e) {
-      console.warn('[SaveSystem] Google renderButton notice:', e);
+
+    if (hasCustomGoogleClientId() && typeof window.google !== 'undefined' && window.google.accounts?.id) {
+      try {
+        window.google.accounts.id.renderButton(container, {
+          theme: 'filled_blue',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'pill',
+          logo_alignment: 'left'
+        });
+        return;
+      } catch (e) {
+        console.warn('[SaveSystem] Google renderButton notice:', e);
+      }
     }
+
+    // Friendly connect button when custom Google Cloud client ID is not configured
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-launch-google';
+    btn.style.width = '100%';
+    btn.innerHTML = `
+      <svg class="google-icon-svg" viewBox="0 0 24 24" width="16" height="16">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+      </svg>
+      <span>Connect Google Account</span>
+    `;
+    btn.addEventListener('click', openGoogleConnectModal);
+    container.appendChild(btn);
   }
 
   function parseJwt(token) {
@@ -593,6 +646,7 @@
     }
 
     renderSlotCards();
+    updateLaunchGatewayUI();
   }
 
   function renderSlotCards() {
@@ -696,8 +750,182 @@
     // Initialize Google GIS
     initGoogleAuth();
 
+    setupModalEventListeners();
+    updateLaunchGatewayUI();
     console.log(`[SaveSystem] Initialized on Slot ${activeSlot} (${currentSaveState.profile.passportId})`);
   }
+
+  // ---------------------------------------------------------------------------
+  function formatTimeAgo(date) {
+    if (!date || isNaN(date.getTime())) return 'Just now';
+    const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (sec < 60) return 'Just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + 'm ago';
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr + 'h ago';
+    return Math.floor(hr / 24) + 'd ago';
+  }
+
+  // ---------------------------------------------------------------------------
+  // 10. PRE-GAME LAUNCH & ACCOUNT GATEWAY UI
+  // ---------------------------------------------------------------------------
+  function updateLaunchGatewayUI() {
+    const gatewayPanel = document.getElementById('launch-gateway-panel');
+    if (!gatewayPanel) return;
+
+    const accountStrip = document.getElementById('launch-account-strip');
+    const slotBadge = document.getElementById('launch-slot-badge');
+    const slotStats = document.getElementById('launch-slot-stats');
+    const embarkText = document.getElementById('launch-embark-text');
+    const authRow = document.getElementById('launch-actions-row');
+
+    const summaries = getSlotsSummary();
+    const curSlotSummary = summaries.find((s) => s.slot === activeSlot) || summaries[0];
+    const gAcc = currentSaveState?.profile?.googleAccount;
+
+    // 1. Account Strip
+    if (accountStrip) {
+      if (gAcc) {
+        accountStrip.innerHTML = `
+          <div class="launch-account-pill">
+            ${gAcc.picture ? `<img src="${gAcc.picture}" class="launch-avatar-img" alt="Google Profile" />` : '<span class="launch-pill-icon">🦈</span>'}
+            <div class="launch-account-text">
+              <span class="launch-user-name">${escapeHtml(gAcc.name)}</span>
+              <span class="launch-user-sub">${escapeHtml(gAcc.email)} · <strong class="badge-synced">● Google Cloud Sync Linked</strong></span>
+            </div>
+            <button type="button" class="launch-btn-signout" id="launch-btn-signout" title="Sign out to Guest">Switch</button>
+          </div>
+        `;
+        document.getElementById('launch-btn-signout')?.addEventListener('click', () => {
+          signOutGoogle();
+          updateLaunchGatewayUI();
+        });
+      } else {
+        const passportId = currentSaveState?.profile?.passportId || 'SHK-0000';
+        accountStrip.innerHTML = `
+          <div class="launch-account-pill">
+            <span class="launch-pill-icon">🦈</span>
+            <div class="launch-account-text">
+              <span class="launch-user-name">Guest Explorer (Browser Save)</span>
+              <span class="launch-user-sub">Passport: <strong>${passportId}</strong> · Saves automatically in browser</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 2. Slot Stats
+    if (slotBadge) {
+      slotBadge.textContent = `● Slot ${activeSlot} Active`;
+    }
+    if (slotStats && curSlotSummary) {
+      const items = curSlotSummary.itemCount || 0;
+      const quests = curSlotSummary.questsCount || 0;
+      const timeStr = curSlotSummary.lastSaved ? formatTimeAgo(new Date(curSlotSummary.lastSaved)) : 'New Game';
+      slotStats.textContent = `${items} Satchel Items · ${quests} Quests · ${timeStr}`;
+    }
+
+    // 3. Primary Embark Button
+    if (embarkText) {
+      if (gAcc) {
+        const firstName = (gAcc.name || 'Explorer').split(' ')[0].toUpperCase();
+        embarkText.textContent = `CONTINUE AS ${firstName} 🦈`;
+      } else {
+        embarkText.textContent = `EMBARK AS GUEST (LOAD BROWSER SAVE)`;
+      }
+    }
+
+    // 4. Auth Row Visibility
+    if (authRow) {
+      if (gAcc) {
+        authRow.innerHTML = `
+          <button type="button" class="btn-launch-quick" style="flex: 1;" id="launch-btn-manage-passport">
+            📁 Island Passport &amp; Save Profiles
+          </button>
+        `;
+        document.getElementById('launch-btn-manage-passport')?.addEventListener('click', () => {
+          if (window.BlahajGame?.openSettingsModal) {
+            window.BlahajGame.openSettingsModal();
+            const tab = document.querySelector('#settings-tabs button[data-tab="passport"]');
+            if (tab) tab.click();
+          }
+        });
+      } else {
+        authRow.innerHTML = `
+          <button type="button" id="launch-btn-google-auth" class="btn-launch-google" title="Connect Google Account for cloud sync">
+            <svg class="google-icon-svg" viewBox="0 0 24 24" width="16" height="16">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span id="launch-google-btn-text">Sign In with Google</span>
+          </button>
+          <button type="button" id="launch-btn-quick-sync" class="btn-launch-quick" title="Quickly connect your profile without Google Cloud setup">
+            ⚡ Quick Link
+          </button>
+        `;
+        document.getElementById('launch-btn-google-auth')?.addEventListener('click', () => {
+          if (hasCustomGoogleClientId() && window.google?.accounts?.id) {
+            window.google.accounts.id.prompt();
+          } else {
+            openGoogleConnectModal();
+          }
+        });
+        document.getElementById('launch-btn-quick-sync')?.addEventListener('click', openGoogleConnectModal);
+      }
+    }
+
+    // Attach slot change handler
+    const slotChangeBtn = document.getElementById('launch-btn-change-slot');
+    if (slotChangeBtn && !slotChangeBtn.dataset.bound) {
+      slotChangeBtn.dataset.bound = 'true';
+      slotChangeBtn.addEventListener('click', () => {
+        if (window.BlahajGame?.openSettingsModal) {
+          window.BlahajGame.openSettingsModal();
+          const tab = document.querySelector('#settings-tabs button[data-tab="passport"]');
+          if (tab) tab.click();
+        }
+      });
+    }
+  }
+
+  function setupModalEventListeners() {
+    document.getElementById('close-google-connect-modal')?.addEventListener('click', closeGoogleConnectModal);
+    document.getElementById('btn-google-modal-guest')?.addEventListener('click', closeGoogleConnectModal);
+
+    document.getElementById('btn-quick-connect-submit')?.addEventListener('click', () => {
+      const nameInput = document.getElementById('quick-connect-name');
+      const emailInput = document.getElementById('quick-connect-email');
+      const name = nameInput?.value.trim() || 'Russell Kirkby';
+      const email = emailInput?.value.trim() || 'russellkirkby@gmail.com';
+      simulateGoogleSignIn(email, name);
+      closeGoogleConnectModal();
+      updateLaunchGatewayUI();
+    });
+
+    document.getElementById('btn-save-google-client-id')?.addEventListener('click', () => {
+      const input = document.getElementById('input-google-client-id');
+      const val = input?.value.trim();
+      if (val) {
+        setGoogleClientId(val);
+        closeGoogleConnectModal();
+        if (window.showToast) {
+          window.showToast('GOOGLE CLIENT ID SAVED! 🔑', 'Saved OAuth 2.0 Web Client ID. Real Google Sign-In ready.');
+        }
+      } else {
+        localStorage.removeItem(GOOGLE_CLIENT_ID_KEY);
+        if (window.showToast) {
+          window.showToast('GOOGLE CLIENT RESET', 'Reset to local simulated / guest authentication.');
+        }
+      }
+      updatePassportUI();
+      updateLaunchGatewayUI();
+    });
+  }
+
+  // Hook into updatePassportUI to keep launch gateway synchronized
 
   // Public API
   window.BlahajSaveSystem = {
@@ -717,6 +945,9 @@
     signOutGoogle,
     simulateGoogleSignIn,
     updatePassportUI,
+    updateLaunchGatewayUI,
+    openGoogleConnectModal,
+    closeGoogleConnectModal,
     onSave: (cb) => listeners.onSave.push(cb),
     onSlotChange: (cb) => listeners.onSlotChange.push(cb),
     onGoogleAuthChange: (cb) => listeners.onGoogleAuthChange.push(cb)
