@@ -11767,8 +11767,10 @@
     const deg = ((-camState.yaw * 180) / Math.PI % 360 + 360) % 360;
     const track = document.getElementById('compass-track');
     if (track) {
-      const shift = ((deg / 360) * 640) % 640;
-      track.style.transform = `translateX(${-shift + 120}px)`;
+      // 50px per 45 deg step (8 steps = 400px per full revolution).
+      // Base offset at 0 deg aligns Set 2's North item (center at 425px) with the 150px strip center (75px): 75 - 425 = -350px.
+      const offset = -350 - deg * (50 / 45);
+      track.style.transform = `translateX(${offset.toFixed(1)}px)`;
     }
   }
 

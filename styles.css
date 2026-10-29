@@ -757,39 +757,63 @@ body, html {
 
 .compass-strip {
   position: relative;
-  width: 440px;
-  height: 26px;
-  background: var(--bg-deep);
-  border: 1px solid var(--brass);
+  width: 150px;
+  height: 24px;
+  background: linear-gradient(180deg, rgba(13, 18, 28, 0.95), rgba(8, 12, 18, 0.95));
+  border: 1.5px solid rgba(212, 166, 86, 0.65);
   border-radius: 99px;
   overflow: hidden;
   display: flex;
   align-items: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 18%, #000 82%, transparent 100%);
 }
 
 .compass-track {
   display: flex;
-  gap: 36px;
   white-space: nowrap;
   font-size: 11px;
   font-weight: 700;
   color: var(--parchment-muted);
-  padding: 0 20px;
-  transition: transform 0.06s linear;
+  padding: 0;
+  margin: 0;
+  will-change: transform;
+  transition: transform 0.04s linear;
 }
 
-.compass-track .c-cardinal {
+.compass-item {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 50px;
+  height: 24px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.7);
+  letter-spacing: 0.02em;
+}
+
+.compass-item.c-cardinal {
   color: var(--brass-bright);
+  font-weight: 800;
+  font-size: 11.5px;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.35);
 }
 
 .compass-needle {
   position: absolute;
-  top: -3px;
+  top: 0px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11px;
+  font-size: 8.5px;
+  line-height: 8.5px;
   color: var(--ember);
+  text-shadow: 0 0 4px rgba(249, 115, 22, 0.85);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .island-meters {
