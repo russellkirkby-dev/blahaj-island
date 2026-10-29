@@ -4917,3 +4917,492 @@ body.in-telescope-mode .hotbar-track {
   pointer-events: none !important;
   transition: opacity 0.2s ease;
 }
+
+
+/* ==========================================================================
+   PASS 67: THE GREAT SEAM MINI-WATCH & AETHERIC DIVINER SIDE PANEL
+   ========================================================================== */
+
+/* 1. Compass & Watch Flex Row */
+.compass-and-watch-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 6px auto 4px auto;
+  position: relative;
+  z-index: 25;
+}
+
+/* 2. Floating Seam Mini-Watch Widget */
+.seam-mini-watch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.92));
+  border: 1.5px solid rgba(216, 170, 91, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 12px rgba(216, 170, 91, 0.25);
+  border-radius: 28px;
+  padding: 4px 12px 4px 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(8px);
+}
+
+.seam-mini-watch:hover {
+  transform: translateY(-2px) scale(1.02);
+  border-color: #f5cd79;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55), 0 0 16px rgba(245, 205, 121, 0.4);
+}
+
+.seam-mini-watch.status-incursion {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(88, 28, 28, 0.95), rgba(40, 15, 25, 0.92));
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+  animation: pulseIncursionWatch 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseIncursionWatch {
+  0%, 100% { box-shadow: 0 0 12px rgba(239, 68, 68, 0.35); border-color: #ef4444; }
+  50% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.75); border-color: #fca5a5; }
+}
+
+.watch-bezel {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fde68a, #d97706 70%, #78350f);
+  padding: 2.5px;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.5);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.watch-face {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #0f172a, #020617);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(245, 205, 121, 0.3);
+}
+
+.watch-hand {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 13px;
+  background: #f59e0b;
+  transform-origin: 50% 0%;
+  border-radius: 1px;
+  box-shadow: 0 0 4px #fbbf24;
+  transition: transform 0.25s linear;
+  z-index: 2;
+}
+
+.watch-icon {
+  font-size: 14px;
+  z-index: 1;
+  filter: drop-shadow(0 0 3px rgba(245, 205, 121, 0.6));
+}
+
+.watch-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.watch-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.watch-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.watch-status-badge {
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.watch-status-badge.status-calm {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.watch-status-badge.status-warn {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  animation: pulseWarn 1.5s infinite;
+}
+
+.watch-status-badge.status-incursion {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  animation: pulseWarn 0.8s infinite;
+}
+
+@keyframes pulseWarn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.watch-timer {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  font-weight: 900;
+  color: #f8fafc;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 6px rgba(245, 205, 121, 0.4);
+  line-height: 1.1;
+}
+
+.watch-pips {
+  display: flex;
+  gap: 3px;
+  margin-top: 1px;
+}
+
+.seam-pip {
+  font-size: 9px;
+  color: #64748b;
+  transition: all 0.3s ease;
+}
+
+.seam-pip.mended {
+  color: #34d399;
+  text-shadow: 0 0 5px #10b981;
+}
+
+.seam-pip.open {
+  color: #a855f7;
+  text-shadow: 0 0 4px #9333ea;
+}
+
+/* 3. Aetheric Seam Detector Handheld Screen Panel */
+.seam-detector-panel {
+  position: fixed;
+  right: 24px;
+  top: 135px;
+  width: 275px;
+  z-index: 1000;
+  user-select: none;
+  animation: slideInDetector 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.35s ease, opacity 0.3s ease;
+}
+
+.seam-detector-panel.hidden {
+  display: none !important;
+}
+
+@keyframes slideInDetector {
+  from {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.detector-casing {
+  background: linear-gradient(160deg, #1e2230 0%, #0d121c 100%);
+  border: 2px solid #b4863c;
+  border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(180, 134, 60, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  padding: 12px;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+
+.detector-casing::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px dashed rgba(180, 134, 60, 0.3);
+  border-radius: 13px;
+  pointer-events: none;
+}
+
+.detector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(180, 134, 60, 0.35);
+  padding-bottom: 6px;
+}
+
+.det-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.det-pulse-bulb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #a855f7;
+  box-shadow: 0 0 8px #c084fc;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.det-pulse-bulb.active-signal {
+  background: #38bdf8;
+  box-shadow: 0 0 12px #38bdf8, 0 0 4px #ffffff;
+  animation: bulbBlink 0.6s infinite alternate;
+}
+
+@keyframes bulbBlink {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.25); opacity: 1.0; }
+}
+
+.det-title-text {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fde68a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.det-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.det-btn {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(180, 134, 60, 0.5);
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.det-btn:hover {
+  background: #334155;
+  color: #ffffff;
+  border-color: #f59e0b;
+}
+
+/* 4. Galvanometer Meter & Needle */
+.detector-meter-dial {
+  background: radial-gradient(circle at 50% 100%, #1e293b, #0f172a 75%);
+  border: 1px solid rgba(180, 134, 60, 0.4);
+  border-radius: 12px;
+  padding: 8px 10px 4px 10px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.meter-scale-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.meter-scale-marks .m-cold { color: #64748b; }
+.meter-scale-marks .m-warm { color: #38bdf8; }
+.meter-scale-marks .m-close { color: #a855f7; }
+.meter-scale-marks .m-hot { color: #ef4444; text-shadow: 0 0 6px #ef4444; }
+
+.needle-track {
+  height: 48px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.meter-needle {
+  position: absolute;
+  bottom: 0px;
+  left: 50%;
+  width: 2.5px;
+  height: 44px;
+  background: linear-gradient(to top, #d97706, #ef4444);
+  transform-origin: 50% 100%;
+  transform: rotate(-60deg);
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+  transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.4, 1.2);
+  z-index: 2;
+}
+
+.meter-needle-cap {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fde68a, #78350f);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  z-index: 3;
+}
+
+.meter-signal-badge {
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* 5. Oscilloscope Canvas */
+.detector-oscilloscope {
+  background: #020617;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.detector-oscilloscope canvas {
+  width: 100%;
+  height: 38px;
+  display: block;
+}
+
+.wave-resonance-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #38bdf8;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* 6. Proximity Card Readout */
+.detector-proximity-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.det-trend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.det-trend-arrow {
+  font-size: 12px;
+}
+
+.det-dist-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.det-dist-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+}
+
+.det-dist-val {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 16px;
+  font-weight: 900;
+  color: #fde047;
+  text-shadow: 0 0 6px rgba(253, 224, 71, 0.4);
+}
+
+.det-location-tag {
+  font-size: 9.5px;
+  color: #a855f7;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detector-zone-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.detector-zone-status .dz-label { color: #93c5fd; }
+.detector-zone-status .dz-count { color: #67e8f9; }
+
+.detector-footer-hint {
+  text-align: center;
+  font-size: 8.5px;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+.detector-footer-hint kbd {
+  background: #334155;
+  color: #f8fafc;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 8px;
+}
+
+/* Minimal Zen Mode HUD overrides */
+body.minimal-hud .compass-and-watch-wrap {
+  margin-top: 8px;
+}
+
+body.minimal-hud .seam-mini-watch {
+  opacity: 0.95;
+}

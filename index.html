@@ -210,18 +210,45 @@
         </div>
       </div>
 
-      <div class="compass-strip" id="compass-strip">
-        <div class="compass-track" id="compass-track">
-          <span data-deg="0" class="c-cardinal">N</span>
-          <span data-deg="45">NE</span>
-          <span data-deg="90" class="c-cardinal">E</span>
-          <span data-deg="135">SE</span>
-          <span data-deg="180" class="c-cardinal">S</span>
-          <span data-deg="225">SW</span>
-          <span data-deg="270" class="c-cardinal">W</span>
-          <span data-deg="315">NW</span>
+      <div class="compass-and-watch-wrap">
+        <div class="compass-strip" id="compass-strip">
+          <div class="compass-track" id="compass-track">
+            <span data-deg="0" class="c-cardinal">N</span>
+            <span data-deg="45">NE</span>
+            <span data-deg="90" class="c-cardinal">E</span>
+            <span data-deg="135">SE</span>
+            <span data-deg="180" class="c-cardinal">S</span>
+            <span data-deg="225">SW</span>
+            <span data-deg="270" class="c-cardinal">W</span>
+            <span data-deg="315">NW</span>
+          </div>
+          <div class="compass-needle">▼</div>
         </div>
-        <div class="compass-needle">▼</div>
+
+        <!-- COMPACT FLOATING SEAM MINI-WATCH WIDGET (Next to Compass) -->
+        <div class="seam-mini-watch" id="seam-mini-watch" role="button" tabindex="0" title="The Great Seam Countdown Clock · Click to view Rift Status">
+          <div class="watch-bezel">
+            <div class="watch-face">
+              <div class="watch-hand" id="seam-watch-hand"></div>
+              <span class="watch-icon" id="seam-watch-icon">🪡</span>
+            </div>
+          </div>
+          <div class="watch-readout">
+            <div class="watch-top-row">
+              <span class="watch-title">GREAT SEAM</span>
+              <span class="watch-status-badge status-calm" id="seam-watch-badge">CALM</span>
+            </div>
+            <div class="watch-timer" id="seam-watch-timer">60:00</div>
+            <div class="watch-pips" id="seam-watch-pips">
+              <span class="seam-pip" id="spip-0" title="Rift 1">◇</span>
+              <span class="seam-pip" id="spip-1" title="Rift 2">◇</span>
+              <span class="seam-pip" id="spip-2" title="Rift 3">◇</span>
+              <span class="seam-pip" id="spip-3" title="Rift 4">◇</span>
+              <span class="seam-pip" id="spip-4" title="Rift 5">◇</span>
+              <span class="seam-pip" id="spip-5" title="Rift 6">◇</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div style="text-align: center;">
         <button type="button" class="hud-declutter-btn active" id="btn-hud-declutter" title="Toggle Minimal Zen HUD Mode [V] (Hides top panels and meters, keeps time and navigation compass)">👁️ Minimal HUD [V]</button>
@@ -302,6 +329,66 @@
         <div class="savor-title" id="savor-title">Frosted Salt-Rimmed Margarita</div>
         <div class="savor-progress-bar">
           <div class="savor-progress-fill" id="savor-fill" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AETHERIC SEAM DETECTOR HANDHELD GAUGE PANEL -->
+    <div id="seam-detector-panel" class="seam-detector-panel hidden">
+      <div class="detector-casing">
+        <div class="detector-header">
+          <div class="det-title-group">
+            <span class="det-pulse-bulb" id="det-pulse-bulb"></span>
+            <span class="det-title-text">AETHERIC DIVINER</span>
+          </div>
+          <div class="det-actions">
+            <button type="button" class="det-btn det-btn-audio" id="btn-detector-audio" title="Toggle Sonar Audio Ping [Click to Mute/Unmute]">🔊</button>
+            <button type="button" class="det-btn det-btn-stow" id="btn-detector-stow" title="Stow Instrument [H]">✕</button>
+          </div>
+        </div>
+
+        <!-- Galvanometer Meter with Swinging Needle -->
+        <div class="detector-meter-dial">
+          <div class="meter-scale-marks">
+            <span class="mark-label m-cold">COLD</span>
+            <span class="mark-label m-warm">WARM</span>
+            <span class="mark-label m-close">CLOSE</span>
+            <span class="mark-label m-hot">HOT!</span>
+          </div>
+          <div class="needle-track">
+            <div class="meter-needle" id="detector-needle"></div>
+            <div class="meter-needle-cap"></div>
+          </div>
+          <div class="meter-signal-badge" id="detector-signal-badge">SIGNAL: 0%</div>
+        </div>
+
+        <!-- Real-time Oscilloscope Waveform Canvas -->
+        <div class="detector-oscilloscope">
+          <canvas id="detector-oscilloscope-canvas" width="230" height="42"></canvas>
+          <span class="wave-resonance-label" id="detector-resonance-label">RESONANCE: SCANNING</span>
+        </div>
+
+        <!-- Proximity Readout Card -->
+        <div class="detector-proximity-card">
+          <div class="det-trend-row">
+            <span class="det-trend-arrow" id="detector-trend-arrow">⏸️</span>
+            <span class="det-trend-msg" id="detector-trend-msg">Calibrating Aetheric Frequencies...</span>
+          </div>
+          <div class="det-dist-row">
+            <span class="det-dist-lbl">NEAREST SEAM:</span>
+            <strong class="det-dist-val" id="detector-dist-val">-- m</strong>
+          </div>
+          <div class="det-location-tag" id="detector-location-tag">Scanning active quadrant...</div>
+        </div>
+
+        <!-- Multi-Zone Seam Overview -->
+        <div class="detector-zone-status" id="detector-zone-status">
+          <span class="dz-label">Seam Status:</span>
+          <span class="dz-count" id="detector-mended-ratio">0 / 6 Mended</span>
+        </div>
+
+        <div class="detector-footer-controls">
+          <span class="det-hint">Held in Fin · Press <kbd>H</kbd> to Stow</span>
         </div>
       </div>
     </div>
@@ -1368,6 +1455,7 @@
             <button type="button" class="btn-debug btn-accent" id="dbg-btn-reroll-rifts">🎲 Reroll 6 Rifts</button>
             <button type="button" class="btn-debug btn-success" id="dbg-btn-mend-all">🪡 Insta-Mend All (6/6)</button>
             <button type="button" class="btn-debug btn-warning" id="dbg-btn-banish-invaders">🚀 Banish All Invaders (Boop to Sea)</button>
+            <button type="button" class="btn-debug btn-accent" id="dbg-btn-unlock-diviner">🧭 Unlock &amp; Equip Seam Diviner</button>
           </div>
         </div>
 

@@ -1743,6 +1743,83 @@ window.BlahajModels = (function () {
       });
       g.scale.setScalar(1.1);
 
+    } else if (itemId === 'seam_detector') {
+      // Aetheric Seam Diviner (Handheld Steampunk Celestial Resonator)
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.88, roughness: 0.22 });
+      const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.35 });
+      const crystalMat = new THREE.MeshStandardMaterial({
+        color: 0xa855f7,
+        emissive: 0xc084fc,
+        emissiveIntensity: 0.85,
+        roughness: 0.1,
+        transparent: true,
+        opacity: 0.88
+      });
+      const needleMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+      // Brass Handle with grip
+      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.042, 0.24, 12), brassMat);
+      handle.position.y = 0.10;
+      g.add(handle);
+
+      // Pommel ring
+      const pommel = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.008, 6, 14), brassMat);
+      pommel.position.y = -0.02;
+      g.add(pommel);
+
+      // Flared dial collar
+      const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.042, 0.05, 16), darkMetalMat);
+      collar.position.y = 0.22;
+      g.add(collar);
+
+      // Circular Gauge Dish
+      const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.035, 18), brassMat);
+      dish.position.y = 0.26;
+      g.add(dish);
+
+      // Glass lens
+      const lens = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.105, 0.105, 0.008, 18),
+        new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.05, transparent: true, opacity: 0.6 })
+      );
+      lens.position.y = 0.28;
+      g.add(lens);
+
+      // Glowing Aetheric Resonator Core (Octahedron crystal)
+      const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.055, 0), crystalMat);
+      crystal.position.y = 0.32;
+      g.add(crystal);
+
+      // Miniature meter needle
+      const miniNeedle = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.004, 0.07), needleMat);
+      miniNeedle.position.set(0, 0.282, 0.025);
+      g.add(miniNeedle);
+
+      // Twin Sensor Prongs (Aether Antennas)
+      [-1, 1].forEach((dir) => {
+        const prong = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.012, 0.15, 8), brassMat);
+        prong.position.set(dir * 0.095, 0.32, 0);
+        prong.rotation.z = -dir * 0.22;
+        g.add(prong);
+
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 8), crystalMat);
+        tip.position.set(dir * 0.115, 0.40, 0);
+        g.add(tip);
+      });
+
+      // Point Light Aura
+      const light = new THREE.PointLight(0xa855f7, 1.2, 5.0, 1.5);
+      light.position.set(0, 0.32, 0);
+      g.add(light);
+
+      g.userData = {
+        crystal,
+        light,
+        miniNeedle
+      };
+
+      g.scale.setScalar(0.95);
+
     } else if (itemId === 'helen_cake' || itemId === 'cake_slice') {
       // Miniature Celestial Birthday Bombe Slice
       const chinaMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.2 });

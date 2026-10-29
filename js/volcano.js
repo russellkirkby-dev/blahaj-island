@@ -77,6 +77,7 @@ window.BlahajVolcano = (function () {
   let hearthCrystal = null;
   let emberChest = null;
   let emberChestCollected = false;
+  let overlookDivinerAltar = null;
   const flames = [];
   const carrots = [];
   const lavaMaterials = [];
@@ -1884,6 +1885,30 @@ window.BlahajVolcano = (function () {
     });
 
     createVolcanoSulfurCluster(-14.5, BALCONY.y + 0.35, BALCONY.cz, 'overlook_sulfur');
+
+    // Sacred Aetheric Seam Diviner Altar (Crater Overlook Trial Reward!)
+    const altarGroup = new THREE.Group();
+    altarGroup.position.set(14.5, BALCONY.y, BALCONY.cz);
+
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 0.95, 14), m.basalt);
+    pedestal.position.y = 0.475;
+    altarGroup.add(pedestal);
+
+    const inlay = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.04, 6, 20), m.brass);
+    inlay.rotation.x = Math.PI / 2;
+    inlay.position.y = 0.95;
+    altarGroup.add(inlay);
+
+    const floatingDiviner = window.BlahajModels ? window.BlahajModels.createHeldItemMesh('seam_detector') : new THREE.Group();
+    floatingDiviner.position.set(0, 1.45, 0);
+    altarGroup.add(floatingDiviner);
+
+    const divinerLight = new THREE.PointLight(0xa855f7, 2.0, 10.0);
+    divinerLight.position.set(0, 1.5, 0);
+    altarGroup.add(divinerLight);
+
+    scn.add(altarGroup);
+    overlookDivinerAltar = { group: altarGroup, mesh: floatingDiviner, light: divinerLight, x: 14.5, y: BALCONY.y, z: BALCONY.cz };
   }
 
   function stepParticles() {
@@ -2215,6 +2240,10 @@ window.BlahajVolcano = (function () {
       hearthCrystal.rotation.y += dt * 1.5;
       hearthCrystal.position.y = 1.85 + 0.12 * Math.sin(t * 2.2);
     }
+    if (overlookDivinerAltar && overlookDivinerAltar.mesh) {
+      overlookDivinerAltar.mesh.rotation.y += dt * 1.6;
+      overlookDivinerAltar.mesh.position.y = 1.45 + 0.12 * Math.sin(t * 2.8);
+    }
     if (emberChest && !emberChestCollected) {
       emberChest.rotation.y += dt * 1.8;
       emberChest.position.y = 1.2 + 0.45 + 0.15 * Math.sin(t * 2.5);
@@ -2435,6 +2464,17 @@ window.BlahajVolcano = (function () {
       const dTea = Math.hypot(p.x - 2.8, p.z + 314.5);
       if (dTea < 4.8) {
         out.push({ kind: 'v_tea', dist: dTea, prompt: 'Sip Warm Rest-Nook Tea [E] 🍵' });
+      }
+      const dDiviner = Math.hypot(p.x - 14.5, p.z - (-354.5));
+      if (dDiviner < 5.0) {
+        const isUnlocked = localStorage.getItem('blahaj_unlocked_seam_detector') === 'true';
+        out.push({
+          kind: 'v_seam_diviner',
+          dist: dDiviner,
+          prompt: isUnlocked
+            ? 'Equip Aetheric Seam Diviner [E] 🧭✨'
+            : 'Claim Aetheric Seam Diviner (Trial Reward!) [E] 🧭✨'
+        });
       }
     }
     return out;

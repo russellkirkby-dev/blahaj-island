@@ -519,6 +519,44 @@ window.BlahajSeam = (function () {
     };
   }
 
+  function getNearestRift(playerPos, currentZone = 'island') {
+    const activeZone = (currentZone === 'overworld' || !currentZone) ? 'island' : currentZone;
+    const zoneRifts = activeRifts.filter((r) => !r.mended && (r.zone === activeZone || (r.zone === 'island' && activeZone === 'island')));
+
+    let nearest = null;
+    let minD = Infinity;
+
+    if (playerPos && zoneRifts.length > 0) {
+      zoneRifts.forEach((r) => {
+        const d = Math.hypot(r.pos.x - playerPos.x, r.pos.z - playerPos.z);
+        if (d < minD) {
+          minD = d;
+          nearest = { ...r, dist: d };
+        }
+      });
+    }
+
+    const otherZoneCounts = {};
+    activeRifts.forEach((r) => {
+      if (!r.mended) {
+        otherZoneCounts[r.zone] = (otherZoneCounts[r.zone] || 0) + 1;
+      }
+    });
+
+    const mendedCount = activeRifts.filter((r) => r.mended).length;
+
+    return {
+      nearest,
+      dist: nearest ? nearest.dist : null,
+      hasZoneRifts: zoneRifts.length > 0,
+      zoneUnmendedCount: zoneRifts.length,
+      otherZoneCounts,
+      mendedCount,
+      totalRifts: activeRifts.length,
+      cycleState
+    };
+  }
+
   function init(sceneRef) {
     if (sceneRef) {
       window.__THREE_SCENE__ = sceneRef;
@@ -543,6 +581,7 @@ window.BlahajSeam = (function () {
     onStateChange: (fn) => listeners.push(fn),
     getActiveRiftsForZone: (zone) => activeRifts.filter((r) => r.zone === zone),
     getAllActiveRifts: () => activeRifts,
+    getNearestRift,
     getSeamRifts: () => activeRifts.filter((r) => r.zone === currentZoneName).map((r) => r.mesh).filter(Boolean)
   };
 })();

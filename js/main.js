@@ -898,6 +898,23 @@
       }, 70);
     },
 
+    seamDetectorPing(proximity = 0.5) {
+      this.ensure();
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      const baseFreq = 540 + proximity * 780; // 540Hz to 1320Hz
+      this.playTone(baseFreq, 0.06, 'sine', 0.05 * (0.4 + proximity * 0.6), baseFreq * 1.3);
+    },
+
+    pocketWatchClick() {
+      this.ensure();
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      this.playTone(1840, 0.03, 'triangle', 0.06, 1200);
+      setTimeout(() => {
+        if (!this.ctx) return;
+        this.playTone(2400, 0.02, 'sine', 0.04);
+      }, 35);
+    },
+
     hurtSqueak() {
       this.ensure();
       if (!this.ctx) return;
@@ -2052,6 +2069,7 @@
   const HELD_ITEM_DEFS = {
     pina_colada: { name: 'Chilled Piña Colada', icon: '🍹', type: 'drink', isFoodOrDrink: true },
     binoculars: { name: 'Brass Marine Binoculars', icon: '🔭', type: 'tool', isFoodOrDrink: false },
+    seam_detector: { name: 'Aetheric Seam Diviner', icon: '🧭', type: 'tool', isFoodOrDrink: false },
     margarita: { name: 'Frosted Margarita', icon: '🍸', type: 'drink', isFoodOrDrink: true },
     tropical_cocktail: { name: 'Sunset Cocktail', icon: '🍹', type: 'drink', isFoodOrDrink: true },
     celestial_boba: { name: 'Celestial Boba', icon: '🧋', type: 'drink', isFoodOrDrink: true },
@@ -2166,6 +2184,15 @@
 
     updateHeldItemHUD();
 
+    const detPanel = document.getElementById('seam-detector-panel');
+    if (detPanel) {
+      if (itemId === 'seam_detector') {
+        detPanel.classList.remove('hidden');
+      } else {
+        detPanel.classList.add('hidden');
+      }
+    }
+
     if (window.BlahajNetwork) {
       window.BlahajNetwork.send({
         type: 'held_item_sync',
@@ -2196,6 +2223,11 @@
     }
 
     updateHeldItemHUD();
+
+    const detPanel = document.getElementById('seam-detector-panel');
+    if (detPanel) {
+      detPanel.classList.add('hidden');
+    }
 
     if (window.BlahajNetwork) {
       window.BlahajNetwork.send({
@@ -3186,6 +3218,48 @@
     document.getElementById('interaction-prompt')?.addEventListener('click', () => {
       triggerInteract();
     });
+
+    // Seam Mini-Watch & Detector Panel Event Listeners
+    const seamWatchEl = document.getElementById('seam-mini-watch');
+    if (seamWatchEl) {
+      seamWatchEl.addEventListener('click', () => {
+        CozyAudio.pocketWatchClick();
+        if (window.BlahajSeam) {
+          const s = window.BlahajSeam.getState();
+          const rem = Math.floor(s.timer);
+          const mm = Math.floor(rem / 60);
+          const ss = rem % 60;
+          if (s.state === 'incursion') {
+            showToast('🚨 GREAT SEAM INCURSION ACTIVE!', `${s.invadersNeeded - s.invadersBanished} land invaders roaming! Boop them back to sea!`);
+          } else {
+            showToast('🪡 GREAT SEAM CLOCK', `${mm}m ${ss}s remaining in peaceful cycle (${s.mendedCount} / ${s.totalRifts} Rifts Mended).`);
+          }
+        }
+      });
+    }
+
+    const btnDetStow = document.getElementById('btn-detector-stow');
+    if (btnDetStow) {
+      btnDetStow.addEventListener('click', () => {
+        stowHeldItem();
+      });
+    }
+
+    const btnDetAudio = document.getElementById('btn-detector-audio');
+    if (btnDetAudio) {
+      btnDetAudio.addEventListener('click', () => {
+        detectorAudioMuted = !detectorAudioMuted;
+        btnDetAudio.textContent = detectorAudioMuted ? '🔇' : '🔊';
+        showToast('DIVINER AUDIO', detectorAudioMuted ? 'Sonar pings muted' : 'Sonar pings enabled');
+      });
+    }
+
+    const dbgUnlockDiviner = document.getElementById('dbg-btn-unlock-diviner');
+    if (dbgUnlockDiviner) {
+      dbgUnlockDiviner.addEventListener('click', () => {
+        claimAethericSeamDiviner();
+      });
+    }
 
     // Declutter button click listener & initial UI sync
     const declutterBtn = document.getElementById('btn-hud-declutter');
@@ -5190,6 +5264,10 @@
     const item = nearestInteractable;
 
     // Volcano Instance specific interactables
+    if (item.kind === 'v_seam_diviner') {
+      claimAethericSeamDiviner();
+      return;
+    }
     if (item.kind === 'v_exit') {
       exitVolcanoTrial(false);
       return;
@@ -10571,6 +10649,7 @@
     updateDynamicCollisions(dt);
     updateCamera(elapsed, dt);
     updateInteractionsAndHUD();
+    updateSeamClockAndDetector(dt, elapsed);
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
 
@@ -11695,6 +11774,244 @@
 
   let hudZoneNameEl = null;
   let lastReportedZoneTitle = '';
+
+  // ==========================================================================
+  // PASS 67: THE GREAT SEAM COUNTDOWN CLOCK & AETHERIC DIVINER SYSTEM
+  // ==========================================================================
+  let detectorAudioMuted = false;
+  let detectorCurrentNeedleAngle = -60;
+  let detectorPrevDist = null;
+  let detectorPingCooldown = 0;
+  let detectorOscPhase = 0;
+
+  function claimAethericSeamDiviner() {
+    localStorage.setItem('blahaj_unlocked_seam_detector', 'true');
+    equipHeldItem('seam_detector');
+    CozyAudio.portalChime();
+    spawnFloatingBurst(player.pos, 0xa855f7, 26);
+    showToast('AETHERIC SEAM DIVINER CLAIMED! 🧭✨', 'Sacred instrument claimed at Crater Overlook! Gauge active on side of screen.');
+    addChatLog('🧭✨ <strong>AETHERIC SEAM DIVINER CLAIMED!</strong> You claimed the sacred Seam Diviner from the Crater Overlook altar! Equip it in your fin anytime to detect cosmic tears.', 'lore');
+    completeQuest('q-sw-seam');
+  }
+
+  function updateSeamClockAndDetector(dt, elapsed) {
+    if (!window.BlahajSeam) return;
+    const seamState = window.BlahajSeam.getState();
+
+    // 1. UPDATE FLOATING MINI-WATCH WIDGET (Next to Compass)
+    const watchEl = document.getElementById('seam-mini-watch');
+    const timerEl = document.getElementById('seam-watch-timer');
+    const badgeEl = document.getElementById('seam-watch-badge');
+    const handEl = document.getElementById('seam-watch-hand');
+    const iconEl = document.getElementById('seam-watch-icon');
+
+    if (watchEl && timerEl && badgeEl) {
+      const remaining = Math.max(0, Math.floor(seamState.timer));
+      const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const ss = String(remaining % 60).padStart(2, '0');
+
+      if (seamState.state === 'incursion') {
+        timerEl.textContent = 'BREACH!';
+        badgeEl.textContent = 'INCURSION';
+        badgeEl.className = 'watch-status-badge status-incursion';
+        watchEl.className = 'seam-mini-watch status-incursion';
+        if (iconEl) iconEl.textContent = '🚨';
+        if (handEl) {
+          handEl.style.transform = `rotate(${(elapsed * 360) % 360}deg)`;
+        }
+      } else {
+        timerEl.textContent = `${mm}:${ss}`;
+        if (iconEl) iconEl.textContent = '🪡';
+        watchEl.className = 'seam-mini-watch';
+
+        if (remaining < 600) {
+          badgeEl.textContent = 'FRAYING';
+          badgeEl.className = 'watch-status-badge status-warn';
+        } else {
+          badgeEl.textContent = 'CALM';
+          badgeEl.className = 'watch-status-badge status-calm';
+        }
+
+        if (handEl) {
+          handEl.style.transform = `rotate(${(remaining % 60) * 6}deg)`;
+        }
+      }
+
+      // Update 6 diamond pips
+      for (let i = 0; i < 6; i++) {
+        const pip = document.getElementById(`spip-${i}`);
+        if (pip) {
+          const r = seamState.rifts[i];
+          if (r && r.mended) {
+            pip.className = 'seam-pip mended';
+            pip.textContent = '◆';
+            pip.title = `${r.name}: MENDED`;
+          } else {
+            pip.className = 'seam-pip open';
+            pip.textContent = '◇';
+            pip.title = r ? `${r.name}: OPEN` : 'Rift Open';
+          }
+        }
+      }
+    }
+
+    // 2. UPDATE HANDHELD AETHERIC DIVINER SIDE PANEL (When held in fin)
+    if (playerHeldItem.id === 'seam_detector') {
+      const detInfo = window.BlahajSeam.getNearestRift(player.pos, currentZone);
+      const needleEl = document.getElementById('detector-needle');
+      const sigBadge = document.getElementById('detector-signal-badge');
+      const bulbEl = document.getElementById('det-pulse-bulb');
+      const distValEl = document.getElementById('detector-dist-val');
+      const arrowEl = document.getElementById('detector-trend-arrow');
+      const trendMsgEl = document.getElementById('detector-trend-msg');
+      const locTagEl = document.getElementById('detector-location-tag');
+      const mendedRatioEl = document.getElementById('detector-mended-ratio');
+      const resonanceLbl = document.getElementById('detector-resonance-label');
+
+      if (mendedRatioEl) {
+        mendedRatioEl.textContent = `${detInfo.mendedCount} / ${detInfo.totalRifts} Mended`;
+      }
+
+      let targetAngle = -60;
+      let signalPct = 0;
+      let prox = 0;
+
+      if (detInfo.nearest) {
+        const d = detInfo.nearest.dist;
+        // Signal scales smoothly from 95m down to 2m
+        prox = Math.max(0, Math.min(1.0, 1.0 - (d - 2.0) / 93.0));
+        signalPct = Math.round(prox * 100);
+
+        // Target angle swings from -60deg (cold/far) to +60deg (hot/contact)
+        targetAngle = -60 + prox * 120;
+
+        // Dynamic jitter when close
+        if (prox > 0.4) {
+          targetAngle += (Math.random() - 0.5) * (prox * 6.0);
+        }
+
+        if (distValEl) distValEl.textContent = `${Math.round(d)} m`;
+        if (locTagEl) locTagEl.textContent = detInfo.nearest.name;
+        if (resonanceLbl) {
+          resonanceLbl.textContent = prox > 0.8 ? 'RESONANCE: MAXIMUM' : (prox > 0.4 ? 'RESONANCE: HARMONIC' : 'RESONANCE: FAINT');
+        }
+
+        // Trend calculation
+        if (detectorPrevDist !== null) {
+          const diff = d - detectorPrevDist;
+          if (diff < -0.06) {
+            if (arrowEl) arrowEl.textContent = '▲';
+            if (trendMsgEl) {
+              trendMsgEl.textContent = 'CLOSING IN (Getting Warmer)';
+              trendMsgEl.style.color = '#34d399';
+            }
+          } else if (diff > 0.06) {
+            if (arrowEl) arrowEl.textContent = '▼';
+            if (trendMsgEl) {
+              trendMsgEl.textContent = 'DRIFTING AWAY (Getting Colder)';
+              trendMsgEl.style.color = '#f87171';
+            }
+          } else {
+            if (arrowEl) arrowEl.textContent = '●';
+            if (trendMsgEl) {
+              trendMsgEl.textContent = 'SIGNAL LOCKED (Holding Distance)';
+              trendMsgEl.style.color = '#fde047';
+            }
+          }
+        }
+        detectorPrevDist = d;
+
+        if (bulbEl) {
+          bulbEl.className = prox > 0.1 ? 'det-pulse-bulb active-signal' : 'det-pulse-bulb';
+          if (prox > 0.6) {
+            bulbEl.style.animationDuration = `${Math.max(0.18, 0.6 - (prox - 0.6) * 0.8)}s`;
+          } else {
+            bulbEl.style.animationDuration = '0.6s';
+          }
+        }
+
+        // Sonar audio pings (accelerates as distance drops)
+        if (!detectorAudioMuted) {
+          detectorPingCooldown -= dt;
+          if (detectorPingCooldown <= 0) {
+            const pingInterval = Math.max(0.24, 2.4 - prox * 2.15); // 2.4s down to 0.24s
+            detectorPingCooldown = pingInterval;
+            CozyAudio.seamDetectorPing(prox);
+          }
+        }
+
+      } else {
+        // No unmended rifts in current zone!
+        targetAngle = -60;
+        signalPct = 0;
+        detectorPrevDist = null;
+
+        if (distValEl) distValEl.textContent = '-- m';
+        if (arrowEl) arrowEl.textContent = '✨';
+        if (trendMsgEl) {
+          trendMsgEl.textContent = 'Current Zone Tranquil & Clean!';
+          trendMsgEl.style.color = '#38bdf8';
+        }
+        if (locTagEl) {
+          const others = Object.entries(detInfo.otherZoneCounts)
+            .map(([z, c]) => `${z.toUpperCase()} (${c})`)
+            .join(' · ');
+          locTagEl.textContent = others ? `Tears in: ${others}` : 'All Archipelago Tears Mended!';
+        }
+        if (resonanceLbl) resonanceLbl.textContent = 'RESONANCE: DORMANT';
+        if (bulbEl) bulbEl.className = 'det-pulse-bulb';
+      }
+
+      // Spring lerp for needle
+      detectorCurrentNeedleAngle += (targetAngle - detectorCurrentNeedleAngle) * Math.min(1.0, dt * 7.5);
+      if (needleEl) {
+        needleEl.style.transform = `rotate(${detectorCurrentNeedleAngle.toFixed(1)}deg)`;
+      }
+      if (sigBadge) {
+        sigBadge.textContent = `SIGNAL: ${signalPct}%`;
+        sigBadge.style.color = signalPct > 70 ? '#ef4444' : (signalPct > 35 ? '#a855f7' : '#38bdf8');
+      }
+
+      // Draw Oscilloscope Waveform on Canvas
+      const oscCanvas = document.getElementById('detector-oscilloscope-canvas');
+      if (oscCanvas) {
+        const ctx = oscCanvas.getContext('2d');
+        if (ctx) {
+          const w = oscCanvas.width;
+          const h = oscCanvas.height;
+          ctx.clearRect(0, 0, w, h);
+
+          // Grid lines
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.5);
+          ctx.lineTo(w, h * 0.5);
+          ctx.stroke();
+
+          // Wave
+          detectorOscPhase += dt * (3.0 + prox * 10.0);
+          const amp = 3.0 + prox * 14.0;
+          const freq = 0.05 + prox * 0.09;
+
+          ctx.strokeStyle = prox > 0.7 ? '#f43f5e' : (prox > 0.35 ? '#c084fc' : '#38bdf8');
+          ctx.shadowColor = ctx.strokeStyle;
+          ctx.shadowBlur = 6;
+          ctx.lineWidth = 2.0;
+
+          ctx.beginPath();
+          for (let x = 0; x < w; x++) {
+            const y = h * 0.5 + Math.sin(x * freq + detectorOscPhase) * amp;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+      }
+    }
+  }
+
   function updateInteractionsAndHUD() {
     checkLandmarkDiscovery();
     nearestInteractable = null;
@@ -11781,6 +12098,7 @@
 
       const vItems = window.BlahajVolcano.getInteractables(player.pos);
       if (vItems.length > 0) {
+        vItems.sort((a, b) => a.dist - b.dist);
         nearestInteractable = vItems[0];
       }
 
@@ -12433,6 +12751,9 @@
     triggerFeedBreb,
     triggerBeepNose,
     triggerInteract,
+    unlockSeamDetector: claimAethericSeamDiviner,
+    getHasSeamDetector: () => localStorage.getItem('blahaj_unlocked_seam_detector') === 'true',
+    getActiveHeldItem: () => playerHeldItem.id,
     openGalleryArtwork,
     updateCamera,
     enterVolcanoTrial,
