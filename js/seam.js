@@ -30,30 +30,30 @@ window.BlahajSeam = (function () {
     {
       id: 'volcano_ridge_pinnacle',
       zone: 'volcano',
-      name: 'Volcano · Ember Ridge Pinnacle (Difficult Solo Path)',
-      desc: 'High volcanic pinnacle along the cracking lava ridge.',
-      pos: { x: 17.0, y: 2.2, z: -207.5 }
+      name: 'Volcano · Piston Elevator Stone Pinnacle',
+      desc: 'Shimmering above the rising and falling basalt piston elevator stone.',
+      pos: { x: -0.3, y: 2.2, z: -207.5 }
     },
     {
       id: 'volcano_gatehall_niche',
       zone: 'volcano',
       name: 'Volcano · Obsidian Gatehall Pillar Alcove',
       desc: 'Tucked behind the basalt corridor pillar past swinging pendulums.',
-      pos: { x: -6.5, y: 1.6, z: -35.0 }
+      pos: { x: -6.0, y: 1.6, z: -35.0 }
     },
     {
       id: 'volcano_causeway_shelf',
       zone: 'volcano',
-      name: 'Volcano · Magma Causeway Rock Shelf',
-      desc: 'Raised basalt shelf overlooking the bubbling magma sea.',
-      pos: { x: 8.5, y: 1.6, z: -132.0 }
+      name: 'Volcano · Magma Stepping Stone Path',
+      desc: 'Hovering above the glowing stepping stones across the magma sea.',
+      pos: { x: 9.2, y: 1.8, z: -126.0 }
     },
     {
       id: 'volcano_overlook_balcony',
       zone: 'volcano',
-      name: 'Volcano · Caldera Overlook Railing',
-      desc: 'Gleaming at the edge of the sacred core overlook.',
-      pos: { x: -16.0, y: 23.5, z: -356.0 }
+      name: 'Volcano · Caldera Overlook Balcony',
+      desc: 'Gleaming beside the stone balustrade overlooking the volcanic caldera.',
+      pos: { x: -12.5, y: 23.0, z: -354.5 }
     },
 
     // --- THE MIDNIGHT LIMINAL LAUNDROMAT ---
@@ -455,6 +455,21 @@ window.BlahajSeam = (function () {
         }
       }
     });
+
+    // 3. Direct Contact & Jump Collection (within 3.2m 3D radius)
+    if (playerPos) {
+      activeRifts.forEach((r) => {
+        if (!r.mended && (r.zone === currentZoneName || (r.zone === 'island' && (currentZoneName === 'overworld' || currentZoneName === 'island')))) {
+          const d3 = Math.hypot(r.pos.x - playerPos.x, r.pos.y - playerPos.y, r.pos.z - playerPos.z);
+          if (d3 < 3.2) {
+            mendRift(r.id);
+            if (window.BlahajGame && typeof window.BlahajGame.onRiftMendedByTouch === 'function') {
+              window.BlahajGame.onRiftMendedByTouch(r);
+            }
+          }
+        }
+      });
+    }
   }
 
   // --------------------------------------------------------------------------

@@ -4633,18 +4633,36 @@
     window.BlahajNetwork.send({ type: 'emote', kind: 'ability', sharkId: player.sharkId });
   }
 
-  function mendNearbyRift(maxRadius = 12) {
+  function onRiftMendedByTouch(r) {
+    player.seamMendedCount = window.BlahajSeam ? window.BlahajSeam.getState().mendedCount : (player.seamMendedCount + 1);
+    updateMetersUI();
+    CozyAudio.portalChime();
+    spawnFloatingBurst(player.pos, 0x52f29c, 24);
+    showToast('GREAT SEAM MENDED! 🪡✨', `Jumped into & stitched cosmic rift! (${player.seamMendedCount} / 6 Mended)`);
+    addChatLog(`🪡✨ <strong>GREAT SEAM MENDED:</strong> You leaped into and stitched the cosmic rift at <em>${r.name}</em>! (${player.seamMendedCount} / 6 Mended)`, 'lore');
+    completeQuest('q-seam');
+    if (player.seamMendedCount >= 6) {
+      completeQuest('q-sw-seam');
+    }
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({ type: 'rift_mend', riftId: r.id });
+    }
+  }
+
+  function mendNearbyRift(maxRadius = 14) {
     if (window.BlahajSeam) {
       const allRifts = window.BlahajSeam.getAllActiveRifts();
       let mendedOne = false;
       allRifts.forEach((r) => {
-        if (!r.mended && (r.zone === currentZone || (r.zone === 'island' && currentZone === 'overworld'))) {
+        if (!r.mended && (r.zone === currentZone || (r.zone === 'island' && (currentZone === 'overworld' || currentZone === 'island')))) {
           const d = Math.hypot(r.pos.x - player.pos.x, r.pos.z - player.pos.z);
           const dy = Math.abs(r.pos.y - player.pos.y);
-          if (d < maxRadius && dy < 6.0) {
+          if (d < maxRadius && dy < 9.0) {
             window.BlahajSeam.mendRift(r.id);
             mendedOne = true;
-            window.BlahajNetwork.send({ type: 'rift_mend', riftId: r.id });
+            if (window.BlahajNetwork) {
+              window.BlahajNetwork.send({ type: 'rift_mend', riftId: r.id });
+            }
           }
         }
       });
@@ -4653,8 +4671,9 @@
         player.seamMendedCount = window.BlahajSeam.getState().mendedCount;
         updateMetersUI();
         CozyAudio.portalChime();
-        spawnFloatingBurst(player.pos, 0x52f29c, 16);
-        showToast('GREAT SEAM MENDED', `Stitched a cosmic rift! (${player.seamMendedCount} / 6 Mended)`);
+        spawnFloatingBurst(player.pos, 0x52f29c, 24);
+        showToast('GREAT SEAM MENDED! 🪡✨', `Stitched a cosmic rift! (${player.seamMendedCount} / 6 Mended)`);
+        addChatLog(`🪡✨ <strong>GREAT SEAM MENDED:</strong> Stitched a cosmic rift! (${player.seamMendedCount} / 6 Mended)`, 'lore');
         completeQuest('q-seam');
         if (player.seamMendedCount >= 6) {
           completeQuest('q-sw-seam');
@@ -10650,6 +10669,9 @@
     updateCamera(elapsed, dt);
     updateInteractionsAndHUD();
     updateSeamClockAndDetector(dt, elapsed);
+    if (window.BlahajSeam) {
+      window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
+    }
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
 
@@ -10675,9 +10697,6 @@
       }
       if (worldPickups) {
         worldPickups.update(dt, elapsed);
-      }
-      if (window.BlahajSeam) {
-        window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
       }
       if (solomonBreadOven && solomonBreadOven.smokeParticles) {
         solomonBreadOven.smokeParticles.forEach((sp, idx) => {
@@ -12014,6 +12033,31 @@
     }
   }
 
+  function checkGreatSeamRiftsInteractable(bestDistSoFar = 999) {
+    let closestRift = null;
+    let minD = bestDistSoFar;
+    if (window.BlahajSeam) {
+      const activeRifts = window.BlahajSeam.getAllActiveRifts();
+      activeRifts.forEach((r) => {
+        if (!r.mended && (r.zone === currentZone || (r.zone === 'island' && (currentZone === 'overworld' || currentZone === 'island')))) {
+          const d3 = Math.hypot(r.pos.x - player.pos.x, r.pos.y - player.pos.y, r.pos.z - player.pos.z);
+          const dH = Math.hypot(r.pos.x - player.pos.x, r.pos.z - player.pos.z);
+          const dV = Math.abs(r.pos.y - player.pos.y);
+          if ((d3 < 8.5 || (dH < 7.5 && dV < 6.5)) && d3 < minD) {
+            minD = d3;
+            closestRift = {
+              kind: 'rift',
+              ref: r,
+              dist: d3,
+              prompt: 'Stitch Great Seam Rift [E] 🪡✨'
+            };
+          }
+        }
+      });
+    }
+    return { closestRift, minD };
+  }
+
   function updateInteractionsAndHUD() {
     checkLandmarkDiscovery();
     nearestInteractable = null;
@@ -12102,13 +12146,21 @@
       if (vItems.length > 0) {
         vItems.sort((a, b) => a.dist - b.dist);
         nearestInteractable = vItems[0];
+        bestDist = vItems[0].dist;
+      }
+
+      // Check if a Great Seam Rift in the volcano is nearby
+      const riftRes = checkGreatSeamRiftsInteractable(bestDist);
+      if (riftRes.closestRift) {
+        nearestInteractable = riftRes.closestRift;
+        bestDist = riftRes.minD;
       }
 
       const promptEl = document.getElementById('interaction-prompt');
       if (nearestInteractable && !isAnyModalOpen()) {
         document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
         promptEl.classList.remove('hidden');
-      } else {
+      } else if (promptEl) {
         promptEl.classList.add('hidden');
       }
 
@@ -12145,14 +12197,23 @@
       } else {
         const sItems = window.BlahajSphericalFoods.getInteractables(player.pos);
         if (sItems.length > 0) {
+          sItems.sort((a, b) => a.dist - b.dist);
           nearestInteractable = sItems[0];
+          bestDist = sItems[0].dist;
+        }
+
+        // Check Great Seam Rifts inside Spherical Foods Bistro
+        const riftRes = checkGreatSeamRiftsInteractable(bestDist);
+        if (riftRes.closestRift) {
+          nearestInteractable = riftRes.closestRift;
+          bestDist = riftRes.minD;
         }
       }
       const promptEl = document.getElementById('interaction-prompt');
       if (nearestInteractable && !isAnyModalOpen()) {
         document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
         promptEl.classList.remove('hidden');
-      } else {
+      } else if (promptEl) {
         promptEl.classList.add('hidden');
       }
       return;
@@ -12163,14 +12224,23 @@
       document.getElementById('hud-zone-name').textContent = 'The First Whirlings (Delicate Cycle 24/7)';
       const lItems = window.BlahajLaundromat.getInteractables(player.pos);
       if (lItems.length > 0) {
+        lItems.sort((a, b) => a.dist - b.dist);
         nearestInteractable = lItems[0];
+        bestDist = lItems[0].dist;
+      }
+
+      // Check Great Seam Rifts inside Laundromat
+      const riftRes = checkGreatSeamRiftsInteractable(bestDist);
+      if (riftRes.closestRift) {
+        nearestInteractable = riftRes.closestRift;
+        bestDist = riftRes.minD;
       }
 
       const promptEl = document.getElementById('interaction-prompt');
       if (nearestInteractable && !isAnyModalOpen()) {
         document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
         promptEl.classList.remove('hidden');
-      } else {
+      } else if (promptEl) {
         promptEl.classList.add('hidden');
       }
       return;
@@ -12322,20 +12392,11 @@
       }
     });
 
-    worldApi.getSeamRifts().forEach((r) => {
-      if (!r.userData.mended) {
-        const d = r.position.distanceTo(player.pos);
-        if (d < 7.5 && d < bestDist) {
-          bestDist = d;
-          nearestInteractable = {
-            kind: 'rift',
-            ref: r,
-            dist: d,
-            prompt: 'Stitch Great Seam Rift [E]'
-          };
-        }
-      }
-    });
+    const riftRes = checkGreatSeamRiftsInteractable(bestDist);
+    if (riftRes.closestRift) {
+      nearestInteractable = riftRes.closestRift;
+      bestDist = riftRes.minD;
+    }
 
     // Crescent Beach Shark Beach Volleyball Court
     if (currentZone === 'island' || currentZone === 'overworld') {
@@ -12754,6 +12815,7 @@
     triggerBeepNose,
     triggerInteract,
     unlockSeamDetector: claimAethericSeamDiviner,
+    onRiftMendedByTouch,
     getHasSeamDetector: () => localStorage.getItem('blahaj_unlocked_seam_detector') === 'true',
     getActiveHeldItem: () => playerHeldItem.id,
     openGalleryArtwork,
