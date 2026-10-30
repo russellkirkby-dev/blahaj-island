@@ -394,12 +394,38 @@ window.BlahajInventory = (function () {
       canUse: true,
       useAction: 'launch_firework',
       usePrompt: 'Launch Helen\'s Birthday Rocket! 🎆'
+    },
+    flatpack_crate: {
+      id: 'flatpack_crate',
+      name: 'SKÄRHAJ Flat-Pack Kit (ART. 904.112.77)',
+      icon: '📦',
+      rarity: 'epic',
+      category: 'architectural',
+      maxStack: 20,
+      type: 'Erf Spawning-Pit Heist Loot · Snap-Build Kit',
+      desc: 'Sealed corrugated flat-pack furniture carton liberated from Aisle 14 of the IKEA Spawning Pits on Erf. Packed with Scandinavian birch panels, brass cam-lock dowels, and wordless shark assembly diagrams!',
+      stats: 'Unlocks SKÄRHAJ Modular Snap-Building [C] · Unpacks into +3 Builder Supplies',
+      canUse: true,
+      canHold: true
+    },
+    kottbullar_feast: {
+      id: 'kottbullar_feast',
+      name: 'Midnight Spawning-Pit Köttbullar',
+      icon: '🧆',
+      rarity: 'rare',
+      category: 'food',
+      maxStack: 10,
+      type: 'Spherical Erf Bistro Delicacy · Restores Comfort',
+      desc: 'Piping-hot spherical Swedish meatballs glazed with tart lingonberries and velvety cream sauce, smuggled out of the Midnight Erf Food Court during a Spawning-Pit Raid.',
+      stats: '+100% Stuffing Coherence & Tea Comfort · Approved by Spherical Foods',
+      canUse: true,
+      canHold: true
     }
   };
 
   // 2. PLAYER INVENTORY ENGINE (16-SLOT LIVE SATCHEL)
   function createPlayerInventory() {
-    const NUM_SLOTS = 16;
+    const NUM_SLOTS = 24;
     const slots = new Array(NUM_SLOTS).fill(null);
 
     // Initial default satchel contents
@@ -537,6 +563,7 @@ window.BlahajInventory = (function () {
       addItem,
       removeItem,
       getItemCount,
+      getCount: getItemCount,
       hasItem,
       getSlot,
       getSlots,
@@ -1183,7 +1210,7 @@ window.BlahajInventory = (function () {
     trunkGroup.add(beacon);
 
     // 16 Shared Storage Slots
-    const NUM_SLOTS = 16;
+    const NUM_SLOTS = 24;
     const slots = new Array(NUM_SLOTS).fill(null);
 
     // Pre-populate with initial shared island supplies

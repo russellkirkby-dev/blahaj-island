@@ -547,6 +547,29 @@ window.BlahajWorld = (function () {
         if (lx * lx + lz * lz <= 4.0) {
           surfY = st.y + 0.65;
         }
+      } else if (st.type === 'skarhaj_plinth') {
+        if (Math.abs(lx) <= 2.05 && Math.abs(lz) <= 2.05) {
+          surfY = st.y + 0.36;
+        }
+      } else if (st.type === 'skarhaj_wall_window' || st.type === 'skarhaj_arch_door') {
+        if (Math.abs(lx) <= 2.05 && Math.abs(lz) <= 0.65 && refY !== null && refY >= st.y + 2.1) {
+          surfY = st.y + 3.2;
+        }
+      } else if (st.type === 'skarhaj_roof_gable') {
+        if (Math.abs(lx) <= 2.15 && Math.abs(lz) <= 2.15 && refY !== null && refY >= st.y + 0.9) {
+          const roofH = st.y + 2.45 - (Math.abs(lx) / 2.15) * 1.55;
+          if (roofH <= refY + 2.8 && roofH > surfY) {
+            surfY = roofH;
+          }
+        }
+      } else if (st.type === 'skarhaj_malm_bed') {
+        if (Math.abs(lx) <= 1.65 && Math.abs(lz) <= 1.85) {
+          surfY = st.y + 0.72;
+        }
+      } else if (st.type === 'skarhaj_grotto_hatch') {
+        if (lx * lx + lz * lz <= 5.2) {
+          surfY = st.y + 0.42;
+        }
       } else if (st.type === 'kotatsu_table') {
         if (lx * lx + lz * lz <= 7.8) {
           if (lx * lx + lz * lz <= 2.7) surfY = st.y + 0.89; // tabletop
@@ -5154,6 +5177,174 @@ window.BlahajWorld = (function () {
       });
       statueShark.position.y = 1.4;
       group.add(statueShark);
+    } else if (type === 'skarhaj_plinth') {
+      // GOLVHAJ 4m×4m Modular Snap Foundation Deck with Brass Cam-Lock Sockets
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.36, 4.0), birchMat);
+      deck.position.y = 0.18;
+      deck.receiveShadow = true;
+      group.add(deck);
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(4.08, 0.10, 4.08), darkWoodMat);
+      trim.position.y = 0.05;
+      group.add(trim);
+      [[-1.75, -1.75], [1.75, -1.75], [-1.75, 1.75], [1.75, 1.75]].forEach(([dx, dz]) => {
+        const camLock = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.40, 8), goldMat);
+        camLock.position.set(dx, 0.19, dz);
+        group.add(camLock);
+      });
+    } else if (type === 'skarhaj_wall_window') {
+      // VÄGGHAJ 4m Panorama Window Wall with Stackable 3.2m Top Beam
+      const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 3.2, 0.36), birchMat);
+      leftPillar.position.set(-1.52, 1.6, 0);
+      group.add(leftPillar);
+      const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 3.2, 0.36), birchMat);
+      rightPillar.position.set(1.52, 1.6, 0);
+      group.add(rightPillar);
+      const wainscot = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.0, 0.32), darkWoodMat);
+      wainscot.position.set(0, 0.5, 0);
+      group.add(wainscot);
+      const topBeam = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.45, 0.44), darkWoodMat);
+      topBeam.position.set(0, 2.98, 0);
+      group.add(topBeam);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.75, 0.12), warmGlowMat);
+      glass.position.set(0, 1.88, 0);
+      group.add(glass);
+      [-1.8, 1.8].forEach((cx) => {
+        const dowel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.22, 6), goldMat);
+        dowel.position.set(cx, 3.25, 0);
+        group.add(dowel);
+      });
+    } else if (type === 'skarhaj_arch_door') {
+      // DÖRRHAJ 4m Walk-Through Grand Portal Archway
+      [-1.55, 1.55].forEach((px) => {
+        const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.9, 3.2, 0.42), birchMat);
+        jamb.position.set(px, 1.6, 0);
+        group.add(jamb);
+      });
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.65, 0.48), roofMat);
+      lintel.position.set(0, 2.88, 0);
+      group.add(lintel);
+      const crest = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.28, 0.54), goldMat);
+      crest.position.set(0, 2.9, 0);
+      group.add(crest);
+      const welcomeMat = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 1.1), plushBlueMat);
+      welcomeMat.position.set(0, 0.03, 0.4);
+      group.add(welcomeMat);
+    } else if (type === 'skarhaj_roof_gable') {
+      // TAKHAJ 4m×4m Nordic Pitched Gable Roof with Dormer Skylight
+      const leftSlope = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.24, 4.2), roofMat);
+      leftSlope.position.set(-1.02, 1.45, 0);
+      leftSlope.rotation.z = Math.PI * 0.22;
+      group.add(leftSlope);
+      const rightSlope = new THREE.Mesh(new THREE.BoxGeometry(2.65, 0.24, 4.2), roofMat);
+      rightSlope.position.set(1.02, 1.45, 0);
+      rightSlope.rotation.z = -Math.PI * 0.22;
+      group.add(rightSlope);
+      const ridgeBeam = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.32, 4.35), goldMat);
+      ridgeBeam.position.set(0, 2.32, 0);
+      group.add(ridgeBeam);
+      const skylight = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, 1.2), warmGlowMat);
+      skylight.position.set(0, 1.85, 0.8);
+      group.add(skylight);
+    } else if (type === 'skarhaj_kallax') {
+      // KALLAX-HAJ 4×4 Cube Shelving Unit with Mini Blåhaj, Teapot & Relics
+      const outerH = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.8, 0.65), birchMat);
+      outerH.position.set(0, 1.4, 0);
+      group.add(outerH);
+      // Dark cubby recesses + colorful display treasures
+      const cubbyColors = [plushBlueMat, goldMat, plushRoseMat, portalGlowMat];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          const cx = (c - 1) * 0.82;
+          const cy = 0.58 + r * 0.82;
+          const cubby = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.68, 0.68), basaltMat);
+          cubby.position.set(cx, cy, 0);
+          group.add(cubby);
+          const relic = new THREE.Mesh(
+            (r + c) % 2 === 0 ? new THREE.SphereGeometry(0.22, 10, 10) : new THREE.OctahedronGeometry(0.22, 0),
+            cubbyColors[(r * 3 + c) % cubbyColors.length]
+          );
+          relic.position.set(cx, cy - 0.05, 0.18);
+          group.add(relic);
+        }
+      }
+    } else if (type === 'skarhaj_poang') {
+      // POÄNG-SHONK Bent-Birch Cantilever Armchair + Köttbullar Side Table
+      const frameBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 1.6), birchMat);
+      frameBase.position.set(-0.4, 0.06, 0);
+      group.add(frameBase);
+      const seatCushion = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.28, 1.45), plushBlueMat);
+      seatCushion.position.set(-0.4, 0.58, 0.05);
+      seatCushion.rotation.x = -0.18;
+      group.add(seatCushion);
+      const backCushion = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.35, 0.26), plushBlueMat);
+      backCushion.position.set(-0.4, 1.25, -0.52);
+      backCushion.rotation.x = -0.28;
+      group.add(backCushion);
+      const headrest = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.2, 12), creamMat);
+      headrest.rotation.z = Math.PI / 2;
+      headrest.position.set(-0.4, 1.82, -0.66);
+      group.add(headrest);
+      // LACK Side Table with Swedish Meatballs
+      const sideTable = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.68, 0.95), birchMat);
+      sideTable.position.set(0.95, 0.34, 0.15);
+      group.add(sideTable);
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.26, 0.06, 14), creamMat);
+      plate.position.set(0.95, 0.71, 0.15);
+      group.add(plate);
+      const meatMat = new THREE.MeshStandardMaterial({ color: 0x7c3f1d, roughness: 0.65 });
+      [[-0.1, -0.08], [0.1, -0.08], [0, 0.1], [0, 0]].forEach(([mx, mz], idx) => {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), meatMat);
+        ball.position.set(0.95 + mx, 0.78 + (idx === 3 ? 0.07 : 0), 0.15 + mz);
+        group.add(ball);
+      });
+    } else if (type === 'skarhaj_malm_bed') {
+      // SOVHAJ 4-Poster King Canopy Plush Bed
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.48, 3.8), birchMat);
+      frame.position.y = 0.24;
+      group.add(frame);
+      const mattress = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.38, 3.5), creamMat);
+      mattress.position.y = 0.62;
+      group.add(mattress);
+      const duvet = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.40, 2.4), plushBlueMat);
+      duvet.position.set(0, 0.64, 0.5);
+      group.add(duvet);
+      [-0.95, -0.32, 0.32, 0.95].forEach((px, idx) => {
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.22, 0.42), idx % 2 === 0 ? plushRoseMat : goldMat);
+        pillow.position.set(px, 0.90, -1.2);
+        pillow.rotation.x = 0.25;
+        group.add(pillow);
+      });
+      [[-1.6, -1.8], [1.6, -1.8], [-1.6, 1.8], [1.6, 1.8]].forEach(([px, pz]) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 2.8, 10), darkWoodMat);
+        post.position.set(px, 1.4, pz);
+        group.add(post);
+      });
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.14, 3.8), roofMat);
+      canopy.position.y = 2.8;
+      group.add(canopy);
+    } else if (type === 'skarhaj_grotto_hatch') {
+      // GROTTHAJ Bioluminescent Sea-Cave Grotto Shrine & Thermal Tidepool
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.6, 0.45, 16), basaltMat);
+      rim.position.y = 0.22;
+      group.add(rim);
+      const pool = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.85, 1.85, 0.48, 20),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      );
+      pool.position.y = 0.23;
+      group.add(pool);
+      const arch = new THREE.Mesh(new THREE.TorusGeometry(1.95, 0.34, 10, 20, Math.PI), basaltMat);
+      arch.position.set(0, 0.35, -0.9);
+      group.add(arch);
+      [-1.3, -0.6, 0.6, 1.3].forEach((cx, idx) => {
+        const crystal = new THREE.Mesh(
+          new THREE.ConeGeometry(0.22, 0.95 + (idx % 2) * 0.35, 6),
+          idx % 2 === 0 ? portalGlowMat : warmGlowMat
+        );
+        crystal.position.set(cx, 0.75, -1.1);
+        crystal.rotation.z = cx * -0.15;
+        group.add(crystal);
+      });
     }
 
     if (isPreview) {

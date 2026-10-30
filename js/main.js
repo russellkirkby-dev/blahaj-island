@@ -2093,6 +2093,8 @@
     retired_tag: { name: 'Retired Spawning-Pit Tag', icon: '🏷️', type: 'relic', isFoodOrDrink: false },
     ingvar_tape: { name: "Ingvar's Brass Measuring Tape", icon: '📏', type: 'tool', isFoodOrDrink: false },
     sacred_scissors: { name: 'Golden Scissors of the Order', icon: '✂️', type: 'relic', isFoodOrDrink: false },
+    flatpack_crate: { name: 'SKÄRHAJ Flat-Pack Kit', icon: '📦', type: 'tool', isFoodOrDrink: false },
+    kottbullar_feast: { name: 'Midnight Köttbullar Plate', icon: '🧆', type: 'food', isFoodOrDrink: true },
     party_favor: { name: 'Birthday Party Cracker', icon: '🎉', type: 'toy', isFoodOrDrink: false },
     lantern: { name: 'Ghost Lantern', icon: '🏮', type: 'tool', isFoodOrDrink: false },
     figurine: { name: 'Carrot Figurine', icon: '🥕', type: 'toy', isFoodOrDrink: false }
@@ -2366,8 +2368,11 @@
   const builderState = {
     active: false,
     freeBuild: false,
-    category: 'village',
-    selectedId: 'birch_cabin',
+    snapGrid: true,
+    storyFloor: 0,
+    isSnappedToSocket: false,
+    category: 'skarhaj_kits',
+    selectedId: 'skarhaj_plinth',
     rotOffset: 0,
     previewMesh: null,
     targetPos: new THREE.Vector3(),
@@ -3561,6 +3566,11 @@
           closeIslandMap();
           return;
         }
+        const raidModal = document.getElementById('modal-spawning-pits-raid');
+        if (raidModal && !raidModal.classList.contains('hidden')) {
+          raidModal.classList.add('hidden');
+          return;
+        }
         const detagModal = document.getElementById('modal-rite-of-detagging');
         if (detagModal && !detagModal.classList.contains('hidden')) {
           detagModal.classList.add('hidden');
@@ -3655,8 +3665,11 @@
         }
       }
       if (k === 'r' && builderState.active) {
-        builderState.rotOffset += Math.PI / 4;
+        builderState.rotOffset += builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
         CozyAudio.shonk();
+      }
+      if (k === 'z' && builderState.active) {
+        cycleBuilderStoryElevation();
       }
       if (k === 'x') removeNearestBuiltStructure();
 
@@ -3693,7 +3706,19 @@
       if (k === 'b') triggerFeedBreb();
       if (k === 'f') triggerBeepNose();
       if (k === 'q') triggerSignatureAbility();
-      if (k === 'g') triggerGroomAvatar();
+      if (k === 'g') {
+
+        if (builderState.active) {
+
+          toggleSnapGrid();
+
+        } else {
+
+          triggerGroomAvatar();
+
+        }
+
+      }
       if (k === 'u') toggleUpgradesModal();
       if (k === 'm') {
         if (currentZone === 'spherical_foods' || player.isSeatedInBooth) {
@@ -3785,6 +3810,8 @@
     const isDetagOpen = detagModal && !detagModal.classList.contains('hidden');
     const googleModal = document.getElementById('modal-google-connect');
     const isGoogleOpen = googleModal && !googleModal.classList.contains('hidden');
+    const raidModal = document.getElementById('modal-spawning-pits-raid');
+    const isRaidOpen = raidModal && !raidModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
@@ -3792,6 +3819,7 @@
       isTravelOpen ||
       isDetagOpen ||
       isGoogleOpen ||
+      isRaidOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -4097,6 +4125,25 @@
               renderCharacterSheet(selectedCSShark);
             }
           };
+        } else if (item.id === 'flatpack_crate') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Open SKÄRHAJ Snap-Builder [C] 📦🏗️';
+          useBtn.onclick = () => {
+            closeCharacterSheetModal();
+            builderState.category = 'skarhaj_kits';
+            builderState.selectedId = 'skarhaj_plinth';
+            setBuilderMode(true);
+          };
+        } else if (item.id === 'kottbullar_feast') {
+          useBtn.style.display = 'inline-block';
+          useBtn.textContent = 'Feast on Midnight Köttbullar (+100% Comfort) 🧆';
+          useBtn.onclick = () => {
+            player.teaComfort = 100;
+            player.warmth = 100;
+            updateMetersUI();
+            savorHeldItem('kottbullar_feast', 45.0);
+            closeCharacterSheetModal();
+          };
         } else if (item.id === 'firework_rocket') {
           useBtn.style.display = 'inline-block';
           useBtn.textContent = "Launch Helen's Birthday Rocket! 🚀";
@@ -4135,10 +4182,38 @@
   // HIRAM THE MAGICAL BUILDER — CATEGORIZED TOOLBAR, HOLOGRAM & PLACEMENT
   // ==========================================================================
   function getAvailableCurrency(type) {
+    if (type === 'flatpacks') {
+      return (player.inventory && typeof player.inventory.getItemCount === 'function')
+        ? player.inventory.getItemCount('flatpack_crate')
+        : 0;
+    }
     if (type === 'birbs') return Math.max(0, player.birbsFedCount - player.spentBirbs);
     if (type === 'carrots') return Math.max(0, player.carrotsKnockedCount - player.spentCarrots);
     if (type === 'trials') return Math.max(0, player.trialPoints);
     return 0;
+  }
+
+  function toggleSnapGrid() {
+    builderState.snapGrid = !builderState.snapGrid;
+    CozyAudio.shonk();
+    renderBuilderToolbar();
+    showToast(
+      builderState.snapGrid ? 'MAGNETIC 4M SNAP-GRID: ON 🧲' : 'FREE-FORM PLACEMENT ACTIVE',
+      builderState.snapGrid
+        ? 'SKÄRHAJ modules automatically snap edge-to-edge onto the 4m architectural grid!'
+        : 'Structures can be placed at any smooth angle or offset.'
+    );
+  }
+
+  function cycleBuilderStoryElevation() {
+    builderState.storyFloor = ((builderState.storyFloor || 0) + 1) % 3;
+    CozyAudio.shonk();
+    renderBuilderToolbar();
+    const labels = ['1F Ground (+0.0m)', '2F Second Story (+3.2m)', '3F Roof Peak (+6.4m)'];
+    showToast(
+      `BUILDER ELEVATION: ${labels[builderState.storyFloor].toUpperCase()} 📐`,
+      'Stack VÄGGHAJ walls and TAKHAJ gable roofs to build multi-story SKÄRHAJ cabins!'
+    );
   }
 
   function setupBuilderUI() {
@@ -4150,6 +4225,22 @@
     if (fbBtn) {
       fbBtn.addEventListener('click', toggleFreeBuild);
     }
+    const snapBtn = document.getElementById('btn-toggle-snapgrid');
+    if (snapBtn) {
+      snapBtn.addEventListener('click', toggleSnapGrid);
+    }
+    const elevBtn = document.getElementById('btn-builder-elev');
+    if (elevBtn) {
+      elevBtn.addEventListener('click', cycleBuilderStoryElevation);
+    }
+    const raidBtn = document.getElementById('btn-builder-raid');
+    if (raidBtn) {
+      raidBtn.addEventListener('click', () => {
+        setBuilderMode(false);
+        openSpawningPitsRaidModal();
+      });
+    }
+    setupSpawningPitsRaidUI();
     renderBuilderToolbar();
   }
 
@@ -4158,10 +4249,10 @@
     CozyAudio.portalChime();
     renderBuilderToolbar();
     showToast(
-      builderState.freeBuild ? 'SACRED ALLEN KEY FREE-BUILD: ON ✨' : 'COZY CURRENCY MODE ACTIVE',
+      builderState.freeBuild ? 'SACRED ALLEN KEY FREE-BUILD: ON ✨' : 'COZY CURRENCY & FLAT-PACK MODE ACTIVE',
       builderState.freeBuild
-        ? 'All 16 Hiram blueprints now cost 0 currency!'
-        : 'Building uses Birb Crumbs, Carrot Sparks, and Trial Points!'
+        ? 'All SKÄRHAJ & Hiram blueprints now cost 0 currency!'
+        : 'Building uses SKÄRHAJ Flat-Pack Kits, Birb Crumbs, Carrot Sparks, and Trial Points!'
     );
   }
 
@@ -4234,10 +4325,25 @@
       fbBtn.classList.toggle('active', builderState.freeBuild);
       fbTxt.textContent = builderState.freeBuild ? 'ON' : 'OFF';
     }
+    const snapBtn = document.getElementById('btn-toggle-snapgrid');
+    const snapTxt = document.getElementById('snapgrid-state-txt');
+    if (snapBtn && snapTxt) {
+      snapBtn.classList.toggle('active', !!builderState.snapGrid);
+      snapTxt.textContent = builderState.snapGrid ? 'ON (4m)' : 'OFF';
+    }
+    const elevBtn = document.getElementById('btn-builder-elev');
+    const elevTxt = document.getElementById('builder-elev-txt');
+    if (elevBtn && elevTxt) {
+      const f = builderState.storyFloor || 0;
+      elevBtn.classList.toggle('active', f > 0);
+      elevTxt.textContent = f === 0 ? '1F (+0.0m)' : f === 1 ? '2F (+3.2m)' : '3F (+6.4m)';
+    }
 
+    const fpEl = document.getElementById('b-cur-flatpacks');
     const bEl = document.getElementById('b-cur-birbs');
     const cEl = document.getElementById('b-cur-carrots');
     const tEl = document.getElementById('b-cur-trials');
+    if (fpEl) fpEl.textContent = getAvailableCurrency('flatpacks');
     if (bEl) bEl.textContent = getAvailableCurrency('birbs');
     if (cEl) cEl.textContent = getAvailableCurrency('carrots');
     if (tEl) tEl.textContent = getAvailableCurrency('trials');
@@ -4305,27 +4411,78 @@
     }
     if (!builderState.previewMesh) return;
 
-    // Place hologram 7.0m in front of Hiram's facing direction (or camera aim)
+    // Place hologram in front of shark's facing direction
     const forwardDist =
-      builderState.selectedId === 'lagoon_bridge' || builderState.selectedId === 'sky_stairs' ? 8.2 : 6.4;
-    const tx = player.pos.x + Math.sin(player.rotY) * forwardDist;
-    const tz = player.pos.z + Math.cos(player.rotY) * forwardDist;
+      builderState.selectedId === 'lagoon_bridge' || builderState.selectedId === 'sky_stairs' ? 8.2 : 5.8;
+    let tx = player.pos.x + Math.sin(player.rotY) * forwardDist;
+    let tz = player.pos.z + Math.cos(player.rotY) * forwardDist;
+    let rotY = player.rotY + builderState.rotOffset;
+    let snappedSocket = false;
+    let socketBaseY = null;
 
-    let ty = worldApi.getGroundAndStructureHeight(tx, tz, player.pos.y + 4.0);
-    // Keep bridges, wharves, and floating platforms above water level so you can bridge across the ocean to Outer Islands!
+    if (builderState.snapGrid && worldApi && typeof worldApi.getBuiltStructures === 'function') {
+      const existing = worldApi.getBuiltStructures();
+      let bestDist = 2.4;
+      const step = 4.0;
+      existing.forEach((st) => {
+        const cosR = Math.cos(st.rotY || 0);
+        const sinR = Math.sin(st.rotY || 0);
+        // Check 4 cardinal edge sockets (±4.0m) + exact center socket (0,0) for vertical stacking
+        const offsets = [
+          [0, 0],
+          [step, 0],
+          [-step, 0],
+          [0, step],
+          [0, -step],
+          [0, step * 0.5],
+          [0, -step * 0.5],
+          [step * 0.5, 0],
+          [-step * 0.5, 0]
+        ];
+        offsets.forEach(([ox, oz]) => {
+          const sx = st.x + ox * cosR + oz * sinR;
+          const sz = st.z - ox * sinR + oz * cosR;
+          const d = Math.hypot(tx - sx, tz - sz);
+          if (d < bestDist) {
+            bestDist = d;
+            tx = sx;
+            tz = sz;
+            rotY = (st.rotY || 0) + builderState.rotOffset;
+            socketBaseY = st.y;
+            snappedSocket = true;
+          }
+        });
+      });
+
+      if (!snappedSocket) {
+        tx = Math.round(tx / 2.0) * 2.0;
+        tz = Math.round(tz / 2.0) * 2.0;
+        rotY = Math.round(rotY / (Math.PI / 2)) * (Math.PI / 2);
+      }
+    }
+    builderState.isSnappedToSocket = snappedSocket;
+
+    let ty = (snappedSocket && socketBaseY !== null)
+      ? socketBaseY
+      : worldApi.getGroundAndStructureHeight(tx, tz, player.pos.y + 4.0);
+    // Keep bridges, wharves, foundations, and floating platforms above water level
     if (
       builderState.selectedId === 'lagoon_bridge' ||
       builderState.selectedId === 'custom_wharf' ||
       builderState.selectedId === 'stepping_stone' ||
-      builderState.selectedId === 'sky_stairs'
+      builderState.selectedId === 'sky_stairs' ||
+      builderState.selectedId === 'skarhaj_plinth'
     ) {
       ty = Math.max(0.25, ty);
     } else {
       ty = Math.max(0.0, ty);
     }
 
+    // Apply Multi-Story Floor Offset (+0.0m, +3.2m, +6.4m)
+    ty += (builderState.storyFloor || 0) * 3.2;
+
     builderState.targetPos.set(tx, ty, tz);
-    builderState.targetRotY = player.rotY + builderState.rotOffset;
+    builderState.targetRotY = rotY;
 
     builderState.previewMesh.position.copy(builderState.targetPos);
     builderState.previewMesh.rotation.y = builderState.targetRotY;
@@ -4336,25 +4493,31 @@
     const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
     if (!spec) return false;
 
-    if (!builderState.freeBuild) {
-      const avail = getAvailableCurrency(spec.currency);
-      if (avail < spec.cost) {
-        CozyAudio.trapHit();
-        const curNames = {
-          birbs: 'Birbs Fed (Press [B] to feed Birbs!)',
-          carrots: 'Carrots Knocked (Bump Carrots on the Volcano Balcony!)',
-          trials: 'Trial Points (Survive the Volcano Dungeon!)'
-        };
-        showToast(
-          `NEED ${spec.costLabel.toUpperCase()} (OR ENABLE FREE-BUILD [V])`,
-          `Need ${spec.cost} ${curNames[spec.currency]} — or press [V] to toggle Free-Build ON!`
-        );
-        return false;
-      }
+    const isFounderFree = !!(window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect());
+    if (!builderState.freeBuild && !isFounderFree) {
+      const fpCount = getAvailableCurrency('flatpacks');
+      if (spec.isSnapModule && fpCount >= spec.cost && player.inventory) {
+        player.inventory.removeItem('flatpack_crate', spec.cost);
+      } else {
+        const avail = getAvailableCurrency(spec.currency);
+        if (avail < spec.cost) {
+          CozyAudio.trapHit();
+          const curNames = {
+            birbs: 'SKÄRHAJ Flat-Pack Kits or Birbs Fed (Press [B] or Raid Spawning Pits!)',
+            carrots: 'SKÄRHAJ Flat-Pack Kits or Carrots Knocked!',
+            trials: 'Trial Points (Raid the IKEA Spawning Pits or Volcano Dungeon!)'
+          };
+          showToast(
+            `NEED ${spec.costLabel.toUpperCase()} (OR ENABLE FREE-BUILD [V])`,
+            `Need ${spec.cost} ${curNames[spec.currency]} — or press [V] to toggle Free-Build ON!`
+          );
+          return false;
+        }
 
-      if (spec.currency === 'birbs') player.spentBirbs += spec.cost;
-      if (spec.currency === 'carrots') player.spentCarrots += spec.cost;
-      if (spec.currency === 'trials') player.trialPoints -= spec.cost;
+        if (spec.currency === 'birbs') player.spentBirbs += spec.cost;
+        if (spec.currency === 'carrots') player.spentCarrots += spec.cost;
+        if (spec.currency === 'trials') player.trialPoints -= spec.cost;
+      }
     }
 
     const itemData = {
@@ -4428,6 +4591,174 @@
         id: removed.id
       });
     }
+  }
+
+  // ==========================================================================
+  // PASS 73: NIGHTTIME PORTAL RAID — THE IKEA SPAWNING PITS OF ERF & HOMESTEADS
+  // ==========================================================================
+  function syncSpawningRaidUI() {
+    const fpEl = document.getElementById('raid-flatpack-count');
+    if (fpEl) fpEl.textContent = getAvailableCurrency('flatpacks');
+    const libEl = document.getElementById('raid-liberated-count');
+    if (libEl) {
+      try {
+        const book = JSON.parse(localStorage.getItem('blahaj_book_of_named_sharks_v1') || '[]');
+        libEl.textContent = Math.max(1, book.length + 1);
+      } catch (e) {
+        libEl.textContent = '1';
+      }
+    }
+  }
+
+  function openSpawningPitsRaidModal() {
+    releasePointerLock();
+    const modal = document.getElementById('modal-spawning-pits-raid');
+    if (!modal) return;
+    syncSpawningRaidUI();
+    modal.classList.remove('hidden');
+    CozyAudio.portalChime();
+  }
+
+  function closeSpawningPitsRaidModal() {
+    const modal = document.getElementById('modal-spawning-pits-raid');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function deployStarterHomesteadKit(centerX, centerZ) {
+    if (!worldApi) return 0;
+    const baseX = Math.round(centerX / 2.0) * 2.0;
+    const baseZ = Math.round(centerZ / 2.0) * 2.0;
+    const gy = Math.max(0.25, worldApi.getGroundAndStructureHeight(baseX, baseZ, player.pos.y + 3.0));
+    const builderName = (LORE.sharks[player.sharkId] && LORE.sharks[player.sharkId].name) || 'Custom Blåhaj';
+    const ts = Date.now();
+    const modules = [
+      { id: `homestead-${ts}-1`, type: 'skarhaj_plinth', x: baseX, y: gy, z: baseZ, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-2`, type: 'skarhaj_plinth', x: baseX + 4.0, y: gy, z: baseZ, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-3`, type: 'skarhaj_wall_window', x: baseX, y: gy + 0.36, z: baseZ - 1.8, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-4`, type: 'skarhaj_arch_door', x: baseX + 4.0, y: gy + 0.36, z: baseZ + 1.8, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-5`, type: 'skarhaj_roof_gable', x: baseX, y: gy + 3.2, z: baseZ, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-6`, type: 'skarhaj_kallax', x: baseX - 1.2, y: gy + 0.36, z: baseZ, rotY: Math.PI / 2, builder: builderName },
+      { id: `homestead-${ts}-7`, type: 'skarhaj_poang', x: baseX + 4.0, y: gy + 0.36, z: baseZ - 0.5, rotY: 0, builder: builderName },
+      { id: `homestead-${ts}-8`, type: 'skarhaj_grotto_hatch', x: baseX - 5.0, y: gy, z: baseZ + 2.0, rotY: 0, builder: builderName }
+    ];
+    let count = 0;
+    modules.forEach((m) => {
+      if (worldApi.placeBuiltStructure(m)) count++;
+    });
+    saveBuiltStructuresToStorage();
+    CozyAudio.allenBuild();
+    spawnFloatingBurst(new THREE.Vector3(baseX, gy + 1.5, baseZ), 0xffd166, 22);
+    completeQuest('q-build');
+    renderBuilderToolbar();
+    showToast('SKÄRHAJ HOMESTEAD ASSEMBLED! 📦🏡✨', `Snapped together ${count} modular SKÄRHAJ flat-pack structures & sea-cave grotto!`);
+    addChatLog(`📦🏡 <strong>${builderName}</strong> assembled a complete <strong>SKÄRHAJ Flat-Pack Sanctuary Homestead</strong> (GOLVHAJ Deck, VÄGGHAJ Window Wall, DÖRRHAJ Arch, TAKHAJ Roof, KALLAX-HAJ Shelf, POÄNG-SHONK & GROTTHAJ Sea-Cave)!`, 'coop');
+    return count;
+  }
+
+  function setupSpawningPitsRaidUI() {
+    document.getElementById('close-spawning-raid-modal')?.addEventListener('click', closeSpawningPitsRaidModal);
+    document.getElementById('btn-raid-open-detag')?.addEventListener('click', () => {
+      closeSpawningPitsRaidModal();
+      if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.openRiteOfDetaggingModal === 'function') {
+        window.BlahajSaveSystem.openRiteOfDetaggingModal();
+      }
+    });
+    document.getElementById('btn-raid-extract-build')?.addEventListener('click', () => {
+      closeSpawningPitsRaidModal();
+      builderState.category = 'skarhaj_kits';
+      builderState.selectedId = 'skarhaj_plinth';
+      setBuilderMode(true);
+    });
+
+    // Sector 1: Showroom Labyrinth
+    document.getElementById('btn-raid-sec1')?.addEventListener('click', () => {
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 1);
+        player.inventory.addItem('ingvar_tape', 1);
+      }
+      document.getElementById('raid-sector-1')?.classList.add('completed');
+      const st = document.getElementById('raid-sec1-status');
+      if (st) st.textContent = '✓ Shortcut Measured!';
+      CozyAudio.allenBuild();
+      completeQuest('q-spawning-pits');
+      syncSpawningRaidUI();
+      renderBuilderToolbar();
+      showToast('SECTOR A CLEARED! 📏📦', 'Measured the Showroom shortcut with Ingvar’s Tape! (+1 SKÄRHAJ Flat-Pack Kit)');
+      addChatLog('📏📦 <strong>Spawning-Pit Raid (Sector A):</strong> Measured the Showroom Labyrinth shortcut and secured <strong>1x SKÄRHAJ Flat-Pack Kit</strong>!', 'lore');
+    });
+
+    // Sector 2: The Great Wire Spawning Bins (Liberate a Fellow Shark)
+    document.getElementById('btn-raid-sec2')?.addEventListener('click', () => {
+      const swedishNames = ['Svenskhaj', 'Lingonfin', 'Björkhaj', 'Köttbullar-Shonk', 'Stjärnhaj', 'Fjordfin', 'Kanelhaj'];
+      const pickName = swedishNames[Math.floor(Math.random() * swedishNames.length)];
+      try {
+        const raw = localStorage.getItem('blahaj_book_of_named_sharks_v1');
+        const list = raw ? JSON.parse(raw) : [];
+        list.unshift({
+          name: pickName,
+          title: 'Liberated from Wire Bin #303.735.88',
+          date: new Date().toLocaleDateString()
+        });
+        localStorage.setItem('blahaj_book_of_named_sharks_v1', JSON.stringify(list.slice(0, 25)));
+      } catch (e) {}
+      if (player.inventory) {
+        player.inventory.addItem('retired_tag', 1);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      document.getElementById('raid-sector-2')?.classList.add('completed');
+      const st = document.getElementById('raid-sec2-status');
+      if (st) st.textContent = `✓ Liberated ${pickName}!`;
+      CozyAudio.portalChime();
+      completeQuest('q-spawning-pits');
+      syncSpawningRaidUI();
+      renderBuilderToolbar();
+      showToast(`SHARK LIBERATED: ${pickName.toUpperCase()}! ✂️🦈`, `Snipped barcode tag Art. 303.735.88 & inscribed ${pickName} into the Book of Newly Named Sharks! (+1 Flat-Pack Kit)`);
+      addChatLog(`✂️🦈 <strong>The Order of the Sacred Scissors:</strong> You liberated <strong>${pickName}</strong> from the IKEA Spawning Bins and inscribed their name into the Book!`, 'lore');
+    });
+
+    // Sector 3: Self-Serve Flat-Pack Warehouse Aisle 14
+    document.getElementById('btn-raid-sec3')?.addEventListener('click', () => {
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 2);
+      }
+      player.birbsFedCount += 2;
+      player.carrotsKnockedCount += 2;
+      document.getElementById('raid-sector-3')?.classList.add('completed');
+      const st = document.getElementById('raid-sec3-status');
+      if (st) st.textContent = '✓ Aisle 14 Heisted!';
+      CozyAudio.allenBuild();
+      completeQuest('q-spawning-pits');
+      syncSpawningRaidUI();
+      updateMetersUI();
+      renderBuilderToolbar();
+      showToast('AISLE 14 FLAT-PACK HEIST! 📦🔧', 'Extracted +2 SKÄRHAJ Flat-Pack Kits, +2 Birb Supplies & +2 Carrot Dowels!');
+      addChatLog('📦🔧 <strong>Spawning-Pit Raid (Aisle 14, Bay 22):</strong> Heisted <strong>2x SKÄRHAJ Flat-Pack Kits</strong> and brass cam-lock dowels!', 'lore');
+    });
+
+    // Sector 4: Midnight Swedish Bistro Extraction
+    document.getElementById('btn-raid-sec4')?.addEventListener('click', () => {
+      if (player.inventory) {
+        player.inventory.addItem('kottbullar_feast', 2);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      player.trialPoints = (player.trialPoints || 0) + 1;
+      player.teaComfort = 100;
+      player.warmth = 100;
+      document.getElementById('raid-sector-4')?.classList.add('completed');
+      const st = document.getElementById('raid-sec4-status');
+      if (st) st.textContent = '✓ Bistro Extracted!';
+      CozyAudio.portalChime();
+      completeQuest('q-spawning-pits');
+      syncSpawningRaidUI();
+      updateMetersUI();
+      renderBuilderToolbar();
+      closeSpawningPitsRaidModal();
+      builderState.category = 'skarhaj_kits';
+      builderState.selectedId = 'skarhaj_plinth';
+      setBuilderMode(true);
+      showToast('SPAWNING-PIT RAID COMPLETE! 🧆📦 (+1 TRIAL PT)', 'Extracted Midnight Köttbullar & Flat-Pack Kits! SKÄRHAJ Snap-Builder [C] is now open!');
+      addChatLog('🧆✨ <strong>Midnight Bistro Extraction:</strong> Returned through the Between Portal with <strong>2x Midnight Köttbullar</strong>, <strong>+1 Trial Point</strong>, and opened the <strong>SKÄRHAJ Modular Snap-Builder</strong>!', 'system');
+    });
   }
 
   // ==========================================================================
@@ -5762,12 +6093,21 @@
             }
           },
           {
-            label: 'Build Here as Hiram [3] 🔧🏗️',
+            label: 'Open SKÄRHAJ Modular Snap-Builder [C] 📦🏗️',
             className: 'btn-accent',
             onClick: () => {
               closeDialogueModal();
-              spawnPlayerShark('hiram');
+              builderState.category = 'skarhaj_kits';
+              builderState.selectedId = 'skarhaj_plinth';
               setBuilderMode(true);
+            }
+          },
+          {
+            label: 'Deploy Starter SKÄRHAJ Homestead Kit (Cabin + KALLAX + Sea-Cave) 🏡✨',
+            className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              deployStarterHomesteadKit(isl.x, isl.z);
             }
           },
           {
@@ -5951,6 +6291,14 @@
         portrait: 'assets/gallery/Hermes.png',
         text: 'The Great Portal Gate links Los Angeles and New Zealand across the Great Seam—and also folds space directly out to the 4 Outer Buildable Sanctuary Islands surrounding Blåhaj Island!',
         actions: [
+          {
+            label: '🛒 Nighttime Portal Raid: The IKEA Spawning Pits of Erf (Flat-Pack Heist) 📦✂️',
+            className: 'btn-accent',
+            onClick: () => {
+              closeDialogueModal();
+              openSpawningPitsRaidModal();
+            }
+          },
           {
             label: '🌀 The First Whirlings (Sacred Spin & Suds) 🧺🫧',
             className: 'btn-primary',
@@ -13011,6 +13359,13 @@
     renderIslandMap,
     spawnPlayerShark,
     switchShark: (sharkId) => spawnPlayerShark(sharkId),
+    toggleBuilderMode,
+    setBuilderMode,
+    getBuilderState: () => builderState,
+    placeActiveBlueprint,
+    deployStarterHomesteadKit,
+    openSpawningPitsRaidModal,
+    closeSpawningPitsRaidModal,
     enterBinocularMode,
     enterBinoculars: enterBinocularMode,
     exitBinoculars: exitBinocularMode,

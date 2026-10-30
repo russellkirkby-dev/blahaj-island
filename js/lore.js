@@ -417,6 +417,7 @@ window.BLAHAJ_LORE = {
 
   // Hiram the Magical Builder — Categorized Blueprint Catalog
   buildCategories: [
+    { id: 'skarhaj_kits', name: '📦 SKÄRHAJ Flat-Packs', sub: 'Modular snap-together IKEA birch kits, 2-story walls, KALLAX shelves & sea-cave grottos' },
     { id: 'village', name: '🏡 Village & Cabins', sub: 'Cozy Scandinavian timber & plush hangouts' },
     { id: 'bridges', name: '🌉 Bridges & Stairs', sub: 'Walkable bridges across the sea & sky ramps' },
     { id: 'portals', name: '🌀 Portals & Magic', sub: 'Teleportation arches, starlight & plush seating' },
@@ -590,6 +591,104 @@ window.BLAHAJ_LORE = {
       cost: 1,
       costLabel: '1 Trial Pt',
       desc: 'Majestic golden Blåhaj monument atop a volcanic obsidian altar.'
+    },
+
+    // Category 5: SKÄRHAJ Modular Flat-Pack Kits (4m×4m Magnetic Snap-Grid)
+    {
+      id: 'skarhaj_plinth',
+      category: 'skarhaj_kits',
+      name: 'GOLVHAJ Snap Foundation (4m×4m)',
+      icon: '📦',
+      currency: 'birbs',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Birb',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Modular 4m×4m Scandinavian birch & brass-dowel foundation deck with corner cam-lock sockets. Snaps edge-to-edge on the 4m grid!'
+    },
+    {
+      id: 'skarhaj_wall_window',
+      category: 'skarhaj_kits',
+      name: 'VÄGGHAJ Panorama Wall (4m)',
+      icon: '🪟',
+      currency: 'birbs',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Birb',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: '4m wide × 3.2m tall birch wall module with a warm glowing sea-view window and walkable upper floor beam for 2nd-story stacking!'
+    },
+    {
+      id: 'skarhaj_arch_door',
+      category: 'skarhaj_kits',
+      name: 'DÖRRHAJ Grand Portal Arch (4m)',
+      icon: '🚪',
+      currency: 'birbs',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Birb',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Walk-through Scandinavian birch doorway arch with brass IKEA cam-locks, welcome mat, and stackable 3.2m upper lintel.'
+    },
+    {
+      id: 'skarhaj_roof_gable',
+      category: 'skarhaj_kits',
+      name: 'TAKHAJ Nordic Gable Roof (4m×4m)',
+      icon: '🏠',
+      currency: 'carrots',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Carrot',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Pitched Blåhaj-blue & birch roof module with dormer skylight. Press [Z] in Builder Mode to stack atop 2nd-story VÄGGHAJ walls!'
+    },
+    {
+      id: 'skarhaj_kallax',
+      category: 'skarhaj_kits',
+      name: 'KALLAX-HAJ Relic & Plush Shelf',
+      icon: '📚',
+      currency: 'birbs',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Birb',
+      isSnapModule: true,
+      snapSize: 2.0,
+      desc: 'Iconic 4×4 Scandinavian cube shelving unit displaying mini Blåhaj plushies, Golden Teapots, Volcano Crystals & Retired Tags!'
+    },
+    {
+      id: 'skarhaj_poang',
+      category: 'skarhaj_kits',
+      name: 'POÄNG-SHONK Cantilever Lounger',
+      icon: '🪑',
+      currency: 'birbs',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Birb',
+      isSnapModule: true,
+      snapSize: 2.0,
+      desc: 'Bent-birch cantilever armchair with a plump ocean-blue cushion and a side table of steaming Swedish Köttbullar meatballs!'
+    },
+    {
+      id: 'skarhaj_malm_bed',
+      category: 'skarhaj_kits',
+      name: 'SOVHAJ King Canopy Plush Bed',
+      icon: '🛏️',
+      currency: 'birbs',
+      cost: 2,
+      costLabel: '2 Flat-Packs / Birbs',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Four-poster Scandinavian birch canopy bed piled high with quilted Blåhaj-blue comforters and 4 chonky shark pillows.'
+    },
+    {
+      id: 'skarhaj_grotto_hatch',
+      category: 'skarhaj_kits',
+      name: 'GROTTHAJ Bioluminescent Sea-Cave',
+      icon: '🕳️',
+      currency: 'trials',
+      cost: 1,
+      costLabel: '1 Trial Pt',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Personal bioluminescent sea-cave grotto shrine with glowing crystal stalagmites, warm thermal tidepool & Sanctuary Charter stone!'
     }
   ],
 
@@ -631,8 +730,9 @@ window.BLAHAJ_LORE = {
       title: 'Phase 1: Cozy Island, Trials & Building',
       sub: 'Explore the Archipelago, build with Hiram & brave the Volcano',
       quests: [
-        { id: 'q-build', text: 'Switch to <strong>Hiram [3]</strong>, press <strong>[C]</strong> for <strong>Master Builder Mode</strong> & build any structure!' },
-        { id: 'q-outer-island', text: 'Sail, bridge, or portal to one of the <strong>4 Outer Sanctuary Islands</strong>' },
+        { id: 'q-build', text: 'Press <strong>[C]</strong> for <strong>Master Builder Mode</strong> & snap-build a <strong>SKÄRHAJ Flat-Pack</strong> or Hiram structure!' },
+        { id: 'q-spawning-pits', text: '<strong>Nighttime Spawning-Pit Raid:</strong> Enter the <strong>IKEA Spawning Pits of Erf</strong> at the Great Portal Gate & liberate Flat-Pack Kits!' },
+        { id: 'q-outer-island', text: 'Sail, bridge, or portal to one of the <strong>4 Outer Sanctuary Islands</strong> & claim your Homestead' },
         { id: 'q-breb', text: 'Press <strong>[B]</strong> to toss <strong>Breb</strong> and feed the plump <strong>Birbs</strong>' },
         { id: 'q-carrots', text: 'Knock 5 <strong>Beach-Shorts Carrots</strong> off the <strong>Volcano Balcony</strong>' },
         { id: 'q-dungeon', text: 'Sail to the <strong>Rear Volcano Wharf</strong>, survive the <strong>Trial Dungeon</strong> & exit onto the Front Balcony' },

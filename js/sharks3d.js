@@ -2025,6 +2025,48 @@ window.BlahajModels = (function () {
       });
       g.scale.setScalar(1.1);
 
+    } else if (itemId === 'flatpack_crate') {
+      // SKÄRHAJ Corrugated Flat-Pack Carton with IKEA Blue/Yellow Strap & Barcode Label
+      const cardboardMat = new THREE.MeshStandardMaterial({ color: 0xc89d66, roughness: 0.85 });
+      const blueStrapMat = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.4 });
+      const yellowTagMat = new THREE.MeshBasicMaterial({ color: 0xffda1a });
+      const labelMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+
+      const carton = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.34, 0.07), cardboardMat);
+      carton.position.y = 0.17;
+      g.add(carton);
+
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(0.268, 0.055, 0.076), blueStrapMat);
+      strap.position.y = 0.23;
+      g.add(strap);
+
+      const badge = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.032, 0.08), yellowTagMat);
+      badge.position.y = 0.23;
+      g.add(badge);
+
+      const sticker = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.09, 0.074), labelMat);
+      sticker.position.y = 0.11;
+      g.add(sticker);
+      g.scale.setScalar(1.05);
+
+    } else if (itemId === 'kottbullar_feast') {
+      // Midnight Spawning-Pit Spherical Köttbullar Plate with Lingonberry Glaze
+      const plateMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
+      const meatMat = new THREE.MeshStandardMaterial({ color: 0x7c3f1d, roughness: 0.65 });
+      const berryMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.25 });
+      const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.11, 0.02, 16), plateMat);
+      plate.position.y = 0.01;
+      g.add(plate);
+      [[-0.04, -0.03], [0.04, -0.03], [-0.04, 0.04], [0.04, 0.04], [0, 0.01]].forEach(([mx, mz], idx) => {
+        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.036, 10, 10), meatMat);
+        ball.position.set(mx, 0.045 + (idx === 4 ? 0.025 : 0), mz);
+        g.add(ball);
+      });
+      const berryScoop = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), berryMat);
+      berryScoop.position.set(0.06, 0.038, 0);
+      g.add(berryScoop);
+      g.scale.setScalar(1.0);
+
     } else if (itemId === 'helen_cake' || itemId === 'cake_slice') {
       // Miniature Celestial Birthday Bombe Slice
       const chinaMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.2 });

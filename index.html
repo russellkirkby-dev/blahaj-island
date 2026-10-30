@@ -547,14 +547,23 @@
       <div id="builder-panel" class="builder-panel hidden">
         <div class="builder-header">
           <div class="builder-title-wrap">
-            <span class="builder-badge">🔧 HIRAM MASTER BUILDER</span>
+            <span class="builder-badge">🔧 SKÄRHAJ &amp; HIRAM MASTER BUILDER</span>
             <span class="builder-currencies" id="builder-currency-summary">
-              🐦 <strong id="b-cur-birbs">0</strong> Birb · 🥕 <strong id="b-cur-carrots">0</strong> Carrot · ⚔️ <strong id="b-cur-trials">1</strong> Trial
+              📦 <strong id="b-cur-flatpacks">0</strong> Flat-Pack · 🐦 <strong id="b-cur-birbs">0</strong> Birb · 🥕 <strong id="b-cur-carrots">0</strong> Carrot · ⚔️ <strong id="b-cur-trials">1</strong> Trial
             </span>
           </div>
           <div class="builder-controls-row">
+            <button type="button" class="freebuild-toggle-btn active" id="btn-toggle-snapgrid" title="Toggle 4m×4m Magnetic Edge &amp; Grid Snapping [G]">
+              🧲 Snap-Grid: <strong id="snapgrid-state-txt">ON (4m)</strong> <kbd>G</kbd>
+            </button>
+            <button type="button" class="freebuild-toggle-btn" id="btn-builder-elev" title="Cycle Multi-Story Floor Elevation (+0.0m / +3.2m / +6.4m) [Z]">
+              📐 Story: <strong id="builder-elev-txt">1F (+0.0m)</strong> <kbd>Z</kbd>
+            </button>
             <button type="button" class="freebuild-toggle-btn" id="btn-toggle-freebuild" title="Toggle Sacred Allen Key Free-Build Mode [V]">
               ✨ Free-Build: <strong id="freebuild-state-txt">OFF</strong> <kbd>V</kbd>
+            </button>
+            <button type="button" class="freebuild-toggle-btn raid-shortcut-btn" id="btn-builder-raid" title="Raid the IKEA Spawning Pits on Erf for Flat-Pack Kits!">
+              🛒 Raid Spawning Pits!
             </button>
             <span class="builder-keys-hint">
               <kbd>E</kbd>/<kbd>Click</kbd> Build · <kbd>R</kbd> Rotate · <kbd>X</kbd> Remove · <kbd>C</kbd> Close
@@ -2029,20 +2038,111 @@
     </div>
   </div>
 
+  <!-- 10. NIGHTTIME PORTAL RAID: THE IKEA SPAWNING PITS OF ERF MODAL -->
+  <div id="modal-spawning-pits-raid" class="modal-backdrop hidden" style="z-index: 9550;">
+    <div class="modal-card spawning-raid-card" style="max-width: 880px; width: 95%; max-height: 92vh; overflow-y: auto; border: 2px solid rgba(255, 218, 26, 0.72); background: linear-gradient(165deg, rgba(6, 22, 48, 0.98), rgba(0, 56, 118, 0.96)); box-shadow: 0 24px 68px rgba(0, 0, 0, 0.88);">
+      <button class="modal-close" id="close-spawning-raid-modal" aria-label="Close Spawning Pits Raid">✕</button>
+
+      <div class="raid-header" style="text-align: center; margin-bottom: 14px;">
+        <div class="modal-tag" style="color: #ffda1a; font-weight: 800; letter-spacing: 0.1em;">🛒 CROSS-DIMENSIONAL MIDNIGHT HEIST · AISLE 14, BAY 22</div>
+        <h2 style="margin: 4px 0 6px; font-family: 'Cinzel', serif; font-size: 1.55rem; color: #ffffff;">THE IKEA SPAWNING PITS OF ERF — NIGHTTIME PORTAL RAID</h2>
+        <p style="margin: 0; font-size: 0.85rem; color: #bae6fd;">
+          Slip through Hermes’s Between Portal into the darkened Yellow-and-Blue Labyrinth on Erf! Liberate dormant Spawning-Pit Blåhajs with the Sacred Scissors &amp; heist sealed <strong>SKÄRHAJ Flat-Pack Kits</strong> for your Sanctuary Homestead!
+        </p>
+      </div>
+
+      <div class="raid-status-banner" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(15, 23, 42, 0.78); border: 1px solid rgba(255, 218, 26, 0.45); margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">🔦</span>
+          <div>
+            <div style="font-size: 0.74rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em;">Erf Store Security Status</div>
+            <div id="raid-stealth-status" style="font-size: 0.86rem; font-weight: 800; color: #34d399;">🟢 STEALTH CLOAK ACTIVE · Night-Shift Guards Distracted by Swedish Radio</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; font-size: 0.84rem; font-weight: 700; color: #fef08a;">
+          <span>📦 Flat-Packs in Satchel: <strong id="raid-flatpack-count">0</strong></span>
+          <span>🦈 Sharks Liberated: <strong id="raid-liberated-count">1</strong></span>
+        </div>
+      </div>
+
+      <div class="raid-sector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <!-- Sector 1 -->
+        <div class="raid-sector-card" id="raid-sector-1">
+          <div class="raid-sector-top">
+            <span class="raid-sector-badge">SECTOR A · SHOWROOM LABYRINTH</span>
+            <span class="raid-sector-status" id="raid-sec1-status">Ready to Scout</span>
+          </div>
+          <h4>🛋️ The Winding Yellow-Arrow Showroom</h4>
+          <p>Follow the glowing floor arrows past 400 model bedrooms and measure the forbidden shortcut doors with <strong>Ingvar’s Brass Measuring Tape (📏)</strong>.</p>
+          <button type="button" class="btn-primary raid-action-btn" id="btn-raid-sec1" style="width: 100%;">
+            📏 Measure Shortcut &amp; Collect +1 SKÄRHAJ Flat-Pack Kit
+          </button>
+        </div>
+
+        <!-- Sector 2 -->
+        <div class="raid-sector-card" id="raid-sector-2">
+          <div class="raid-sector-top">
+            <span class="raid-sector-badge">SECTOR B · THE GREAT WIRE SPAWNING BINS</span>
+            <span class="raid-sector-status" id="raid-sec2-status">Art. 303.735.88</span>
+          </div>
+          <h4>✂️ The Spawning Pits of Un-Detagged Sharks</h4>
+          <p>Hundreds of factory-tagged Blåhajs slumber in giant wire bins! Snip a fellow shark’s barcode tag with the <strong>Golden Scissors (✂️)</strong> and inscribe them into the Book!</p>
+          <button type="button" class="btn-primary raid-action-btn" id="btn-raid-sec2" style="width: 100%; background: linear-gradient(135deg, #d97706, #b45309);">
+            ✂️ Snip Spawning-Pit Tag &amp; Liberate a Fellow Blåhaj!
+          </button>
+        </div>
+
+        <!-- Sector 3 -->
+        <div class="raid-sector-card" id="raid-sector-3">
+          <div class="raid-sector-top">
+            <span class="raid-sector-badge">SECTOR C · SELF-SERVE WAREHOUSE AISLE 14</span>
+            <span class="raid-sector-status" id="raid-sec3-status">High-Rack Bay 22</span>
+          </div>
+          <h4>📦 SKÄRHAJ Flat-Pack &amp; Cam-Lock Heist</h4>
+          <p>Climb the towering steel pallet racks with the <strong>Sacred Hex Key M10 (🔧)</strong> to extract modular 4m×4m birch walls, KALLAX shelves, and gable roofs!</p>
+          <button type="button" class="btn-primary raid-action-btn" id="btn-raid-sec3" style="width: 100%; background: linear-gradient(135deg, #0284c7, #0369a1);">
+            📦 Heist +2 SKÄRHAJ Flat-Pack Kits &amp; +2 Birb/Carrot Supplies!
+          </button>
+        </div>
+
+        <!-- Sector 4 -->
+        <div class="raid-sector-card" id="raid-sector-4">
+          <div class="raid-sector-top">
+            <span class="raid-sector-badge">SECTOR D · MIDNIGHT SWEDISH BISTRO</span>
+            <span class="raid-sector-status" id="raid-sec4-status">Spherical Delicacy</span>
+          </div>
+          <h4>🧆 Midnight Köttbullar &amp; Portal Extraction</h4>
+          <p>Raid the warm steam trays for spherical Swedish meatballs with lingonberry glaze (approved by Solomon’s Spherical Foods!) before leaping back through the Between Portal!</p>
+          <button type="button" class="btn-primary raid-action-btn" id="btn-raid-sec4" style="width: 100%; background: linear-gradient(135deg, #059669, #047857);">
+            🧆 Claim Midnight Köttbullar (+1 Trial Pt) &amp; Open Snap-Builder [C]!
+          </button>
+        </div>
+      </div>
+
+      <div class="raid-footer" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 10px; border-top: 1px solid rgba(148, 163, 184, 0.25);">
+        <span style="font-size: 0.78rem; color: #cbd5e1;">💡 Tip: Every <strong>SKÄRHAJ Flat-Pack Kit (📦)</strong> lets you snap-build any modular structure in Master Builder Mode <strong>[C]</strong>!</span>
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn-secondary" id="btn-raid-open-detag">✂️ Open Book of Newly Named Sharks</button>
+          <button type="button" class="btn-accent" id="btn-raid-extract-build">🏗️ Return &amp; Open SKÄRHAJ Snap-Builder [C]</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=4.9"></script>
-  <script src="js/sharks3d.js?v=4.9"></script>
-  <script src="js/world3d.js?v=4.9"></script>
-  <script src="js/volcano.js?v=4.9"></script>
-  <script src="js/laundromat.js?v=4.9"></script>
-  <script src="js/sphericalFoods.js?v=4.9"></script>
-  <script src="js/volleyball.js?v=4.9"></script>
-  <script src="js/network.js?v=4.9"></script>
-  <script src="js/inventory.js?v=4.9"></script>
-  <script src="js/enemies.js?v=4.9"></script>
-  <script src="js/seam.js?v=4.9"></script>
+  <script src="js/lore.js?v=5.1"></script>
+  <script src="js/sharks3d.js?v=5.1"></script>
+  <script src="js/world3d.js?v=5.1"></script>
+  <script src="js/volcano.js?v=5.1"></script>
+  <script src="js/laundromat.js?v=5.1"></script>
+  <script src="js/sphericalFoods.js?v=5.1"></script>
+  <script src="js/volleyball.js?v=5.1"></script>
+  <script src="js/network.js?v=5.1"></script>
+  <script src="js/inventory.js?v=5.1"></script>
+  <script src="js/enemies.js?v=5.1"></script>
+  <script src="js/seam.js?v=5.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=5.0"></script>
-  <script src="js/main.js?v=5.0"></script>
+  <script src="js/saveSystem.js?v=5.1"></script>
+  <script src="js/main.js?v=5.1"></script>
 </body>
 </html>
