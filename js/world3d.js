@@ -570,6 +570,14 @@ window.BlahajWorld = (function () {
         if (lx * lx + lz * lz <= 5.2) {
           surfY = st.y + 0.42;
         }
+      } else if (st.type === 'skarhaj_ballpit') {
+        if (Math.abs(lx) <= 1.95 && Math.abs(lz) <= 1.95) {
+          surfY = st.y + 0.48;
+        }
+      } else if (st.type === 'skarhaj_bin_throne') {
+        if (Math.abs(lx) <= 1.85 && Math.abs(lz) <= 1.85) {
+          surfY = st.y + 0.65;
+        }
       } else if (st.type === 'kotatsu_table') {
         if (lx * lx + lz * lz <= 7.8) {
           if (lx * lx + lz * lz <= 2.7) surfY = st.y + 0.89; // tabletop
@@ -5345,6 +5353,72 @@ window.BlahajWorld = (function () {
         crystal.rotation.z = cx * -0.15;
         group.add(crystal);
       });
+    } else if (type === 'skarhaj_ballpit') {
+      // SMÅLAND 4m x 4m Padded Ball-Pit Jacuzzi
+      const blueRimMat = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.45 });
+      const yellowRimMat = new THREE.MeshStandardMaterial({ color: 0xffda1a, roughness: 0.38 });
+      const floorBase = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.25, 3.8), blueRimMat);
+      floorBase.position.y = 0.12;
+      group.add(floorBase);
+      [
+        [0, 0.45, -1.85, 3.9, 0.65, 0.28],
+        [0, 0.45, 1.85, 3.9, 0.65, 0.28],
+        [-1.85, 0.45, 0, 0.28, 0.65, 3.6],
+        [1.85, 0.45, 0, 0.28, 0.65, 3.6]
+      ].forEach(([bx, by, bz, bw, bh, bd], i) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), i % 2 === 0 ? blueRimMat : yellowRimMat);
+        wall.position.set(bx, by, bz);
+        group.add(wall);
+      });
+      const ballCols = [0xffda1a, 0x0058a3, 0xef4444, 0x38bdf8, 0xa855f7, 0x34d399];
+      for (let i = 0; i < 36; i++) {
+        const r = i % 6;
+        const c = Math.floor(i / 6);
+        const ball = new THREE.Mesh(
+          new THREE.SphereGeometry(0.24, 8, 8),
+          new THREE.MeshStandardMaterial({ color: ballCols[(i * 3) % ballCols.length], roughness: 0.3 })
+        );
+        ball.position.set(-1.35 + r * 0.54, 0.38 + (i % 2) * 0.12, -1.35 + c * 0.54);
+        group.add(ball);
+      }
+    } else if (type === 'skarhaj_chandelier') {
+      // MASKROS Dandelion Starlight Chandelier Column
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 0.24, 14), woodMat);
+      base.position.y = 0.12;
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.8, 10), goldMat);
+      stem.position.y = 1.5;
+      const core = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 14), warmGlowMat);
+      core.position.y = 2.95;
+      group.add(base, stem, core);
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        const petal = new THREE.Mesh(new THREE.CircleGeometry(0.26, 6), warmGlowMat);
+        petal.position.set(Math.cos(a) * 0.68, 2.95 + Math.sin(a * 2) * 0.25, Math.sin(a) * 0.68);
+        petal.lookAt(0, 2.95, 0);
+        group.add(petal);
+      }
+    } else if (type === 'skarhaj_bin_throne') {
+      // BLÅHAJ-TRON Gilded Wire Spawning-Bin Throne (#303.735.88)
+      const cushion = new THREE.Mesh(
+        new THREE.BoxGeometry(3.2, 0.52, 3.2),
+        new THREE.MeshStandardMaterial({ color: 0x3b0764, roughness: 0.7 })
+      );
+      cushion.position.y = 0.26;
+      group.add(cushion);
+      [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]].forEach(([px, pz]) => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.1, 0.18), goldMat);
+        post.position.set(px, 1.05, pz);
+        group.add(post);
+      });
+      for (let h = 0.55; h <= 1.85; h += 0.42) {
+        const barBack = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 3.2, 8), goldMat);
+        barBack.rotation.z = Math.PI / 2;
+        barBack.position.set(0, h, -1.6);
+        group.add(barBack);
+      }
+      const crownBanner = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.28, 0.14), warmGlowMat);
+      crownBanner.position.set(0, 2.05, -1.6);
+      group.add(crownBanner);
     }
 
     if (isPreview) {

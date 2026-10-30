@@ -61,6 +61,30 @@
   let hermesGuideMesh = null;
   let sacredScissorsMesh = null;
 
+  // --- PASS 76: STEALTH CAMOUFLAGE, TROLLEY, SURREAL SET-PIECES & BOSS FINALE ---
+  let playingPlushie = false;
+  let boxDisguised = false;
+  let ridingTrolley = false;
+  let plushieTagHalo = null;
+  let boxDisguiseMesh = null;
+  let mountedTrolleyMesh = null;
+  let trolleyStackedBoxes = [];
+
+  // Interactive Set-Piece States
+  let lightingJungleDarkened = false;
+  const lightingJungleBulbs = [];
+  const ballPitSpheres = [];
+  const distractionRings = [];
+  const goldenBlueprintsUnlocked = new Set(
+    JSON.parse(localStorage.getItem('blahaj_spawning_golden_bps_v1') || '[]')
+  );
+
+  // Night-Shift Store Manager Boss & 3 Self-Checkout Barcode Scanners
+  let storeManagerBoss = null;
+  let checkoutScannersScanned = 0;
+  const scannedTerminals = new Set();
+  const receiptTornadoPapers = [];
+
   // Shared Floor Arrow Texture Cache
   let yellowArrowTex = null;
   let glitchArrowTex = null;
@@ -434,6 +458,15 @@
 
     spScene.add(group);
 
+    // Overhead 3-Stage Suspicion Marker (? Amber / ! Crimson)
+    const alertBadge = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+    );
+    alertBadge.position.set(0, 2.95, 0);
+    alertBadge.visible = false;
+    bodyRoot.add(alertBadge);
+
     securityGuards.push({
       id: cfg.id,
       name: cfg.name || 'Erf Night-Shift Guard',
@@ -441,13 +474,20 @@
       waypoints: cfg.waypoints,
       wpIndex: 0,
       speed: cfg.speed || 2.8,
+      baseBeamDist: (cfg.beamLength || 6.2) * 0.72,
       beamDist: (cfg.beamLength || 6.2) * 0.72,
+      baseBeamRadius: cfg.beamRadius || 2.35,
       beamRadius: cfg.beamRadius || 2.35,
       group,
       bodyRoot,
       legL,
       legR,
       floorRing,
+      coneMesh,
+      alertBadge,
+      suspicion: 0,
+      distractTarget: null,
+      distractTimer: 0,
       rotY: 0,
       spotX: group.position.x,
       spotZ: group.position.z
@@ -1593,6 +1633,486 @@
   // ==========================================================================
   // BUILD FULL 426m MEGASTORE SCENE
   // ==========================================================================
+
+  // ==========================================================================
+  // PASS 76 SET-PIECES: BALL PIT, LIGHTING JUNGLE, ROOM 3008 DOORS,
+  // HIGH-RACK CATWALK, FLATBED TROLLEYS & NIGHT-SHIFT STORE MANAGER BOSS
+  // ==========================================================================
+  function buildPass76UpgradeSetPieces() {
+    const Y2 = UPPER_FLOOR_Y;
+    const Y1 = LOWER_FLOOR_Y;
+
+    // 1. SMÅLAND BALL-PIT OF FORGOTTEN TAGS in Wing 2 at (-15.5, 6.0, -52.0)
+    const bpGroup = new THREE.Group();
+    bpGroup.position.set(-15.5, Y2, -52.0);
+    const bpWalls = [
+      [0, 0.55, -2.8, 5.8, 1.1, 0.35],
+      [0, 0.55, 2.8, 5.8, 1.1, 0.35],
+      [-2.8, 0.55, 0, 0.35, 1.1, 5.4],
+      [2.8, 0.55, 0, 0.35, 1.1, 5.4]
+    ];
+    bpWalls.forEach(([bx, by, bz, bw, bh, bd], idx) => {
+      const w = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), idx % 2 === 0 ? MAT.ikeaBlue : MAT.ikeaYellow);
+      w.position.set(bx, by, bz);
+      bpGroup.add(w);
+    });
+    const ballPalette = [0xffda1a, 0x0058a3, 0xef4444, 0x38bdf8, 0xa855f7, 0x34d399];
+    for (let i = 0; i < 64; i++) {
+      const r = i % 8;
+      const c = Math.floor(i / 8);
+      const bMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.28, 10, 10),
+        new THREE.MeshStandardMaterial({ color: ballPalette[(i * 5) % ballPalette.length], roughness: 0.28 })
+      );
+      const bx = -2.1 + r * 0.6;
+      const bz = -2.1 + c * 0.6;
+      bMesh.position.set(bx, 0.35 + (i % 3) * 0.14, bz);
+      bpGroup.add(bMesh);
+      ballPitSpheres.push({ mesh: bMesh, baseX: bx, baseZ: bz, worldX: -15.5 + bx, worldZ: -52.0 + bz, phase: i * 0.4 });
+    }
+    const bpSign = createHangingSignBoard(
+      'SMÅLAND BALL-PIT OF FORGOTTEN TAGS',
+      'HIDE IN THE BALLS FOR 100% STEALTH · EXCAVATE GOLDEN BLUEPRINT [E] 🟡🔵',
+      5.4,
+      1.3,
+      '#0058a3',
+      '#ffda1a'
+    );
+    bpSign.position.set(0, 2.8, 0);
+    bpGroup.add(bpSign);
+    spScene.add(bpGroup);
+
+    // 2. CARDBOARD FLAT-PACK BOX DISGUISE STATIONS (Wing 2 & Wing 4)
+    [
+      { x: 4.5, y: Y2, z: 12.0 },
+      { x: -5.5, y: Y1, z: -168.0 }
+    ].forEach((st) => {
+      const boxPile = new THREE.Group();
+      boxPile.position.set(st.x, st.y, st.z);
+      const cBox = new THREE.Mesh(
+        new THREE.BoxGeometry(1.35, 1.15, 1.35),
+        new THREE.MeshStandardMaterial({ color: 0xd6b384, roughness: 0.78 })
+      );
+      cBox.position.y = 0.58;
+      const band = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.25, 1.38), MAT.ikeaBlue);
+      band.position.y = 0.58;
+      boxPile.add(cBox, band);
+      const bSign = createHangingSignBoard(
+        'EMPTY SKÄRHAJ CARDBOARD BOX',
+        'WEAR CARDBOard BOX DISGUISE [E] or [H] 📦🦈',
+        3.8,
+        0.95,
+        '#78350f',
+        '#fde047'
+      );
+      bSign.position.set(0, 2.1, 0);
+      boxPile.add(bSign);
+      spScene.add(boxPile);
+    });
+
+    // 3. NON-EUCLIDEAN FREE-STANDING SHOWROOM DOORS (ROOM 3008) in Wing 4
+    // Door A at (-14.5, 0, -173.0) <-> Door B at (0.0, 0, -242.0)
+    [
+      { x: -14.5, z: -173.0, title: 'DOOR #3008-A (NON-EUCLIDEAN SHORTCUT)', sub: 'STEP THROUGH [E] TO FOLD SPACE TO SOUTH EXIT!' },
+      { x: 0.0, z: -242.0, title: 'DOOR #3008-B (NON-EUCLIDEAN THRESHOLD)', sub: 'CONNECTED ACROSS CURVED SHOWROOM SPACE [E] 🚪✨' }
+    ].forEach((dCfg) => {
+      const dGroup = new THREE.Group();
+      dGroup.position.set(dCfg.x, Y1, dCfg.z);
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.4, 0.28), MAT.ikeaYellow);
+      frame.position.y = 1.7;
+      const portalPane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.75, 3.0),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.72 })
+      );
+      portalPane.position.set(0, 1.65, 0);
+      const dSign = createHangingSignBoard(dCfg.title, dCfg.sub, 4.4, 1.05, '#1e1b4b', '#67e8f9', '#ffda1a');
+      dSign.position.set(0, 4.1, 0);
+      dGroup.add(frame, portalPane, dSign);
+      spScene.add(dGroup);
+    });
+
+    // 4. THE LIGHTING JUNGLE & MASTER DIMMER SWITCH at (13.5, 0.0, -195.0) in Wing 4
+    const ljGroup = new THREE.Group();
+    ljGroup.position.set(13.5, Y1, -195.0);
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.3, 1.2), MAT.ikeaBlue);
+    pedestal.position.y = 0.65;
+    const switchLever = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.45, 0.35), MAT.ikeaYellow);
+    switchLever.position.y = 1.45;
+    ljGroup.add(pedestal, switchLever);
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), MAT.lampGlow.clone());
+      orb.position.set(Math.cos(ang) * 2.8, 1.8 + (i % 2) * 1.2, Math.sin(ang) * 2.8);
+      ljGroup.add(orb);
+      lightingJungleBulbs.push(orb);
+    }
+    const ljSign = createHangingSignBoard(
+      'THE LIGHTING JUNGLE · MASTER DIMMER',
+      'FLIP SWITCH [E] TO BLIND ROOM 404 GUARDS & CLAIM MASKROS BLUEPRINT! 💡',
+      5.4,
+      1.3,
+      '#3b0764',
+      '#fde047'
+    );
+    ljSign.position.set(0, 3.8, 0);
+    ljGroup.add(ljSign);
+    spScene.add(ljGroup);
+
+    // 5. WING 5 HYDRAULIC FORKLIFT ELEVATOR & HIGH-RACK MEZZANINE CATWALK (Y = +5.2m)
+    // Lift at (-11.5, 0.0, -262.0) -> High-Rack Catwalk spanning X: -13.2 to -9.8, Z: -262 to -324 at Y = 5.2m!
+    const liftGroup = new THREE.Group();
+    liftGroup.position.set(-11.5, Y1, -262.0);
+    const liftPad = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.28, 3.2), MAT.ikeaYellow);
+    liftPad.position.y = 0.14;
+    const liftMast = new THREE.Mesh(new THREE.BoxGeometry(0.45, 5.8, 0.45), MAT.ikeaBlue);
+    liftMast.position.set(-1.4, 2.9, 0);
+    const liftSign = createHangingSignBoard(
+      'HYDRAULIC FORKLIFT SCISSOR-LIFT',
+      'RIDE UP TO HIGH-RACK CATWALK (Y = +5.2m) [E] 🏗️⬆️',
+      4.4,
+      1.1,
+      '#ea580c',
+      '#fde047'
+    );
+    liftSign.position.set(0, 2.6, 0);
+    liftGroup.add(liftPad, liftMast, liftSign);
+    spScene.add(liftGroup);
+
+    // Walkable High-Rack Mezzanine Catwalk at Y = 5.2m along X = -11.5 from Z = -260 to Z = -326
+    const catwalkLen = 66.0;
+    const catwalkCenterZ = -293.0;
+    const catwalkDeck = new THREE.Mesh(
+      new THREE.BoxGeometry(3.4, 0.28, catwalkLen),
+      new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.75 })
+    );
+    catwalkDeck.position.set(-11.5, 5.2 - 0.14, catwalkCenterZ);
+    spScene.add(catwalkDeck);
+    addCollider(-13.2, -9.8, -326.0, -260.0, 5.2, false, 4.5, false);
+
+    // Golden Archodect Vault Crate at end of High-Rack Catwalk (-11.5, 5.2, -322.0)
+    const vaultGroup = new THREE.Group();
+    vaultGroup.position.set(-11.5, 5.2, -322.0);
+    const vaultBox = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 1.1, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.75, roughness: 0.2, emissive: 0xd97706, emissiveIntensity: 0.5 })
+    );
+    vaultBox.position.y = 0.55;
+    const vaultSign = createHangingSignBoard(
+      'GOLDEN HIGH-RACK VAULT CRATE',
+      'CLAIM BLÅHAJ-TRON THRONE BLUEPRINT & +3 FLAT-PACKS [E] 👑📦',
+      4.8,
+      1.15,
+      '#78350f',
+      '#fde047'
+    );
+    vaultSign.position.set(0, 2.2, 0);
+    vaultGroup.add(vaultBox, vaultSign);
+    spScene.add(vaultGroup);
+
+    // 6. RIDEABLE YELLOW FLATBED WAREHOUSE TROLLEYS (RULLVAGN) at (0, 0, -260) & (0, 0, -304)
+    [
+      { x: 0.0, z: -260.0 },
+      { x: 0.0, z: -304.0 }
+    ].forEach((tc) => {
+      const tr = createFlatbedTrolleyMesh();
+      tr.position.set(tc.x, Y1, tc.z);
+      const tSign = createHangingSignBoard(
+        'RULLVAGN FLATBED TROLLEY',
+        'RIDE TROLLEY (+65% SPEED & STACK FLAT-PACKS!) [E] 🛒💨',
+        4.2,
+        1.0,
+        '#0058a3',
+        '#ffda1a'
+      );
+      tSign.position.set(0, 2.1, 0);
+      tr.add(tSign);
+      spScene.add(tr);
+    });
+
+    // 7. WING 6 FINALE: NIGHT-SHIFT STORE MANAGER BOSS ("OVERSEER INGVAR-9000") & 3 SELF-CHECKOUT SCANNERS
+    const checkoutPos = [
+      { id: 'scan_1', x: -8.5, z: -346.0 },
+      { id: 'scan_2', x: 0.0, z: -346.0 },
+      { id: 'scan_3', x: 8.5, z: -346.0 }
+    ];
+    checkoutPos.forEach((sc, idx) => {
+      const kiosk = new THREE.Group();
+      kiosk.position.set(sc.x, Y1, sc.z);
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 0.9), MAT.ikeaBlue);
+      pillar.position.y = 0.9;
+      const screen = new THREE.Mesh(
+        new THREE.BoxGeometry(0.85, 0.65, 0.1),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      );
+      screen.position.set(0, 1.45, 0.46);
+      const scSign = createHangingSignBoard(
+        `SELF-CHECKOUT TERMINAL #${idx + 1}`,
+        'SCAN "999x KÖTTBULLAR" TO OVERLOAD STORE MANAGER [E] 🧾💥',
+        4.2,
+        1.05,
+        '#0f172a',
+        '#38bdf8',
+        '#ffda1a'
+      );
+      scSign.position.set(0, 2.75, 0);
+      kiosk.add(pillar, screen, scSign);
+      spScene.add(kiosk);
+    });
+
+    // Build Towering Silhouetted Night-Shift Store Manager on His Floor-Polisher Chariot at (0, 0, -351.0)
+    const bossGroup = new THREE.Group();
+    bossGroup.position.set(0, Y1, -351.0);
+    const silMat = new THREE.MeshBasicMaterial({ color: 0x03050c });
+    const chariot = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.55, 0.55, 20), MAT.ikeaYellow);
+    chariot.position.y = 0.28;
+    const bossBelly = new THREE.Mesh(new THREE.SphereGeometry(1.05, 16, 14), silMat);
+    bossBelly.scale.set(1.2, 1.15, 1.2);
+    bossBelly.position.set(0, 1.65, 0);
+    const bossHead = new THREE.Mesh(new THREE.SphereGeometry(0.48, 14, 12), silMat);
+    bossHead.position.set(0, 2.95, 0);
+    const bossCrown = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.48, 0.35, 8), silMat);
+    bossCrown.position.set(0, 3.35, 0);
+    const bossSign = createHangingSignBoard(
+      'OVERSEER INGVAR-9000 · NIGHT-SHIFT MANAGER',
+      'OVERLOAD THE 3 SELF-CHECKOUT SCANNERS [E] TO SPIN OUT HIS CHARIOT! 🚨🧾',
+      5.8,
+      1.3,
+      '#991b1b',
+      '#fde047',
+      '#fde047'
+    );
+    bossSign.position.set(0, 4.5, 0);
+    bossGroup.add(chariot, bossBelly, bossHead, bossCrown, bossSign);
+
+    // Receipt Tornado Papers (visible when overloaded!)
+    for (let i = 0; i < 18; i++) {
+      const paper = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55, 1.2),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+      );
+      paper.visible = false;
+      bossGroup.add(paper);
+      receiptTornadoPapers.push({ mesh: paper, angle: (i / 18) * Math.PI * 2, height: 0.6 + (i % 5) * 0.7 });
+    }
+
+    spScene.add(bossGroup);
+    storeManagerBoss = {
+      group: bossGroup,
+      defeated: false,
+      baseX: 0,
+      baseZ: -351.0
+    };
+  }
+
+  function createFlatbedTrolleyMesh() {
+    const g = new THREE.Group();
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.16, 2.55), MAT.ikeaYellow);
+    bed.position.y = 0.32;
+    const handleBar = new THREE.Mesh(new THREE.BoxGeometry(1.65, 1.05, 0.12), MAT.ikeaBlue);
+    handleBar.position.set(0, 0.85, 1.2);
+    g.add(bed, handleBar);
+    [[-0.75, -1.05], [0.75, -1.05], [-0.75, 1.05], [0.75, 1.05]].forEach(([wx, wz]) => {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.12, 10), MAT.chrome);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(wx, 0.16, wz);
+      g.add(wheel);
+    });
+    return g;
+  }
+
+  function ensurePlayerDisguiseAttachments(playerMesh) {
+    if (!playerMesh) return;
+    if (!plushieTagHalo) {
+      plushieTagHalo = createHangingSignBoard(
+        '$29.99 · ART. 303.735.88',
+        '100% ORDINARY DISPLAY PLUSHIE (DO NOT ALARM)',
+        2.2,
+        0.55,
+        '#ffffff',
+        '#0f172a',
+        '#e11d48'
+      );
+      plushieTagHalo.position.set(0, 1.55, 0);
+      plushieTagHalo.visible = false;
+    }
+    if (plushieTagHalo.parent !== playerMesh) {
+      playerMesh.add(plushieTagHalo);
+    }
+
+    if (!boxDisguiseMesh) {
+      boxDisguiseMesh = new THREE.Group();
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(1.65, 1.35, 1.95),
+        new THREE.MeshStandardMaterial({ color: 0xd6b384, roughness: 0.78 })
+      );
+      box.position.y = 0.68;
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.28, 1.98), MAT.ikeaBlue);
+      stripe.position.y = 0.68;
+      boxDisguiseMesh.add(box, stripe);
+      boxDisguiseMesh.visible = false;
+    }
+    if (boxDisguiseMesh.parent !== playerMesh) {
+      playerMesh.add(boxDisguiseMesh);
+    }
+
+    if (!mountedTrolleyMesh) {
+      mountedTrolleyMesh = createFlatbedTrolleyMesh();
+      mountedTrolleyMesh.position.set(0, -0.28, 0);
+      mountedTrolleyMesh.visible = false;
+      trolleyStackedBoxes = [];
+      for (let i = 0; i < 4; i++) {
+        const b = new THREE.Mesh(
+          new THREE.BoxGeometry(1.3, 0.28, 0.95),
+          new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.45 })
+        );
+        b.position.set(0, 0.55 + i * 0.3, -0.45);
+        b.visible = false;
+        mountedTrolleyMesh.add(b);
+        trolleyStackedBoxes.push(b);
+      }
+    }
+    if (mountedTrolleyMesh.parent !== playerMesh) {
+      playerMesh.add(mountedTrolleyMesh);
+    }
+  }
+
+  function togglePlayPlushie(playerMesh, forceVal = null) {
+    playingPlushie = forceVal !== null ? !!forceVal : !playingPlushie;
+    if (playingPlushie) {
+      boxDisguised = false;
+      ridingTrolley = false;
+    }
+    ensurePlayerDisguiseAttachments(playerMesh);
+    if (plushieTagHalo) plushieTagHalo.visible = playingPlushie;
+    if (boxDisguiseMesh) boxDisguiseMesh.visible = boxDisguised;
+    if (mountedTrolleyMesh) mountedTrolleyMesh.visible = ridingTrolley;
+    if (playerMesh) {
+      if (playingPlushie) {
+        playerMesh.rotation.z = 0.58;
+        playerMesh.scale.set(1.18, 0.68, 1.08);
+      } else {
+        playerMesh.rotation.z = 0;
+        playerMesh.scale.set(1, 1, 1);
+      }
+    }
+    return playingPlushie;
+  }
+
+  function toggleBoxDisguise(playerMesh, forceVal = null) {
+    boxDisguised = forceVal !== null ? !!forceVal : !boxDisguised;
+    if (boxDisguised) {
+      playingPlushie = false;
+      ridingTrolley = false;
+    }
+    ensurePlayerDisguiseAttachments(playerMesh);
+    if (plushieTagHalo) plushieTagHalo.visible = playingPlushie;
+    if (boxDisguiseMesh) boxDisguiseMesh.visible = boxDisguised;
+    if (mountedTrolleyMesh) mountedTrolleyMesh.visible = ridingTrolley;
+    if (playerMesh) {
+      playerMesh.rotation.z = 0;
+      playerMesh.scale.set(1, 1, 1);
+    }
+    return boxDisguised;
+  }
+
+  function toggleFlatbedTrolley(playerMesh, flatpackCount = 1, forceVal = null) {
+    ridingTrolley = forceVal !== null ? !!forceVal : !ridingTrolley;
+    if (ridingTrolley) {
+      playingPlushie = false;
+      boxDisguised = false;
+    }
+    ensurePlayerDisguiseAttachments(playerMesh);
+    if (plushieTagHalo) plushieTagHalo.visible = playingPlushie;
+    if (boxDisguiseMesh) boxDisguiseMesh.visible = boxDisguised;
+    if (mountedTrolleyMesh) {
+      mountedTrolleyMesh.visible = ridingTrolley;
+      const showBoxes = Math.min(4, Math.max(1, flatpackCount));
+      trolleyStackedBoxes.forEach((b, idx) => { b.visible = idx < showBoxes; });
+    }
+    if (playerMesh) {
+      playerMesh.rotation.z = 0;
+      playerMesh.scale.set(1, 1, 1);
+    }
+    return ridingTrolley;
+  }
+
+  function triggerDistraction(pos) {
+    if (!spScene || !pos) return null;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.4, 0.75, 24),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(pos.x, (pos.y || 0) + 0.08, pos.z);
+    spScene.add(ring);
+    distractionRings.push({ mesh: ring, life: 1.5 });
+
+    // Lure the nearest guard on the same floor within 26m!
+    let nearestGuard = null;
+    let bestD = 26.0;
+    securityGuards.forEach((g) => {
+      if (Math.abs((pos.y || 0) - g.y) > 2.5) return;
+      const d = Math.hypot(g.group.position.x - pos.x, g.group.position.z - pos.z);
+      if (d < bestD) {
+        bestD = d;
+        nearestGuard = g;
+      }
+    });
+    if (nearestGuard) {
+      nearestGuard.distractTarget = { x: pos.x, z: pos.z };
+      nearestGuard.distractTimer = 6.5;
+      nearestGuard.suspicion = Math.max(nearestGuard.suspicion, 0.35);
+    }
+    return nearestGuard ? nearestGuard.name : null;
+  }
+
+  function isPlayerInBallPit(pos) {
+    if (!pos) return false;
+    return Math.abs((pos.y || 0) - UPPER_FLOOR_Y) < 2.0 &&
+      Math.abs(pos.x - (-15.5)) <= 2.85 &&
+      Math.abs(pos.z - (-52.0)) <= 2.85;
+  }
+
+  function unlockGoldenBlueprint(bpId) {
+    goldenBlueprintsUnlocked.add(bpId);
+    try {
+      localStorage.setItem('blahaj_spawning_golden_bps_v1', JSON.stringify(Array.from(goldenBlueprintsUnlocked)));
+    } catch (e) {}
+  }
+
+  function toggleLightingJungleDimmer() {
+    lightingJungleDarkened = !lightingJungleDarkened;
+    lightingJungleBulbs.forEach((b) => {
+      b.material.emissiveIntensity = lightingJungleDarkened ? 0.05 : 0.75;
+      b.material.color.setHex(lightingJungleDarkened ? 0x1e293b : 0xfef08a);
+    });
+    // Reduce Wing 4 guards' beam range by 60% when darkened!
+    securityGuards.forEach((g) => {
+      if (g.id.startsWith('guard_w4')) {
+        g.beamDist = lightingJungleDarkened ? g.baseBeamDist * 0.4 : g.baseBeamDist;
+        g.beamRadius = lightingJungleDarkened ? g.baseBeamRadius * 0.45 : g.baseBeamRadius;
+        if (g.coneMesh) g.coneMesh.visible = !lightingJungleDarkened;
+      }
+    });
+    unlockGoldenBlueprint('skarhaj_chandelier');
+    return lightingJungleDarkened;
+  }
+
+  function scanSelfCheckoutTerminal(termId) {
+    if (!scannedTerminals.has(termId)) {
+      scannedTerminals.add(termId);
+      checkoutScannersScanned = scannedTerminals.size;
+    }
+    if (checkoutScannersScanned >= 3 && storeManagerBoss && !storeManagerBoss.defeated) {
+      storeManagerBoss.defeated = true;
+      receiptTornadoPapers.forEach((p) => { p.mesh.visible = true; });
+    }
+    return {
+      scannedCount: checkoutScannersScanned,
+      bossDefeated: !!(storeManagerBoss && storeManagerBoss.defeated)
+    };
+  }
+
   async function build() {
     if (isBuilt && spScene) return spScene;
 
@@ -1677,6 +2197,7 @@
     buildWing4SurrealMaze();
     buildWing5SelfServeWarehouse();
     buildWing6BistroAndEscapePortal();
+    buildPass76UpgradeSetPieces();
 
     isBuilt = true;
     return spScene;
@@ -1876,6 +2397,138 @@
       }
     }
 
+    // 8. SMÅLAND Ball-Pit of Forgotten Tags (-15.5, 6.0, -52.0)
+    if (Math.abs(py - UPPER_FLOOR_Y) < 2.2) {
+      const dBp = Math.hypot(playerPos.x - (-15.5), playerPos.z - (-52.0));
+      if (dBp < 4.2) {
+        items.push({
+          kind: 'spawning_ballpit_excavate',
+          dist: dBp,
+          prompt: '🟡🔵 SMÅLAND Ball-Pit (100% Stealth Cover): Excavate Golden Ball-Pit Blueprint & +2 Flat-Packs [E]'
+        });
+      }
+    }
+
+    // 9. Empty SKÄRHAJ Cardboard Box Disguise Stations
+    [
+      { x: 4.5, y: UPPER_FLOOR_Y, z: 12.0 },
+      { x: -5.5, y: LOWER_FLOOR_Y, z: -168.0 }
+    ].forEach((st) => {
+      if (Math.abs(py - st.y) < 2.2) {
+        const dBox = Math.hypot(playerPos.x - st.x, playerPos.z - st.z);
+        if (dBox < 3.5) {
+          items.push({
+            kind: 'spawning_toggle_box',
+            dist: dBox,
+            prompt: boxDisguised
+              ? '📦 Remove SKÄRHAJ Cardboard Box Disguise [E / H]'
+              : '📦🦈 Put On SKÄRHAJ Cardboard Box Stealth Disguise [E / H]'
+          });
+        }
+      }
+    });
+
+    // 10. Non-Euclidean Room 3008 Teleporting Doors (-14.5, 0, -173.0) <-> (0, 0, -242.0)
+    if (Math.abs(py - LOWER_FLOOR_Y) < 2.2) {
+      const dDoorA = Math.hypot(playerPos.x - (-14.5), playerPos.z - (-173.0));
+      if (dDoorA < 3.6) {
+        items.push({
+          kind: 'spawning_door_3008',
+          targetX: 0.0,
+          targetY: 0.0,
+          targetZ: -242.0,
+          dist: dDoorA,
+          prompt: '🚪🌀 Step Through Non-Euclidean Door #3008-A (Fold Space to South Room 404) [E]'
+        });
+      }
+      const dDoorB = Math.hypot(playerPos.x - 0.0, playerPos.z - (-242.0));
+      if (dDoorB < 3.6) {
+        items.push({
+          kind: 'spawning_door_3008',
+          targetX: -14.5,
+          targetY: 0.0,
+          targetZ: -173.0,
+          dist: dDoorB,
+          prompt: '🚪🌀 Step Through Non-Euclidean Door #3008-B (Return to North Room 404) [E]'
+        });
+      }
+
+      // 11. Lighting Jungle Master Dimmer Switch (13.5, 0, -195.0)
+      const dDim = Math.hypot(playerPos.x - 13.5, playerPos.z - (-195.0));
+      if (dDim < 4.0) {
+        items.push({
+          kind: 'spawning_lighting_dimmer',
+          dist: dDim,
+          prompt: '💡✨ Flip Lighting Jungle Dimmer (Blind Room 404 Guards & Claim MASKROS Chandelier Blueprint!) [E]'
+        });
+      }
+
+      // 12. Hydraulic Forklift Scissor-Lift (-11.5, 0, -262.0)
+      const dLift = Math.hypot(playerPos.x - (-11.5), playerPos.z - (-262.0));
+      if (dLift < 3.8) {
+        items.push({
+          kind: 'spawning_forklift_up',
+          dist: dLift,
+          prompt: '🏗️⬆️ Ride Hydraulic Scissor-Lift Up to High-Rack Catwalk (Y = +5.2m) [E]'
+        });
+      }
+
+      // 13. Rideable Yellow Flatbed Warehouse Trolleys (RULLVAGN)
+      [
+        { x: 0.0, z: -260.0 },
+        { x: 0.0, z: -304.0 }
+      ].forEach((tc) => {
+        const dTr = Math.hypot(playerPos.x - tc.x, playerPos.z - tc.z);
+        if (dTr < 3.8) {
+          items.push({
+            kind: 'spawning_toggle_trolley',
+            dist: dTr,
+            prompt: ridingTrolley
+              ? '🛒 Hop Off RULLVAGN Flatbed Trolley [E]'
+              : '🛒💨 Hop Onto RULLVAGN Yellow Flatbed Trolley (+65% Speed & Stack Flat-Packs!) [E]'
+          });
+        }
+      });
+
+      // 14. 3 Self-Checkout Barcode Terminals (Overload Store Manager!)
+      [
+        { id: 'scan_1', num: 1, x: -8.5, z: -346.0 },
+        { id: 'scan_2', num: 2, x: 0.0, z: -346.0 },
+        { id: 'scan_3', num: 3, x: 8.5, z: -346.0 }
+      ].forEach((sc) => {
+        const dSc = Math.hypot(playerPos.x - sc.x, playerPos.z - sc.z);
+        if (dSc < 3.6) {
+          items.push({
+            kind: 'spawning_checkout_scan',
+            scanId: sc.id,
+            scanNum: sc.num,
+            dist: dSc,
+            prompt: `🧾💥 Scan "999x Köttbullar" at Self-Checkout #${sc.num} (${checkoutScannersScanned}/3 Overloaded) [E]`
+          });
+        }
+      });
+    }
+
+    // 15. High-Rack Golden Vault Crate at (-11.5, 5.2, -322.0)
+    if (Math.abs(py - 5.2) < 1.8) {
+      const dVault = Math.hypot(playerPos.x - (-11.5), playerPos.z - (-322.0));
+      if (dVault < 3.8) {
+        items.push({
+          kind: 'spawning_highrack_vault',
+          dist: dVault,
+          prompt: '👑📦 Open High-Rack Golden Vault (Claim BLÅHAJ-TRON Throne Blueprint & +3 Flat-Packs!) [E]'
+        });
+      }
+      const dLiftDown = Math.hypot(playerPos.x - (-11.5), playerPos.z - (-262.0));
+      if (dLiftDown < 3.8) {
+        items.push({
+          kind: 'spawning_forklift_down',
+          dist: dLiftDown,
+          prompt: '🏗️⬇️ Ride Hydraulic Scissor-Lift Back Down to Warehouse Floor [E]'
+        });
+      }
+    }
+
     return items;
   }
 
@@ -1961,16 +2614,76 @@
       }
     }
 
+    // Animate SMÅLAND Ball-Pit Spheres (scatter & bob when player wades through!)
+    for (let i = 0; i < ballPitSpheres.length; i++) {
+      const b = ballPitSpheres[i];
+      let pushX = 0;
+      let pushZ = 0;
+      if (playerPos && Math.abs((playerPos.y || 0) - UPPER_FLOOR_Y) < 2.0) {
+        const dx = b.worldX - playerPos.x;
+        const dz = b.worldZ - playerPos.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 1.25 && d > 0.01) {
+          pushX = (dx / d) * (1.25 - d) * 0.55;
+          pushZ = (dz / d) * (1.25 - d) * 0.55;
+        }
+      }
+      b.mesh.position.x = b.baseX + pushX;
+      b.mesh.position.z = b.baseZ + pushZ;
+      b.mesh.position.y = 0.35 + Math.sin(elapsed * 2.5 + b.phase) * 0.05;
+    }
+
+    // Animate Expanding Sonic Distraction Rings
+    for (let i = distractionRings.length - 1; i >= 0; i--) {
+      const dr = distractionRings[i];
+      dr.life -= dt;
+      const s = 1.0 + (1.5 - dr.life) * 5.5;
+      dr.mesh.scale.set(s, s, 1);
+      dr.mesh.material.opacity = Math.max(0, dr.life / 1.5);
+      if (dr.life <= 0) {
+        if (dr.mesh.parent) dr.mesh.parent.remove(dr.mesh);
+        distractionRings.splice(i, 1);
+      }
+    }
+
+    // Animate Night-Shift Store Manager Boss & Receipt Tornado in Wing 6
+    if (storeManagerBoss && storeManagerBoss.group) {
+      if (storeManagerBoss.defeated) {
+        storeManagerBoss.group.rotation.y += dt * 7.5;
+        for (let i = 0; i < receiptTornadoPapers.length; i++) {
+          const rp = receiptTornadoPapers[i];
+          const a = rp.angle + elapsed * 6.0;
+          const r = 1.4 + Math.sin(elapsed * 3.0 + i) * 0.35;
+          rp.mesh.position.set(Math.cos(a) * r, rp.height, Math.sin(a) * r);
+          rp.mesh.rotation.y = -a;
+        }
+      } else {
+        storeManagerBoss.group.position.x = Math.sin(elapsed * 1.3) * 8.5;
+        storeManagerBoss.group.rotation.y = Math.cos(elapsed * 1.3) > 0 ? Math.PI / 2 : -Math.PI / 2;
+      }
+    }
+
+    // Check if player has active stealth immunity (Flopped as Display Plushie, Box Disguise, or inside SMÅLAND Ball Pit!)
+    const stealthImmune = playingPlushie || boxDisguised || isPlayerInBallPit(playerPos);
+
     // Update Patrolling Silhouetted Chubby Human Erf Security Guards
     for (let i = 0; i < securityGuards.length; i++) {
       const g = securityGuards[i];
-      const targetWp = g.waypoints[g.wpIndex];
+      let targetWp = g.waypoints[g.wpIndex];
+      if (g.distractTimer > 0 && g.distractTarget) {
+        g.distractTimer = Math.max(0, g.distractTimer - dt);
+        targetWp = g.distractTarget;
+        if (g.distractTimer <= 0) g.distractTarget = null;
+      }
+
       const dx = targetWp.x - g.group.position.x;
       const dz = targetWp.z - g.group.position.z;
       const dist = Math.hypot(dx, dz);
 
       if (dist < 0.35) {
-        g.wpIndex = (g.wpIndex + 1) % g.waypoints.length;
+        if (!g.distractTarget) {
+          g.wpIndex = (g.wpIndex + 1) % g.waypoints.length;
+        }
       } else {
         const step = Math.min(dist, g.speed * dt);
         g.group.position.x += (dx / dist) * step;
@@ -1996,19 +2709,41 @@
       g.spotZ = g.group.position.z + Math.cos(g.rotY) * g.beamDist;
       g.floorRing.position.set(g.spotX, g.y + 0.04, g.spotZ);
 
-      // Check if player is spotted (either inside flashlight circle OR bumping the guard) AND not behind furniture cover!
-      if (playerPos && spotlightAlertCooldown <= 0 && Math.abs((playerPos.y || 0) - g.y) < 2.2) {
+      // 3-Stage Suspicion & Detection Check
+      let inSight = false;
+      if (playerPos && spotlightAlertCooldown <= 0 && Math.abs((playerPos.y || 0) - g.y) < 2.2 && !stealthImmune) {
         const dBeam = Math.hypot(playerPos.x - g.spotX, playerPos.z - g.spotZ);
         const dBody = Math.hypot(playerPos.x - g.group.position.x, playerPos.z - g.group.position.z);
         if (dBeam < g.beamRadius || dBody < 1.35) {
           const blocked = isLineOfSightBlocked(g.group.position.x, g.group.position.z, playerPos.x, playerPos.z, g.y);
           if (!blocked) {
-            spotlightAlertCooldown = 3.5;
-            if (typeof onSecuritySpottedCallback === 'function') {
-              onSecuritySpottedCallback(g, getActiveCheckpoint());
-            }
+            inSight = true;
           }
         }
+      }
+
+      if (inSight) {
+        // Fill suspicion over 0.85s (or instant if force-tested)
+        g.suspicion = Math.min(1.0, g.suspicion + dt * 1.4);
+        if (g.alertBadge) {
+          g.alertBadge.visible = true;
+          g.alertBadge.material.color.setHex(g.suspicion >= 0.85 ? 0xef4444 : 0xfacc15);
+        }
+        g.floorRing.material.color.setHex(g.suspicion >= 0.85 ? 0xef4444 : 0xfacc15);
+        if (g.suspicion >= 1.0) {
+          g.suspicion = 0;
+          spotlightAlertCooldown = 3.5;
+          if (typeof onSecuritySpottedCallback === 'function') {
+            onSecuritySpottedCallback(g, getActiveCheckpoint());
+          }
+        }
+      } else {
+        g.suspicion = Math.max(0, g.suspicion - dt * 1.2);
+        if (g.alertBadge) {
+          g.alertBadge.visible = g.distractTimer > 0 || g.suspicion > 0.1;
+          if (g.distractTimer > 0) g.alertBadge.material.color.setHex(0x38bdf8);
+        }
+        g.floorRing.material.color.setHex(0xef4444);
       }
     }
 
@@ -2025,6 +2760,20 @@
   window.BlahajSpawningPits = {
     build,
     getScene: () => spScene,
+    togglePlayPlushie,
+    isPlayingPlushie: () => playingPlushie,
+    toggleBoxDisguise,
+    isBoxDisguised: () => boxDisguised,
+    toggleFlatbedTrolley,
+    isRidingTrolley: () => ridingTrolley,
+    triggerDistraction,
+    isPlayerInBallPit,
+    toggleLightingJungleDimmer,
+    isLightingJungleDarkened: () => lightingJungleDarkened,
+    scanSelfCheckoutTerminal,
+    getStoreManagerBoss: () => storeManagerBoss,
+    unlockGoldenBlueprint,
+    getUnlockedGoldenBlueprints: () => Array.from(goldenBlueprintsUnlocked),
     setActive: (v) => { isActive = !!v; },
     isActive: () => isActive,
     getStart: () => ({ ...START_POS }),

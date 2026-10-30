@@ -4786,6 +4786,21 @@
   // SIGNATURE GAMEPLAY ACTIONS (BREB FOR BIRBS, NOSE BEEPS, RELICS, UPGRADES)
   // ==========================================================================
   function triggerFeedBreb() {
+    if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      const fwdX = Math.sin(player.rotY);
+      const fwdZ = Math.cos(player.rotY);
+      const dPos = { x: player.pos.x + fwdX * 5.0, y: player.pos.y, z: player.pos.z + fwdZ * 5.0 };
+      const luredName = window.BlahajSpawningPits.triggerDistraction(dPos);
+      CozyAudio.bistroChime();
+      spawnFloatingBurst(new THREE.Vector3(dPos.x, dPos.y + 0.5, dPos.z), 0x38bdf8, 14);
+      if (luredName) {
+        showToast('🔔 DISTRACTION TOSSED! (? GUARD LURED)', `${luredName} heard the noise and is waddling over to investigate!`);
+        addChatLog(`🔔🧆 Tossed a Swedish meatball distraction! <strong>${luredName}</strong> spotted a <strong>?</strong> and left his patrol post to investigate!`, 'lore');
+      } else {
+        showToast('🔔 DISTRACTION TOSSED!', 'Created a diversionary noise across the showroom floor!');
+      }
+      return;
+    }
     if (player.inventory && !player.inventory.hasItem('breb', 1)) {
       showToast('OUT OF BREB! 🥖', "Bake fresh golden loaves at Solomon's Stone Oven near the Tea House!");
       CozyAudio.bistroChime();
@@ -4846,6 +4861,17 @@
   }
 
   function triggerBeepNose() {
+    if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      const active = window.BlahajSpawningPits.togglePlayPlushie(player.mesh);
+      CozyAudio.shonk();
+      if (active) {
+        showToast('🏷️🦈 PLAYING DISPLAY PLUSHIE ($29.99)!', '100% Stealth Camouflage! Erf Guards will mistake you for store merchandise! [F] to stand up.');
+        addChatLog('🏷️🦈 <strong>Plushie Camouflage Active ($29.99 · Art. 303.735.88):</strong> You flopped limp like a store display plushie! Silhouetted Erf Guards will walk right past you.', 'cozy');
+      } else {
+        showToast('🦈 STOOD UP FROM DISPLAY PLUSHIE POSE!', 'Back on your fins!');
+      }
+      return;
+    }
     // 1. Play punchy boop animation and attack audio
     if (player.mesh && player.mesh.userData) {
       player.mesh.userData.boopTimer = 0.42;
@@ -6111,6 +6137,122 @@
     }
     if (item.kind === 'spawning_exit_portal') {
       exitSpawningPits();
+      return;
+    }
+    if (item.kind === 'spawning_ballpit_excavate') {
+      if (window.BlahajSpawningPits) {
+        window.BlahajSpawningPits.unlockGoldenBlueprint('skarhaj_ballpit');
+      }
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 2);
+      }
+      player.birbsFedCount += 2;
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xffda1a, 22);
+      renderBuilderToolbar();
+      showToast('🟡🔵 GOLDEN BLUEPRINT UNLOCKED: SMÅLAND BALL-PIT!', 'Unlocked SMÅLAND Ball-Pit Jacuzzi in Builder [C] + 2x SKÄRHAJ Flat-Pack Kits!');
+      addChatLog('🟡🔵 <strong>SMÅLAND Ball-Pit Excavated:</strong> Found the <strong>Golden Blueprint: SMÅLAND Ball-Pit Jacuzzi</strong> and <strong>+2x SKÄRHAJ Flat-Pack Kits</strong> at the bottom of the ball pit!', 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_toggle_box') {
+      if (window.BlahajSpawningPits) {
+        const active = window.BlahajSpawningPits.toggleBoxDisguise(player.mesh);
+        CozyAudio.allenBuild();
+        showToast(
+          active ? '📦🦈 CARDBOARD BOX DISGUISE EQUIPPED!' : '📦 REMOVED CARDBOARD BOX DISGUISE',
+          active ? 'Guards cannot spot you inside the SKÄRHAJ cardboard box!' : 'Stepped out of the cardboard box.'
+        );
+      }
+      return;
+    }
+    if (item.kind === 'spawning_door_3008') {
+      player.pos.set(item.targetX, item.targetY, item.targetZ);
+      if (player.mesh) player.mesh.position.copy(player.pos);
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0x38bdf8, 18);
+      showToast('🚪🌀 NON-EUCLIDEAN DOOR #3008!', 'Folded showroom space across Room 404!');
+      addChatLog('🚪🌀 <strong>Room 3008 Non-Euclidean Doorway:</strong> Stepped through a free-standing showroom door and emerged at the far end of Room 404!', 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_lighting_dimmer') {
+      if (window.BlahajSpawningPits) {
+        const darkened = window.BlahajSpawningPits.toggleLightingJungleDimmer();
+        if (player.inventory) player.inventory.addItem('flatpack_crate', 1);
+        player.carrotsKnockedCount += 2;
+        CozyAudio.portalChime();
+        spawnFloatingBurst(player.pos, 0xfde047, 20);
+        renderBuilderToolbar();
+        showToast(
+          darkened ? '💡🔦 LIGHTING JUNGLE BLACKOUT! (GUARDS BLINDED)' : '💡 LIGHTING JUNGLE RESTORED!',
+          'Room 404 Guard Flashlight Range reduced by 60% & unlocked MASKROS Starlight Chandelier Blueprint!'
+        );
+        addChatLog('💡✨ <strong>The Lighting Jungle:</strong> Flipped the Master Dimmer Switch, blinding the Room 404 guards and unlocking the <strong>Golden Blueprint: MASKROS Starlight Chandelier</strong>!', 'lore');
+      }
+      return;
+    }
+    if (item.kind === 'spawning_forklift_up') {
+      player.pos.set(-11.5, 5.2, -264.0);
+      player.velY = 0;
+      player.isGrounded = true;
+      if (player.mesh) player.mesh.position.copy(player.pos);
+      CozyAudio.allenBuild();
+      spawnFloatingBurst(player.pos, 0xfbbf24, 16);
+      showToast('🏗️⬆️ ELEVATED TO HIGH-RACK CATWALK (Y = +5.2m)!', 'Walk South along the top pallet rack to reach the Golden Archodect Vault!');
+      return;
+    }
+    if (item.kind === 'spawning_forklift_down') {
+      player.pos.set(-11.5, 0.0, -260.0);
+      player.velY = 0;
+      player.isGrounded = true;
+      if (player.mesh) player.mesh.position.copy(player.pos);
+      CozyAudio.allenBuild();
+      showToast('🏗️⬇️ LOWERED TO WAREHOUSE FLOOR', 'Back on Aisle 14 floor level.');
+      return;
+    }
+    if (item.kind === 'spawning_toggle_trolley') {
+      if (window.BlahajSpawningPits) {
+        const fpCount = player.inventory ? player.inventory.getCount('flatpack_crate') : 2;
+        const riding = window.BlahajSpawningPits.toggleFlatbedTrolley(player.mesh, fpCount);
+        CozyAudio.allenBuild();
+        showToast(
+          riding ? '🛒💨 RIDING RULLVAGN FLATBED TROLLEY (+65% SPEED)!' : '🛒 HOPPED OFF FLATBED TROLLEY',
+          riding ? 'All-wheel caster drift active! Stack flat-pack kits & zoom down Aisle 14!' : 'Dismounted trolley.'
+        );
+      }
+      return;
+    }
+    if (item.kind === 'spawning_highrack_vault') {
+      if (window.BlahajSpawningPits) {
+        window.BlahajSpawningPits.unlockGoldenBlueprint('skarhaj_bin_throne');
+      }
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 3);
+      }
+      player.trialPoints = (player.trialPoints || 0) + 1;
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xfbbf24, 26);
+      updateMetersUI();
+      renderBuilderToolbar();
+      showToast('👑📦 HIGH-RACK GOLDEN VAULT CLAIMED!', 'Unlocked BLÅHAJ-TRON Spawning-Bin Throne Blueprint, +3 Flat-Pack Kits & +1 Trial Point!');
+      addChatLog('👑📦 <strong>High-Rack Golden Vault:</strong> Claimed the <strong>BLÅHAJ-TRON Spawning-Bin Throne Blueprint</strong>, <strong>+3x SKÄRHAJ Flat-Pack Kits</strong>, and <strong>+1 Trial Point</strong>!', 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_checkout_scan') {
+      if (window.BlahajSpawningPits) {
+        const res = window.BlahajSpawningPits.scanSelfCheckoutTerminal(item.scanId);
+        CozyAudio.bistroChime();
+        spawnFloatingBurst(player.pos, 0x38bdf8, 16);
+        if (res.bossDefeated) {
+          if (player.inventory) player.inventory.addItem('flatpack_crate', 2);
+          player.trialPoints = (player.trialPoints || 0) + 1;
+          updateMetersUI();
+          renderBuilderToolbar();
+          showToast('🧾🌪️ OVERSEER INGVAR-9000 OVERLOADED! (+2 KITS & +1 TRIAL PT)', '“UNEXPECTED SHONK IN BAGGING AREA!” Receipt tornado spun out the Store Manager!');
+          addChatLog('🧾🌪️ <strong>Self-Checkout Overload (3/3):</strong> Scanned <em>“999x Midnight Köttbullar”</em>! A 50-meter tornado of receipt paper tangled <strong>Overseer Ingvar-9000</strong> (+2 Flat-Pack Kits & +1 Trial Pt)!', 'system');
+        } else {
+          showToast(`🧾 SCANNED "999x KÖTTBULLAR" (${res.scannedCount}/3)!`, 'Scan all 3 Self-Checkout Terminals to overload the Night-Shift Store Manager!');
+        }
+      }
       return;
     }
 
@@ -11896,8 +12038,8 @@
           const normDirZ = dirZ / len;
 
           const rawNext = {
-            x: player.pos.x + normDirX * speed * dt,
-            z: player.pos.z + normDirZ * speed * dt
+            x: player.pos.x + normDirX * speed * trolleyBoost * dt,
+            z: player.pos.z + normDirZ * speed * trolleyBoost * dt
           };
 
           const resolved = window.BlahajLaundromat.resolveMove(player.pos, rawNext, player.isGrounded, 0.35);
@@ -11975,7 +12117,11 @@
         }
         }
       } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+        const trolleyBoost = (window.BlahajSpawningPits.isRidingTrolley && window.BlahajSpawningPits.isRidingTrolley()) ? 1.65 : 1.0;
         if (isMoving) {
+          if (window.BlahajSpawningPits.isPlayingPlushie && window.BlahajSpawningPits.isPlayingPlushie()) {
+            window.BlahajSpawningPits.togglePlayPlushie(player.mesh, false);
+          }
           const fwdX = -Math.sin(camState.yaw);
           const fwdZ = -Math.cos(camState.yaw);
           const rightX = Math.cos(camState.yaw);

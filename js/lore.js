@@ -689,6 +689,42 @@ window.BLAHAJ_LORE = {
       isSnapModule: true,
       snapSize: 4.0,
       desc: 'Personal bioluminescent sea-cave grotto shrine with glowing crystal stalagmites, warm thermal tidepool & Sanctuary Charter stone!'
+    },
+    {
+      id: 'skarhaj_ballpit',
+      category: 'skarhaj_kits',
+      name: 'SMÅLAND Ball-Pit Jacuzzi',
+      icon: '🟡',
+      currency: 'birbs',
+      cost: 2,
+      costLabel: '2 Flat-Packs / Birbs',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: '4m×4m padded blue-and-yellow Swedish ball-pit filled with 45 colourful plastic spheres! Heisted from the Spawning Pits of Erf.'
+    },
+    {
+      id: 'skarhaj_chandelier',
+      category: 'skarhaj_kits',
+      name: 'MASKROS Starlight Chandelier',
+      icon: '💡',
+      currency: 'carrots',
+      cost: 2,
+      costLabel: '2 Flat-Packs / Carrots',
+      isSnapModule: true,
+      snapSize: 2.0,
+      desc: 'Radiant dandelion-starlight chandelier column from the Spawning Pits Lighting Jungle that bathes your Sanctuary Homestead in warm golden light.'
+    },
+    {
+      id: 'skarhaj_bin_throne',
+      category: 'skarhaj_kits',
+      name: 'BLÅHAJ-TRON Spawning-Bin Throne',
+      icon: '👑',
+      currency: 'trials',
+      cost: 1,
+      costLabel: '1 Flat-Pack / Trial Pt',
+      isSnapModule: true,
+      snapSize: 4.0,
+      desc: 'Commemorative gilded Wire Spawning Bin #303.735.88 overflowing with royal velvet cushions and mini plush Blåhajs!'
     }
   ],
 
