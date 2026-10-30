@@ -5325,22 +5325,23 @@
             await window.BlahajSpawningPits.build();
             window.BlahajSpawningPits.setActive(true);
             window.BlahajSpawningPits.setCallbacks({
-              onSecuritySpotted: () => {
-                const start = window.BlahajSpawningPits.getStart();
-                player.pos.set(start.x, start.y, start.z);
-                player.rotY = start.rotY;
+              onSecuritySpotted: (guard, checkpoint) => {
+                const cp = checkpoint || (window.BlahajSpawningPits.getActiveCheckpoint && window.BlahajSpawningPits.getActiveCheckpoint()) || window.BlahajSpawningPits.getStart();
+                player.pos.set(cp.x, cp.y, cp.z);
+                player.rotY = cp.rotY || Math.PI;
                 if (player.mesh) {
                   player.mesh.position.copy(player.pos);
                   player.mesh.rotation.y = player.rotY;
                 }
                 CozyAudio.shonk();
-                spawnFloatingBurst(player.pos, 0xef4444, 14);
+                spawnFloatingBurst(player.pos, 0xef4444, 16);
+                const gName = (guard && guard.name) ? guard.name : 'Erf Night-Shift Guard';
                 showToast(
-                  '🚨 NIGHT-SHIFT SECURITY SPOTLIGHT!',
-                  '“Attention shoppers: A plush shark has escaped Display Bin #303.735.88!” Gently returned to the Spawning Bin!'
+                  `🚨 SPOTTED BY ${gName.toUpperCase()}!`,
+                  `Returned to Checkpoint: ${cp.name}! Hide behind sofas, KALLAX shelves & wardrobes to block flashlight beams!`
                 );
                 addChatLog(
-                  '🔦🚨 <strong>Erf Store Intercom:</strong> <em>“Attention Night-Shift: A Blåhaj plush has escaped Display Bin #7!”</em> You were gently placed back into the Wire Spawning Bin—use the KALLAX shelves for cover!',
+                  `🔦🚨 <strong>Erf Store Intercom (${gName}):</strong> <em>“Code 303-Shonk! Plush shark spotted in the aisle!”</em> You slipped back to <strong>${cp.name}</strong>—use the furniture & KALLAX dividers to block their flashlight cone!`,
                   'system'
                 );
               },
@@ -6024,6 +6025,53 @@
       renderBuilderToolbar();
       showToast('INGVAR’S MEASURING STATION! 📏📦', 'Collected Ingvar’s Brass Measuring Tape & +1 SKÄRHAJ Flat-Pack Kit!');
       addChatLog('📏📦 <strong>Showroom Measuring Station:</strong> Collected <strong>Ingvar’s Brass Measuring Tape (📏)</strong> and <strong>+1x SKÄRHAJ Flat-Pack Kit</strong>!', 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_hermes_shortcut') {
+      openDialogueModal({
+        speaker: 'Hermes’s Between-Lantern',
+        role: 'MEGASTORE LABYRINTH SHORTCUT BEACON',
+        portrait: 'assets/gallery/Hermes.png',
+        text: '“The IKEA Spawning Pits stretch 426 meters across 6 surreal wings and 2 vertical decks! You can sneak the whole labyrinth on foot past the silhouetted Erf guards, or fold the Between-space to jump straight to a lower wing:”',
+        actions: [
+          {
+            label: '🎢 Warp to Wing 3: The Great Moving Escalator Atrium (Level 2 → Level 1)',
+            className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              player.pos.set(-4.5, 6.0, -118.0);
+              player.rotY = Math.PI;
+              camState.yaw = 0;
+              CozyAudio.portalChime();
+              showToast('WARPED TO ESCALATOR ATRIUM! 🎢', 'Step onto the Left Moving Escalator to ride down to Level 1!');
+            }
+          },
+          {
+            label: '🚪 Warp to Wing 4: Room 404 Surreal Wardrobe Maze (Level 1)',
+            className: 'btn-accent',
+            onClick: () => {
+              closeDialogueModal();
+              player.pos.set(0.0, 0.0, -164.0);
+              player.rotY = Math.PI;
+              camState.yaw = 0;
+              CozyAudio.portalChime();
+              showToast('WARPED TO ROOM 404: LÄBYRINT! 🚪🌀', 'Follow the yellow arrows through the open purple-lit PAX wardrobes!');
+            }
+          },
+          {
+            label: '📦 Warp to Wing 5: Self-Serve Flat-Pack Warehouse (Aisles 12–18)',
+            className: 'btn-accent',
+            onClick: () => {
+              closeDialogueModal();
+              player.pos.set(0.0, 0.0, -258.0);
+              player.rotY = Math.PI;
+              camState.yaw = 0;
+              CozyAudio.portalChime();
+              showToast('WARPED TO WAREHOUSE AISLE 14! 📦🔧', 'Collect the 6 glowing 3D SKÄRHAJ Flat-Pack Kits on the pallets!');
+            }
+          }
+        ]
+      });
       return;
     }
     if (item.kind === 'spawning_pickup_flatpack') {
@@ -11943,7 +11991,7 @@
             x: player.pos.x + normDirX * speed * dt,
             z: player.pos.z + normDirZ * speed * dt
           };
-          const resolved = window.BlahajSpawningPits.resolveMove(player.pos, rawNext, player.isGrounded, 0.42);
+          const resolved = window.BlahajSpawningPits.resolveMove(player.pos, rawNext, player.isGrounded, 0.95);
           if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
             player.pos.x = resolved.x;
             player.pos.z = resolved.z;
@@ -12565,9 +12613,9 @@
         camY = Math.min(maxCamY, Math.max(minCamY, camY));
       }
     } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
-      const ceilY = window.BlahajSpawningPits.getCeilingY() || 8.4;
-      camX = Math.max(-15.1, Math.min(15.1, camX));
-      camZ = Math.max(-34.1, Math.min(26.1, camZ));
+      const ceilY = window.BlahajSpawningPits.getCeilingY(player.pos.z) || 15.0;
+      camX = Math.max(-22.8, Math.min(22.8, camX));
+      camZ = Math.max(-388.8, Math.min(34.8, camZ));
       const floorAtCam = window.BlahajSpawningPits.getFloorHeight(camX, camZ, player.pos.y);
       camY = Math.min(ceilY - 0.5, Math.max(floorAtCam + 0.65, camY));
     } else if (currentZone === 'volleyball') {
