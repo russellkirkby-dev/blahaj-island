@@ -65,6 +65,15 @@
           </button>
         </div>
 
+        <!-- Rite of Detagging / Custom Shark Creator Banner -->
+        <button type="button" id="btn-open-detagging-gateway" class="btn-detag-gateway" title="Perform the Rite of Detagging: Snip your factory barcode tag, name your shark & customize plush colors">
+          <span class="detag-gateway-icon">✂️🏷️</span>
+          <span class="detag-gateway-text">
+            <strong>The Rite of Detagging: Create &amp; Name Your Shark</strong>
+            <small>Order of the Sacred Scissors · Customize Fleece, Scarf &amp; True Name</small>
+          </span>
+        </button>
+
         <!-- Primary Action Button: Embark into Game (Loads browser save or google cloud save) -->
         <button type="button" id="btn-enter-game" class="btn-enter-game" title="Embark onto Blåhaj Island">
           <span class="enter-main" id="launch-embark-text">EMBARK AS GUEST (LOAD BROWSER SAVE)</span>
@@ -156,6 +165,19 @@
             <span>🦈 Character Sheet &amp; Inventory</span>
             <kbd>K</kbd>
           </button>
+
+          <!-- Founder Archodect Quick-Power Pill (Visible to Russell & Helen) -->
+          <div class="hud-archodect-pill hidden" id="hud-archodect-pill" title="Founder Archodect Privileges Active (Russell & Helen)">
+            <div class="archodect-pill-header">
+              <span>👑 FOUNDER ARCHODECT</span>
+              <span class="archodect-sub">Sacred Four Unlocked</span>
+            </div>
+            <div class="archodect-quick-btns">
+              <button type="button" class="btn-archodect-power" id="btn-arch-fireworks" title="Launch Grand Fireworks Barrage">🎆 Fireworks</button>
+              <button type="button" class="btn-archodect-power" id="btn-arch-mend" title="Mend All 6 Great Seam Rifts">🪡 Mend Seams</button>
+              <button type="button" class="btn-archodect-power" id="btn-arch-detag" title="Open Rite of Detagging & Book of Names">✂️ Rite</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -574,6 +596,13 @@
           <span class="slot-power">Seam Weaver</span>
         </button>
 
+        <button class="action-slot shark-slot" data-shark="custom" id="slot-5" title="[5] Play as Your Custom Named Shark (Rite of Detagging) — Press [C] to Build!">
+          <span class="slot-key">5</span>
+          <img src="assets/gallery/Names.png" alt="Custom Shark" />
+          <span class="slot-name">Finley</span>
+          <span class="slot-power">Detagged [5]</span>
+        </button>
+
         <div class="bar-divider"></div>
 
         <!-- Signature Actions -->
@@ -707,6 +736,13 @@
             <span class="cs-tab-sub">Seam Weaver</span>
           </div>
         </button>
+        <button type="button" class="cs-tab" data-shark="custom">
+          <img src="assets/gallery/Names.png" alt="Custom Shark" />
+          <div class="cs-tab-info">
+            <span class="cs-tab-name">Finley</span>
+            <span class="cs-tab-sub">Detagged [5]</span>
+          </div>
+        </button>
       </div>
 
       <!-- MAIN TWO-COLUMN BODY -->
@@ -789,6 +825,9 @@
                 <span>Show Character Headgear / Goggles / Crystal</span>
               </label>
             </div>
+            <button type="button" class="btn-groom-cs" id="btn-open-detagging-charsheet" style="margin-top:8px; background: linear-gradient(135deg, #0058a3, #1d4ed8); border-color: #ffda1a; color: #fff;">
+              ✂️ Rite of Detagging (Customize Shark &amp; Name)
+            </button>
           </div>
         </div>
 
@@ -1171,8 +1210,35 @@
               <input type="email" id="quick-connect-email" value="russellkirkby@gmail.com" placeholder="name@gmail.com" />
             </div>
             <button type="button" id="btn-quick-connect-submit" class="btn-primary-action">
-              Connect Account as Russell ✨
+              Connect Account &amp; Sync Profile ✨
             </button>
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              <button type="button" id="btn-preset-russell" class="btn-secondary-action" style="flex:1; font-size:0.78rem;">
+                👑 Founder: Russell (russellkirkby@gmail.com)
+              </button>
+              <button type="button" id="btn-preset-helen" class="btn-secondary-action" style="flex:1; font-size:0.78rem;">
+                👑 Founder: Helen (helennhieu@gmail.com)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Option 1B: Recoverable Founder Archodect Passcode -->
+        <div class="connect-option-card founder-passcode-card">
+          <div class="option-header">
+            <span class="option-tag">CREATOR PRIVILEGE · RECOVERABLE</span>
+            <h3>👑 Founder Archodect Key (Russell &amp; Helen)</h3>
+          </div>
+          <p class="founder-archodect-status-text">🔒 <strong>Pilgrim Explorer Mode</strong> — Sacred Four are Revered NPCs</p>
+          <p style="font-size:0.8rem; color:#cbd5e1; margin-top:4px;">
+            Hermes, Solomon, Hiram &amp; Nimue are reserved for Creators <strong>Russell</strong> &amp; <strong>Helen</strong>. Sign in with your Gmail above, or enter the recoverable Founder Passcode:
+          </p>
+          <div class="oauth-client-form" style="margin-top:8px;">
+            <input type="text" id="input-founder-passcode" placeholder="DIFFERENT-SHORES-SAME-OCEAN" />
+            <button type="button" id="btn-verify-founder-passcode" class="btn-primary-action" style="width:auto; padding:8px 16px;">Unlock 👑</button>
+          </div>
+          <div id="founder-passcode-feedback" style="font-size:0.78rem; margin-top:6px; color:#94a3b8;">
+            💡 <em>Recoverable Lore Hint:</em> The 4-word motto of the Endless Pier &amp; Royal Ceremony (<code>DIFFERENT-SHORES-SAME-OCEAN</code>).
           </div>
         </div>
 
@@ -1208,6 +1274,144 @@
           <button type="button" id="btn-google-modal-guest" class="btn-guest-action">
             Continue with Browser Save
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4B. THE RITE OF DETAGGING & CUSTOM SHARK CREATOR MODAL -->
+  <div class="modal-backdrop hidden" id="modal-rite-of-detagging">
+    <div class="modal-card detagging-modal-card">
+      <button class="modal-close-x" id="close-rite-of-detagging" title="Close [Esc]">✕</button>
+
+      <div class="detagging-header">
+        <span class="portal-badge">✂️ THE ORDER OF THE SACRED SCISSORS · CANON INITIATION</span>
+        <h2>The Rite of Detagging &amp; Book of Newly Named Sharks</h2>
+        <p>“Liberated from the IKEA Spawning Pits on Erf — <em>A Tag Removed · A Name Received · A Shark Reborn</em>”</p>
+      </div>
+
+      <div class="detagging-body-grid">
+        <!-- LEFT COLUMN: TAPESTRY, FACTORY BARCODE TAG & BOOK OF NAMES -->
+        <div class="detag-col-left">
+          <div class="detag-tapestry-Banner">
+            <img src="assets/gallery/Names.png" alt="The Rite of Detagging Tapestry" class="detag-tapestry-img" />
+            <div class="detag-tapestry-caption">
+              <span>📜 Canon Tapestry: <strong>The Rite of Detagging</strong></span>
+              <span id="detag-tag-status-badge" class="detag-status-pill unclipped">🏷️ FACTORY TAG ATTACHED</span>
+            </div>
+          </div>
+
+          <!-- Interactive Factory Barcode Tag Card -->
+          <div class="detag-barcode-card" id="detag-barcode-card">
+            <div class="ikea-tag-header">
+              <span class="ikea-logo-pill">BLÅHAJ · ERF SPAWNING PITS</span>
+              <span class="ikea-art-num">ART. 303.735.88</span>
+            </div>
+            <div class="ikea-tag-body">
+              <div class="barcode-stripes-visual" aria-hidden="true">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="ikea-tag-meta">
+                <strong>100cm Soft Plush Shark · Machine Wash 40°C Delicate</strong>
+                <span>Origin: Yellow-and-Blue Labyrinth of Erf · Awaiting Sacred Shears</span>
+              </div>
+            </div>
+            <button type="button" id="btn-detag-snip-now" class="btn-snip-barcode-tag">
+              ✂️ Snip Factory Tag &amp; Inscribe True Name!
+            </button>
+          </div>
+
+          <!-- The Book of Newly Named Sharks -->
+          <div class="detag-book-card">
+            <div class="detag-book-header">
+              <span>📖 The Book of Newly Named Sharks</span>
+              <small>Sacred Ledger of Blåhaj Island</small>
+            </div>
+            <div class="detag-book-list" id="detag-book-of-names-list">
+              <!-- Populated by saveSystem.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: SHARK NAME, TITLE, PLUSH FLEECE SWATCHES & KEEPSAKE -->
+        <div class="detag-col-right">
+          <div class="detag-form-group">
+            <label for="detag-shark-name">🦈 Your Shark's True Name</label>
+            <input type="text" id="detag-shark-name" maxlength="28" value="Finley" placeholder="Enter your shark's chosen name…" />
+          </div>
+
+          <div class="detag-form-group">
+            <label for="detag-shark-title">📜 Archipelago Title &amp; Calling</label>
+            <select id="detag-shark-title">
+              <option value="Initiate of the Sacred Scissors">Initiate of the Sacred Scissors</option>
+              <option value="Refugee of the IKEA Spawning Pits">Refugee of the IKEA Spawning Pits</option>
+              <option value="Apprentice of the Sacred Allen Key">Apprentice of the Sacred Allen Key</option>
+              <option value="Navigator of the Water That Doth Not Wet">Navigator of the Water That Doth Not Wet</option>
+              <option value="Connoisseur of Spherical Foods">Connoisseur of Spherical Foods</option>
+              <option value="Guardian of the Great Seam">Guardian of the Great Seam</option>
+            </select>
+          </div>
+
+          <div class="detag-form-group">
+            <label>🎨 Dorsal Plush Fleece Color</label>
+            <div class="detag-swatch-row">
+              <button type="button" class="detag-swatch detag-swatch-body active" data-color="2578c4" style="background:#2578c4;" title="Classic Spawning-Pit Blue"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="1d4ed8" style="background:#1d4ed8;" title="Deep Ultramarine"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="d97b96" style="background:#d97b96;" title="Rosy Pink Guard"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="0d9488" style="background:#0d9488;" title="Seafoam Lagoon"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="7c3aed" style="background:#7c3aed;" title="Starlight Violet"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="d97706" style="background:#d97706;" title="Sunbeam Amber"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="be123c" style="background:#be123c;" title="Ruby Berry"></button>
+              <button type="button" class="detag-swatch detag-swatch-body" data-color="334155" style="background:#334155;" title="Volcanic Slate"></button>
+            </div>
+          </div>
+
+          <div class="detag-form-group">
+            <label>🤍 Ventral Belly Fleece Color</label>
+            <div class="detag-swatch-row">
+              <button type="button" class="detag-swatch detag-swatch-belly active" data-color="f7f2e6" style="background:#f7f2e6;" title="Warm Cream"></button>
+              <button type="button" class="detag-swatch detag-swatch-belly" data-color="ffffff" style="background:#ffffff;" title="Cloud White"></button>
+              <button type="button" class="detag-swatch detag-swatch-belly" data-color="fce7f3" style="background:#fce7f3;" title="Pearl Rose"></button>
+              <button type="button" class="detag-swatch detag-swatch-belly" data-color="fef3c7" style="background:#fef3c7;" title="Starlight Cream"></button>
+            </div>
+          </div>
+
+          <div class="detag-form-group">
+            <label>🧣 Hand-Knit Neck Scarf Color</label>
+            <div class="detag-swatch-row">
+              <button type="button" class="detag-swatch detag-swatch-scarf active" data-color="d97706" style="background:#d97706;" title="Ochre Gold"></button>
+              <button type="button" class="detag-swatch detag-swatch-scarf" data-color="dc2626" style="background:#dc2626;" title="Cozy Crimson"></button>
+              <button type="button" class="detag-swatch detag-swatch-scarf" data-color="6d28d9" style="background:#6d28d9;" title="Royal Violet"></button>
+              <button type="button" class="detag-swatch detag-swatch-scarf" data-color="059669" style="background:#059669;" title="Emerald Moss"></button>
+              <button type="button" class="detag-swatch detag-swatch-scarf" data-color="1e3a8a" style="background:#1e3a8a;" title="Navy Mariner"></button>
+              <button type="button" class="detag-swatch detag-swatch-scarf" data-color="db2777" style="background:#db2777;" title="Berry Ribbon"></button>
+            </div>
+          </div>
+
+          <div class="detag-form-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label for="detag-plumpness-slider">🧸 Stuffing Chonk &amp; Plumpness</label>
+              <strong id="detag-plumpness-val" style="color:#38bdf8; font-size:0.82rem;">105% Plush Chonk</strong>
+            </div>
+            <input type="range" id="detag-plumpness-slider" min="90" max="126" step="1" value="105" class="mange-range" />
+          </div>
+
+          <div class="detag-form-group">
+            <label for="detag-keepsake-select">🧢 Signature Keepsake &amp; 3D Gear</label>
+            <select id="detag-keepsake-select">
+              <option value="flatpack_hat">🧢 Flat-Pack Builder Cap &amp; Apprentice Hex Key</option>
+              <option value="scissors_mitre">✂️ Sacred Scissors Coronet &amp; Golden Shears</option>
+              <option value="grotto_goggles">🥽 Sea-Cave Diver Goggles &amp; Pearl Lantern</option>
+              <option value="chef_beret">🥐 Spherical Bistro Beret</option>
+              <option value="tag_unclipped">🏷️ Keep Factory Barcode Tag Unclipped on Fin</option>
+            </select>
+          </div>
+
+          <div class="detag-footer-actions">
+            <button type="button" id="btn-detag-enter-island" class="btn-primary-action" style="width:100%; font-size:0.95rem; padding:12px;">
+              🦈 Embark onto Blåhaj Island as Your Named Shark!
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1586,6 +1790,25 @@
             </div>
             <div class="save-slots-grid" id="passport-slots-grid">
               <!-- Dynamically populated with Slot 1, Slot 2, Slot 3 -->
+            </div>
+          </div>
+
+          <!-- Founder Archodect & Rite of Detagging Section -->
+          <div class="passport-section-card">
+            <div class="section-card-header">
+              <h4>👑 Founder Archodect Key &amp; Rite of Detagging</h4>
+              <span class="section-card-hint">Creator privileges for Russell &amp; Helen · Custom Shark Naming</span>
+            </div>
+            <div class="section-card-body">
+              <p class="founder-archodect-status-text" style="margin-bottom:8px; font-size:0.85rem;">🔒 Pilgrim Explorer Mode</p>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                <input type="text" id="input-passport-founder-passcode" placeholder="Enter Founder Passcode (DIFFERENT-SHORES-SAME-OCEAN)" style="flex:1; min-width:220px; padding:7px 10px; border-radius:8px; border:1px solid rgba(148,163,184,0.3); background:rgba(15,23,42,0.8); color:#f8fafc;" />
+                <button type="button" class="btn-passport-action" id="btn-passport-verify-founder">👑 Unlock Founder Archodect</button>
+                <button type="button" class="btn-passport-action" id="btn-open-detagging-passport">✂️ Open Rite of Detagging</button>
+              </div>
+              <div id="passport-founder-feedback" style="font-size:0.76rem; color:#94a3b8;">
+                Recoverable Hint for Russell &amp; Helen: <code>DIFFERENT-SHORES-SAME-OCEAN</code>
+              </div>
             </div>
           </div>
 

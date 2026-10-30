@@ -133,6 +133,45 @@ window.BlahajInventory = (function () {
       canUse: false,
       canHold: true
     },
+    retired_tag: {
+      id: 'retired_tag',
+      name: 'Retired Spawning-Pit Tag',
+      icon: '🏷️',
+      rarity: 'legendary',
+      category: 'relic',
+      maxStack: 1,
+      type: 'Sacred Liberation Souvenir · Art. 303.735.88',
+      desc: 'Your original white IKEA factory barcode tag snipped by the Order of the Sacred Scissors during the Rite of Detagging. Proof that you are no longer a numbered commodity from Erf, but a Named Shark of Blåhaj Island.',
+      stats: '+100% Identity Coherence · Unlocks Custom Builder Privileges',
+      canUse: false,
+      canHold: true
+    },
+    ingvar_tape: {
+      id: 'ingvar_tape',
+      name: 'Ingvar\'s Brass Measuring Tape',
+      icon: '📏',
+      rarity: 'epic',
+      category: 'tools',
+      maxStack: 1,
+      type: 'Sacred Architectural Ribbon · Spawning Pits of Erf',
+      desc: 'Sacred paper-and-brass measuring ribbon recovered from the IKEA Spawning Pits on Erf. Used by Hiram and Detagged Builders to measure geological harmony and snap flat-pack modular structures.',
+      stats: '+25% Snap Precision · Flat-Pack Alignment',
+      canUse: false,
+      canHold: true
+    },
+    sacred_scissors: {
+      id: 'sacred_scissors',
+      name: 'Golden Scissors of the Order',
+      icon: '✂️',
+      rarity: 'epic',
+      category: 'relic',
+      maxStack: 1,
+      type: 'Ceremonial Relic · Order of the Sacred Scissors',
+      desc: 'Gleaming ceremonial shears blessed by the Order of the Sacred Scissors: "A Tag Removed · A Name Received · A Shark Reborn."',
+      stats: 'Rite of Detagging Emblem · +15% Plush Pride',
+      canUse: false,
+      canHold: true
+    },
     seam_needle: {
       id: 'seam_needle',
       name: 'Golden Seam Needle',

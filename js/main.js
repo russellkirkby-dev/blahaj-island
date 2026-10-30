@@ -1721,7 +1721,8 @@
     hermes: { mange: 0.85, relic: true, headgear: true },
     solomon: { mange: 0.45, relic: true, headgear: true },
     hiram: { mange: 0.65, relic: true, headgear: true },
-    nimue: { mange: 0.25, relic: true, headgear: true }
+    nimue: { mange: 0.25, relic: true, headgear: true },
+    custom: { mange: 0.10, relic: true, headgear: true }
   };
 
   function formatMangeLabel(pct) {
@@ -1851,6 +1852,13 @@
       relic: { icon: '💎', name: 'Star Crystal' },
       satchel: { icon: '📜', name: 'Scroll Case' },
       trinket: { icon: '✨', name: 'Golden Needle' }
+    },
+    custom: {
+      head: { icon: '✂️', name: 'Detagged Plush Crown' },
+      neck: { icon: '🧣', name: 'Hand-Knit Archipelago Scarf' },
+      relic: { icon: '📏', name: 'Ingvar’s Brass Tape & Hex Key' },
+      satchel: { icon: '🎒', name: 'Spawning-Pit Satchel' },
+      trinket: { icon: '🏷️', name: 'Retired Barcode Tag (303.735.88)' }
     }
   };
 
@@ -2082,6 +2090,9 @@
     steamed_algae_bun: { name: 'Steamed Algae Bun', icon: '🥟', type: 'food', isFoodOrDrink: true },
     volcanic_sorbet: { name: 'Volcanic Sorbet Sphere', icon: '🍧', type: 'food', isFoodOrDrink: true },
     hex_key: { name: 'Hiram’s Hex Key', icon: '🔧', type: 'tool', isFoodOrDrink: false },
+    retired_tag: { name: 'Retired Spawning-Pit Tag', icon: '🏷️', type: 'relic', isFoodOrDrink: false },
+    ingvar_tape: { name: "Ingvar's Brass Measuring Tape", icon: '📏', type: 'tool', isFoodOrDrink: false },
+    sacred_scissors: { name: 'Golden Scissors of the Order', icon: '✂️', type: 'relic', isFoodOrDrink: false },
     party_favor: { name: 'Birthday Party Cracker', icon: '🎉', type: 'toy', isFoodOrDrink: false },
     lantern: { name: 'Ghost Lantern', icon: '🏮', type: 'tool', isFoodOrDrink: false },
     figurine: { name: 'Carrot Figurine', icon: '🥕', type: 'toy', isFoodOrDrink: false }
@@ -2741,8 +2752,15 @@
     await yieldFrame();
 
     // 2. Spawn High-Polygon Player Shark & All Island Characters
-    spawnPlayerShark('hermes');
+    if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.getCustomSharkConfig === 'function') {
+      window.BlahajSaveSystem.getCustomSharkConfig();
+    }
+    const initialBootShark = (window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect()) ? 'hermes' : 'custom';
+    spawnPlayerShark(initialBootShark, true);
     spawnWorldCharacters();
+    if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.syncFounderAndCustomSharkUI === 'function') {
+      window.BlahajSaveSystem.syncFounderAndCustomSharkUI();
+    }
 
     if (window.BlahajEnemies && typeof window.BlahajEnemies.init === 'function') {
       window.BlahajEnemies.init(scene, worldApi);
@@ -2854,7 +2872,34 @@
     }
   }
 
-  function spawnPlayerShark(sharkId) {
+  function canUseBuilderMode(sId = player.sharkId) {
+    return sId === 'hiram' || sId === 'custom' || !!(window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect());
+  }
+
+  function spawnPlayerShark(sharkId, forceBypass = false) {
+    const isSacredFour = ['hermes', 'solomon', 'hiram', 'nimue'].includes(sharkId);
+    const isFounder = !!(window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect());
+    if (isSacredFour && !isFounder && !forceBypass) {
+      CozyAudio.shonk();
+      showToast(
+        '👑 RESERVED FOR FOUNDERS RUSSELL & HELEN',
+        'Hermes, Solomon, Hiram & Nimue are Revered Founder NPCs! Play your Custom Shark [5] or enter the Founder Passcode in Passport/Account.'
+      );
+      addChatLog(
+        '👑 <strong>THE SACRED FOUR:</strong> Hermes, Solomon, Hiram & Nimue are Revered Living NPCs reserved for Creators Russell & Helen. Press <strong>[5]</strong> to play your Custom Named Blåhaj!',
+        'lore'
+      );
+      if (!player.mesh) {
+        sharkId = 'custom';
+      } else {
+        return;
+      }
+    }
+
+    if (sharkId === 'custom' && window.BlahajSaveSystem && typeof window.BlahajSaveSystem.getCustomSharkConfig === 'function') {
+      window.BlahajSaveSystem.getCustomSharkConfig();
+    }
+
     const cfg = LORE.sharks[sharkId];
     if (!cfg) return;
 
@@ -2908,11 +2953,11 @@
 
     const slotCSub = document.getElementById('slot-c-sub');
     if (slotCSub) {
-      slotCSub.textContent = sharkId === 'hiram' ? 'Ready [C]' : 'Need Hiram [3]';
+      slotCSub.textContent = canUseBuilderMode(sharkId) ? 'Ready [C]' : 'Need Builder [C]';
     }
 
-    // If switching away from Hiram while Master Builder Mode is open, close Builder Mode cleanly
-    if (sharkId !== 'hiram' && builderState.active) {
+    // If switching away from a builder-capable shark while Master Builder Mode is open, close Builder Mode cleanly
+    if (!canUseBuilderMode(sharkId) && builderState.active) {
       setBuilderMode(false);
     } else if (sharkId === 'hiram') {
       showToast('HIRAM THE BUILDER ACTIVE 🔧', 'Press [C] to open Hiram’s Categorized Master Builder Toolbar!');
@@ -2928,6 +2973,7 @@
     const labelsRoot = document.getElementById('world-labels');
 
     Object.values(LORE.sharks).forEach((sCfg) => {
+      if (sCfg.id === 'custom' || sCfg.isCustomShark) return;
       const mesh = window.BlahajModels.createPlushShark(sCfg, getSharkMange(sCfg.id));
       const hy = worldApi.getGroundAndStructureHeight(sCfg.homePos.x, sCfg.homePos.z);
       mesh.position.set(sCfg.homePos.x, hy, sCfg.homePos.z);
@@ -2935,7 +2981,7 @@
       mesh.visible = sCfg.id !== player.sharkId;
       scene.add(mesh);
 
-      const labelEl = createWorldLabel(labelsRoot, sCfg.name, 'THE FOUR BLUE SHARKS');
+      const labelEl = createWorldLabel(labelsRoot, sCfg.name, 'REVERED FOUNDER · THE SACRED FOUR');
       if (sCfg.id === player.sharkId) labelEl.style.display = 'none';
 
       worldActors.push({
@@ -3515,6 +3561,16 @@
           closeIslandMap();
           return;
         }
+        const detagModal = document.getElementById('modal-rite-of-detagging');
+        if (detagModal && !detagModal.classList.contains('hidden')) {
+          detagModal.classList.add('hidden');
+          return;
+        }
+        const gConnectModal = document.getElementById('modal-google-connect');
+        if (gConnectModal && !gConnectModal.classList.contains('hidden')) {
+          gConnectModal.classList.add('hidden');
+          return;
+        }
         const uModal = document.getElementById('upgrades-modal');
         if (uModal && !uModal.classList.contains('hidden')) {
           uModal.classList.add('hidden');
@@ -3588,6 +3644,7 @@
       if (k === '2') spawnPlayerShark('solomon');
       if (k === '3') spawnPlayerShark('hiram');
       if (k === '4') spawnPlayerShark('nimue');
+      if (k === '5') spawnPlayerShark('custom');
 
       if (k === 'c') toggleBuilderMode();
       if (k === 'v') {
@@ -3724,11 +3781,17 @@
     const isSetOpen = setModal && !setModal.classList.contains('hidden');
     const travelModal = document.getElementById('modal-fast-travel');
     const isTravelOpen = travelModal && !travelModal.classList.contains('hidden');
+    const detagModal = document.getElementById('modal-rite-of-detagging');
+    const isDetagOpen = detagModal && !detagModal.classList.contains('hidden');
+    const googleModal = document.getElementById('modal-google-connect');
+    const isGoogleOpen = googleModal && !googleModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
       isSetOpen ||
       isTravelOpen ||
+      isDetagOpen ||
+      isGoogleOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -4103,7 +4166,7 @@
   }
 
   function toggleBuilderMode() {
-    if (player.sharkId !== 'hiram') {
+    if (!canUseBuilderMode(player.sharkId)) {
       // Must switch to Hiram [3] to become Master Builder!
       CozyAudio.shonk();
       openDialogueModal({
@@ -4129,7 +4192,7 @@
   }
 
   function setBuilderMode(active) {
-    if (active && player.sharkId !== 'hiram') return;
+    if (active && !canUseBuilderMode(player.sharkId)) return;
     builderState.active = active;
     const panel = document.getElementById('builder-panel');
     const slotC = document.getElementById('slot-c');
@@ -4230,7 +4293,7 @@
   }
 
   function updateBuilderPreview(elapsed) {
-    if (!builderState.active || player.sharkId !== 'hiram') {
+    if (!builderState.active || !canUseBuilderMode(player.sharkId)) {
       if (builderState.previewMesh) {
         scene.remove(builderState.previewMesh);
         builderState.previewMesh = null;
@@ -4269,7 +4332,7 @@
   }
 
   function placeActiveBlueprint() {
-    if (!builderState.active || player.sharkId !== 'hiram') return false;
+    if (!builderState.active || !canUseBuilderMode(player.sharkId)) return false;
     const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
     if (!spec) return false;
 
@@ -4648,6 +4711,16 @@
       const mended = adjustSharkMange(player.sharkId, -0.15, 'Needle of Restoration');
       showToast('NEEDLE OF RESTORATION 🪡', `Nimue stitches loose seams & grooms fleece! (-15% Mange · Now ${Math.round(mended * 100)}%)`);
       addChatLog(`🪡 <strong>Nimue</strong> draws the Golden Needle, mending frayed seams (Mange: ${Math.round(mended * 100)}%).`, 'system');
+    } else if (player.sharkId === 'custom') {
+      spawnFloatingBurst(player.pos, 0xfbbf24, 16);
+      spawnFloatingBurst(player.pos, 0x38bdf8, 12);
+      player.warmth = Math.min(100, player.warmth + 15);
+      player.teaComfort = Math.min(100, player.teaComfort + 15);
+      updateMetersUI();
+      toggleBuilderMode();
+      const cName = (LORE.sharks.custom && LORE.sharks.custom.name) || 'Custom Blåhaj';
+      showToast('SACRED SCISSORS & HEX KEY ✂️🔧', `${cName} brandishes the Retired Tag & Hex Key, opening Master Builder Mode!`);
+      addChatLog(`✂️🔧 <strong>${cName}</strong> invokes the Order of the Sacred Scissors & Ingvar's Measuring Tape!`, 'system');
     }
 
     window.BlahajNetwork.send({ type: 'emote', kind: 'ability', sharkId: player.sharkId });
@@ -5293,8 +5366,8 @@
   function triggerInteract() {
     if (isAnyModalOpen()) return;
 
-    // If Hiram's Master Builder Mode is active and we aren't standing right on top of an NPC, [E] places the active blueprint!
-    if (builderState.active && player.sharkId === 'hiram' && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
+    // If Master Builder Mode is active and we aren't standing right on top of an NPC, [E] places the active blueprint!
+    if (builderState.active && canUseBuilderMode(player.sharkId) && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       placeActiveBlueprint();
       return;
     }
@@ -6718,6 +6791,23 @@
     document.querySelectorAll('.shark-slot').forEach((btn) => {
       btn.addEventListener('click', () => spawnPlayerShark(btn.dataset.shark));
     });
+    document.getElementById('btn-arch-fireworks')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      launchHelenBirthdayFireworks(false);
+    });
+    document.getElementById('btn-arch-mend')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.BlahajSeam && typeof window.BlahajSeam.instaMendAll === 'function') {
+        window.BlahajSeam.instaMendAll();
+        showToast('👑 ARCHODECT DECREE: SEAMS MENDED!', 'All 6 cosmic rifts across the Archipelago have been stitched!');
+      }
+    });
+    document.getElementById('btn-arch-detag')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.openRiteOfDetaggingModal === 'function') {
+        window.BlahajSaveSystem.openRiteOfDetaggingModal();
+      }
+    });
     document.getElementById('slot-o')?.addEventListener('click', () => {
       CozyAudio.ensure();
       toggleSettingsModal();
@@ -6813,7 +6903,7 @@
       unitFrame.style.cursor = 'pointer';
       unitFrame.addEventListener('click', (e) => {
         // Do not trigger if clicking on the mange slider or groom button directly
-        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range') || e.target.closest('#btn-groom-hud'))) {
+        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range') || e.target.closest('#btn-groom-hud') || e.target.closest('#hud-archodect-pill'))) {
           return;
         }
         openCharacterSheet(player.sharkId);
@@ -12562,7 +12652,7 @@
     const promptEl = document.getElementById('interaction-prompt');
     const isSailingNow = player.inBoat || player.ridingWithPartner;
 
-    if (builderState.active && player.sharkId === 'hiram' && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
+    if (builderState.active && canUseBuilderMode(player.sharkId) && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
       document.getElementById('interaction-text').textContent =
         `Build ${spec ? spec.name : 'Structure'} [E / Click] · Rotate [R] · Remove [X]`;
@@ -12966,12 +13056,12 @@
     getHermesMastery: () => hermesPortalMastery,
     getMangeFactors: () => {
       const out = {};
-      ['solomon', 'nimue', 'hiram', 'hermes'].forEach((id) => { out[id] = getSharkMange(id); });
+      ['solomon', 'nimue', 'hiram', 'hermes', 'custom'].forEach((id) => { out[id] = getSharkMange(id); });
       return out;
     },
     getSharkAccessories: () => {
       const out = {};
-      ['solomon', 'nimue', 'hiram', 'hermes'].forEach((id) => { out[id] = getSharkAccessories(id); });
+      ['solomon', 'nimue', 'hiram', 'hermes', 'custom'].forEach((id) => { out[id] = getSharkAccessories(id); });
       return out;
     },
     restoreMangeFactors: (m) => {

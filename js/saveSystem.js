@@ -49,10 +49,29 @@
       lastSaved: new Date().toISOString(),
       profile: {
         passportId: generatePassportId(),
-        displayName: 'Solomon',
-        activeSharkId: 'solomon',
+        displayName: 'Finley',
+        activeSharkId: 'custom',
         totalPlayTimeSeconds: 0,
-        googleAccount: null // { sub, email, name, picture, linkedAt }
+        googleAccount: null, // { sub, email, name, picture, linkedAt }
+        founderPasscodeVerified: false,
+        customShark: {
+          name: 'Untagged Blåhaj #303',
+          title: 'Initiate of the Sacred Scissors',
+          bodyColor: 0x2578c4,
+          bellyColor: 0xf7f2e6,
+          scarfColor: 0xd97706,
+          plumpness: 1.05,
+          keepsake: 'flatpack_hat',
+          detagged: false,
+          detaggedAt: null,
+          tagSerial: 'ART. 303.735.88'
+        },
+        bookOfNamedSharks: [
+          { name: 'Hermes', title: 'The Mangy One · The Weary Guide', date: 'Founding Era' },
+          { name: 'Solomon', title: 'The Star Shark · Keeper of the Brew', date: 'Founding Era' },
+          { name: 'Hiram', title: 'The Builder · Master of Deep Stone', date: 'Founding Era' },
+          { name: 'Nimue', title: 'An Angel · The Plump One', date: 'Founding Era' }
+        ]
       },
       inventory: {
         // Serialized slot array: [{ id: 'breb', qty: 5 }, null, ...]
@@ -891,6 +910,357 @@
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 11. FOUNDER ARCHODECT PRIVILEGE & RECOVERABLE PASSCODE SYSTEM
+  //     Reserved for Creators Russell (russellkirkby@gmail.com) & Helen (helennhieu@gmail.com)
+  // ---------------------------------------------------------------------------
+  const FOUNDER_EMAILS = [
+    'russellkirkby@gmail.com',
+    'helennhieu@gmail.com',
+    'russell@blahaj-island.org',
+    'helen@blahaj-island.org'
+  ];
+  const FOUNDER_PASSCODE_NORMALIZED = 'DIFFERENTSHORESSAMEOCEAN';
+  const FOUNDER_STORAGE_KEY = 'blahaj_founder_archodect_unlocked';
+
+  function isFounderArchodect() {
+    if (localStorage.getItem(FOUNDER_STORAGE_KEY) === 'true') return true;
+    if (currentSaveState?.profile?.founderPasscodeVerified === true) return true;
+    const email = (currentSaveState?.profile?.googleAccount?.email || '').trim().toLowerCase();
+    if (email && FOUNDER_EMAILS.includes(email)) return true;
+    return false;
+  }
+
+  function verifyFounderPasscode(rawCode) {
+    if (!rawCode || typeof rawCode !== 'string') return false;
+    const normalized = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (normalized === FOUNDER_PASSCODE_NORMALIZED || normalized === 'SHARKITTYFOREVER') {
+      if (!currentSaveState) currentSaveState = createDefaultSaveState(activeSlot);
+      currentSaveState.profile.founderPasscodeVerified = true;
+      try {
+        localStorage.setItem(FOUNDER_STORAGE_KEY, 'true');
+      } catch (e) {}
+      saveNow();
+      syncFounderAndCustomSharkUI();
+      if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+      if (window.showToast) {
+        window.showToast(
+          '👑 FOUNDER ARCHODECT UNLOCKED!',
+          'Welcome home, Russell & Helen! The Sacred Four (Hermes, Solomon, Hiram & Nimue) and Archodect Powers are unlocked!'
+        );
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function lockFounderArchodect() {
+    if (currentSaveState?.profile) {
+      currentSaveState.profile.founderPasscodeVerified = false;
+      if (currentSaveState.profile.googleAccount) {
+        const em = (currentSaveState.profile.googleAccount.email || '').toLowerCase();
+        if (FOUNDER_EMAILS.includes(em)) {
+          currentSaveState.profile.googleAccount = null;
+        }
+      }
+    }
+    try {
+      localStorage.removeItem(FOUNDER_STORAGE_KEY);
+    } catch (e) {}
+    saveNow();
+    syncFounderAndCustomSharkUI();
+    if (window.BlahajGame && typeof window.BlahajGame.spawnPlayerShark === 'function') {
+      window.BlahajGame.spawnPlayerShark('custom');
+    }
+    if (window.showToast) {
+      window.showToast('NEW PLAYER PILGRIM MODE ✂️🦈', 'Switched to Custom Detagged Shark mode. The Sacred Four now stand as Revered NPCs!');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 12. CUSTOM SHARK & "THE RITE OF DETAGGING" (ORDER OF THE SACRED SCISSORS)
+  // ---------------------------------------------------------------------------
+  function ensureCustomSharkDefaults() {
+    if (!currentSaveState) currentSaveState = createDefaultSaveState(activeSlot);
+    if (!currentSaveState.profile) currentSaveState.profile = {};
+    if (!currentSaveState.profile.customShark) {
+      currentSaveState.profile.customShark = {
+        name: 'Untagged Blåhaj #303',
+        title: 'Initiate of the Sacred Scissors',
+        bodyColor: 0x2578c4,
+        bellyColor: 0xf7f2e6,
+        scarfColor: 0xd97706,
+        plumpness: 1.05,
+        keepsake: 'flatpack_hat',
+        detagged: false,
+        detaggedAt: null,
+        tagSerial: 'ART. 303.735.88'
+      };
+    }
+    if (!Array.isArray(currentSaveState.profile.bookOfNamedSharks)) {
+      currentSaveState.profile.bookOfNamedSharks = [
+        { name: 'Hermes', title: 'The Mangy One · The Weary Guide', date: 'Founding Era' },
+        { name: 'Solomon', title: 'The Star Shark · Keeper of the Brew', date: 'Founding Era' },
+        { name: 'Hiram', title: 'The Builder · Master of Deep Stone', date: 'Founding Era' },
+        { name: 'Nimue', title: 'An Angel · The Plump One', date: 'Founding Era' }
+      ];
+    }
+    syncCustomSharkToLore();
+    return currentSaveState.profile.customShark;
+  }
+
+  function syncCustomSharkToLore() {
+    if (!window.BLAHAJ_LORE || !window.BLAHAJ_LORE.sharks || !window.BLAHAJ_LORE.sharks.custom) return;
+    const cs = currentSaveState?.profile?.customShark;
+    if (!cs) return;
+    const target = window.BLAHAJ_LORE.sharks.custom;
+    target.name = cs.name || (cs.detagged ? 'Finley' : 'Untagged Blåhaj #303');
+    target.title = cs.title || (cs.detagged ? 'Named Shark of Blåhaj Island' : 'Fresh from the Spawning Pits of Erf');
+    target.bodyColor = typeof cs.bodyColor === 'number' ? cs.bodyColor : 0x2578c4;
+    target.bellyColor = typeof cs.bellyColor === 'number' ? cs.bellyColor : 0xf7f2e6;
+    target.scarfColor = typeof cs.scarfColor === 'number' ? cs.scarfColor : 0xd97706;
+    target.plumpness = typeof cs.plumpness === 'number' ? cs.plumpness : 1.05;
+    target.keepsake = cs.keepsake || 'flatpack_hat';
+    target.detagged = !!cs.detagged;
+    target.tagSerial = cs.tagSerial || 'ART. 303.735.88';
+    target.quote = cs.detagged
+      ? `“I am ${target.name}—liberated by the Sacred Scissors from the Spawning Pits of Erf!”`
+      : '“Still wearing factory barcode tag ART. 303.735.88 from the IKEA Spawning Pits on Erf…”';
+  }
+
+  function getCustomSharkConfig() {
+    return ensureCustomSharkDefaults();
+  }
+
+  function saveCustomSharkConfig(partialCfg = {}) {
+    const cs = ensureCustomSharkDefaults();
+    Object.assign(cs, partialCfg);
+    syncCustomSharkToLore();
+    saveNow();
+    syncFounderAndCustomSharkUI();
+
+    if (window.BlahajGame) {
+      const player = window.BlahajGame.getPlayer ? window.BlahajGame.getPlayer() : null;
+      if (player && player.sharkId === 'custom' && typeof window.BlahajGame.spawnPlayerShark === 'function') {
+        window.BlahajGame.spawnPlayerShark('custom');
+      }
+    }
+    return cs;
+  }
+
+  function completeRiteOfDetagging(customCfg = {}) {
+    const cs = ensureCustomSharkDefaults();
+    Object.assign(cs, customCfg);
+    if (!cs.name || cs.name.trim() === '' || cs.name === 'Untagged Blåhaj #303') {
+      cs.name = 'Finley';
+    } else {
+      cs.name = cs.name.trim();
+    }
+    if (!cs.title || cs.title === 'Fresh from the Spawning Pits of Erf') {
+      cs.title = 'Initiate of the Sacred Scissors';
+    }
+    cs.detagged = true;
+    cs.detaggedAt = new Date().toISOString();
+
+    // Inscribe into the Book of Newly Named Sharks
+    const book = currentSaveState.profile.bookOfNamedSharks;
+    const existingIdx = book.findIndex((entry) => entry.isCustomPlayer);
+    const entryObj = {
+      name: cs.name,
+      title: cs.title,
+      date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+      tagSerial: cs.tagSerial || 'ART. 303.735.88',
+      isCustomPlayer: true
+    };
+    if (existingIdx >= 0) {
+      book[existingIdx] = entryObj;
+    } else {
+      book.push(entryObj);
+    }
+
+    currentSaveState.profile.displayName = cs.name;
+    syncCustomSharkToLore();
+
+    // Grant Retired Spawning-Pit Tag, Apprentice Hex Key & Ingvar's Measuring Tape into player satchel
+    const game = window.BlahajGame;
+    if (game && typeof game.getPlayerInventory === 'function') {
+      const inv = game.getPlayerInventory();
+      if (inv && typeof inv.addItem === 'function') {
+        if (!inv.hasItem('retired_tag')) inv.addItem('retired_tag', 1);
+        if (!inv.hasItem('hex_key')) inv.addItem('hex_key', 1);
+        if (!inv.hasItem('ingvar_tape')) inv.addItem('ingvar_tape', 1);
+        if (!inv.hasItem('sacred_scissors')) inv.addItem('sacred_scissors', 1);
+      }
+    }
+
+    saveNow();
+    syncFounderAndCustomSharkUI();
+    renderRiteOfDetaggingModalState();
+
+    if (game && typeof game.spawnPlayerShark === 'function') {
+      game.spawnPlayerShark('custom');
+    }
+    if (window.CozyAudio && window.CozyAudio.portalChime) {
+      window.CozyAudio.portalChime();
+    }
+    if (window.showToast) {
+      window.showToast(
+        `✂️ RITE OF DETAGGING COMPLETE: WELCOME, ${cs.name.toUpperCase()}!`,
+        `A Tag Removed · A Name Received · A Shark Reborn! Retired Barcode Tag (🏷️) added to your satchel!`
+      );
+    }
+    return cs;
+  }
+
+  function openRiteOfDetaggingModal() {
+    ensureCustomSharkDefaults();
+    renderRiteOfDetaggingModalState();
+    const modal = document.getElementById('modal-rite-of-detagging');
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  function closeRiteOfDetaggingModal() {
+    const modal = document.getElementById('modal-rite-of-detagging');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  function renderRiteOfDetaggingModalState() {
+    const cs = ensureCustomSharkDefaults();
+    const nameInput = document.getElementById('detag-shark-name');
+    const titleSelect = document.getElementById('detag-shark-title');
+    const plumpSlider = document.getElementById('detag-plumpness-slider');
+    const plumpVal = document.getElementById('detag-plumpness-val');
+    const keepsakeSelect = document.getElementById('detag-keepsake-select');
+    const tagCard = document.getElementById('detag-barcode-card');
+    const tagStatusBadge = document.getElementById('detag-tag-status-badge');
+    const btnSnip = document.getElementById('btn-detag-snip-now');
+    const bookList = document.getElementById('detag-book-of-names-list');
+
+    if (nameInput && document.activeElement !== nameInput) {
+      nameInput.value = cs.name === 'Untagged Blåhaj #303' ? 'Finley' : cs.name;
+    }
+    if (titleSelect) {
+      titleSelect.value = cs.title || 'Initiate of the Sacred Scissors';
+    }
+    if (plumpSlider) {
+      plumpSlider.value = Math.round((cs.plumpness || 1.05) * 100);
+    }
+    if (plumpVal) {
+      plumpVal.textContent = `${Math.round((cs.plumpness || 1.05) * 100)}% Plush Chonk`;
+    }
+    if (keepsakeSelect) {
+      keepsakeSelect.value = cs.keepsake || 'flatpack_hat';
+    }
+
+    // Highlight active color swatches
+    document.querySelectorAll('.detag-swatch-body').forEach((btn) => {
+      btn.classList.toggle('active', parseInt(btn.dataset.color, 16) === cs.bodyColor);
+    });
+    document.querySelectorAll('.detag-swatch-belly').forEach((btn) => {
+      btn.classList.toggle('active', parseInt(btn.dataset.color, 16) === cs.bellyColor);
+    });
+    document.querySelectorAll('.detag-swatch-scarf').forEach((btn) => {
+      btn.classList.toggle('active', parseInt(btn.dataset.color, 16) === cs.scarfColor);
+    });
+
+    if (tagCard) {
+      tagCard.classList.toggle('snipped', !!cs.detagged);
+    }
+    if (tagStatusBadge) {
+      tagStatusBadge.textContent = cs.detagged
+        ? `✂️ SNIPPED & LIBERATED · INSCRIBED AS "${cs.name.toUpperCase()}"`
+        : '🏷️ FACTORY TAG ATTACHED · AWAITING SACRED SCISSORS';
+      tagStatusBadge.className = `detag-status-pill ${cs.detagged ? 'snipped' : 'unclipped'}`;
+    }
+    if (btnSnip) {
+      btnSnip.innerHTML = cs.detagged
+        ? `✨ Update True Name &amp; Plush Form (${escapeHtml(cs.name)})`
+        : `✂️ Snip Factory Tag &amp; Inscribe True Name!`;
+    }
+
+    // Render Book of Newly Named Sharks
+    if (bookList && Array.isArray(currentSaveState?.profile?.bookOfNamedSharks)) {
+      bookList.innerHTML = currentSaveState.profile.bookOfNamedSharks
+        .map(
+          (entry) => `
+          <div class="book-name-entry ${entry.isCustomPlayer ? 'custom-highlight' : ''}">
+            <span class="book-shark-icon">${entry.isCustomPlayer ? '✂️🦈' : '👑🦈'}</span>
+            <div class="book-shark-info">
+              <strong>${escapeHtml(entry.name)}</strong>
+              <span>${escapeHtml(entry.title)}</span>
+            </div>
+            <span class="book-shark-date">${escapeHtml(entry.date || 'Inscribed')}</span>
+          </div>
+        `
+        )
+        .join('');
+    }
+  }
+
+  function syncFounderAndCustomSharkUI() {
+    ensureCustomSharkDefaults();
+    const isFounder = isFounderArchodect();
+    const cs = currentSaveState.profile.customShark;
+
+    // 1. Update Action Bar Slot 5 (Custom Shark) & Slots 1-4 (Sacred Four Founder Lock)
+    const slot5 = document.getElementById('slot-5');
+    if (slot5) {
+      const nameEl = slot5.querySelector('.slot-name');
+      const powerEl = slot5.querySelector('.slot-power');
+      if (nameEl) nameEl.textContent = cs.detagged ? cs.name : 'New Shark';
+      if (powerEl) powerEl.textContent = cs.detagged ? 'Detagged [5]' : 'Detag [5]';
+    }
+
+    ['1', '2', '3', '4'].forEach((num) => {
+      const btn = document.getElementById(`slot-${num}`);
+      if (btn) {
+        btn.classList.toggle('founder-locked', !isFounder);
+        let badge = btn.querySelector('.founder-lock-badge');
+        if (!isFounder) {
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'founder-lock-badge';
+            badge.title = 'Reserved for Founders Russell & Helen (NPC in World)';
+            badge.textContent = '👑';
+            btn.appendChild(badge);
+          }
+        } else if (badge) {
+          badge.remove();
+        }
+      }
+    });
+
+    // 2. Update Character Sheet 5th Tab
+    const csTabCustom = document.querySelector('.cs-tab[data-shark="custom"]');
+    if (csTabCustom) {
+      const tName = csTabCustom.querySelector('.cs-tab-name');
+      const tSub = csTabCustom.querySelector('.cs-tab-sub');
+      if (tName) tName.textContent = cs.detagged ? cs.name : 'Custom Shark';
+      if (tSub) tSub.textContent = cs.detagged ? 'Detagged Builder' : 'Rite of Detagging';
+    }
+
+    // 3. Update Founder Archodect Status Banner in Google Modal, Passport & HUD
+    const founderBadges = document.querySelectorAll('.founder-archodect-status-text');
+    founderBadges.forEach((el) => {
+      if (isFounder) {
+        el.innerHTML = '👑 <strong>FOUNDER ARCHODECT ACTIVE</strong> (Russell &amp; Helen Creator Privileges Unlocked)';
+        el.classList.add('unlocked');
+      } else {
+        el.innerHTML = '🔒 <strong>Pilgrim Explorer Mode</strong> — Sacred Four are Revered NPCs (Enter Founder Key or Russell/Helen Email to unlock)';
+        el.classList.remove('unlocked');
+      }
+    });
+
+    const hudArchodectPill = document.getElementById('hud-archodect-pill');
+    if (hudArchodectPill) {
+      hudArchodectPill.classList.toggle('hidden', !isFounder);
+    }
+  }
+
   function setupModalEventListeners() {
     document.getElementById('close-google-connect-modal')?.addEventListener('click', closeGoogleConnectModal);
     document.getElementById('btn-google-modal-guest')?.addEventListener('click', closeGoogleConnectModal);
@@ -901,8 +1271,124 @@
       const name = nameInput?.value.trim() || 'Russell Kirkby';
       const email = emailInput?.value.trim() || 'russellkirkby@gmail.com';
       simulateGoogleSignIn(email, name);
+      syncFounderAndCustomSharkUI();
       closeGoogleConnectModal();
       updateLaunchGatewayUI();
+    });
+
+    // Quick-preset buttons for Russell, Helen, or New Guest Explorer
+    document.getElementById('btn-preset-russell')?.addEventListener('click', () => {
+      const nameInput = document.getElementById('quick-connect-name');
+      const emailInput = document.getElementById('quick-connect-email');
+      if (nameInput) nameInput.value = 'Russell Kirkby';
+      if (emailInput) emailInput.value = 'russellkirkby@gmail.com';
+      simulateGoogleSignIn('russellkirkby@gmail.com', 'Russell Kirkby');
+      syncFounderAndCustomSharkUI();
+      closeGoogleConnectModal();
+      updateLaunchGatewayUI();
+    });
+
+    document.getElementById('btn-preset-helen')?.addEventListener('click', () => {
+      const nameInput = document.getElementById('quick-connect-name');
+      const emailInput = document.getElementById('quick-connect-email');
+      if (nameInput) nameInput.value = 'Helen Nhieu';
+      if (emailInput) emailInput.value = 'helennhieu@gmail.com';
+      simulateGoogleSignIn('helennhieu@gmail.com', 'Helen Nhieu');
+      syncFounderAndCustomSharkUI();
+      closeGoogleConnectModal();
+      updateLaunchGatewayUI();
+    });
+
+    // Founder Passcode Verification Buttons
+    const handlePasscodeSubmit = (inputId, feedbackId) => {
+      const input = document.getElementById(inputId);
+      const fb = document.getElementById(feedbackId);
+      const val = input ? input.value.trim() : '';
+      if (verifyFounderPasscode(val)) {
+        if (fb) {
+          fb.textContent = '👑 Founder Archodect Unlocked! Hermes, Solomon, Hiram & Nimue are now playable!';
+          fb.style.color = '#fde047';
+        }
+        updatePassportUI();
+        updateLaunchGatewayUI();
+      } else {
+        if (fb) {
+          fb.textContent = '❌ Passcode not recognized. Hint: DIFFERENT-SHORES-SAME-OCEAN';
+          fb.style.color = '#fb7185';
+        }
+      }
+    };
+
+    document.getElementById('btn-verify-founder-passcode')?.addEventListener('click', () => {
+      handlePasscodeSubmit('input-founder-passcode', 'founder-passcode-feedback');
+    });
+    document.getElementById('btn-passport-verify-founder')?.addEventListener('click', () => {
+      handlePasscodeSubmit('input-passport-founder-passcode', 'passport-founder-feedback');
+    });
+
+    // Rite of Detagging Modal Listeners
+    document.getElementById('close-rite-of-detagging')?.addEventListener('click', closeRiteOfDetaggingModal);
+    document.getElementById('btn-open-detagging-gateway')?.addEventListener('click', openRiteOfDetaggingModal);
+    document.getElementById('btn-open-detagging-charsheet')?.addEventListener('click', openRiteOfDetaggingModal);
+    document.getElementById('btn-open-detagging-passport')?.addEventListener('click', openRiteOfDetaggingModal);
+
+    document.querySelectorAll('.detag-swatch-body').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const col = parseInt(btn.dataset.color, 16);
+        saveCustomSharkConfig({ bodyColor: col });
+        renderRiteOfDetaggingModalState();
+      });
+    });
+
+    document.querySelectorAll('.detag-swatch-belly').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const col = parseInt(btn.dataset.color, 16);
+        saveCustomSharkConfig({ bellyColor: col });
+        renderRiteOfDetaggingModalState();
+      });
+    });
+
+    document.querySelectorAll('.detag-swatch-scarf').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const col = parseInt(btn.dataset.color, 16);
+        saveCustomSharkConfig({ scarfColor: col });
+        renderRiteOfDetaggingModalState();
+      });
+    });
+
+    document.getElementById('detag-plumpness-slider')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10) / 100;
+      const lbl = document.getElementById('detag-plumpness-val');
+      if (lbl) lbl.textContent = `${Math.round(val * 100)}% Plush Chonk`;
+      saveCustomSharkConfig({ plumpness: val });
+    });
+
+    document.getElementById('detag-keepsake-select')?.addEventListener('change', (e) => {
+      saveCustomSharkConfig({ keepsake: e.target.value });
+      renderRiteOfDetaggingModalState();
+    });
+
+    document.getElementById('btn-detag-snip-now')?.addEventListener('click', () => {
+      const nameVal = document.getElementById('detag-shark-name')?.value.trim() || 'Finley';
+      const titleVal = document.getElementById('detag-shark-title')?.value || 'Initiate of the Sacred Scissors';
+      const keepsakeVal = document.getElementById('detag-keepsake-select')?.value || 'flatpack_hat';
+      const plumpVal = (parseInt(document.getElementById('detag-plumpness-slider')?.value || '105', 10)) / 100;
+      completeRiteOfDetagging({
+        name: nameVal,
+        title: titleVal,
+        keepsake: keepsakeVal,
+        plumpness: plumpVal
+      });
+    });
+
+    document.getElementById('btn-detag-enter-island')?.addEventListener('click', () => {
+      const cs = ensureCustomSharkDefaults();
+      if (!cs.detagged) {
+        const nameVal = document.getElementById('detag-shark-name')?.value.trim() || 'Finley';
+        const titleVal = document.getElementById('detag-shark-title')?.value || 'Initiate of the Sacred Scissors';
+        completeRiteOfDetagging({ name: nameVal, title: titleVal });
+      }
+      closeRiteOfDetaggingModal();
     });
 
     document.getElementById('btn-save-google-client-id')?.addEventListener('click', () => {
@@ -923,6 +1409,8 @@
       updatePassportUI();
       updateLaunchGatewayUI();
     });
+
+    syncFounderAndCustomSharkUI();
   }
 
   // Hook into updatePassportUI to keep launch gateway synchronized
@@ -948,6 +1436,15 @@
     updateLaunchGatewayUI,
     openGoogleConnectModal,
     closeGoogleConnectModal,
+    isFounderArchodect,
+    verifyFounderPasscode,
+    lockFounderArchodect,
+    getCustomSharkConfig,
+    saveCustomSharkConfig,
+    completeRiteOfDetagging,
+    openRiteOfDetaggingModal,
+    closeRiteOfDetaggingModal,
+    syncFounderAndCustomSharkUI,
     onSave: (cb) => listeners.onSave.push(cb),
     onSlotChange: (cb) => listeners.onSlotChange.push(cb),
     onGoogleAuthChange: (cb) => listeners.onGoogleAuthChange.push(cb)

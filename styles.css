@@ -6165,3 +6165,438 @@ body.minimal-hud .seam-mini-watch {
   border-color: #38bdf8;
   color: #ffffff;
 }
+
+
+/* ==========================================================================
+   PASS 72: THE RITE OF DETAGGING, BOOK OF NEWLY NAMED SHARKS & FOUNDER LOCKS
+   ========================================================================== */
+#modal-rite-of-detagging.modal-backdrop {
+  z-index: 100065 !important;
+}
+
+.btn-detag-gateway {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0, 88, 163, 0.85) 0%, rgba(30, 58, 138, 0.92) 100%);
+  border: 1.5px solid #ffda1a;
+  color: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0, 88, 163, 0.35);
+}
+
+.btn-detag-gateway:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 218, 26, 0.35);
+  background: linear-gradient(135deg, rgba(3, 105, 161, 0.95) 0%, rgba(29, 78, 216, 0.98) 100%);
+}
+
+.detag-gateway-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.detag-gateway-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detag-gateway-text strong {
+  font-size: 12.5px;
+  color: #ffda1a;
+}
+
+.detag-gateway-text small {
+  font-size: 10.5px;
+  color: #e2e8f0;
+}
+
+.detagging-modal-card {
+  max-width: 860px;
+  width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: radial-gradient(circle at 50% 10%, #172554 0%, #090d16 100%);
+  border: 1.5px solid #ffda1a;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 35px rgba(0, 88, 163, 0.45);
+  padding: 20px 24px;
+  border-radius: 16px;
+  color: #f8fafc;
+}
+
+.detagging-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.detagging-header h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.35rem;
+  color: #ffda1a;
+  margin: 4px 0;
+}
+
+.detagging-header p {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.detagging-body-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 760px) {
+  .detagging-body-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detag-col-left,
+.detag-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detag-tapestry-Banner {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 218, 26, 0.4);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.detag-tapestry-img {
+  width: 100%;
+  height: 155px;
+  object-fit: cover;
+  display: block;
+}
+
+.detag-tapestry-caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.detag-status-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.detag-status-pill.unclipped {
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid #f59e0b;
+  color: #fde68a;
+}
+
+.detag-status-pill.snipped {
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid #10b981;
+  color: #a7f3d0;
+}
+
+/* IKEA Factory Barcode Tag Card */
+.detag-barcode-card {
+  background: #f8fafc;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 2px dashed #94a3b8;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s ease;
+}
+
+.detag-barcode-card.snipped {
+  border-style: solid;
+  border-color: #10b981;
+  background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+}
+
+.ikea-tag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0058a3;
+  color: #ffda1a;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.ikea-art-num {
+  background: #ffda1a;
+  color: #0058a3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: 800;
+}
+
+.ikea-tag-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.barcode-stripes-visual {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 32px;
+  padding: 2px 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.barcode-stripes-visual span {
+  display: block;
+  width: 3px;
+  background: #0f172a;
+}
+
+.barcode-stripes-visual span:nth-child(even) {
+  width: 1.5px;
+}
+
+.barcode-stripes-visual span:nth-child(3n) {
+  width: 4px;
+}
+
+.ikea-tag-meta {
+  display: flex;
+  flex-direction: column;
+  font-size: 10.5px;
+  color: #334155;
+}
+
+.ikea-tag-meta strong {
+  color: #0f172a;
+  font-size: 11px;
+}
+
+.btn-snip-barcode-tag {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #0058a3;
+  background: linear-gradient(135deg, #0058a3 0%, #1d4ed8 100%);
+  color: #ffda1a;
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-snip-barcode-tag:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  transform: translateY(-1px);
+}
+
+/* Book of Newly Named Sharks */
+.detag-book-card {
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(216, 170, 91, 0.4);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.detag-book-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fcd34d;
+  margin-bottom: 6px;
+}
+
+.detag-book-header small {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.detag-book-list {
+  max-height: 115px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.book-name-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.65);
+  font-size: 11px;
+}
+
+.book-name-entry.custom-highlight {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.book-shark-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-shark-info strong {
+  color: #f8fafc;
+}
+
+.book-shark-info span {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.book-shark-date {
+  font-size: 10px;
+  color: #fcd34d;
+}
+
+/* Right Column Form Controls */
+.detag-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.detag-form-group label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.detag-form-group input[type="text"],
+.detag-form-group select {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: #ffffff;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.detag-form-group select option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.detag-swatch-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detag-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.detag-swatch:hover {
+  transform: scale(1.12);
+}
+
+.detag-swatch.active {
+  border-color: #ffda1a;
+  box-shadow: 0 0 0 2px #0058a3, 0 0 10px rgba(255, 218, 26, 0.8);
+  transform: scale(1.15);
+}
+
+/* Founder Lock Badges & HUD Archodect Crown Pill */
+.action-slot.founder-locked {
+  position: relative;
+  opacity: 0.78;
+}
+
+.founder-lock-badge {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid #fcd34d;
+  border-radius: 999px;
+  padding: 1px 4px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.hud-archodect-pill {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.85), rgba(30, 41, 59, 0.92));
+  border: 1px solid #fcd34d;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.archodect-pill-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fde047;
+}
+
+.archodect-sub {
+  font-weight: 600;
+  color: #fef08a;
+  font-size: 9.5px;
+}
+
+.archodect-quick-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-archodect-power {
+  flex: 1;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(252, 211, 77, 0.45);
+  background: rgba(15, 23, 42, 0.75);
+  color: #fef08a;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-archodect-power:hover {
+  background: rgba(252, 211, 77, 0.25);
+  color: #ffffff;
+}

@@ -1070,6 +1070,158 @@ window.BlahajModels = (function () {
         board.rotation.y = 0.4;
         rightFinPivot.add(board);
       }
+    } else if (config.id === 'custom' || config.isCustomShark) {
+      const keepsake = config.keepsake || 'flatpack_hat';
+
+      // 1. If not yet detagged (or wearing the unclipped tag keepsake), attach 3D IKEA Factory Barcode Tag on fin!
+      if (!config.detagged || keepsake === 'tag_unclipped') {
+        const tagGroup = new THREE.Group();
+        tagGroup.userData.accessoryType = 'barcode_tag';
+        tagGroup.position.set(-0.58, -0.14, -0.12);
+        tagGroup.rotation.set(0.18, 0.35, -0.45);
+
+        const tagRibbon = new THREE.Mesh(
+          new THREE.BoxGeometry(0.22, 0.46, 0.015),
+          new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 })
+        );
+        tagRibbon.position.y = -0.18;
+        tagGroup.add(tagRibbon);
+
+        // Iconic Blue & Yellow Spawning-Pit Header Bar
+        const blueHeader = new THREE.Mesh(
+          new THREE.BoxGeometry(0.20, 0.07, 0.018),
+          new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.4 })
+        );
+        blueHeader.position.set(0, -0.02, 0);
+        tagGroup.add(blueHeader);
+
+        const yellowSub = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, 0.035, 0.020),
+          new THREE.MeshBasicMaterial({ color: 0xffda1a })
+        );
+        yellowSub.position.set(0, -0.02, 0);
+        tagGroup.add(yellowSub);
+
+        // Barcode stripes
+        const stripeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+        [-0.06, -0.03, -0.01, 0.02, 0.045, 0.07].forEach((sx, idx) => {
+          const w = (idx % 2 === 0) ? 0.014 : 0.008;
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(w, 0.14, 0.018), stripeMat);
+          bar.position.set(sx, -0.26, 0);
+          tagGroup.add(bar);
+        });
+
+        rightFinPivot.add(tagGroup);
+      }
+
+      // 2. Custom Shark Headgear & Relic based on chosen Keepsake
+      if (keepsake === 'flatpack_hat') {
+        // Yellow & Blue Flat-Pack Builder Cap on head crown
+        const capCrown = new THREE.Mesh(
+          new THREE.SphereGeometry(0.39, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+          createPlushMaterial(0x0058a3, false)
+        );
+        capCrown.position.set(0, 2.52, 0.16);
+        capCrown.userData.accessoryType = 'headgear';
+        capCrown.visible = showHeadgear;
+        rig.add(capCrown);
+
+        const capBrim = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.36, 0.36, 0.04, 20, 1, false, -Math.PI * 0.45, Math.PI * 0.9),
+          createPlushMaterial(0xffda1a, false)
+        );
+        capBrim.position.set(0, 2.53, 0.34);
+        capBrim.rotation.x = 0.18;
+        capBrim.userData.accessoryType = 'headgear';
+        capBrim.visible = showHeadgear;
+        rig.add(capBrim);
+
+        // Apprentice Brass Hex Key on left fin
+        const allenGroup = new THREE.Group();
+        allenGroup.userData.accessoryType = 'relic';
+        allenGroup.visible = showRelic;
+        allenGroup.position.set(0.60, -0.08, 0.22);
+        const hex1 = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.50, 6), brassMat);
+        allenGroup.add(hex1);
+        const hex2 = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.22, 6), brassMat);
+        hex2.rotation.z = Math.PI / 2;
+        hex2.position.set(0.09, 0.23, 0);
+        allenGroup.add(hex2);
+        leftFinPivot.add(allenGroup);
+      } else if (keepsake === 'scissors_mitre') {
+        // Order of the Sacred Scissors Purple-and-Gold Coronet
+        const band = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.41, 0.39, 0.14, 24),
+          createPlushMaterial(0x581c87, false)
+        );
+        band.position.set(0, 2.56, 0.16);
+        band.rotation.x = -0.10;
+        band.userData.accessoryType = 'headgear';
+        band.visible = showHeadgear;
+        rig.add(band);
+
+        const goldCrest = new THREE.Mesh(new THREE.OctahedronGeometry(0.12, 0), brassMat);
+        goldCrest.position.set(0, 2.72, 0.38);
+        goldCrest.userData.accessoryType = 'headgear';
+        goldCrest.visible = showHeadgear;
+        rig.add(goldCrest);
+
+        // Golden Scissors of Liberation on left fin
+        const scisGroup = new THREE.Group();
+        scisGroup.userData.accessoryType = 'relic';
+        scisGroup.visible = showRelic;
+        scisGroup.position.set(0.62, -0.06, 0.24);
+        [-0.22, 0.22].forEach((ang) => {
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.44, 0.015), brassMat);
+          blade.rotation.z = ang;
+          scisGroup.add(blade);
+          const loop = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.016, 8, 16), brassMat);
+          loop.position.set(Math.sin(ang) * 0.22, -0.22, 0);
+          scisGroup.add(loop);
+        });
+        leftFinPivot.add(scisGroup);
+      } else if (keepsake === 'grotto_goggles') {
+        // Sea-Cave Diver Goggles on forehead
+        const lensMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.6 });
+        [-0.22, 0.22].forEach((gx) => {
+          const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 12, 24), brassMat);
+          gFrame.position.set(gx, 2.22, 0.78);
+          gFrame.rotation.x = -0.25;
+          gFrame.userData.accessoryType = 'headgear';
+          gFrame.visible = showHeadgear;
+          rig.add(gFrame);
+          const lens = new THREE.Mesh(new THREE.CircleGeometry(0.115, 20), lensMat);
+          lens.position.copy(gFrame.position);
+          lens.rotation.copy(gFrame.rotation);
+          lens.userData.accessoryType = 'headgear';
+          lens.visible = showHeadgear;
+          rig.add(lens);
+        });
+
+        // Glowing Pearl Lantern on left fin
+        const pearlGroup = new THREE.Group();
+        pearlGroup.userData.accessoryType = 'relic';
+        pearlGroup.visible = showRelic;
+        pearlGroup.position.set(0.64, -0.18, 0.22);
+        const orb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.13, 16, 16),
+          new THREE.MeshBasicMaterial({ color: 0x67e8f9 })
+        );
+        pearlGroup.add(orb);
+        leftFinPivot.add(pearlGroup);
+      } else if (keepsake === 'chef_beret') {
+        // Spherical Bistro Beret on head
+        const beret = new THREE.Mesh(
+          new THREE.SphereGeometry(0.42, 20, 16),
+          createPlushMaterial(0x9f1239, false)
+        );
+        beret.scale.set(1.12, 0.42, 1.08);
+        beret.position.set(0.06, 2.62, 0.14);
+        beret.rotation.z = -0.15;
+        beret.userData.accessoryType = 'headgear';
+        beret.visible = showHeadgear;
+        rig.add(beret);
+      }
     }
 
     group.scale.setScalar(scale);
@@ -1819,6 +1971,59 @@ window.BlahajModels = (function () {
       };
 
       g.scale.setScalar(0.95);
+
+    } else if (itemId === 'retired_tag') {
+      // Retired IKEA Spawning-Pit Barcode Tag (Art. 303.735.88)
+      const tagMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.55 });
+      const blueMat = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.35 });
+      const yellowMat = new THREE.MeshBasicMaterial({ color: 0xffda1a });
+      const barMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+      const card = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.32, 0.012), tagMat);
+      card.position.y = 0.14;
+      g.add(card);
+
+      const header = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.055, 0.015), blueMat);
+      header.position.set(0, 0.25, 0);
+      g.add(header);
+
+      const oval = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.028, 0.017), yellowMat);
+      oval.position.set(0, 0.25, 0);
+      g.add(oval);
+
+      [-0.045, -0.02, 0.0, 0.022, 0.045].forEach((bx, idx) => {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(idx % 2 === 0 ? 0.011 : 0.006, 0.10, 0.015), barMat);
+        stripe.position.set(bx, 0.07, 0);
+        g.add(stripe);
+      });
+      g.scale.setScalar(1.05);
+
+    } else if (itemId === 'ingvar_tape') {
+      // Ingvar's Brass & Paper Measuring Tape
+      const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.85, roughness: 0.25 });
+      const ribbonMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.5 });
+      const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.06, 20), brassMat);
+      reel.rotation.z = Math.PI / 2;
+      reel.position.y = 0.11;
+      g.add(reel);
+      const tapeStrip = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.22, 0.008), ribbonMat);
+      tapeStrip.position.set(0, 0.22, 0.06);
+      tapeStrip.rotation.x = 0.25;
+      g.add(tapeStrip);
+
+    } else if (itemId === 'sacred_scissors') {
+      // Golden Scissors of the Order
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.88, roughness: 0.2 });
+      [-0.24, 0.24].forEach((ang) => {
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.28, 0.01), goldMat);
+        blade.position.y = 0.15;
+        blade.rotation.z = ang;
+        g.add(blade);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.01, 8, 16), goldMat);
+        ring.position.set(Math.sin(ang) * 0.12, 0.02, 0);
+        g.add(ring);
+      });
+      g.scale.setScalar(1.1);
 
     } else if (itemId === 'helen_cake' || itemId === 'cake_slice') {
       // Miniature Celestial Birthday Bombe Slice

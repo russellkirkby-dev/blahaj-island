@@ -98,6 +98,33 @@ window.BLAHAJ_LORE = {
         '“The Birbs love gathering on the swaying meadow grass near the Tea House whenever someone tosses warm Breb.”',
         '“Come look at the tapestries up on the Observatory Ridge whenever you want to remember our favourite stories.”'
       ]
+    },
+    custom: {
+      id: 'custom',
+      key: '5',
+      name: 'Finley',
+      title: 'Initiate of the Sacred Scissors · Detagged Explorer',
+      role: 'Liberated from the IKEA Spawning Pits on Erf & Named on Blåhaj Island',
+      portrait: 'assets/gallery/Names.png',
+      quote: '“A Tag Removed · A Name Received · A Shark Reborn!”',
+      bodyColor: 0x2578c4,
+      bellyColor: 0xf7f2e6,
+      scarfColor: 0xd97706,
+      scale: 1.0,
+      plumpness: 1.05,
+      isCustomShark: true,
+      detagged: false,
+      keepsake: 'flatpack_hat',
+      tagSerial: 'ART. 303.735.88',
+      abilityName: 'Sacred Scissors & Hex Key',
+      abilityIcon: '✂️',
+      abilityDesc: 'Raises the Golden Scissors of Liberation & Apprentice Hex Key—celebrating your True Name and opening Flat-Pack Builder Mode [C]!',
+      homePos: { x: 48, z: -12, rotY: -0.8 },
+      greetings: [
+        '“I escaped the yellow-and-blue bins of the IKEA Spawning Pits on Erf and received my True Name at the Rite of Detagging!”',
+        '“Look! I still keep my Retired Spawning-Pit Tag (ART. 303.735.88) safely tucked in my satchel.”',
+        '“With Hiram’s Apprentice Hex Key and Ingvar’s Measuring Tape, any Named Shark can help build across the archipelago!”'
+      ]
     }
   },
 
