@@ -1112,6 +1112,69 @@
     return cs;
   }
 
+  function returnSharkToSpawningPitsForRebirth(sendInto3DBin = false) {
+    ensureCustomSharkDefaults();
+    const cs = currentSaveState.profile.customShark;
+    const prevName = (cs && cs.name && cs.name !== 'Untagged Blåhaj #303') ? cs.name : 'Little Blåhaj';
+
+    // Gently reset custom shark to a fresh, newly-fluffed Spawning-Pit Blåhaj
+    currentSaveState.profile.customShark = {
+      name: 'Untagged Blåhaj #303',
+      title: 'Initiate of the Sacred Scissors',
+      bodyColor: 0x2578c4,
+      bellyColor: 0xf7f2e6,
+      scarfColor: 0xd97706,
+      plumpness: 1.05,
+      keepsake: 'tag_unclipped',
+      detagged: false,
+      detaggedAt: null,
+      tagSerial: 'ART. 303.735.88'
+    };
+
+    // Clear the active custom-player inscription in the Book of Newly Named Sharks so their reborn name can be freshly written
+    if (Array.isArray(currentSaveState.profile.bookOfNamedSharks)) {
+      currentSaveState.profile.bookOfNamedSharks = currentSaveState.profile.bookOfNamedSharks.filter(
+        (entry) => !entry.isCustomPlayer
+      );
+    }
+
+    // Reset origin escape flag so they can experience the Spawning Pits awakening afresh
+    localStorage.removeItem('blahaj_escaped_spawning_pits_v1');
+
+    syncCustomSharkToLore();
+    saveNow();
+    syncFounderAndCustomSharkUI();
+    renderRiteOfDetaggingModalState();
+
+    const nameInput = document.getElementById('detag-shark-name');
+    if (nameInput) nameInput.value = 'Finley';
+
+    const g = window.BlahajGame;
+    if (g && typeof g.spawnPlayerShark === 'function') {
+      g.spawnPlayerShark('custom');
+    }
+    if (window.CozyAudio && window.CozyAudio.portalChime) {
+      window.CozyAudio.portalChime();
+    }
+    if (window.showToast) {
+      window.showToast(
+        `🧸💤 ${prevName.toUpperCase()} TUCKED COZILY BACK INTO WIRE BIN #303!`,
+        `Re-tied with a soft silk barcode ribbon, fluffed with warm chamomile tea, and ready to be reborn!`
+      );
+    }
+
+    if (sendInto3DBin) {
+      closeRiteOfDetaggingModal();
+      if (g && typeof g.embarkIntoGame === 'function') {
+        g.embarkIntoGame();
+      }
+      if (g && typeof g.enterSpawningPits === 'function') {
+        setTimeout(() => g.enterSpawningPits(true), 220);
+      }
+    }
+    return currentSaveState.profile.customShark;
+  }
+
   function openRiteOfDetaggingModal() {
     ensureCustomSharkDefaults();
     renderRiteOfDetaggingModalState();
@@ -1381,6 +1444,14 @@
       });
     });
 
+    document.getElementById('btn-detag-gentle-reset')?.addEventListener('click', () => {
+      returnSharkToSpawningPitsForRebirth(false);
+    });
+
+    document.getElementById('btn-detag-return-spawning-bin')?.addEventListener('click', () => {
+      returnSharkToSpawningPitsForRebirth(true);
+    });
+
     document.getElementById('btn-detag-enter-island')?.addEventListener('click', () => {
       const cs = ensureCustomSharkDefaults();
       if (!cs.detagged) {
@@ -1451,6 +1522,7 @@
     getCustomSharkConfig,
     saveCustomSharkConfig,
     completeRiteOfDetagging,
+    returnSharkToSpawningPitsForRebirth,
     openRiteOfDetaggingModal,
     closeRiteOfDetaggingModal,
     syncFounderAndCustomSharkUI,
