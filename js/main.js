@@ -2404,6 +2404,9 @@
     if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
       return window.BlahajSpawningPits.getScene() || scene;
     }
+    if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+      return window.BlahajHomestead.getScene() || scene;
+    }
     return scene;
   }
 
@@ -2722,6 +2725,9 @@
 
     // 1. Build Expanded Blåhaj Archipelago (Main Island + 4 Outer Sanctuary Islands)
     worldApi = window.BlahajWorld.buildWorld(scene);
+    if (window.BlahajHomestead) {
+      window.BlahajHomestead.buildSurfaceSetPieces(scene, worldApi);
+    }
     loadSavedStructures();
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
 
@@ -3753,7 +3759,19 @@
       }
       if (k === 'h') {
         e.preventDefault();
-        toggleHeldItem();
+        if (player.inBoat && !isAnyModalOpen()) {
+          const spec = window.BlahajHomestead ? window.BlahajHomestead.getBoatSpec() : { name: 'Regatta Vessel', code: 'SKIFF-ETT' };
+          CozyAudio.playTone(392.0, 0.22, 'triangle', 0.16, 523.25);
+          setTimeout(() => CozyAudio.playTone(587.33, 0.32, 'triangle', 0.18, 659.25), 140);
+          spawnFloatingBurst(player.pos, 0x38bdf8, 18);
+          showToast(`🚢💨 TOOT-TOOT! (${spec.code} WHISTLE)`, `Sounded the brass maritime whistle aboard ${spec.name}!`);
+        } else {
+          toggleHeldItem();
+        }
+      }
+      if (k === 'j') {
+        e.preventDefault();
+        toggleHomesteadCommissionsModal();
       }
       if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
       if (k === 'o') toggleSettingsModal();
@@ -3829,6 +3847,8 @@
     const isGoogleOpen = googleModal && !googleModal.classList.contains('hidden');
     const raidModal = document.getElementById('modal-spawning-pits-raid');
     const isRaidOpen = raidModal && !raidModal.classList.contains('hidden');
+    const hsModal = document.getElementById('modal-homestead-commissions');
+    const isHsOpen = hsModal && !hsModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
@@ -3837,6 +3857,7 @@
       isDetagOpen ||
       isGoogleOpen ||
       isRaidOpen ||
+      isHsOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -4258,6 +4279,7 @@
       });
     }
     setupSpawningPitsRaidUI();
+    setupHomesteadAndCommissionsUI();
     renderBuilderToolbar();
   }
 
@@ -5509,6 +5531,397 @@
     }, 90);
   }
 
+
+
+  // ==========================================================================
+  // PASS 77: PERSONAL POCKET ATOLL, 3D BIOLUMINESCENT SEA-CAVE GROTTO,
+  // BÅT-BYGGE BOAT SHIPYARD & DAILY FOUNDER COMMISSIONS
+  // ==========================================================================
+  function enterSeaCaveGrotto() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+    setBuilderMode(false);
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Descending into the Starlight Sea-Cave Grotto';
+    if (subEl) subEl.textContent = 'Subterranean Bioluminescent Lagoon · Starlight Quartz Veins · Thermal Spring… 💎🌊🦈';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(async () => {
+          currentZone = 'sea_cave';
+          if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
+          if (window.BlahajHomestead) {
+            await window.BlahajHomestead.build();
+            window.BlahajHomestead.setActive(true);
+            const start = window.BlahajHomestead.getStart();
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajHomestead.getScene().add(player.mesh);
+            }
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            camState.yaw = 0.0;
+            camState.pitch = 0.25;
+            if (player.mesh) {
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+            player.velY = 0;
+            player.isGrounded = true;
+          }
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast('ENTERED STARLIGHT SEA-CAVE GROTTO! 💎🌊', 'Harvest Starlight Cave Quartz [E], soak in the Thermal Spring, or mend the Subterranean Seam Rift!');
+          addChatLog('💎🌊 <strong>Subterranean Bioluminescent Sea-Cave Grotto:</strong> You descended beneath your Personal Pocket Atoll into the glowing Starlight Cavern!', 'lore');
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'sea_cave'
+          });
+        }, 180);
+      }
+    }, 70);
+  }
+
+  function exitSeaCaveGrotto() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Ascending to Your Personal Pocket Atoll';
+    if (subEl) subEl.textContent = 'Emerging into the South Lagoon sunshine… 🏝️☀️🦈';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (window.BlahajHomestead) {
+            window.BlahajHomestead.setActive(false);
+          }
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+          const spawnX = 0.0;
+          const spawnZ = 216.0;
+          const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
+          player.pos.set(spawnX, sy, spawnZ);
+          player.rotY = Math.PI;
+          camState.yaw = 0.0;
+          if (player.mesh) {
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast('RETURNED TO PERSONAL POCKET ATOLL! 🏝️✨', 'Back on the surface bluff of your South Lagoon Atoll!');
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'island'
+          });
+        }, 180);
+      }
+    }, 70);
+  }
+
+  function syncHomesteadCommissionsUI() {
+    if (!window.BlahajHomestead) return;
+    const fpCount = player.inventory ? player.inventory.getCount('flatpack_crate') : 0;
+    const qzCount = player.inventory ? player.inventory.getCount('starlight_quartz') : 0;
+    const fpEl = document.getElementById('hs-flatpack-count');
+    if (fpEl) fpEl.textContent = fpCount;
+    const qzEl = document.getElementById('hs-quartz-count');
+    if (qzEl) qzEl.textContent = qzCount;
+
+    const compEl = document.getElementById('hs-companion-count');
+    if (compEl) {
+      try {
+        const book = JSON.parse(localStorage.getItem('blahaj_book_of_named_sharks_v1') || '[]');
+        compEl.textContent = Math.max(3, book.length + 3);
+      } catch (e) {
+        compEl.textContent = '3';
+      }
+    }
+
+    const activeSpec = window.BlahajHomestead.getBoatSpec();
+    const activeBoatLbl = document.getElementById('hs-active-boat-label');
+    if (activeBoatLbl && activeSpec) {
+      activeBoatLbl.textContent = `${activeSpec.code} (${activeSpec.speedMult.toFixed(2)}x Speed)`;
+    }
+
+    // 1. Render Boat Tier Cards
+    const boatGrid = document.getElementById('hs-boat-tier-grid');
+    if (boatGrid) {
+      const catalog = (LORE && LORE.boatCatalog) || [];
+      const curTier = window.BlahajHomestead.getBoatTier();
+      boatGrid.innerHTML = catalog.map((b) => {
+        const isCurrent = curTier === b.tier;
+        const isUnlocked = curTier >= b.tier;
+        const costStr = b.tier === 1
+          ? 'Included with Charter'
+          : (b.costQuartz > 0 ? `${b.costFlatpacks}x Flat-Pack 📦 + ${b.costQuartz}x Quartz 💎` : `${b.costFlatpacks}x Flat-Pack Kits 📦`);
+        return `
+          <div style="padding: 12px; border-radius: 12px; background: ${isCurrent ? 'rgba(2, 132, 199, 0.32)' : 'rgba(15, 23, 42, 0.78)'}; border: 2px solid ${isCurrent ? '#38bdf8' : 'rgba(148, 163, 184, 0.3)'}; display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-size: 0.72rem; font-weight: 900; color: #fde047;">TIER ${b.tier} · ${b.code}</span>
+                <span style="font-size: 0.72rem; font-weight: 800; color: #38bdf8;">${b.badge}</span>
+              </div>
+              <div style="font-size: 0.94rem; font-weight: 800; color: #ffffff; margin-bottom: 4px;">${b.name}</div>
+              <div style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.35;">${b.desc}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.74rem; color: #fef08a; margin-bottom: 6px;">Requirement: <strong>${costStr}</strong></div>
+              <button type="button" class="${isCurrent ? 'btn-secondary' : 'btn-primary'} btn-select-boat-tier" data-tier="${b.tier}" style="width: 100%; padding: 7px 10px; font-size: 0.8rem;">
+                ${isCurrent ? '✓ Active Charter Vessel (Click to Sail)' : (isUnlocked ? `Equip ${b.code} ⛵` : `Build & Upgrade to ${b.code} 🔧`)}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      boatGrid.querySelectorAll('.btn-select-boat-tier').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetTier = Number(btn.getAttribute('data-tier')) || 1;
+          const spec = ((LORE && LORE.boatCatalog) || []).find((x) => x.tier === targetTier);
+          if (!spec) return;
+          const curT = window.BlahajHomestead.getBoatTier();
+          if (targetTier > curT && !builderState.freeBuild) {
+            const haveFp = player.inventory ? player.inventory.getCount('flatpack_crate') : 0;
+            const haveQz = player.inventory ? player.inventory.getCount('starlight_quartz') : 0;
+            if (haveFp < spec.costFlatpacks || haveQz < spec.costQuartz) {
+              // Allow Founder Archodects or grant starter materials with clear feedback if short
+              const isFounder = window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect && window.BlahajSaveSystem.isFounderArchodect();
+              if (!isFounder) {
+                showToast('NEED SHIPYARD MATERIALS 📦💎', `Requires ${spec.costFlatpacks}x SKÄRHAJ Flat-Pack Kits & ${spec.costQuartz}x Starlight Cave Quartz (mine in the Sea-Cave or use BYGGBÄNK Sawmill)!`);
+                return;
+              }
+            } else if (player.inventory) {
+              if (spec.costFlatpacks > 0) player.inventory.removeItem('flatpack_crate', spec.costFlatpacks);
+              if (spec.costQuartz > 0) player.inventory.removeItem('starlight_quartz', spec.costQuartz);
+            }
+          }
+          window.BlahajHomestead.setBoatTier(targetTier);
+          CozyAudio.allenBuild();
+          spawnFloatingBurst(player.pos, 0x38bdf8, 22);
+          syncHomesteadCommissionsUI();
+          showToast(`⛵ BÅT-BYGGE VESSEL ACTIVE: ${spec.code}!`, `${spec.name} moored at your Personal Atoll Dock (${spec.speedMult}x Speed · Press [H] while sailing to blow whistle)!`);
+          addChatLog(`⚓⛵ <strong>BÅT-BYGGE Boat Shipyard:</strong> Outfitted your personal vessel as <strong>${spec.name}</strong> (${spec.badge})!`, 'lore');
+        });
+      });
+    }
+
+    // 2. Render Daily Founder Commissions Grid
+    const commGrid = document.getElementById('hs-commissions-grid');
+    if (commGrid) {
+      const comms = (LORE && LORE.dailyCommissions) || [];
+      const hsState = window.BlahajHomestead.getState();
+      commGrid.innerHTML = comms.map((c) => {
+        const claimed = window.BlahajHomestead.isCommissionClaimed(c.id);
+        const prog = (hsState.commissionsProgress && hsState.commissionsProgress[c.id]) || 0;
+        return `
+          <div style="padding: 12px; border-radius: 12px; background: ${claimed ? 'rgba(6, 78, 59, 0.35)' : 'rgba(15, 23, 42, 0.82)'}; border: 1px solid ${claimed ? '#34d399' : 'rgba(251, 191, 36, 0.45)'}; display: flex; gap: 12px; align-items: center;">
+            <img src="${c.portrait}" alt="${c.founder}" style="width: 58px; height: 58px; border-radius: 50%; object-fit: cover; border: 2px solid #fbbf24; flex-shrink: 0;" />
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.72rem; font-weight: 900; color: #fbbf24; text-transform: uppercase;">👑 ${c.founder} · ${c.patronRole}</span>
+                <span style="font-size: 0.72rem; font-weight: 800; color: ${claimed ? '#34d399' : '#38bdf8'};">${claimed ? '✓ Completed Today' : `Progress: ${prog}/1`}</span>
+              </div>
+              <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff; margin: 2px 0;">${c.title}</div>
+              <div style="font-size: 0.76rem; color: #cbd5e1; margin-bottom: 6px;">${c.desc}</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.73rem; font-weight: 700; color: #fef08a;">🎁 ${c.rewardLabel}</span>
+                <button type="button" class="${claimed ? 'btn-secondary' : 'btn-accent'} btn-claim-commission" data-comm-id="${c.id}" style="padding: 6px 12px; font-size: 0.78rem;">
+                  ${claimed ? '✓ Claimed (Bonus Repeat +1 📦)' : '👑 Complete & Claim Reward'}
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      commGrid.querySelectorAll('.btn-claim-commission').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const cid = btn.getAttribute('data-comm-id');
+          const spec = ((LORE && LORE.dailyCommissions) || []).find((x) => x.id === cid);
+          if (!spec) return;
+          const already = window.BlahajHomestead.isCommissionClaimed(cid);
+          if (already) {
+            if (player.inventory) player.inventory.addItem('flatpack_crate', 1);
+            CozyAudio.portalChime();
+            syncHomesteadCommissionsUI();
+            renderBuilderToolbar();
+            showToast(`👑 ${spec.founder.toUpperCase()} ENCORE COMMISSION!`, '+1 Bonus SKÄRHAJ Flat-Pack Kit awarded for ongoing devotion!');
+            return;
+          }
+          window.BlahajHomestead.recordCommissionProgress(cid, 1);
+          window.BlahajHomestead.markCommissionClaimed(cid);
+          if (player.inventory) {
+            if (spec.rewardFlatpacks) player.inventory.addItem('flatpack_crate', spec.rewardFlatpacks);
+            if (spec.rewardItem) player.inventory.addItem(spec.rewardItem, spec.rewardItemQty || 1);
+          }
+          if (spec.rewardBirbs) player.birbsFedCount += spec.rewardBirbs;
+          if (spec.rewardCarrots) player.carrotsKnockedCount += spec.rewardCarrots;
+          if (spec.rewardTrials) player.trialPoints = (player.trialPoints || 0) + spec.rewardTrials;
+          player.teaComfort = 100;
+          player.warmth = 100;
+          CozyAudio.portalChime();
+          spawnFloatingBurst(player.pos, 0xfbbf24, 24);
+          updateMetersUI();
+          renderBuilderToolbar();
+          syncHomesteadCommissionsUI();
+          showToast(`👑 COMMISSION COMPLETED: ${spec.title.toUpperCase()}!`, `Received ${spec.rewardLabel}!`);
+          addChatLog(`👑📋 <strong>Daily Founder Commission (${spec.founder}):</strong> Completed <em>${spec.title}</em> and received <strong>${spec.rewardLabel}</strong>!`, 'lore');
+        });
+      });
+    }
+  }
+
+  function openHomesteadCommissionsModal() {
+    releasePointerLock();
+    const modal = document.getElementById('modal-homestead-commissions');
+    if (!modal) return;
+    syncHomesteadCommissionsUI();
+    modal.classList.remove('hidden');
+    CozyAudio.portalChime();
+  }
+
+  function closeHomesteadCommissionsModal() {
+    const modal = document.getElementById('modal-homestead-commissions');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  function toggleHomesteadCommissionsModal() {
+    const modal = document.getElementById('modal-homestead-commissions');
+    if (!modal) return;
+    if (modal.classList.contains('hidden')) openHomesteadCommissionsModal();
+    else closeHomesteadCommissionsModal();
+  }
+
+  function warpToPersonalPocketAtoll() {
+    closeHomesteadCommissionsModal();
+    if (currentZone === 'sea_cave') {
+      exitSeaCaveGrotto();
+      return;
+    }
+    if (currentZone !== 'island') {
+      currentZone = 'island';
+      if (window.BlahajSpawningPits) window.BlahajSpawningPits.setActive(false);
+      if (player.mesh) {
+        if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+        scene.add(player.mesh);
+      }
+    }
+    player.inBoat = false;
+    player.ridingWithPartner = false;
+    const ax = 0.0;
+    const az = 166.0;
+    const ay = worldApi.getGroundAndStructureHeight(ax, az);
+    player.pos.set(ax, ay, az);
+    player.rotY = 0.0;
+    camState.yaw = Math.PI;
+    if (player.mesh) {
+      player.mesh.position.copy(player.pos);
+      player.mesh.rotation.y = player.rotY;
+    }
+    CozyAudio.portalChime();
+    spawnFloatingBurst(player.pos, 0x38bdf8, 22);
+    showToast('ARRIVED AT PERSONAL POCKET ATOLL! 🏝️⛵', 'Explore your Private Boat Shipyard, BYGGBÄNK Sawmill, Baby Shark Lagoon & Starlight Sea-Cave!');
+  }
+
+  function boardCustomAtollBoat() {
+    closeHomesteadCommissionsModal();
+    if (currentZone !== 'island') {
+      warpToPersonalPocketAtoll();
+    }
+    const boat = worldApi.getBoatMesh();
+    const spec = window.BlahajHomestead ? window.BlahajHomestead.getBoatSpec() : { name: 'SKIFF-ETT', code: 'SKIFF-ETT', speedMult: 1.0 };
+    if (boat) {
+      boat.position.set(0.0, 0.45, 145.5);
+    }
+    player.inBoat = true;
+    player.ridingWithPartner = false;
+    player.pos.set(0.0, 1.25, 145.5);
+    player.rotY = Math.PI;
+    camState.yaw = 0.0;
+    CozyAudio.shonk();
+    completeQuest('q-boat');
+    showToast(`⛵ SAILING ${spec.name.toUpperCase()}!`, `Speed: ${spec.speedMult}x · [WASD] Sail Ocean · [H] Blow Brass Whistle · [Space / E] Disembark!`);
+    addChatLog(`⛵💨 Cast off from your Personal Pocket Atoll Pier aboard <strong>${spec.name}</strong>!`, 'cozy');
+  }
+
+  function setupHomesteadAndCommissionsUI() {
+    document.getElementById('btn-open-homestead-hud')?.addEventListener('click', (e) => { e.stopPropagation(); openHomesteadCommissionsModal(); });
+    document.getElementById('close-homestead-modal')?.addEventListener('click', closeHomesteadCommissionsModal);
+    document.getElementById('btn-hs-warp-atoll')?.addEventListener('click', warpToPersonalPocketAtoll);
+    document.getElementById('btn-hs-enter-seacave')?.addEventListener('click', () => {
+      closeHomesteadCommissionsModal();
+      enterSeaCaveGrotto();
+    });
+    document.getElementById('btn-hs-sail-custom-boat')?.addEventListener('click', boardCustomAtollBoat);
+
+    document.getElementById('btn-visit-friend-atoll')?.addEventListener('click', () => {
+      const inp = document.getElementById('input-friend-passport-code');
+      const rawCode = (inp && inp.value.trim()) ? inp.value.trim().toUpperCase() : 'SHK-RUSSELL';
+      const code = rawCode.startsWith('SHK-') ? rawCode : `SHK-${rawCode}`;
+      const friendHosts = {
+        'SHK-RUSSELL': 'Founder Russell & Solomon',
+        'SHK-HELEN': 'Founder Helen & Nimue',
+        'SHK-SVENSK': 'Svenskhaj (Liberated #303)',
+        'SHK-HIRAM': 'Master Builder Hiram'
+      };
+      const hostName = friendHosts[code] || `Captain of ${code}`;
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.setVisitedFriendAtoll(code, hostName);
+      }
+      warpToPersonalPocketAtoll();
+      showToast(`🧭 VISITING FRIEND ATOLL: ${code}!`, `Docked at ${hostName}’s Pocket Atoll & Starlight Sea-Cave!`);
+      addChatLog(`🧭⛵ <strong>Archipelago Sea Chart:</strong> Sailed to <strong>${hostName}’s Pocket Atoll (${code})</strong>!`, 'coop');
+    });
+
+    document.getElementById('btn-reset-own-atoll')?.addEventListener('click', () => {
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.setVisitedFriendAtoll(null, null);
+      }
+      warpToPersonalPocketAtoll();
+      showToast('🏠 RETURNED TO YOUR CHARTER ATOLL', 'Viewing your own Personal Pocket Atoll Charter!');
+    });
+  }
+
   function enterLaundromat() {
     if (isTransitioningZone) return;
     isTransitioningZone = true;
@@ -6139,6 +6552,119 @@
       exitSpawningPits();
       return;
     }
+    if (item.kind === 'homestead_commissions_board') {
+      openHomesteadCommissionsModal();
+      return;
+    }
+    if (item.kind === 'homestead_board_custom_boat') {
+      boardCustomAtollBoat();
+      return;
+    }
+    if (item.kind === 'homestead_sawmill_bench') {
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 2);
+        if (!player.inventory.hasItem('homestead_charter')) {
+          player.inventory.addItem('homestead_charter', 1);
+        }
+      }
+      player.birbsFedCount += 1;
+      player.carrotsKnockedCount += 1;
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.recordCommissionProgress('comm_hiram_joinery', 1);
+      }
+      CozyAudio.allenBuild();
+      spawnFloatingBurst(player.pos, 0xffda1a, 20);
+      updateMetersUI();
+      renderBuilderToolbar();
+      const totalFp = player.inventory ? player.inventory.getCount('flatpack_crate') : 2;
+      showToast('🪚📦 BYGGBÄNK SAWMILL: +2 SKÄRHAJ FLAT-PACK KITS!', `Milled Scandinavian birch planks & cam-lock dowels! (${totalFp} Kits in satchel)`);
+      addChatLog(`🪚📦 <strong>BYGGBÄNK Assembly & Sawmill Bench:</strong> Milled island timber into <strong>+2x SKÄRHAJ Flat-Pack Kits</strong> (${totalFp} total)!`, 'lore');
+      return;
+    }
+    if (item.kind === 'homestead_cuddle_babies') {
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.refreshCompanionBabySharks();
+      }
+      player.teaComfort = 100;
+      player.warmth = 100;
+      player.stuffing = 100;
+      CozyAudio.shonk();
+      spawnFloatingBurst(player.pos, 0xf472b6, 22);
+      updateMetersUI();
+      showToast('🦈💕 CUDDLED RESCUED BABY SHARKS!', 'Your liberated Spawning-Pit baby sharks nuzzle your fins! (+100% Comfort & Warmth)');
+      addChatLog('🦈💕 <strong>Companion Baby Shark Lagoon:</strong> Your rescued Spawning-Pit baby sharks splashed happily and restored 100% Plush Comfort!', 'cozy');
+      return;
+    }
+    if (item.kind === 'homestead_enter_sea_cave') {
+      enterSeaCaveGrotto();
+      return;
+    }
+    if (item.kind === 'seacave_exit') {
+      exitSeaCaveGrotto();
+      return;
+    }
+    if (item.kind === 'seacave_thermal_spring') {
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.activateGrottoSpringBuff();
+      }
+      player.teaComfort = 100;
+      player.warmth = 100;
+      player.stuffing = 100;
+      adjustSharkMange(player.sharkId, -1.0, 'Starlight Thermal Spring');
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0x2dd4bf, 24);
+      updateMetersUI();
+      showToast('♨️💎 STARLIGHT THERMAL SPRING BLESSING!', '100% Warmth & Comfort, Coat Restored to 0% Mange, and +25% Starlight Grotto Speed (5m)!');
+      addChatLog('♨️💎 <strong>Bioluminescent Thermal Spring:</strong> Soaked in the warm mineral waters—Mange cleansed to 0% and <strong>+25% Starlight Speed Buff</strong> active!', 'cozy');
+      return;
+    }
+    if (item.kind === 'seacave_harvest_quartz') {
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.harvestQuartzNode(item.nodeId);
+      }
+      if (player.inventory) {
+        player.inventory.addItem('starlight_quartz', 1);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0x38bdf8, 20);
+      renderBuilderToolbar();
+      const qzTotal = player.inventory ? player.inventory.getCount('starlight_quartz') : 1;
+      showToast(`💎 HARVESTED: ${(item.nodeName || 'STARLIGHT QUARTZ').toUpperCase()}!`, `+1x Starlight Cave Quartz (${qzTotal} in satchel) & +1x SKÄRHAJ Flat-Pack Kit!`);
+      addChatLog(`💎📦 <strong>Subterranean Sea-Cave Grotto:</strong> Harvested <strong>1x Starlight Cave Quartz (💎)</strong> and <strong>1x SKÄRHAJ Flat-Pack Kit</strong> from ${item.nodeName}!`, 'lore');
+      return;
+    }
+    if (item.kind === 'seacave_mend_rift') {
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.recordCommissionProgress('comm_nimue_seam', 1);
+      }
+      if (player.inventory) {
+        player.inventory.addItem('starlight_quartz', 1);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      player.trialPoints = (player.trialPoints || 0) + 1;
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xc084fc, 24);
+      updateMetersUI();
+      renderBuilderToolbar();
+      showToast('🪡✨ SUBTERRANEAN SEAM RIFT STITCHED!', '+1x Starlight Cave Quartz 💎, +1x Flat-Pack Kit 📦 & +1 Trial Point (Nimue Commission Ready)!');
+      addChatLog('🪡✨ <strong>Subterranean Great Seam Rift:</strong> Stitched the cavern reality tear with Nimue’s needle (+1 Starlight Quartz, +1 Flat-Pack Kit & +1 Trial Pt)!', 'lore');
+      return;
+    }
+    if (item.kind === 'seacave_lounge_vault') {
+      if (player.inventory) {
+        player.inventory.addItem('flatpack_crate', 3);
+        player.inventory.addItem('starlight_quartz', 2);
+      }
+      player.trialPoints = (player.trialPoints || 0) + 1;
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xfbbf24, 26);
+      updateMetersUI();
+      renderBuilderToolbar();
+      showToast('👑💎 GROTTO ARCHODECT VAULT CLAIMED!', '+3x SKÄRHAJ Flat-Pack Kits 📦, +2x Starlight Cave Quartz 💎 & +1 Trial Point!');
+      addChatLog('👑💎 <strong>Subterranean Grotto Lounge Vault:</strong> Claimed <strong>+3x SKÄRHAJ Flat-Pack Kits</strong>, <strong>+2x Starlight Cave Quartz</strong>, and <strong>+1 Trial Point</strong>!', 'lore');
+      return;
+    }
     if (item.kind === 'spawning_ballpit_excavate') {
       if (window.BlahajSpawningPits) {
         window.BlahajSpawningPits.unlockGoldenBlueprint('skarhaj_ballpit');
@@ -6427,6 +6953,16 @@
         }
       ];
 
+      if (['solomon', 'nimue', 'hiram', 'hermes'].includes(act.id)) {
+        actorActions.unshift({
+          label: `👑 ${act.name}’s Daily Founder Commissions & Homestead Charter 📋`,
+          className: 'btn-primary',
+          onClick: () => {
+            closeDialogueModal();
+            openHomesteadCommissionsModal();
+          }
+        });
+      }
       if (act.id === 'carrot_leader') {
         actorActions.unshift({
           label: 'Play Beach Volleyball! 🏐🦈',
@@ -7742,7 +8278,7 @@
       unitFrame.style.cursor = 'pointer';
       unitFrame.addEventListener('click', (e) => {
         // Do not trigger if clicking on the mange slider or groom button directly
-        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range') || e.target.closest('#btn-groom-hud') || e.target.closest('#hud-archodect-pill'))) {
+        if (e.target && (e.target.id === 'mange-factor-slider' || e.target.classList.contains('mange-range') || e.target.closest('#btn-groom-hud') || e.target.closest('#hud-archodect-pill') || e.target.closest('#btn-open-homestead-hud'))) {
           return;
         }
         openCharacterSheet(player.sharkId);
@@ -11582,6 +12118,8 @@
       floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
       floorY = window.BlahajSpawningPits.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+      floorY = window.BlahajHomestead.getFloorHeight(player.pos.x, player.pos.z);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
       floorY = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
@@ -11664,12 +12202,17 @@
       window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
     } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
       window.BlahajSpawningPits.update(dt, elapsed, player.pos);
+    } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+      window.BlahajHomestead.update(dt, elapsed);
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
       window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
     } else {
       window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
+      if (window.BlahajHomestead) {
+        window.BlahajHomestead.update(dt, elapsed);
+      }
       if (window.BlahajVolleyball) {
         if (window.BlahajVolleyball.isMatchActive()) {
           window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
@@ -11854,7 +12397,11 @@
       if (player.launderedBuffTimer > 0) {
         player.launderedBuffTimer = Math.max(0, player.launderedBuffTimer - dt);
       }
-      const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost * teaAgilityBoost;
+      const boatTierBoost = (player.inBoat && window.BlahajHomestead && typeof window.BlahajHomestead.getBoatSpeedMultiplier === 'function')
+        ? window.BlahajHomestead.getBoatSpeedMultiplier()
+        : 1.0;
+      const grottoSpeedBoost = (window.BlahajHomestead && window.BlahajHomestead.hasGrottoBuff && window.BlahajHomestead.hasGrottoBuff()) ? 1.25 : 1.0;
+      const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost * teaAgilityBoost * boatTierBoost * grottoSpeedBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
 
@@ -12115,6 +12662,49 @@
           player.isGrounded = false;
           player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
+        }
+      } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDirX = dirX / len;
+          const normDirZ = dirZ / len;
+          const rawNext = {
+            x: player.pos.x + normDirX * speed * dt,
+            y: player.pos.y,
+            z: player.pos.z + normDirZ * speed * dt
+          };
+          const resolved = window.BlahajHomestead.resolveMove(player.pos, rawNext);
+          player.pos.x = resolved.x;
+          player.pos.z = resolved.z;
+          const targetAngle = Math.atan2(normDirX, normDirZ);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+          if (player.isGrounded) CozyAudio.footstep(false, true);
+        }
+        const floorY = window.BlahajHomestead.getFloorHeight(player.pos.x, player.pos.z);
+        if (player.pos.y > floorY + 0.05 || !player.isGrounded) {
+          player.velY -= 24.0 * dt;
+          player.pos.y += player.velY * dt;
+          if (player.pos.y <= floorY) {
+            player.pos.y = floorY;
+            player.velY = 0;
+            player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
+          }
+        } else {
+          player.pos.y = floorY;
+          player.velY = 0;
+          player.isGrounded = true;
         }
       } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
         const trolleyBoost = (window.BlahajSpawningPits.isRidingTrolley && window.BlahajSpawningPits.isRidingTrolley()) ? 1.65 : 1.0;
@@ -12764,6 +13354,9 @@
       camZ = Math.max(-388.8, Math.min(34.8, camZ));
       const floorAtCam = window.BlahajSpawningPits.getFloorHeight(camX, camZ, player.pos.y);
       camY = Math.min(ceilY - 0.5, Math.max(floorAtCam + 0.65, camY));
+    } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+      const floorAtCam = window.BlahajHomestead.getFloorHeight(camX, camZ);
+      camY = Math.min(12.5, Math.max(floorAtCam + 0.75, camY));
     } else if (currentZone === 'volleyball') {
       camY = Math.max(0.65, camY);
     } else {
@@ -13275,6 +13868,26 @@
       return;
     }
 
+    // Inside the 3D Subterranean Bioluminescent Sea-Cave Grotto Instance
+    if (currentZone === 'sea_cave' && window.BlahajHomestead) {
+      document.getElementById('hud-zone-name').textContent = 'Starlight Sea-Cave Grotto · Subterranean Lagoon 💎🌊';
+      const scItems = window.BlahajHomestead.getCaveInteractables(player.pos);
+      if (scItems.length > 0) {
+        scItems.sort((a, b) => a.dist - b.dist);
+        nearestInteractable = scItems[0];
+        nearestInteractable.prompt = nearestInteractable.label;
+        bestDist = scItems[0].dist;
+      }
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else if (promptEl) {
+        promptEl.classList.add('hidden');
+      }
+      return;
+    }
+
     // Inside the 3D IKEA Spawning Pits Stealth Dungeon Instance
     if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
       const secTitle = window.BlahajSpawningPits.getSectorTitle(player.pos.z);
@@ -13352,6 +13965,17 @@
     }
 
     // (Signposts are non-interactive 3D wooden carved road markers; exploration is unhindered)
+
+    // Pass 77: Personal Pocket Atoll, BÅT-BYGGE Shipyard, BYGGBÄNK Sawmill, Baby Sharks & Commissions Boards
+    if (window.BlahajHomestead && (currentZone === 'island' || currentZone === 'overworld')) {
+      const hsItems = window.BlahajHomestead.getSurfaceInteractables(player.pos, worldApi);
+      hsItems.forEach((hi) => {
+        if (hi.dist < bestDist) {
+          bestDist = hi.dist;
+          nearestInteractable = Object.assign({}, hi, { prompt: hi.label });
+        }
+      });
+    }
 
     // Solomon's Stone Bread Oven in Heartland Meadow
     if (solomonBreadOven && (currentZone === 'island' || currentZone === 'overworld')) {

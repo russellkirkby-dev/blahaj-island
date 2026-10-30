@@ -165,6 +165,10 @@
             <span>🦈 Character Sheet &amp; Inventory</span>
             <kbd>K</kbd>
           </button>
+          <button type="button" class="btn-open-charsheet-hud" id="btn-open-homestead-hud" title="Open Personal Pocket Atoll, Custom Boat Shipyard (BÅT-BYGGE), Sea-Cave &amp; Daily Founder Commissions [J]" style="margin-top: 5px; background: linear-gradient(135deg, rgba(2, 132, 199, 0.88), rgba(15, 23, 42, 0.92)); border-color: rgba(56, 189, 248, 0.65);">
+            <span>🏝️⛵ Atoll, Boat &amp; Daily Quests</span>
+            <kbd>J</kbd>
+          </button>
 
           <!-- Founder Archodect Quick-Power Pill (Visible to Russell & Helen) -->
           <div class="hud-archodect-pill hidden" id="hud-archodect-pill" title="Founder Archodect Privileges Active (Russell & Helen)">
@@ -2140,21 +2144,85 @@
     </div>
   </div>
 
+  
+  <!-- 11. PERSONAL POCKET ATOLL, CUSTOM BOAT SHIPYARD (BÅT-BYGGE), SEA-CAVE & DAILY FOUNDER COMMISSIONS MODAL -->
+  <div id="modal-homestead-commissions" class="modal-backdrop hidden" style="z-index: 9560;">
+    <div class="modal-card" style="max-width: 940px; width: 96%; max-height: 92vh; overflow-y: auto; border: 2px solid rgba(56, 189, 248, 0.78); background: linear-gradient(165deg, rgba(8, 22, 46, 0.98), rgba(15, 23, 42, 0.96)); box-shadow: 0 24px 68px rgba(0, 0, 0, 0.88);">
+      <button class="modal-close" id="close-homestead-modal" aria-label="Close Homestead Modal">✕</button>
+
+      <div style="text-align: center; margin-bottom: 12px;">
+        <div class="modal-tag" style="color: #38bdf8; font-weight: 800; letter-spacing: 0.1em;">🏝️⛵ ARCHIPELAGO HOMESTEAD CHARTER · BÅT-BYGGE SHIPYARD · DAILY FOUNDER COMMISSIONS</div>
+        <h2 style="margin: 4px 0 6px; font-family: 'Cinzel', serif; font-size: 1.5rem; color: #ffffff;">PERSONAL POCKET ATOLL, SEA-CAVE GROTTO &amp; DAILY COMMISSIONS</h2>
+        <p style="margin: 0; font-size: 0.84rem; color: #bae6fd;">
+          Sail or fast-travel to your chartered <strong>Personal Pocket Atoll</strong> &amp; <strong>3D Bioluminescent Sea-Cave Grotto</strong>, upgrade your <strong>Custom Flat-Pack Boat</strong>, visit a friend’s atoll via Passport Code, and complete <strong>Daily Founder Commissions</strong>!
+        </p>
+      </div>
+
+      <!-- Resource & Charter Status Bar -->
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(15, 23, 42, 0.82); border: 1px solid rgba(56, 189, 248, 0.45); margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.84rem; font-weight: 700; color: #fef08a;">
+          <span>📦 SKÄRHAJ Flat-Packs: <strong id="hs-flatpack-count">0</strong></span>
+          <span>💎 Starlight Cave Quartz: <strong id="hs-quartz-count">0</strong></span>
+          <span>🏷️ Rescued Companion Sharks: <strong id="hs-companion-count">3</strong></span>
+          <span>⛵ Active Vessel: <strong id="hs-active-boat-label" style="color: #38bdf8;">SKIFF-ETT (1.0x)</strong></span>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-primary" id="btn-hs-warp-atoll" style="padding: 7px 13px; font-size: 0.8rem;">🏝️ Warp to Personal Atoll</button>
+          <button type="button" class="btn-accent" id="btn-hs-enter-seacave" style="padding: 7px 13px; font-size: 0.8rem;">💎 Enter 3D Sea-Cave Grotto</button>
+          <button type="button" class="btn-secondary" id="btn-hs-sail-custom-boat" style="padding: 7px 13px; font-size: 0.8rem;">⛵ Board &amp; Sail Custom Boat</button>
+        </div>
+      </div>
+
+      <!-- Section 1: BÅT-BYGGE Custom Flat-Pack Boat Shipyard (3 Tiers) -->
+      <div style="margin-bottom: 16px; padding: 12px 14px; border-radius: 14px; background: rgba(2, 132, 199, 0.14); border: 1px solid rgba(56, 189, 248, 0.45);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+          <div>
+            <div style="font-size: 0.74rem; font-weight: 900; color: #38bdf8; letter-spacing: 0.08em; text-transform: uppercase;">⚓ BÅT-BYGGE · CUSTOM FLAT-PACK BOAT SHIPYARD</div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: #ffffff;">Upgrade Your Personal Vessel &amp; Blow the Brass Steam Whistle [H] While Sailing!</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 10px;" id="hs-boat-tier-grid">
+        </div>
+      </div>
+
+      <!-- Section 2: Daily Founder Archodect Commissions (Hermes, Hiram, Solomon, Nimue) -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 0.76rem; font-weight: 900; color: #fbbf24; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;">👑 DAILY FOUNDER ARCHODECT COMMISSIONS (SOLOMON · NIMUE · HIRAM · HERMES)</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(410px, 1fr)); gap: 10px;" id="hs-commissions-grid">
+        </div>
+      </div>
+
+      <!-- Section 3: Visit a Friend's Atoll via Passport Code (SHK-XXXX) -->
+      <div style="padding: 12px 14px; border-radius: 14px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(168, 85, 247, 0.45); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1; min-width: 240px;">
+          <div style="font-size: 0.74rem; font-weight: 900; color: #c084fc; letter-spacing: 0.08em; text-transform: uppercase;">🧭 ARCHIPELAGO SEA CHART · VISIT FRIEND’S ATOLL INSTANCE</div>
+          <div style="font-size: 0.86rem; color: #e2e8f0; margin-top: 2px;">Enter a friend’s Shark Passport Code (e.g. <code>SHK-RUSSELL</code>, <code>SHK-HELEN</code>, <code>SHK-SVENSK</code>) to sail to their chartered Pocket Atoll!</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="input-friend-passport-code" placeholder="SHK-RUSSELL" style="padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.6); background: rgba(15, 23, 42, 0.95); color: #ffffff; font-weight: 800; width: 155px; text-transform: uppercase;" />
+          <button type="button" class="btn-primary" id="btn-visit-friend-atoll" style="padding: 8px 14px; font-size: 0.82rem;">⛵ Sail to Friend’s Atoll</button>
+          <button type="button" class="btn-secondary" id="btn-reset-own-atoll" style="padding: 8px 12px; font-size: 0.8rem;">🏠 My Charter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=5.4"></script>
-  <script src="js/sharks3d.js?v=5.4"></script>
-  <script src="js/world3d.js?v=5.4"></script>
-  <script src="js/volcano.js?v=5.4"></script>
-  <script src="js/laundromat.js?v=5.4"></script>
-  <script src="js/sphericalFoods.js?v=5.4"></script>
-  <script src="js/volleyball.js?v=5.4"></script>
-  <script src="js/spawningPits.js?v=5.4"></script>
-  <script src="js/network.js?v=5.4"></script>
-  <script src="js/inventory.js?v=5.4"></script>
-  <script src="js/enemies.js?v=5.4"></script>
-  <script src="js/seam.js?v=5.4"></script>
+  <script src="js/lore.js?v=5.5"></script>
+  <script src="js/sharks3d.js?v=5.5"></script>
+  <script src="js/world3d.js?v=5.5"></script>
+  <script src="js/volcano.js?v=5.5"></script>
+  <script src="js/laundromat.js?v=5.5"></script>
+  <script src="js/sphericalFoods.js?v=5.5"></script>
+  <script src="js/volleyball.js?v=5.5"></script>
+  <script src="js/spawningPits.js?v=5.5"></script>
+  <script src="js/homestead.js?v=5.5"></script>
+  <script src="js/network.js?v=5.5"></script>
+  <script src="js/inventory.js?v=5.5"></script>
+  <script src="js/enemies.js?v=5.5"></script>
+  <script src="js/seam.js?v=5.5"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=5.4"></script>
-  <script src="js/main.js?v=5.4"></script>
+  <script src="js/saveSystem.js?v=5.5"></script>
+  <script src="js/main.js?v=5.5"></script>
 </body>
 </html>

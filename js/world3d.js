@@ -123,12 +123,13 @@ window.BlahajWorld = (function () {
     return 0.22 + w1 + w2 + w3;
   }
 
-  // Definition of the 4 Outer Buildable Sanctuary Islands
+  // Definition of the 5 Outer Buildable Sanctuary Islands (including Personal Pocket Atoll)
   const OUTER_ISLANDS = [
     { id: 'hermes_atoll', x: 175, z: -10, radius: 46, elev: 3.8, dockX: 135, dockZ: -10, dockDir: 'x' },
     { id: 'solomon_cay', x: -165, z: 95, radius: 50, elev: 4.0, dockX: -126, dockZ: 68, dockDir: 'diag_ne' },
     { id: 'hiram_isle', x: -165, z: -90, radius: 48, elev: 4.4, dockX: -126, dockZ: -68, dockDir: 'diag_se' },
-    { id: 'nimue_sanctuary', x: 165, z: -115, radius: 48, elev: 4.2, dockX: 128, dockZ: -88, dockDir: 'diag_sw' }
+    { id: 'nimue_sanctuary', x: 165, z: -115, radius: 48, elev: 4.2, dockX: 128, dockZ: -88, dockDir: 'diag_sw' },
+    { id: 'charter_atoll', x: 0, z: 205, radius: 52, elev: 4.2, dockX: 0, dockZ: 152, dockDir: 'z' }
   ];
 
   function getTerrainBumpTexture() {
@@ -841,7 +842,8 @@ window.BlahajWorld = (function () {
       { x: 0, z: 73 },
       { x: -6.8, z: 60 },
       { x: 42.5, z: 66 },
-      { x: -21.5, z: -204 }
+      { x: -21.5, z: -204 },
+      { x: 0, z: 145.5 }
     ];
     for (let i = 0; i < mooredBoats.length; i++) {
       const mb = mooredBoats[i];

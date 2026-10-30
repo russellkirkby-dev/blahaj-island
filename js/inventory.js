@@ -420,6 +420,32 @@ window.BlahajInventory = (function () {
       stats: '+100% Stuffing Coherence & Tea Comfort · Approved by Spherical Foods',
       canUse: true,
       canHold: true
+    },
+    starlight_quartz: {
+      id: 'starlight_quartz',
+      name: 'Starlight Cave Quartz',
+      icon: '💎',
+      rarity: 'epic',
+      category: 'mineral',
+      maxStack: 20,
+      type: 'Bioluminescent Sea-Cave Crystal · Grotto Mineral',
+      desc: 'Prismatic cyan-and-violet quartz crystal harvested from the Subterranean Bioluminescent Sea-Cave Grotto beneath your Personal Pocket Atoll. Fuels the ÅNGBÅT-TRE Volcanic Steam Launch and Nimue’s Seam commissions.',
+      stats: 'Upgrades Custom Boats (BÅT-BYGGE) · Mills into SKÄRHAJ Kits',
+      canUse: false,
+      canHold: true
+    },
+    homestead_charter: {
+      id: 'homestead_charter',
+      name: 'Archipelago Homestead Charter',
+      icon: '📜',
+      rarity: 'legendary',
+      category: 'relic',
+      maxStack: 1,
+      type: 'Royal Archodect Deed · Personal Atoll & Sea-Cave',
+      desc: 'Official parchment charter sealed by Russell, Helen, and the Order of the Sacred Scissors granting you perpetual title to your Personal Pocket Atoll (South Lagoon), Private Boat Shipyard, and Subterranean Bioluminescent Sea-Cave.',
+      stats: 'Unlocks Personal Pocket Atoll & Custom Boat Shipyard',
+      canUse: false,
+      canHold: true
     }
   };
 

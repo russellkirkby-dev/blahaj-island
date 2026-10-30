@@ -412,6 +412,22 @@ window.BLAHAJ_LORE = {
       signZ: -92,
       themeColor: 0xc299ff,
       desc: 'A serene stargazer island off the northeast coast where the Great Seam shimmers brightest. Perfect for quiet cabins, starlight lanterns, and custom gardens.'
+    },
+    {
+      id: 'charter_atoll',
+      name: 'Personal Pocket Atoll & Starlight Sea-Cave',
+      direction: 'SOUTH LAGOON ATOLL',
+      guardian: 'Order of the Sacred Scissors',
+      x: 0,
+      z: 205,
+      radius: 52,
+      elevation: 4.2,
+      dockX: 0,
+      dockZ: 152,
+      signX: 0,
+      signZ: 162,
+      themeColor: 0x38bdf8,
+      desc: 'Your personal chartered Pocket Atoll directly south of Crescent Harbour! Features a Private Boat Shipyard (BÅT-BYGGE), Ingvar’s Assembly & Sawmill Bench (BYGGBÄNK), a companion lagoon for rescued Spawning-Pit baby sharks, and a natural Basalt Arch descending into the 3D Subterranean Bioluminescent Sea-Cave Grotto!'
     }
   ],
 
@@ -869,6 +885,96 @@ window.BLAHAJ_LORE = {
       title: 'Nimue — An Angel',
       src: 'assets/gallery/Nimue.png',
       desc: 'Keeper of the Quiet Library and the Lantern of Forgotten Stars, healing through gentle presence and ancient memory.'
+    }
+  ],
+
+  // Pass 77: Custom Flat-Pack Boat Shipyard Tiers (BÅT-BYGGE)
+  boatCatalog: [
+    {
+      tier: 1,
+      id: 'skiff_ett',
+      code: 'SKIFF-ETT',
+      name: 'SKIFF-ETT · Cozy Birch Rowboat',
+      speedMult: 1.0,
+      costFlatpacks: 0,
+      costQuartz: 0,
+      badge: 'Starter Charter Vessel · 1.0x Speed',
+      desc: 'Clinker-built Scandinavian birch rowboat with twin ash oars, brass oarlocks, and a warm bow lantern.'
+    },
+    {
+      tier: 2,
+      id: 'segel_tva',
+      code: 'SEGEL-TVÅ',
+      name: 'SEGEL-TVÅ · Outrigger Flat-Pack Sailboat',
+      speedMult: 1.45,
+      costFlatpacks: 2,
+      costQuartz: 0,
+      badge: '+45% Sailing Speed · Flat-Pack Cargo Rack',
+      desc: 'Fast lagoon cruiser rigged with a Blue-and-Yellow SKÄRHAJ mainsail, bamboo outrigger pontoons, and a stern rack stacked with Flat-Pack crates!'
+    },
+    {
+      tier: 3,
+      id: 'angbat_tre',
+      code: 'ÅNGBÅT-TRE',
+      name: 'ÅNGBÅT-TRE · Volcanic Steam Launch',
+      speedMult: 1.90,
+      costFlatpacks: 3,
+      costQuartz: 1,
+      badge: '+90% Turbo Speed · Brass Steam Whistle [H]',
+      desc: 'Mahogany-and-brass 4-seater luxury launch powered by a Volcanic & Starlight Quartz boiler, spinning stern paddlewheel, and musical brass steam whistle [H]!'
+    }
+  ],
+
+  // Pass 77: Daily Founder Archodect Commissions Board
+  dailyCommissions: [
+    {
+      id: 'comm_hermes_extraction',
+      founder: 'Hermes',
+      title: '✂️ The Nightly Extraction',
+      patronRole: 'Order of the Sacred Scissors · East Cape & Spawning Pits',
+      portrait: 'assets/gallery/Hermes.png',
+      desc: 'Portal into the IKEA Spawning Pits of Erf to liberate a dormant fellow shark or heist Flat-Pack Kits from Aisle 14.',
+      rewardLabel: '+3x SKÄRHAJ Flat-Pack Kits 📦 · +1x Retired Tag 🏷️ · +1 Trial Pt',
+      rewardFlatpacks: 3,
+      rewardItem: 'retired_tag',
+      rewardTrials: 1
+    },
+    {
+      id: 'comm_hiram_joinery',
+      founder: 'Hiram',
+      title: '🔧 Torque & Sacred Joinery',
+      patronRole: 'Master of the Sacred Allen Key · Personal Atoll & Builder',
+      portrait: 'assets/gallery/Hiram.png',
+      desc: 'Snap-build any modular SKÄRHAJ structure in Master Builder Mode [C] or mill timber at Ingvar’s BYGGBÄNK Sawmill Bench on your Personal Atoll.',
+      rewardLabel: '+3x SKÄRHAJ Flat-Pack Kits 📦 · +3 Birb & +3 Carrot Supplies',
+      rewardFlatpacks: 3,
+      rewardBirbs: 3,
+      rewardCarrots: 3
+    },
+    {
+      id: 'comm_solomon_spherical',
+      founder: 'Solomon',
+      title: '🧆 The Spherical Mandate',
+      patronRole: 'Keeper of the Sacred Hearth & Spherical Foods',
+      portrait: 'assets/gallery/Solomon.png',
+      desc: 'Bake or toss Warm Breb for the Birbs, savor Midnight Spawning-Pit Köttbullar, or share Sacred Tea at any Tea Table.',
+      rewardLabel: '+2x Midnight Köttbullar 🧆 · +2x SKÄRHAJ Flat-Pack Kits 📦 · 100% Comfort',
+      rewardFlatpacks: 2,
+      rewardItem: 'kottbullar_feast',
+      rewardItemQty: 2
+    },
+    {
+      id: 'comm_nimue_seam',
+      founder: 'Nimue',
+      title: '🪡 Stitching the Starlight Deep',
+      patronRole: 'Weaver of the Great Seam · Subterranean Sea-Cave Grotto',
+      portrait: 'assets/gallery/Nimue.png',
+      desc: 'Descend into the Subterranean Bioluminescent Sea-Cave Grotto beneath your Personal Atoll to harvest Starlight Quartz or mend a Great Seam Rift.',
+      rewardLabel: '+2x Starlight Cave Quartz 💎 · +3x SKÄRHAJ Flat-Pack Kits 📦 · +1 Trial Pt',
+      rewardFlatpacks: 3,
+      rewardItem: 'starlight_quartz',
+      rewardItemQty: 2,
+      rewardTrials: 1
     }
   ]
 };
