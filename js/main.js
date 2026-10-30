@@ -2401,6 +2401,9 @@
     if (currentZone === 'volleyball' && window.BlahajVolleyball) {
       return window.BlahajVolleyball.getScene() || scene;
     }
+    if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      return window.BlahajSpawningPits.getScene() || scene;
+    }
     return scene;
   }
 
@@ -2661,6 +2664,20 @@
       setTimeout(() => {
         overlay.style.display = 'none';
       }, 800);
+    }
+
+    // Pass 74: First-time new sharks wake up inside the 3D IKEA Spawning Pits Wire Bin (#303.735.88)
+    // and escape to Blåhaj Island while gathering their first SKÄRHAJ Flat-Pack Kits!
+    const hasEscapedPits = localStorage.getItem('blahaj_escaped_spawning_pits_v1') === 'true';
+    const isFounder = window.BlahajSaveSystem && typeof window.BlahajSaveSystem.isFounderArchodect === 'function'
+      ? window.BlahajSaveSystem.isFounderArchodect()
+      : false;
+    if (!hasEscapedPits && !isFounder && currentZone !== 'spawning_pits') {
+      setTimeout(() => {
+        if (currentZone !== 'spawning_pits') {
+          enterSpawningPits(true);
+        }
+      }, 320);
     }
   }
 
@@ -4657,6 +4674,10 @@
 
   function setupSpawningPitsRaidUI() {
     document.getElementById('close-spawning-raid-modal')?.addEventListener('click', closeSpawningPitsRaidModal);
+    document.getElementById('btn-raid-enter-3d-dungeon')?.addEventListener('click', () => {
+      closeSpawningPitsRaidModal();
+      enterSpawningPits(false);
+    });
     document.getElementById('btn-raid-open-detag')?.addEventListener('click', () => {
       closeSpawningPitsRaidModal();
       if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.openRiteOfDetaggingModal === 'function') {
@@ -5264,6 +5285,203 @@
     }, 90);
   }
 
+  function enterSpawningPits(isOriginSpawn = false) {
+    if (isTransitioningZone) return;
+    if (player.inBoat) {
+      player.inBoat = false;
+      player.ridingWithPartner = false;
+    }
+    if (player.inCart) dismountLaundryCart();
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) {
+      titleEl.textContent = isOriginSpawn
+        ? 'Awakening in the IKEA Spawning Pits of Erf (Art. 303.735.88)'
+        : 'Sneaking into the IKEA Spawning Pits of Erf (Midnight Heist)';
+    }
+    if (subEl) {
+      subEl.textContent = 'Hop out of Wire Bin #7 · Follow the Yellow Arrows · Collect SKÄRHAJ Flat-Pack Kits · Escape via Hermes’s Portal! 🛒🔦';
+    }
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(async () => {
+          currentZone = 'spawning_pits';
+          if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
+          if (window.BlahajSpawningPits) {
+            await window.BlahajSpawningPits.build();
+            window.BlahajSpawningPits.setActive(true);
+            window.BlahajSpawningPits.setCallbacks({
+              onSecuritySpotted: () => {
+                const start = window.BlahajSpawningPits.getStart();
+                player.pos.set(start.x, start.y, start.z);
+                player.rotY = start.rotY;
+                if (player.mesh) {
+                  player.mesh.position.copy(player.pos);
+                  player.mesh.rotation.y = player.rotY;
+                }
+                CozyAudio.shonk();
+                spawnFloatingBurst(player.pos, 0xef4444, 14);
+                showToast(
+                  '🚨 NIGHT-SHIFT SECURITY SPOTLIGHT!',
+                  '“Attention shoppers: A plush shark has escaped Display Bin #303.735.88!” Gently returned to the Spawning Bin!'
+                );
+                addChatLog(
+                  '🔦🚨 <strong>Erf Store Intercom:</strong> <em>“Attention Night-Shift: A Blåhaj plush has escaped Display Bin #7!”</em> You were gently placed back into the Wire Spawning Bin—use the KALLAX shelves for cover!',
+                  'system'
+                );
+              },
+              onAutoPortalExit: () => {
+                if (!isTransitioningZone && currentZone === 'spawning_pits') {
+                  exitSpawningPits();
+                }
+              }
+            });
+
+            const start = window.BlahajSpawningPits.getStart();
+            if (player.mesh) {
+              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+              window.BlahajSpawningPits.getScene().add(player.mesh);
+            }
+            player.pos.set(start.x, start.y, start.z);
+            player.rotY = start.rotY;
+            camState.yaw = 0.0; // Look South (-Z) down the Yellow-Arrow Showroom toward the Escape Portal
+            camState.pitch = 0.32;
+            if (player.mesh) {
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+            player.velY = 0;
+            player.isGrounded = true;
+          }
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast(
+            isOriginSpawn ? 'AWAKENED IN THE IKEA SPAWNING PITS! 🛒🦈' : 'ENTERED THE 3D IKEA SPAWNING PITS! 🔦📦',
+            'Hop out of Wire Bin #303.735.88, follow the yellow arrows, pick up 3D SKÄRHAJ Flat-Pack Kits in Aisle 14, and reach Hermes’s Portal!'
+          );
+          addChatLog(
+            '🛒🔦 <strong>The IKEA Spawning Pits of Erf (Art. 303.735.88):</strong> You are inside the giant wire display bin after closing time! Follow the glowing yellow arrows past the sweeping security spotlights, grab <strong>SKÄRHAJ Flat-Pack Kits (📦)</strong> in Warehouse Aisle 14, and step through <strong>Hermes’s Between Portal</strong> at the far end to reach Blåhaj Island!',
+            'lore'
+          );
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'spawning_pits'
+          });
+        }, 220);
+      }
+    }, 80);
+  }
+
+  function exitSpawningPits() {
+    if (isTransitioningZone) return;
+    isTransitioningZone = true;
+
+    const firstEscape = localStorage.getItem('blahaj_escaped_spawning_pits_v1') !== 'true';
+    localStorage.setItem('blahaj_escaped_spawning_pits_v1', 'true');
+
+    // Guarantee starter flat-pack kits & supplies on first escape!
+    if (firstEscape) {
+      if (player.inventory) {
+        if (player.inventory.getCount('flatpack_crate') < 3) {
+          player.inventory.addItem('flatpack_crate', 3 - player.inventory.getCount('flatpack_crate'));
+        }
+        if (!player.inventory.hasItem('hex_key')) player.inventory.addItem('hex_key', 1);
+        if (!player.inventory.hasItem('ingvar_tape')) player.inventory.addItem('ingvar_tape', 1);
+      }
+      player.birbsFedCount += 2;
+      player.carrotsKnockedCount += 2;
+      player.trialPoints = (player.trialPoints || 0) + 1;
+    }
+    completeQuest('q-spawning-pits');
+    updateMetersUI();
+    renderBuilderToolbar();
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Crossing Hermes’s Between Portal to Blåhaj Island';
+    if (subEl) subEl.textContent = 'Leaving the IKEA Spawning Pits of Erf with your SKÄRHAJ Flat-Pack Kits… 🌀📦🦈';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (window.BlahajSpawningPits) {
+            window.BlahajSpawningPits.setActive(false);
+          }
+
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+
+          const spawnX = 58.0;
+          const spawnZ = -10.0;
+          const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
+          player.pos.set(spawnX, sy, spawnZ);
+          player.rotY = -Math.PI / 2;
+          camState.yaw = -Math.PI / 2;
+
+          if (player.mesh) {
+            player.mesh.position.copy(player.pos);
+            player.mesh.rotation.y = player.rotY;
+          }
+          player.velY = 0;
+          player.isGrounded = true;
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          const kitTotal = player.inventory ? player.inventory.getCount('flatpack_crate') : 0;
+          showToast(
+            firstEscape ? 'ESCAPED THE SPAWNING PITS → WELCOME TO BLÅHAJ ISLAND! 🌀🦈' : 'RETURNED FROM SPAWNING-PIT HEIST! 📦🦈',
+            `Arrived at East Cape Portal Gate with ${kitTotal}x SKÄRHAJ Flat-Pack Kits in your satchel! Press [C] to snap-build!`
+          );
+          addChatLog(
+            `🌀📦 <strong>Arrived on Blåhaj Island from the IKEA Spawning Pits:</strong> You stepped through Hermes’s Between Portal onto East Cape carrying <strong>${kitTotal}x SKÄRHAJ Flat-Pack Kits</strong>! Press <strong>[C]</strong> anytime to snap-build your Sanctuary Homestead, or return through the East Cape Portal Gate whenever you need more kits!`,
+            'system'
+          );
+
+          if (window.BlahajSaveSystem) window.BlahajSaveSystem.saveNow();
+
+          window.BlahajNetwork.send({
+            type: 'zone_change',
+            zone: 'island'
+          });
+        }, 250);
+      }
+    }, 90);
+  }
+
   function enterLaundromat() {
     if (isTransitioningZone) return;
     isTransitioningZone = true;
@@ -5770,6 +5988,81 @@
     }
     if (item.kind === 'laundromat_return') {
       exitLaundromat();
+      return;
+    }
+
+    // 3D IKEA Spawning Pits Instance Interactables
+    if (item.kind === 'spawning_altar_detag') {
+      if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.openRiteOfDetaggingModal === 'function') {
+        window.BlahajSaveSystem.openRiteOfDetaggingModal();
+      }
+      return;
+    }
+    if (item.kind === 'spawning_liberate_shark') {
+      const swedishNames = ['Svenskhaj', 'Lingonfin', 'Björkhaj', 'Köttbullar-Shonk', 'Stjärnhaj', 'Fjordfin', 'Kanelhaj'];
+      const pickName = swedishNames[Math.floor(Math.random() * swedishNames.length)];
+      if (player.inventory) {
+        player.inventory.addItem('retired_tag', 1);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xffda1a, 16);
+      completeQuest('q-spawning-pits');
+      renderBuilderToolbar();
+      showToast(`SHARK LIBERATED: ${pickName.toUpperCase()}! ✂️🦈`, `Snipped barcode tag Art. 303.735.88 in Wire Bin #8! (+1 SKÄRHAJ Flat-Pack Kit & Retired Tag)`);
+      addChatLog(`✂️🦈 <strong>Wire Spawning Bin #8:</strong> You snipped the barcode tag off <strong>${pickName}</strong> with the Sacred Scissors and secured <strong>+1x SKÄRHAJ Flat-Pack Kit</strong>!`, 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_pickup_tape') {
+      if (player.inventory) {
+        player.inventory.addItem('ingvar_tape', 1);
+        player.inventory.addItem('flatpack_crate', 1);
+      }
+      CozyAudio.allenBuild();
+      spawnFloatingBurst(player.pos, 0x38bdf8, 14);
+      completeQuest('q-spawning-pits');
+      renderBuilderToolbar();
+      showToast('INGVAR’S MEASURING STATION! 📏📦', 'Collected Ingvar’s Brass Measuring Tape & +1 SKÄRHAJ Flat-Pack Kit!');
+      addChatLog('📏📦 <strong>Showroom Measuring Station:</strong> Collected <strong>Ingvar’s Brass Measuring Tape (📏)</strong> and <strong>+1x SKÄRHAJ Flat-Pack Kit</strong>!', 'lore');
+      return;
+    }
+    if (item.kind === 'spawning_pickup_flatpack') {
+      if (window.BlahajSpawningPits) {
+        const picked = window.BlahajSpawningPits.collectFlatpackPickup(item.pickupId);
+        if (picked) {
+          if (player.inventory) {
+            player.inventory.addItem('flatpack_crate', 1);
+            if (!player.inventory.hasItem('hex_key')) player.inventory.addItem('hex_key', 1);
+          }
+          player.birbsFedCount += 1;
+          player.carrotsKnockedCount += 1;
+          CozyAudio.allenBuild();
+          spawnFloatingBurst(player.pos, 0xffda1a, 18);
+          completeQuest('q-spawning-pits');
+          updateMetersUI();
+          renderBuilderToolbar();
+          const totalKits = player.inventory ? player.inventory.getCount('flatpack_crate') : 1;
+          showToast(`HEISTED: ${picked.name.toUpperCase()}! 📦🔧`, `+1 SKÄRHAJ Flat-Pack Kit (${totalKits} in satchel) + Birb & Carrot Dowel Supplies!`);
+          addChatLog(`📦🔧 <strong>Aisle 14, Bay 22:</strong> Picked up <strong>${picked.name}</strong> from the warehouse pallet! (Satchel now holds <strong>${totalKits}x SKÄRHAJ Flat-Pack Kits</strong>)`, 'lore');
+        }
+      }
+      return;
+    }
+    if (item.kind === 'spawning_bistro_feast') {
+      if (player.inventory) {
+        player.inventory.addItem('kottbullar_feast', 2);
+      }
+      player.teaComfort = 100;
+      player.warmth = 100;
+      CozyAudio.bistroChime();
+      spawnFloatingBurst(player.pos, 0x34d399, 16);
+      updateMetersUI();
+      showToast('MIDNIGHT SWEDISH BISTRO! 🧆✨', 'Collected +2x Midnight Spawning-Pit Köttbullar & Lingonberry Jam (100% Comfort)!');
+      addChatLog('🧆✨ <strong>Midnight Swedish Bistro Counter:</strong> Packed <strong>2x Midnight Spawning-Pit Köttbullar</strong> into your satchel and restored 100% Plush Comfort!', 'cozy');
+      return;
+    }
+    if (item.kind === 'spawning_exit_portal') {
+      exitSpawningPits();
       return;
     }
 
@@ -6292,8 +6585,16 @@
         text: 'The Great Portal Gate links Los Angeles and New Zealand across the Great Seam—and also folds space directly out to the 4 Outer Buildable Sanctuary Islands surrounding Blåhaj Island!',
         actions: [
           {
-            label: '🛒 Nighttime Portal Raid: The IKEA Spawning Pits of Erf (Flat-Pack Heist) 📦✂️',
+            label: '🛒🔦 Enter 3D IKEA Spawning Pits Stealth Dungeon (Walkable Flat-Pack Heist) 📦✂️',
             className: 'btn-accent',
+            onClick: () => {
+              closeDialogueModal();
+              enterSpawningPits(false);
+            }
+          },
+          {
+            label: '📋 Spawning Pits Tactical Dispatch & Book of Named Sharks ✂️🦈',
+            className: 'btn-primary',
             onClick: () => {
               closeDialogueModal();
               openSpawningPitsRaidModal();
@@ -11089,6 +11390,8 @@
       floorY = window.BlahajVolcano.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       floorY = window.BlahajLaundromat.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+    } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      floorY = window.BlahajSpawningPits.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
       floorY = window.BlahajVolleyball.getFloorHeight(player.pos.x, player.pos.z);
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
@@ -11169,6 +11472,8 @@
       window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
     } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
       window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
+    } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      window.BlahajSpawningPits.update(dt, elapsed, player.pos);
     } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
       window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
     } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
@@ -11620,6 +11925,60 @@
           player.isGrounded = false;
           player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
+        }
+      } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+        if (isMoving) {
+          const fwdX = -Math.sin(camState.yaw);
+          const fwdZ = -Math.cos(camState.yaw);
+          const rightX = Math.cos(camState.yaw);
+          const rightZ = -Math.sin(camState.yaw);
+
+          const dirX = fwdX * moveForward + rightX * moveRight;
+          const dirZ = fwdZ * moveForward + rightZ * moveRight;
+          const len = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+          const normDirX = dirX / len;
+          const normDirZ = dirZ / len;
+
+          const rawNext = {
+            x: player.pos.x + normDirX * speed * dt,
+            z: player.pos.z + normDirZ * speed * dt
+          };
+          const resolved = window.BlahajSpawningPits.resolveMove(player.pos, rawNext, player.isGrounded, 0.42);
+          if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
+            player.pos.x = resolved.x;
+            player.pos.z = resolved.z;
+          }
+
+          const targetAngle = Math.atan2(normDirX, normDirZ);
+          let diff = targetAngle - player.rotY;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          player.rotY += diff * Math.min(1, dt * 12);
+
+          if (player.isGrounded) {
+            CozyAudio.footstep(false, true);
+          }
+        }
+
+        const floorY = window.BlahajSpawningPits.getFloorHeight(player.pos.x, player.pos.z, player.pos.y);
+        if (player.pos.y > floorY + 0.05 || !player.isGrounded) {
+          player.velY -= 24.0 * dt;
+          player.pos.y += player.velY * dt;
+          if (player.pos.y <= floorY) {
+            player.pos.y = floorY;
+            player.velY = 0;
+            player.isGrounded = true;
+            player.canDoubleJump = true;
+            player.doubleJumped = false;
+            player.coyoteTimer = 0.15;
+          }
+        } else {
+          player.pos.y = floorY;
+          player.velY = 0;
+          player.isGrounded = true;
+          player.canDoubleJump = true;
+          player.doubleJumped = false;
+          player.coyoteTimer = 0.15;
         }
       } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
         if (isMoving) {
@@ -12205,6 +12564,12 @@
         const maxCamY = Math.max(minCamY + 0.2, ceilY - 0.45);
         camY = Math.min(maxCamY, Math.max(minCamY, camY));
       }
+    } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      const ceilY = window.BlahajSpawningPits.getCeilingY() || 8.4;
+      camX = Math.max(-15.1, Math.min(15.1, camX));
+      camZ = Math.max(-34.1, Math.min(26.1, camZ));
+      const floorAtCam = window.BlahajSpawningPits.getFloorHeight(camX, camZ, player.pos.y);
+      camY = Math.min(ceilY - 0.5, Math.max(floorAtCam + 0.65, camY));
     } else if (currentZone === 'volleyball') {
       camY = Math.max(0.65, camY);
     } else {
@@ -12550,6 +12915,16 @@
     nearestInteractable = null;
     let bestDist = 999;
 
+    if (currentZone !== 'island' && currentZone !== 'overworld') {
+      worldActors.forEach((act) => {
+        if (act.labelEl && act.labelEl._lastDisplay !== 'none') {
+          act.labelEl.style.opacity = '0';
+          act.labelEl.style.display = 'none';
+          act.labelEl._lastDisplay = 'none';
+        }
+      });
+    }
+
     if (isUsingBinoculars) {
       nearestInteractable = {
         kind: 'binoculars_active',
@@ -12695,6 +13070,26 @@
           nearestInteractable = riftRes.closestRift;
           bestDist = riftRes.minD;
         }
+      }
+      const promptEl = document.getElementById('interaction-prompt');
+      if (nearestInteractable && !isAnyModalOpen()) {
+        document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
+        promptEl.classList.remove('hidden');
+      } else if (promptEl) {
+        promptEl.classList.add('hidden');
+      }
+      return;
+    }
+
+    // Inside the 3D IKEA Spawning Pits Stealth Dungeon Instance
+    if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+      const secTitle = window.BlahajSpawningPits.getSectorTitle(player.pos.z);
+      document.getElementById('hud-zone-name').textContent = secTitle;
+      const spItems = window.BlahajSpawningPits.getInteractables(player.pos);
+      if (spItems.length > 0) {
+        spItems.sort((a, b) => a.dist - b.dist);
+        nearestInteractable = spItems[0];
+        bestDist = spItems[0].dist;
       }
       const promptEl = document.getElementById('interaction-prompt');
       if (nearestInteractable && !isAnyModalOpen()) {
@@ -13311,6 +13706,8 @@
     exitVolcanoTrial,
     enterLaundromat,
     exitLaundromat,
+    enterSpawningPits,
+    exitSpawningPits,
     enterSphericalFoods,
     enterVolleyballCourt,
     exitVolleyballCourt,

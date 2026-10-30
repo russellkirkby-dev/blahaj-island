@@ -1389,6 +1389,15 @@
         completeRiteOfDetagging({ name: nameVal, title: titleVal });
       }
       closeRiteOfDetaggingModal();
+      const g = window.BlahajGame;
+      if (g && typeof g.embarkIntoGame === 'function') {
+        g.embarkIntoGame();
+      }
+      if (g && typeof g.enterSpawningPits === 'function' && g.getZone && g.getZone() !== 'spawning_pits') {
+        if (localStorage.getItem('blahaj_escaped_spawning_pits_v1') !== 'true') {
+          setTimeout(() => g.enterSpawningPits(true), 250);
+        }
+      }
     });
 
     document.getElementById('btn-save-google-client-id')?.addEventListener('click', () => {
