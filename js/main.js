@@ -2446,7 +2446,7 @@
 
   // Tab-Target MMORPG Camera & Mouse Split State
   const camState = {
-    yaw: -Math.PI / 2,
+    yaw: Math.PI / 2,
     pitch: 0.22,
     distance: 7.4,
     shoulderRight: 0.85,

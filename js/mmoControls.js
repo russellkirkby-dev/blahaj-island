@@ -1209,22 +1209,28 @@
   // automatically acquires the nearest hostile (or rift) in front of the shark!
   function ensureSmartOffensiveTarget(maxDist = 30.0, allowRift = false) {
     const p = window.player;
+    const cam = window.camState;
     if (!p || !p.pos) return null;
+
+    // Use camera forward view vector so attacks & throws always prefer what the player is looking at!
+    const fwdX = cam ? -Math.sin(cam.yaw) : Math.sin(p.rotY);
+    const fwdZ = cam ? -Math.cos(cam.yaw) : Math.cos(p.rotY);
 
     if (state.selectedTarget) {
       const curCat = state.selectedTarget.category;
       const tPos = state.selectedTarget.getPos && state.selectedTarget.getPos();
-      const d = tPos ? Math.hypot(tPos.x - p.pos.x, tPos.z - p.pos.z) : 999;
-      if ((curCat === 'hostile' || (allowRift && curCat === 'rift')) && d <= maxDist + 8.0) {
-        return state.selectedTarget;
-      }
-      if (state.selectedTarget.category !== 'friendly' && d <= maxDist + 8.0) {
-        return state.selectedTarget;
+      if (tPos) {
+        const dx = tPos.x - p.pos.x;
+        const dz = tPos.z - p.pos.z;
+        const d = Math.hypot(dx, dz);
+        const dot = d > 0.05 ? (dx / d) * fwdX + (dz / d) * fwdZ : 1.0;
+        // Only keep existing target if it is within range AND in front of the camera (or within 4m melee reach)
+        if ((curCat === 'hostile' || (allowRift && curCat === 'rift')) && d <= maxDist + 6.0 && (dot > 0.15 || d < 4.0)) {
+          return state.selectedTarget;
+        }
       }
     }
 
-    const fwdX = Math.sin(p.rotY);
-    const fwdZ = Math.cos(p.rotY);
     const candidates = getTargetables().filter((t) =>
       t.category === 'hostile' || (allowRift && t.category === 'rift')
     );
@@ -1241,9 +1247,9 @@
       const dist = Math.hypot(dx, dz);
       if (dist > maxDist) return;
       const dot = dist > 0.05 ? (dx / dist) * fwdX + (dz / dist) * fwdZ : 1.0;
-      // Prefer targets in frontal cone (dot >= -0.25) or very close (< 5m)
-      if (dot < -0.35 && dist > 5.5) return;
-      const score = dist - dot * 6.5 + (t.category === 'rift' ? 4.0 : 0.0);
+      // Only auto-acquire targets in front of the camera view (dot >= 0.15) or immediately adjacent (< 3.8m)
+      if (dot < 0.15 && dist > 3.8) return;
+      const score = dist - dot * 8.0 + (t.category === 'rift' ? 4.0 : 0.0);
       if (score < bestScore) {
         bestScore = score;
         best = t;
@@ -1365,23 +1371,20 @@
     }
 
     // Pass 82B: Click-to-Face on Open Ground / Water / Horizon!
-    // Clicking anywhere in the 3D world smoothly pivots the shark model & camera to face that clicked direction.
+    // Project the clicked camera ray forward from the shark so even clicks in the lower half of the screen
+    // turn the shark forward along the clicked ray angle rather than backwards toward the camera lens!
     const ray = raycaster.ray;
-    let hitX = null;
-    let hitZ = null;
-    if (Math.abs(ray.direction.y) > 0.035) {
+    const camToSharkDist = Math.hypot(p.pos.x - ray.origin.x, p.pos.z - ray.origin.z);
+    const horizLen = Math.hypot(ray.direction.x, ray.direction.z) || 1.0;
+    let forwardDist = 16.0;
+    if (ray.direction.y < -0.035) {
       const tPlane = (p.pos.y - ray.origin.y) / ray.direction.y;
-      if (tPlane > 0.5 && tPlane < 180.0) {
-        hitX = ray.origin.x + ray.direction.x * tPlane;
-        hitZ = ray.origin.z + ray.direction.z * tPlane;
+      if (tPlane > camToSharkDist + 3.5 && tPlane < 180.0) {
+        forwardDist = Math.max(6.0, Math.min(24.0, (tPlane - camToSharkDist) * horizLen));
       }
     }
-    if (hitX === null || hitZ === null) {
-      // Clicked near or above the horizon: project the ray's horizontal direction forward from the shark
-      const horizLen = Math.hypot(ray.direction.x, ray.direction.z) || 1.0;
-      hitX = p.pos.x + (ray.direction.x / horizLen) * 24.0;
-      hitZ = p.pos.z + (ray.direction.z / horizLen) * 24.0;
-    }
+    const hitX = p.pos.x + (ray.direction.x / horizLen) * forwardDist;
+    const hitZ = p.pos.z + (ray.direction.z / horizLen) * forwardDist;
 
     return faceWorldPoint(hitX, hitZ, true);
   }
@@ -1696,15 +1699,25 @@
 
   function faceSelectedTargetIfClose(maxTurnDist = 28.0) {
     const p = window.player;
-    if (!p || !state.selectedTarget) return;
-    const tPos = state.selectedTarget.getPos && state.selectedTarget.getPos();
-    if (!tPos) return;
-    const dx = tPos.x - p.pos.x;
-    const dz = tPos.z - p.pos.z;
-    const d = Math.hypot(dx, dz);
-    if (d > 0.2 && d <= maxTurnDist) {
-      p.rotY = Math.atan2(dx, dz);
+    const cam = window.camState;
+    if (!p) return false;
+    if (state.selectedTarget && state.selectedTarget.getPos) {
+      const tPos = state.selectedTarget.getPos();
+      if (tPos) {
+        const dx = tPos.x - p.pos.x;
+        const dz = tPos.z - p.pos.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 0.2 && d <= maxTurnDist) {
+          p.rotY = Math.atan2(dx, dz);
+          return true;
+        }
+      }
     }
+    // If no target is selected (or target is out of range), align shark forward with the camera's view!
+    if (cam) {
+      p.rotY = Math.atan2(-Math.sin(cam.yaw), -Math.cos(cam.yaw));
+    }
+    return false;
   }
 
   function damageEnemiesAndCarrotsInArc(centerPos, facingYaw, maxRadius, halfAngleCos, baseDamage, knockScale = 1.0, vfxColor = 0x38bdf8, opts = {}) {
@@ -2084,9 +2097,9 @@
     }
 
     if (abilityId === 'breb_volley') {
-      faceSelectedTargetIfClose(30.0);
+      const hasCloseTarget = faceSelectedTargetIfClose(30.0);
       trigger3DMartialPose('poky_strike', 0.36, false);
-      const tPos = (state.selectedTarget && state.selectedTarget.getPos) ? state.selectedTarget.getPos() : null;
+      const tPos = (hasCloseTarget && state.selectedTarget && state.selectedTarget.getPos) ? state.selectedTarget.getPos() : null;
       spawnBrebVolleyProjectiles(p.pos, tPos, p.rotY, anyFinMod);
 
       if (anyFinMod && anyFinMod.healComfort) {
