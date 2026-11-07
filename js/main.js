@@ -12053,6 +12053,18 @@
       });
     }
 
+    const relinkBtn = document.getElementById('btn-relink-portal');
+    if (relinkBtn) {
+      relinkBtn.addEventListener('click', () => {
+        CozyAudio.portalChime();
+        if (window.BlahajNetwork && typeof window.BlahajNetwork.forceReconnect === 'function') {
+          window.BlahajNetwork.forceReconnect();
+        }
+        showToast('PORTAL RE-LINKING! ⚡', 'Cleared stale sockets and re-probing for partner in room!');
+        addChatLog('⚡ <strong>Portal Gateway:</strong> Re-linking connection and re-probing peer slots.', 'system');
+      });
+    }
+
     const hostBtn = document.getElementById('btn-host-portal');
     if (hostBtn) {
       hostBtn.addEventListener('click', () => {

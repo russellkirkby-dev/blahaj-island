@@ -1,8 +1,8 @@
 // ============================================================================
-// BLÅHAJ ISLAND — 24/7 CLOUD + LOCAL DUAL-ENGINE CO-OP NETWORKING
+// BLÅHAJ ISLAND — 24/7 CLOUD + LOCAL DUAL-ENGINE CO-OP NETWORKING (PASS 83)
 // Cross-Ocean Co-op between Russell (NZ) & Helen (LA)
-// Features: Handshake verification, anti-ghost filtering, 
-// multi-STUN/TURN fallback, heartbeat timeout, and 1-click private rooms.
+// Features: Handshake verification, anti-ghost filtering, multi-STUN/TURN fallback,
+// clean socket teardown on unload, dual-probe fallback mesh, and 1-click private rooms.
 // ============================================================================
 
 window.BlahajNetwork = (function () {
@@ -11,12 +11,13 @@ window.BlahajNetwork = (function () {
   let isPeerConnected = false;
   let isRelayConnected = false;
   let hasLocalRelay = false;
-  let mySlot = null; // 'a' or 'b'
+  let mySlot = null; // 'a', 'b', or 'c'
   let callbacks = {};
   let handshakeVerified = false;
   let lastPartnerPacketTime = 0;
   let peerRetryTimer = null;
   let heartbeatInterval = null;
+  let isCleaningUp = false;
 
   // Unique client identity per browser tab (never reuse stale IDs across tabs)
   const clientId =
@@ -53,7 +54,8 @@ window.BlahajNetwork = (function () {
   let outgoingEvents = [];
   let relayPartnerId = null;
 
-  // High-reliability global anycast STUN endpoints (Google STUNs & Cloudflare STUN)
+  // High-reliability global anycast STUN & TURN endpoints
+  // Includes Google, Cloudflare, Twilio STUNs + Metered OpenRelay community TURN for Symmetric NAT
   const PEER_CONFIG = {
     config: {
       iceServers: [
@@ -62,8 +64,25 @@ window.BlahajNetwork = (function () {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' }
-      ]
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ],
+      iceCandidatePoolSize: 10
     }
   };
 
@@ -228,6 +247,21 @@ window.BlahajNetwork = (function () {
         return;
       }
 
+      // Explicit Partner Disconnect packet
+      if (data.type === '__partner_disconnect__') {
+        console.log('[BlahajNetwork] Partner closed window/portal cleanly.');
+        if (conn === c) {
+          isPeerConnected = false;
+          handshakeVerified = false;
+          conn = null;
+          if (!isRelayConnected) {
+            setStatus(`24/7 Room <strong>${currentRoom}</strong> Active — Solo or waiting for partner…`, false);
+            if (callbacks.onDisconnect) callbacks.onDisconnect();
+          }
+        }
+        return;
+      }
+
       // Normal game data: auto-verify if direct gameplay packet arrives
       if (!handshakeVerified) {
         if (data.type === 'move' || data.type === 'shark_swap') {
@@ -280,51 +314,119 @@ window.BlahajNetwork = (function () {
       peer = null;
     }
 
-    const myPeerId = getSlotPeerId(currentRoom, trySlot);
-    const otherSlot = trySlot === 'a' ? 'b' : 'a';
-    const otherPeerId = getSlotPeerId(currentRoom, otherSlot);
+    let myPeerId;
+    if (trySlot === 'a' || trySlot === 'b') {
+      myPeerId = getSlotPeerId(currentRoom, trySlot);
+    } else {
+      myPeerId = `blahaj-arch-${currentRoom.toLowerCase()}-${Math.floor(Math.random() * 99999)}`;
+    }
 
-    peer = new Peer(myPeerId, PEER_CONFIG);
+    try {
+      peer = new Peer(myPeerId, PEER_CONFIG);
+    } catch (e) {
+      console.error('[BlahajNetwork] Peer creation failed:', e);
+      return;
+    }
 
-    peer.on('open', () => {
+    peer.on('open', (id) => {
+      console.log(`[BlahajNetwork] Registered on 0.peerjs.com as slot [${trySlot}] (${id})`);
       if (!isRelayConnected && !isPeerConnected) {
         setStatus(
           `24/7 Cloud Portal in Room <strong>${currentRoom}</strong> Ready! (Auto-links when partner joins)`,
           false
         );
       }
-      // Attempt connection to the opposite slot
+
+      // Probing partner:
       if (!isPeerConnected) {
-        try {
-          const out = peer.connect(otherPeerId, { reliable: true });
-          bindConnection(out);
-        } catch (e) {}
+        if (trySlot === 'a') {
+          // Slot A probes Slot B
+          try {
+            const out = peer.connect(getSlotPeerId(currentRoom, 'b'), { reliable: true });
+            bindConnection(out);
+          } catch (e) {}
+        } else if (trySlot === 'b') {
+          // Slot B probes Slot A
+          try {
+            const out = peer.connect(getSlotPeerId(currentRoom, 'a'), { reliable: true });
+            bindConnection(out);
+          } catch (e) {}
+        } else {
+          // Fallback Slot probes BOTH Slot A and Slot B
+          try {
+            const outA = peer.connect(getSlotPeerId(currentRoom, 'a'), { reliable: true });
+            bindConnection(outA);
+          } catch (e) {}
+          try {
+            const outB = peer.connect(getSlotPeerId(currentRoom, 'b'), { reliable: true });
+            bindConnection(outB);
+          } catch (e) {}
+        }
       }
     });
 
     peer.on('connection', (incomingConn) => {
+      console.log('[BlahajNetwork] Incoming connection from peer:', incomingConn.peer);
       bindConnection(incomingConn);
     });
 
     peer.on('error', (err) => {
-      if (err && err.type === 'unavailable-id') {
-        // Slot A is already occupied by our partner! Claim Slot B and connect to Slot A!
+      if (!err) return;
+      const errType = err.type || '';
+      console.warn(`[BlahajNetwork] Peer error (${errType}):`, err);
+
+      if (errType === 'unavailable-id') {
+        // Slot collision: seamlessly cascade to next slot without locking up
+        clearTimeout(peerRetryTimer);
         if (trySlot === 'a') {
-          clearTimeout(peerRetryTimer);
-          peerRetryTimer = setTimeout(() => startAutoPeerMesh(currentRoom, 'b'), 300);
+          peerRetryTimer = setTimeout(() => startAutoPeerMesh(currentRoom, 'b'), 250);
+        } else if (trySlot === 'b') {
+          peerRetryTimer = setTimeout(() => startAutoPeerMesh(currentRoom, 'c'), 250);
         } else {
-          // If Slot B is also occupied (e.g. temporary reconnect collision), retry with random suffix
-          const fallbackId = `blahaj-arch-${currentRoom.toLowerCase()}-${Math.floor(Math.random() * 9999)}`;
-          peer = new Peer(fallbackId, PEER_CONFIG);
-          peer.on('open', () => {
-            const out = peer.connect(getSlotPeerId(currentRoom, 'a'), { reliable: true });
-            bindConnection(out);
-          });
-          peer.on('connection', bindConnection);
+          peerRetryTimer = setTimeout(() => startAutoPeerMesh(currentRoom, 'c'), 1500);
+        }
+      } else if (errType === 'peer-unavailable') {
+        // Partner is not online yet on that probed slot; this is expected during quiet waiting
+      } else if (errType === 'network' || errType === 'server-error' || errType === 'socket-error' || errType === 'socket-closed') {
+        // Broker connection hiccup; retry connecting after brief cooldown
+        if (!isPeerConnected && !isCleaningUp) {
+          clearTimeout(peerRetryTimer);
+          peerRetryTimer = setTimeout(() => {
+            if (peer && !peer.destroyed && peer.disconnected) {
+              peer.reconnect();
+            } else if (!isPeerConnected) {
+              startAutoPeerMesh(currentRoom, trySlot);
+            }
+          }, 3000);
         }
       }
     });
+
+    peer.on('disconnected', () => {
+      console.log('[BlahajNetwork] Broker socket disconnected.');
+      if (!isPeerConnected && !isCleaningUp && peer && !peer.destroyed) {
+        setTimeout(() => {
+          if (peer && !peer.destroyed && peer.disconnected) {
+            peer.reconnect();
+          }
+        }, 2000);
+      }
+    });
   }
+
+  // Clean socket closure on tab close / reload so 0.peerjs.com frees slots immediately!
+  window.addEventListener('beforeunload', () => {
+    isCleaningUp = true;
+    try {
+      if (conn && conn.open) {
+        conn.send({ type: '__partner_disconnect__' });
+        conn.close();
+      }
+      if (peer && !peer.destroyed) {
+        peer.destroy();
+      }
+    } catch (e) {}
+  });
 
   // Periodic heartbeat, keepalive ping & stale partner prune
   if (heartbeatInterval) clearInterval(heartbeatInterval);
@@ -352,17 +454,36 @@ window.BlahajNetwork = (function () {
       return;
     }
 
-    // 3. Gentle reconnect attempt for Cloud Mode if waiting for partner
-    if (hasLocalRelay || isPeerConnected || !peer || peer.disconnected || peer.destroyed || !mySlot) {
+    // 3. Gentle reconnect & broker re-probe if waiting for partner
+    if (hasLocalRelay || isPeerConnected || !peer || peer.destroyed) {
       return;
     }
 
-    const otherSlot = mySlot === 'a' ? 'b' : 'a';
-    const otherPeerId = getSlotPeerId(currentRoom, otherSlot);
-    try {
-      const out = peer.connect(otherPeerId, { reliable: true });
-      bindConnection(out);
-    } catch (e) {}
+    if (peer.disconnected) {
+      try { peer.reconnect(); } catch (e) {}
+      return;
+    }
+
+    if (mySlot === 'a') {
+      try {
+        const out = peer.connect(getSlotPeerId(currentRoom, 'b'), { reliable: true });
+        bindConnection(out);
+      } catch (e) {}
+    } else if (mySlot === 'b') {
+      try {
+        const out = peer.connect(getSlotPeerId(currentRoom, 'a'), { reliable: true });
+        bindConnection(out);
+      } catch (e) {}
+    } else {
+      try {
+        const outA = peer.connect(getSlotPeerId(currentRoom, 'a'), { reliable: true });
+        bindConnection(outA);
+      } catch (e) {}
+      try {
+        const outB = peer.connect(getSlotPeerId(currentRoom, 'b'), { reliable: true });
+        bindConnection(outB);
+      } catch (e) {}
+    }
   }, 2500);
 
   // ==========================================================================
@@ -480,6 +601,21 @@ window.BlahajNetwork = (function () {
     return code;
   }
 
+  function forceReconnect() {
+    isPeerConnected = false;
+    handshakeVerified = false;
+    if (conn) {
+      try { conn.close(); } catch (e) {}
+      conn = null;
+    }
+    if (peer) {
+      try { peer.destroy(); } catch (e) {}
+      peer = null;
+    }
+    setStatus(`Re-linking Portal in Room <strong>${currentRoom}</strong>…`, false);
+    startAutoPeerMesh(currentRoom, 'a');
+  }
+
   function hostPortal(roomCode) {
     setRoom(roomCode);
   }
@@ -514,10 +650,12 @@ window.BlahajNetwork = (function () {
     joinPortal,
     setRoom,
     generatePrivateRoom,
+    forceReconnect,
     getRoom: () => currentRoom,
     getInviteUrl,
     send,
     getClientId: () => clientId,
+    getMySlot: () => mySlot,
     isConnected: () => isRelayConnected || (isPeerConnected && handshakeVerified),
     simulateIncoming: (data) => { if (callbacks && callbacks.onData) callbacks.onData(data); }
   };
