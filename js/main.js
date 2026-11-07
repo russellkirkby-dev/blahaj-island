@@ -3568,10 +3568,11 @@
         while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
         while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
 
-        // MMO Right-Click Steer: Locks camera behind character and turns character's body to match mouse aim!
-        // (Left-Click + Drag only orbits camera around character without changing facing)
-        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
+        // Pass 82B: Effortless Mouse Drag Steer!
+        // Dragging with either Right-Click or Left-Click turns the shark to match mouse aim (hold Alt + Left-Drag for stationary free-look)
+        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving || ((camState.isLeftDown || camState.isLeftDragging) && !e.altKey)) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
           player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+          player.clickTurnTimer = 0;
           camState.hasFreeLookOffset = false;
         } else if (camState.isLeftDown || camState.isLeftDragging) {
           camState.hasFreeLookOffset = true;
@@ -12692,37 +12693,60 @@
         moveForward = Math.min(1, moveForward + 1);
       }
 
-      // Pass 82: Auto-Snap Camera Behind Shark on Forward Run (when not holding Left-Click free-look)
-      if (moveForward > 0 && camState.hasFreeLookOffset && !camState.isLeftDown && !camState.isRightDown) {
-        const desiredCamYaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
-        let yawDiff = desiredCamYaw - camState.yaw;
-        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-        if (Math.abs(yawDiff) < 0.025) {
-          camState.yaw = desiredCamYaw;
-          camState.hasFreeLookOffset = false;
+      // Pass 82B: Click-to-Face (Point & Turn) smooth interpolation!
+      // Clicking anywhere in the 3D viewport pivots the shark to face that direction and aligns the camera behind.
+      if (player.clickTurnTimer > 0) {
+        if (camState.isLeftDragging || camState.isRightDragging) {
+          player.clickTurnTimer = 0;
         } else {
-          camState.yaw += yawDiff * Math.min(1.0, dt * 8.5);
-          while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
-          while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+          player.clickTurnTimer = Math.max(0, player.clickTurnTimer - dt);
+          const targetRotY = typeof player.clickTurnYaw === 'number' ? player.clickTurnYaw : player.rotY;
+          let rotDiff = targetRotY - player.rotY;
+          while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
+          while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+          if (Math.abs(rotDiff) < 0.015) {
+            player.rotY = targetRotY;
+          } else {
+            player.rotY += rotDiff * Math.min(1.0, dt * 16.0);
+          }
+
+          const desiredCamYaw = Math.atan2(-Math.sin(targetRotY), -Math.cos(targetRotY));
+          let camDiff = desiredCamYaw - camState.yaw;
+          while (camDiff > Math.PI) camDiff -= Math.PI * 2;
+          while (camDiff < -Math.PI) camDiff += Math.PI * 2;
+          if (Math.abs(camDiff) < 0.015) {
+            camState.yaw = desiredCamYaw;
+            player.clickTurnTimer = 0;
+          } else {
+            camState.yaw += camDiff * Math.min(1.0, dt * 13.5);
+            while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+            while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+          }
         }
       }
 
-      // A / D Mode: Strafe Left/Right (default MMO) vs Classic Keyboard Turn Left/Right
+      // Pass 82B: If camera was orbited in Free-Look (Alt + Drag), pressing Forward (W) turns the shark to match the camera!
+      if (moveForward > 0 && camState.hasFreeLookOffset && !camState.isLeftDown && !camState.isRightDown) {
+        player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+        camState.hasFreeLookOffset = false;
+      }
+
+      // Keyboard Turning & Strafing:
+      // ArrowLeft / ArrowRight always turn the shark & camera; A / D either Strafe (default) or Turn (Classic Turn mode)
       const useClassicTurn = (gameSettings && gameSettings.adTurnMode === 'turn') && !camState.isRightDown && !camState.isRightDragging;
-      if (useClassicTurn) {
-        let turnDir = 0;
-        if (keys['d'] || keys['arrowright']) turnDir += 1;
-        if (keys['a'] || keys['arrowleft']) turnDir -= 1;
-        if (turnDir !== 0) {
-          camState.yaw -= turnDir * 2.35 * dt;
-          while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
-          while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
-          player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
-        }
-      } else {
-        if (keys['d'] || keys['arrowright']) moveRight += 1;
-        if (keys['a'] || keys['arrowleft']) moveRight -= 1;
+      let turnDir = 0;
+      if (keys['arrowright'] || (useClassicTurn && keys['d'])) turnDir += 1;
+      if (keys['arrowleft'] || (useClassicTurn && keys['a'])) turnDir -= 1;
+      if (turnDir !== 0) {
+        player.clickTurnTimer = 0;
+        camState.yaw -= turnDir * 2.65 * dt;
+        while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+        while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+        player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+      }
+      if (!useClassicTurn) {
+        if (keys['d']) moveRight += 1;
+        if (keys['a']) moveRight -= 1;
       }
     }
 

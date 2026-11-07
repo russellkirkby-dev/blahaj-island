@@ -913,9 +913,37 @@
     const match = all.find((t) => t.id === targetId);
     if (match) {
       setTarget(match, playAudio);
+      const tPos = match.getPos && match.getPos();
+      if (tPos) faceWorldPoint(tPos.x, tPos.z, false);
       return match;
     }
     return null;
+  }
+
+  // Pass 82B: Click-to-Face (Point & Turn) helper!
+  // Smoothly turns the shark (player.rotY) and aligns the camera behind the clicked world point or target.
+  function faceWorldPoint(wx, wz, showRipple = false) {
+    const p = window.player;
+    if (!p || !p.pos || !Number.isFinite(wx) || !Number.isFinite(wz)) return false;
+    const dx = wx - p.pos.x;
+    const dz = wz - p.pos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 0.25) return false;
+
+    const targetYaw = Math.atan2(dx, dz);
+    p.clickTurnYaw = targetYaw;
+    p.clickTurnTimer = 0.55;
+    if (window.camState) {
+      window.camState.hasFreeLookOffset = false;
+    }
+
+    if (showRipple) {
+      const rippleDist = Math.min(dist, 22.0);
+      const rx = p.pos.x + (dx / dist) * rippleDist;
+      const rz = p.pos.z + (dz / dist) * rippleDist;
+      spawnRingWaveVFX({ x: rx, y: p.pos.y, z: rz }, 0x38bdf8, 1.35, 0.28);
+    }
+    return true;
   }
 
   function clearTarget() {
@@ -1034,9 +1062,9 @@
   }
 
   function handleCanvasClick(clientX, clientY, camera, isRightClick = false) {
-    if (!camera || !window.player) return false;
+    if (!camera || !window.player || !window.player.pos) return false;
+    const p = window.player;
     const all = getTargetables();
-    if (all.length === 0) return false;
 
     const ndcX = (clientX / window.innerWidth) * 2 - 1;
     const ndcY = -(clientY / window.innerHeight) * 2 + 1;
@@ -1065,9 +1093,13 @@
 
     if (bestTarget) {
       setTarget(bestTarget, true);
-      if (isRightClick) {
+      const tPos = bestTarget.getPos();
+      if (tPos) {
+        faceWorldPoint(tPos.x, tPos.z, false);
+      }
+      if (isRightClick && tPos) {
         // Right-clicking a target auto-executes primary strike or friendly interaction!
-        const d = Math.hypot(bestTarget.getPos().x - window.player.pos.x, bestTarget.getPos().z - window.player.pos.z);
+        const d = Math.hypot(tPos.x - p.pos.x, tPos.z - p.pos.z);
         if (bestTarget.category === 'hostile') {
           if (d <= 6.5) executeAbility('poky_fin_strike');
           else if (d <= 28.0) executeAbility('breb_volley');
@@ -1086,7 +1118,27 @@
       }
       return true;
     }
-    return false;
+
+    // Pass 82B: Click-to-Face on Open Ground / Water / Horizon!
+    // Clicking anywhere in the 3D world smoothly pivots the shark model & camera to face that clicked direction.
+    const ray = raycaster.ray;
+    let hitX = null;
+    let hitZ = null;
+    if (Math.abs(ray.direction.y) > 0.035) {
+      const tPlane = (p.pos.y - ray.origin.y) / ray.direction.y;
+      if (tPlane > 0.5 && tPlane < 180.0) {
+        hitX = ray.origin.x + ray.direction.x * tPlane;
+        hitZ = ray.origin.z + ray.direction.z * tPlane;
+      }
+    }
+    if (hitX === null || hitZ === null) {
+      // Clicked near or above the horizon: project the ray's horizontal direction forward from the shark
+      const horizLen = Math.hypot(ray.direction.x, ray.direction.z) || 1.0;
+      hitX = p.pos.x + (ray.direction.x / horizLen) * 24.0;
+      hitZ = p.pos.z + (ray.direction.z / horizLen) * 24.0;
+    }
+
+    return faceWorldPoint(hitX, hitZ, true);
   }
 
   // --------------------------------------------------------------------------
@@ -2463,6 +2515,7 @@
     getCurrentTarget: () => state.selectedTarget,
     getTargetables,
     handleCanvasClick,
+    faceWorldPoint,
     executeAbility,
     triggerSlot,
     learnAbility,
