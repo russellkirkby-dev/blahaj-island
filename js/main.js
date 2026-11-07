@@ -2348,7 +2348,7 @@
     waterSurfaceY: 0.22,
     bubbleTimer: 0,
     hasSeenPelagicRiftNotice: false,
-    warmth: 100,
+    stuffing: 100, // Stuffing Coherence = Hit Points (0 → Unstuffed → Rebirth in the IKEA Spawning Pits)
     teaComfort: 88,
     volcanoHonour: 72,
     seamMendedCount: 0,
@@ -2368,6 +2368,162 @@
     lastSharedTeaTime: 0,
     inventory: (window.BlahajInventory ? window.BlahajInventory.createPlayerInventory() : null)
   };
+
+  // Pass 83: Unified Health. Legacy code reads/writes `player.warmth`; alias it to `player.stuffing`
+  // so every heal, trap, and enemy hit drives the same single Stuffing Coherence (HP) pool.
+  Object.defineProperty(player, 'warmth', {
+    get() { return this.stuffing; },
+    set(v) { this.stuffing = Math.max(0, Math.min(100, Number(v) || 0)); },
+    enumerable: true,
+    configurable: true
+  });
+
+  // Pass 83: Rebirth State
+  let isRebirthing = false;
+
+  // ==========================================================================
+  // PASS 83: MANGE AS AN INVERSE MANA POOL ("FRAY")
+  // Powerful arts fray your plush coat (+Mange). You cannot cast if the cost would push Mange past 100%.
+  // Grooming, Sacred Tea, and resting out of combat restore "Fray Capacity" (1 - Mange).
+  // ==========================================================================
+  const MANGE_SETTLE_FLOOR = 0.25;     // Passive resting never smooths the coat below 25% (keeps veteran character)
+  const MANGE_SETTLE_PER_SEC = 0.0025; // 0.25% Mange settles per second while out of combat
+  const OUT_OF_COMBAT_DELAY = 6.0;     // Seconds without taking/dealing hits before resting regen begins
+  let lastCombatTime = -999;
+  let mangeSettleAccum = 0;
+
+  function markInCombat() {
+    lastCombatTime = (clock && typeof clock.getElapsedTime === 'function') ? clock.getElapsedTime() : 0;
+  }
+
+  function getFrayCapacity() {
+    return Math.max(0, 1.0 - getSharkMange(player.sharkId));
+  }
+
+  // Returns true if the shark can afford `cost` (fraction of Mange, e.g. 0.05 = 5%), and spends it.
+  function spendMangeForAbility(cost, abilityName = 'Ability') {
+    if (!cost || cost <= 0) return true;
+    const cur = getSharkMange(player.sharkId);
+    if (cur + cost > 1.0001) {
+      CozyAudio.shonk();
+      showToast('🧵 TOO FRAYED TO CAST!', `${abilityName} needs ${Math.round(cost * 100)}% Fray Capacity (you have ${Math.round((1 - cur) * 100)}%). Groom [G] or sip Sacred Tea to restore!`);
+      return false;
+    }
+    setSharkMange(player.sharkId, cur + cost);
+    markInCombat();
+    updateVitalsHUD();
+    return true;
+  }
+
+  function updateMangeSettling(dt, elapsed) {
+    if (elapsed - lastCombatTime < OUT_OF_COMBAT_DELAY) return;
+    const cur = getSharkMange(player.sharkId);
+    if (cur <= MANGE_SETTLE_FLOOR) { mangeSettleAccum = 0; return; }
+    mangeSettleAccum += MANGE_SETTLE_PER_SEC * dt;
+    // Apply in 1% chunks to avoid writing localStorage / syncing the network every frame
+    if (mangeSettleAccum >= 0.01) {
+      setSharkMange(player.sharkId, Math.max(MANGE_SETTLE_FLOOR, cur - mangeSettleAccum));
+      mangeSettleAccum = 0;
+      updateVitalsHUD();
+    }
+  }
+
+  // Out-of-combat Stuffing regeneration (slow), boosted by Steaming Spirit tea buff
+  function updateStuffingRegen(dt, elapsed) {
+    if (isRebirthing || player.stuffing <= 0 || player.stuffing >= 100) return;
+    const teaBoost = player.teaBuffTimer > 0 ? 4.0 : 0;
+    const resting = (elapsed - lastCombatTime) >= OUT_OF_COMBAT_DELAY ? 1.2 : 0;
+    const rate = teaBoost + resting;
+    if (rate > 0) {
+      player.stuffing = Math.min(100, player.stuffing + rate * dt);
+    }
+  }
+
+  // ==========================================================================
+  // PASS 83: COMPACT VITALS HUD (Always visible, including Minimal HUD mode)
+  // ==========================================================================
+  let lastVitalsKey = '';
+  function updateVitalsHUD() {
+    const hp = Math.max(0, Math.min(100, Math.round(player.stuffing ?? 100)));
+    const mange = getSharkMange(player.sharkId);
+    const mangePct = Math.round(mange * 100);
+    const key = `${hp}|${mangePct}`;
+    if (key === lastVitalsKey) return;
+    lastVitalsKey = key;
+
+    const hpFill = document.getElementById('vital-hp-fill');
+    const hpLbl = document.getElementById('vital-hp-label');
+    const hpBar = document.getElementById('vital-hp-bar');
+    const mFill = document.getElementById('vital-mange-fill');
+    const mLbl = document.getElementById('vital-mange-label');
+    if (hpFill) hpFill.style.width = `${hp}%`;
+    if (hpLbl) hpLbl.textContent = `🧸 Stuffing ${hp} / 100`;
+    if (hpBar) {
+      hpBar.classList.toggle('vital-low', hp <= 30 && hp > 0);
+      hpBar.classList.toggle('vital-critical', hp <= 15 && hp > 0);
+    }
+    if (mFill) mFill.style.width = `${mangePct}%`;
+    if (mLbl) mLbl.textContent = `🧵 Mange ${mangePct}% · Fray ${100 - mangePct}%`;
+  }
+
+  // ==========================================================================
+  // PASS 83: LAST SAVE POINT (Where you return after Rebirth in the Spawning Pits)
+  // Captured on the main island only, when standing safely on solid ground.
+  // ==========================================================================
+  const SAVE_POINT_KEY = 'blahaj_last_save_point_v1';
+  let lastSavePoint = null;
+  let savePointTimer = 0;
+  try {
+    const rawSp = localStorage.getItem(SAVE_POINT_KEY);
+    if (rawSp) lastSavePoint = JSON.parse(rawSp);
+  } catch (e) { lastSavePoint = null; }
+  if (!lastSavePoint) {
+    lastSavePoint = {
+      x: -12.5,
+      y: 5.89,
+      z: 19.2,
+      rotY: -Math.PI,
+      savedAt: Date.now()
+    };
+  }
+
+  function isSafeToCaptureSavePoint() {
+    return currentZone === 'island' && !isRebirthing && !isTransitioningZone &&
+      player.isGrounded && !player.isSwimming && !player.inWater && !player.inBoat && !player.inCart &&
+      (player.stuffing ?? 100) >= 35 && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z);
+  }
+
+  function captureSavePoint(force = false) {
+    if (!force && !isSafeToCaptureSavePoint()) return false;
+    if (currentZone !== 'island') return false;
+    lastSavePoint = {
+      x: Number(player.pos.x.toFixed(2)),
+      y: Number(player.pos.y.toFixed(2)),
+      z: Number(player.pos.z.toFixed(2)),
+      rotY: Number((player.rotY || 0).toFixed(3)),
+      savedAt: Date.now()
+    };
+    try { localStorage.setItem(SAVE_POINT_KEY, JSON.stringify(lastSavePoint)); } catch (e) {}
+    return true;
+  }
+
+  function updateSavePointCapture(dt) {
+    savePointTimer += dt;
+    if (savePointTimer >= 20.0) {
+      savePointTimer = 0;
+      captureSavePoint(false);
+    }
+  }
+
+  // Pass 83 Window exports for MMO Controls & HUD
+  window.spendMangeForAbility = spendMangeForAbility;
+  window.getFrayCapacity = getFrayCapacity;
+  window.markInCombat = markInCombat;
+  window.updateVitalsHUD = updateVitalsHUD;
+  window.triggerUnstuffedRecovery = triggerUnstuffedRecovery;
+  window.captureSavePoint = captureSavePoint;
+  window.getSharkMange = getSharkMange;
+  window.setSharkMange = setSharkMange;
 
   // Hiram the Magical Builder State (Exclusive to Hiram [3]!)
   const builderState = {
@@ -5703,6 +5859,39 @@
             scene.add(player.mesh);
           }
 
+          if (isRebirthing && lastSavePoint) {
+            player.pos.set(lastSavePoint.x, lastSavePoint.y, lastSavePoint.z);
+            player.rotY = (typeof lastSavePoint.rotY === 'number') ? lastSavePoint.rotY : -Math.PI / 2;
+            camState.yaw = player.rotY;
+            isRebirthing = false;
+            player.stuffing = 100;
+            player.teaComfort = 100;
+            if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
+            updateMetersUI();
+
+            if (player.mesh) {
+              player.mesh.position.copy(player.pos);
+              player.mesh.rotation.y = player.rotY;
+            }
+            player.velY = 0;
+            player.isGrounded = true;
+
+            if (overlay) overlay.classList.add('hidden');
+            isTransitioningZone = false;
+            updateCoopPartnerVisibility();
+
+            showToast('REBORN & RESTUFFED! ✨🧸', 'Navigated Hermes’s Portal back to your last save point on Blåhaj Island!');
+            addChatLog('🧸✨ <strong>Reborn in the IKEA Spawning Pits:</strong> Your plush seams have been re-stitched with premium polyester fluff! You emerge through Hermes’s Portal safely back at your last island save point.', 'system');
+
+            if (window.BlahajSaveSystem) window.BlahajSaveSystem.saveNow();
+
+            window.BlahajNetwork.send({
+              type: 'zone_change',
+              zone: 'island'
+            });
+            return;
+          }
+
           const spawnX = 58.0;
           const spawnZ = -10.0;
           const sy = worldApi.getGroundAndStructureHeight(spawnX, spawnZ);
@@ -6469,6 +6658,10 @@
         player.trapCooldown = 1.4;
         player.warmth = Math.max(0, player.warmth - mit.damage);
         updateMetersUI();
+        if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
+        if (player.stuffing <= 0) {
+          triggerUnstuffedRecovery(trapName);
+        }
         return;
       }
     }
@@ -6492,6 +6685,12 @@
     const dmg = Math.round(25 * armorBonus);
     player.warmth = Math.max(0, player.warmth - dmg);
     updateMetersUI();
+    if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
+
+    if (player.stuffing <= 0) {
+      triggerUnstuffedRecovery(trapName);
+      return;
+    }
 
     // DYNAMIC MANGE DEGRADATION: Traps and molten lava singe seams and loosen stuffing!
     const mangeIncrease = (trapName === 'Molten Lava Sea') ? 0.12 : 0.08;
@@ -10442,24 +10641,12 @@
 
   function triggerUnstuffedRecovery(reason = 'Battle') {
     CozyAudio.shonk();
-    showToast('💫 UNSTUFFED! 🦈', 'Plush stuffing gave way! Rescued to Solomon’s Bread Hearth at Heartland Meadow.');
-    addChatLog('💫 You were comically unstuffed in battle and escorted safely to <strong>Solomon’s Bread Oven</strong> at Heartland Meadow!', 'lore');
+    isRebirthing = true;
+    playerInvulnTimer = 3.0;
+    showToast('💫 UNSTUFFED! 🦈 REBIRTH IN SPAWNING PITS', 'Your plush stuffing unraveled! Wake up in Wire Bin #303.735.88 and navigate Hermes’s Portal back to your last save point!');
+    addChatLog(`💫 Your plush seams unraveled (${reason})! You have been whisked back to the <strong>IKEA Spawning Pits of Erf</strong> (Art. 303.735.88). Reach Hermes’s Between Portal at the warehouse exit to return to your last save point!`, 'danger');
 
-    // Teleport to Solomon's Hearth at Heartland Meadow
-    const sy = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
-      ? worldApi.getGroundAndStructureHeight(-12.5, 21.5)
-      : 5.89;
-    player.pos.set(-12.5, sy, 19.2);
-    player.rotY = -Math.PI;
-    camState.yaw = -Math.PI;
-    player.velY = 0;
-    player.stuffing = 100;
-    player.teaComfort = 100;
-    playerInvulnTimer = 2.0; // 2s recovery invulnerability
-    updateMetersUI();
-
-    CozyAudio.teaPour();
-    spawnFloatingBurst(player.pos, 0xfacc15, 24);
+    enterSpawningPits(true);
   }
 
   function toggleBinocularMode() {
@@ -12487,6 +12674,10 @@
     }
 
     updatePlayerMovement(dt, elapsed);
+    updateMangeSettling(dt, elapsed);
+    updateStuffingRegen(dt, elapsed);
+    updateSavePointCapture(dt);
+    updateVitalsHUD();
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);

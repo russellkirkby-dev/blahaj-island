@@ -6805,6 +6805,101 @@ body.minimal-hud .seam-mini-watch {
   font-variant-numeric: tabular-nums;
 }
 
+/* PASS 83: COMPACT VITALS BAR (Stuffing Coherence & Inverse Mange/Fray Pool) */
+.mmo-vitals-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto 6px auto;
+  pointer-events: auto;
+}
+
+body.minimal-hud .mmo-vitals-bar {
+  display: flex !important;
+  opacity: 0.95;
+}
+
+.vital-track {
+  position: relative;
+  flex: 1;
+  height: 20px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  cursor: default;
+  user-select: none;
+}
+
+.vital-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 999px;
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Stuffing Coherence: Emerald Green -> Amber -> Crimson gradient when damaged */
+.vital-hp-fill {
+  background: linear-gradient(90deg, #10b981 0%, #22c55e 70%, #4ade80 100%);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.45);
+}
+
+.vital-hp.vital-low .vital-hp-fill {
+  background: linear-gradient(90deg, #f59e0b 0%, #eab308 100%);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.55);
+}
+
+.vital-hp.vital-critical .vital-hp-fill {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.85);
+  animation: pulse-vital-critical 0.8s infinite alternate;
+}
+
+@keyframes pulse-vital-critical {
+  from { filter: brightness(1.0); }
+  to { filter: brightness(1.35); }
+}
+
+/* Mange: Inverse Mana. Indigo base with fuchsia/amber fringe as coat frays */
+.vital-mange-fill {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.45);
+}
+
+.vital-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mmo-ability-slot.fray-locked {
+  opacity: 0.6;
+  filter: grayscale(45%);
+  border-color: #d946ef !important;
+  box-shadow: inset 0 0 8px rgba(217, 70, 239, 0.5) !important;
+}
+
 /* Sub-Bar Above Action Bar: Shark Switcher (F1-F5) + Fin Weapon Pill */
 .mmo-subbar-row {
   display: flex;

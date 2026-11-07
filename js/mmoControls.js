@@ -457,6 +457,7 @@
       isOffensive: true,
       cooldown: 0.85,
       range: 5.2,
+      mangeCost: 0.02,
       usesFinMod: true,
       shortSub: 'Fin Jab',
       desc: 'A crisp, poky pectoral fin jab that strikes your target (or foes in front of you) for 38 impact. Procs into a guaranteed-crit Twin-Fin Cross-Slash after Single Fin Lunge!'
@@ -469,6 +470,7 @@
       isOffensive: true,
       cooldown: 3.2,
       range: 14.5,
+      mangeCost: 0.05,
       usesFinMod: true,
       shortSub: 'Gap Closer',
       desc: 'Lunges rapidly toward your target up to 14.5m away (18.5m with Measuring Tape Grapnel) dealing 55 piercing impact and triggering a Twin-Fin Cross-Slash combo proc on [1]!'
@@ -481,6 +483,7 @@
       isOffensive: true,
       cooldown: 2.6,
       range: 6.5,
+      mangeCost: 0.04,
       usesFinMod: false,
       shortSub: 'Arc Cleave',
       desc: 'Sweeps your plush caudal tail in a wide 180° frontal crescent, cleaving all enemies and Volunteer Carrots within 6.5m and knocking them back.'
@@ -493,6 +496,7 @@
       isOffensive: true,
       cooldown: 1.8,
       range: 28.0,
+      mangeCost: 0.03,
       usesFinMod: true,
       shortSub: 'Throw Fin Item',
       desc: 'Hurls or fires whatever eligible item is equipped in your Fin Slot [H] up to 28m! Throws Returning Hex-Wrenches, Golden Shear Blades, Brass Spotter Flares, Heavy Flat-Pack Crates, Rubber Carrots, Steaming Tea, or Warm Breb Loaves (feeds Birbs & lures IKEA Guards).'
@@ -505,6 +509,7 @@
       isOffensive: false,
       cooldown: 7.5,
       range: 12.0,
+      mangeCost: -0.15,
       usesFinMod: false,
       shortSub: 'Heal & Cleanse',
       desc: 'Brews a warm aura of Solomon’s Earl Grey, restoring +35% Stuffing Coherence, +40% Tea Comfort, cleansing -15% Mange, and granting Steaming Spirit agility.'
@@ -517,6 +522,7 @@
       isOffensive: false,
       cooldown: 5.0,
       range: 18.0,
+      mangeCost: 0.08,
       usesFinMod: false,
       shortSub: 'Relic Art',
       desc: 'Unleashes your active shark’s revered signature art: Between Portal Illumination (Hermes), Grand Tea Banquet (Solomon), Allen-Key Bastion (Hiram), or Needle of Restoration (Nimue).'
@@ -529,6 +535,7 @@
       isOffensive: true,
       cooldown: 4.5,
       range: 6.8,
+      mangeCost: 0.06,
       usesFinMod: false,
       shortSub: '360° Cyclone',
       desc: 'Pirouettes in a full 360° hydro-plush cyclone, striking all surrounding enemies within 6.8m, launching carrots, and kicking up a sparkling whirlpool ring.'
@@ -541,6 +548,7 @@
       isOffensive: false,
       cooldown: 6.0,
       range: 5.5,
+      mangeCost: 0.04,
       usesFinMod: true,
       shortSub: 'Parry Posture',
       desc: 'Assumes an angled pectoral Fin Deflection posture for 2.8s. Parries 100% of incoming attacks, rebounds a shockwave, and triggers a Counter-Riposte combo proc on Tail Swipe & Spin!'
@@ -553,6 +561,7 @@
       isOffensive: false,
       cooldown: 8.5,
       range: 4.0,
+      mangeCost: 0.06,
       usesFinMod: false,
       shortSub: '80% Aegis Ward',
       desc: 'Crosses both pectoral fins in an unbreakable plush X-aegis for 5.5s. Reduces incoming damage & Mange by 80%, grants knockback immunity, and regenerates +30% Stuffing!'
@@ -565,6 +574,7 @@
       isOffensive: true,
       cooldown: 1.0,
       range: 5.0,
+      mangeCost: 0.0,
       usesFinMod: false,
       shortSub: 'Boop / Camo',
       desc: 'High-elasticity snout boop that launches Mean Sharks skyward, shares an affectionate Friendship Nose-Beep with allies, or toggles Display Plushie Camouflage in IKEA!'
@@ -577,6 +587,7 @@
       isOffensive: false,
       cooldown: 2.5,
       range: 5.5,
+      mangeCost: -0.20,
       usesFinMod: false,
       shortSub: 'De-Mange -20%',
       desc: 'Gently brushes your targeted friendly shark (or yourself if no ally is targeted), smoothing out loose threads to reduce Mange by -20% and restore +20% Comfort.'
@@ -589,6 +600,7 @@
       isOffensive: false,
       cooldown: 5.0,
       range: 5.5,
+      mangeCost: 0.04,
       usesFinMod: false,
       shortSub: 'High Vault',
       desc: 'Slams the ground with your caudal fin to launch high into the air while releasing a hydro-shockwave ring that bumps nearby carrots and foes.'
@@ -1859,6 +1871,15 @@
 
     state.queuedAbilityId = null;
 
+    // Pass 83: Mange as Inverse Mana Pool (Fray Capacity)
+    const mangeCost = ab.mangeCost ?? 0;
+    if (mangeCost > 0) {
+      const spendFn = window.spendMangeForAbility || (window.BlahajGame && window.BlahajGame.spendMangeForAbility);
+      if (spendFn && !spendFn(mangeCost, ab.name)) {
+        return false;
+      }
+    }
+
     const finMod = ab.usesFinMod ? getActiveFinModifier() : null;
     const anyFinMod = getActiveFinModifier();
     const dmgMult = finMod ? finMod.dmgMult : 1.0;
@@ -2453,7 +2474,17 @@
       if (iconEl) iconEl.textContent = displayIcon;
       if (nameEl) nameEl.textContent = displayName;
       if (powerEl) powerEl.textContent = displaySub;
-      btn.title = `[${slotKey.toUpperCase()}] ${displayName} (${ab.category}) — ${ab.desc}`;
+
+      // Pass 83 Fray Lock / Inverse Mana check
+      const curMange = (typeof window.getSharkMange === 'function' && p && p.sharkId)
+        ? window.getSharkMange(p.sharkId)
+        : (window.__BLAHAJ_MANGE__ ?? 0.25);
+      const mCost = ab.mangeCost || 0;
+      const isFrayLocked = mCost > 0 && (curMange + mCost > 1.0001);
+      btn.classList.toggle('fray-locked', isFrayLocked);
+
+      const frayTag = mCost > 0 ? ` [Costs +${Math.round(mCost * 100)}% Fray]` : (mCost < 0 ? ` [Restores +${Math.round(-mCost * 100)}% Fray]` : '');
+      btn.title = `[${slotKey.toUpperCase()}] ${displayName} (${ab.category})${frayTag} — ${ab.desc}${isFrayLocked ? ' (LOCKED: Coat too frayed! Groom [G] or sip Sacred Tea to restore Fray Capacity)' : ''}`;
 
       const rem = state.cooldowns[abId] || 0;
       const maxCd = state.maxCooldowns[abId] || ab.cooldown || 1.0;
@@ -2520,12 +2551,16 @@
         else if (ab.id === 'breb_volley') displayName = `${ab.name} → ${finMod.throwName || `${finMod.tag} Toss`}`;
       }
 
+      const frayPill = ab.mangeCost > 0
+        ? ` · 🧵 +${Math.round(ab.mangeCost * 100)}% Fray`
+        : (ab.mangeCost < 0 ? ` · 🍵 -${Math.round(-ab.mangeCost * 100)}% Mange` : '');
+
       card.innerHTML = `
         <div class="sb-card-top">
           <span class="sb-card-icon">${ab.icon}</span>
           <div class="sb-card-titles">
             <h4>${displayName}</h4>
-            <span class="sb-card-cat">${ab.category} · Range: ${ab.range}m · CD: ${ab.cooldown}s</span>
+            <span class="sb-card-cat">${ab.category} · Range: ${ab.range}m · CD: ${ab.cooldown}s${frayPill}</span>
           </div>
           <span class="sb-slot-pill">${assignedSlot ? `Key [${assignedSlot.toUpperCase()}]` : (learned ? 'Learned' : 'Learnable')}</span>
         </div>
