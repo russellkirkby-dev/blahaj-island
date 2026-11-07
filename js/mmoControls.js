@@ -1,12 +1,13 @@
 // ============================================================================
-// BLAHAJ ISLAND — PASS 81: TAB-TARGET MMORPG CONTROL, COMBAT & SPELLBOOK SYSTEM
+// BLAHAJ ISLAND — PASS 81 & PASS 82: TAB-TARGET MMORPG CONTROL, COMBAT & SPELLBOOK
 // Implements:
-//  1. Tab-Targeting & 3D Click-Targeting (Hostiles, Carrots, Guards, Rifts, Allies)
-//  2. 3D Glowing Target Ring & Top-Center HUD Target Unit Frame
+//  1. Tab-Targeting, 3D Click-Targeting, Smart Auto-Target on Attack & Clickable Nameplates/Party Frame
+//  2. 3D Glowing Target Ring, Top-Center HUD Target Unit Frame & Floating Combat Text (FCT)
 //  3. Offensive, Defensive & Ranged Fin/Tail Martial Arts (1-6, Q, E, R, F, Shift+1..2)
-//  4. Active Defensive Postures (Fin Deflection Parry & Double Fin Defense Aegis)
-//  5. Fin-Equipped Item Modifiers (Allen Key, Scissors, Measuring Tape, Breb, Tea, etc.)
-//  6. Character Base Ability Mixes & Learnable Spellbook Modal ([I] / [P])
+//  4. Radial Clock-Wipe Cooldowns, 0.38s Spell Queueing, Range Indicators & 1-2-3 Combo Procs
+//  5. Active Defensive Postures (Fin Deflection Parry & Double Fin Defense Aegis) + 3D Fin Poses
+//  6. Fin-Equipped Item Modifiers & Passive Stances (Allen Key Bastion, Scissors Crit, Tape Grapnel, Diviner Ranged Stitch)
+//  7. Character Base Ability Mixes & Learnable Spellbook Modal ([I] / [P])
 // ============================================================================
 
 (function () {
@@ -15,72 +16,85 @@
   const STORAGE_KEY = 'blahaj_mmo_state_v1';
 
   // --------------------------------------------------------------------------
-  // FIN-EQUIPPED ITEM MODIFIER TABLE
-  // Equipping an item in your Fin dynamically empowers Fin strikes & postures!
+  // FIN-EQUIPPED ITEM MODIFIER TABLE (PASS 81 + PASS 82 PASSIVE STANCES)
+  // Equipping an item in your Fin dynamically empowers Fin strikes, postures & passives!
   // --------------------------------------------------------------------------
   const FIN_ITEM_MODIFIERS = {
     hex_key: {
       tag: 'Allen-Key Torque',
+      stanceName: 'Architect’s Bastion (-15% Dmg Taken)',
       icon: '🔧',
       colorHex: 0xfbbf24,
       dmgMult: 1.45,
       knockMult: 1.5,
       rangeBonus: 0.8,
+      passiveArmorMult: 0.85,
+      armorBreakerMult: 1.25,
       strikeName: 'Allen-Key Torque Strike',
       lungeName: 'Hex-Wrench Piercing Lunge',
       parryName: 'Iron Cam-Lock Deflection',
-      desc: '+45% Fin Strike impact & +50% knockback from Hiram’s M10 Hex Key!'
+      desc: '+45% Fin Strike impact, +25% bonus vs Armored Raiders, and 15% Passive Damage Reduction from Hiram’s M10 Hex Key!'
     },
     sacred_scissors: {
       tag: 'Sacred Scissors',
+      stanceName: 'Order of the Shears (+30% Crit & Flank)',
       icon: '✂️',
       colorHex: 0xf43f5e,
       dmgMult: 1.5,
       knockMult: 1.35,
       rangeBonus: 1.0,
+      critChanceBonus: 0.30,
+      flankBonusMult: 1.35,
       strikeName: 'Golden Scissor Snip',
       lungeName: 'Twin-Blade Fin Lunge',
       parryName: 'Scissor-Cross Riposte',
-      desc: '+50% Fin Strike crit power & +1.0m reach from the Golden Scissors!'
+      desc: '+50% Fin Strike power, +30% Critical Strike chance, and +35% Flanking Backstab bonus from the Golden Scissors!'
     },
     ingvar_tape: {
       tag: 'Measuring Tape Whip',
+      stanceName: 'Metric Grapnel Hook (18.5m Reel)',
       icon: '📏',
       colorHex: 0x38bdf8,
       dmgMult: 1.25,
       knockMult: 1.3,
-      rangeBonus: 3.5,
+      rangeBonus: 4.0,
+      isGrapnel: true,
       strikeName: 'Brass Tape Whip-Strike',
-      lungeName: ' Metric Grapnel Lunge',
+      lungeName: 'Metric Grapnel Pull',
       parryName: 'Retractable Tape Ward',
-      desc: '+3.5m extended Fin Strike reach from Ingvar’s Brass Measuring Tape!'
+      desc: '+4.0m extended Fin Strike reach & upgrades Single Fin Lunge [2] into an 18.5m Metric Grapnel Tether that reels you to your target!'
     },
     seam_detector: {
       tag: 'Aetheric Diviner',
+      stanceName: 'Astral Weaver (14m Ranged Seam Stitch)',
       icon: '🧭',
       colorHex: 0xa855f7,
       dmgMult: 1.3,
       knockMult: 1.25,
-      rangeBonus: 1.5,
+      rangeBonus: 2.0,
+      rangedSeamStitch: true,
       strikeName: 'Aetheric Resonance Jab',
       lungeName: 'Astral Compass Lunge',
       parryName: 'Harmonic Field Deflection',
-      desc: 'Emits astral sonar shockwaves & mends nearby Great Seam rifts on Fin Strike!'
+      desc: 'Emits astral sonar shockwaves & allows Poky Fin Strike [1] and Ranged Breb Volley [4] to stitch Great Seam rifts from 14m away!'
     },
     breb: {
       tag: 'Warm Breb Loaf',
+      stanceName: 'Baker’s Generosity (Crumbs & Comfort)',
       icon: '🥖',
       colorHex: 0xf59e0b,
       dmgMult: 1.2,
       knockMult: 1.4,
       rangeBonus: 0.5,
+      healComfort: 6,
       strikeName: 'Crunchy Baguette Bash',
       lungeName: 'Artisan Loaf Charge',
       parryName: 'Crust-Shield Parry',
-      desc: 'Showers golden bread crumbs on hit and feeds nearby hungry Birbs!'
+      desc: 'Showers golden bread crumbs on hit, restores +6% Comfort, and feeds nearby hungry Birbs!'
     },
     tea: {
       tag: 'Steaming Earl Grey',
+      stanceName: 'Solomon’s Serenity (+10% Tea Comfort/Hit)',
       icon: '🍵',
       colorHex: 0x34d399,
       dmgMult: 1.2,
@@ -94,6 +108,7 @@
     },
     margarita: {
       tag: 'Frosted Margarita',
+      stanceName: 'Lagoon Frost (+8% Comfort/Hit)',
       icon: '🍸',
       colorHex: 0x67e8f9,
       dmgMult: 1.2,
@@ -107,6 +122,7 @@
     },
     tropical_cocktail: {
       tag: 'Sunset Cocktail',
+      stanceName: 'Solar Cabana (+8% Warmth/Hit)',
       icon: '🍹',
       colorHex: 0xfb7185,
       dmgMult: 1.2,
@@ -120,6 +136,7 @@
     },
     pina_colada: {
       tag: 'Chilled Piña Colada',
+      stanceName: 'Trade-Wind Breeze (+8% Comfort/Hit)',
       icon: '🍹',
       colorHex: 0xfef08a,
       dmgMult: 1.2,
@@ -133,6 +150,7 @@
     },
     celestial_boba: {
       tag: 'Celestial Boba',
+      stanceName: 'Starlight Pearl Surge (+10% Comfort)',
       icon: '🧋',
       colorHex: 0xc084fc,
       dmgMult: 1.25,
@@ -146,6 +164,7 @@
     },
     kottbullar_feast: {
       tag: 'Midnight Köttbullar',
+      stanceName: 'Nordic Feast Vigour (+12% Stuffing)',
       icon: '🧆',
       colorHex: 0xd97706,
       dmgMult: 1.3,
@@ -159,6 +178,7 @@
     },
     figurine: {
       tag: 'Carrot Figurine',
+      stanceName: 'Caldera Boop Champion (+85% Knockback)',
       icon: '🥕',
       colorHex: 0xff7b1c,
       dmgMult: 1.15,
@@ -171,27 +191,32 @@
     },
     flatpack_crate: {
       tag: 'SKÄRHAJ Flat-Pack',
+      stanceName: 'Corrugated Bulwark (-15% Dmg Taken)',
       icon: '📦',
       colorHex: 0xfacc15,
       dmgMult: 1.4,
       knockMult: 1.65,
       rangeBonus: 0.6,
+      passiveArmorMult: 0.85,
+      armorBreakerMult: 1.25,
       strikeName: 'Heavy Corrugated Slam',
       lungeName: 'Aisle-14 Flat-Pack Ram',
       parryName: 'Cardboard Box Shield',
-      desc: '+40% heavy box impact & +65% knockback!'
+      desc: '+40% heavy box impact, +65% knockback & 15% Passive Damage Reduction!'
     },
     binoculars: {
       tag: 'Brass Binoculars',
+      stanceName: 'Horizon Spotter (+1.5m Reach & +20% Crit)',
       icon: '🔭',
       colorHex: 0xf59e0b,
       dmgMult: 1.2,
       knockMult: 1.15,
       rangeBonus: 1.5,
+      critChanceBonus: 0.20,
       strikeName: 'Spotter’s Brass Strike',
       lungeName: 'Horizon-Lock Lunge',
       parryName: 'Brass-Lens Deflection',
-      desc: '+1.5m precision targeting range!'
+      desc: '+1.5m precision targeting range & +20% critical strike chance!'
     }
   };
 
@@ -204,28 +229,31 @@
       name: 'Poky Fin Strike',
       icon: '🦈⚡',
       category: 'Offensive Fin Art',
+      isOffensive: true,
       cooldown: 0.85,
       range: 5.2,
       usesFinMod: true,
       shortSub: 'Fin Jab',
-      desc: 'A crisp, poky pectoral fin jab that strikes your target (or foes in front of you) for 38 impact. Dynamically empowered by whatever item you hold in your Fin!'
+      desc: 'A crisp, poky pectoral fin jab that strikes your target (or foes in front of you) for 38 impact. Procs into a guaranteed-crit Twin-Fin Cross-Slash after Single Fin Lunge!'
     },
     single_fin_lunge: {
       id: 'single_fin_lunge',
       name: 'Single Fin Lunge',
       icon: '🦈💨',
       category: 'Offensive Fin Art',
+      isOffensive: true,
       cooldown: 3.2,
       range: 14.5,
       usesFinMod: true,
       shortSub: 'Gap Closer',
-      desc: 'Lunges rapidly toward your target up to 14m away with an outstretched pectoral fin, dealing 55 piercing impact and closing the distance.'
+      desc: 'Lunges rapidly toward your target up to 14.5m away (18.5m with Measuring Tape Grapnel) dealing 55 piercing impact and triggering a Twin-Fin Cross-Slash combo proc on [1]!'
     },
     tail_swipe: {
       id: 'tail_swipe',
       name: 'Crescent Tail Swipe',
       icon: '🌊🦈',
       category: 'Offensive Tail Art',
+      isOffensive: true,
       cooldown: 2.6,
       range: 6.5,
       usesFinMod: false,
@@ -237,17 +265,19 @@
       name: 'Warm Breb Volley',
       icon: '🥖🎯',
       category: 'Ranged & Cozy Art',
+      isOffensive: true,
       cooldown: 1.8,
       range: 28.0,
       usesFinMod: false,
       shortSub: 'Ranged Loaves',
-      desc: 'Launches a ranged arc volley of 3 steaming golden Breb loaves up to 28m! Feeds hungry Birbs from afar, pelts Mean Sharks at range, or lures Erf Guards.'
+      desc: 'Launches a ranged arc volley of 3 steaming golden Breb loaves up to 28m! Pelts Mean Sharks at range, feeds Birbs, lures Erf Guards, or stitches Rifts with Aetheric Diviner.'
     },
     soothing_tea_pulse: {
       id: 'soothing_tea_pulse',
       name: 'Sacred Tea Infusion',
       icon: '🍵✨',
       category: 'Support & Healing',
+      isOffensive: false,
       cooldown: 7.5,
       range: 12.0,
       usesFinMod: false,
@@ -259,6 +289,7 @@
       name: 'Founder Signature Art',
       icon: '👑🌀',
       category: 'Signature Relic Power',
+      isOffensive: false,
       cooldown: 5.0,
       range: 18.0,
       usesFinMod: false,
@@ -270,6 +301,7 @@
       name: 'Whirlpool Tail Spin',
       icon: '🌪️🦈',
       category: 'Offensive Tail Art',
+      isOffensive: true,
       cooldown: 4.5,
       range: 6.8,
       usesFinMod: false,
@@ -281,28 +313,31 @@
       name: 'Fin Deflection',
       icon: '🛡️⚡',
       category: 'Defensive Posture',
+      isOffensive: false,
       cooldown: 6.0,
       range: 5.5,
       usesFinMod: true,
       shortSub: 'Parry Posture',
-      desc: 'Assumes an angled pectoral Fin Deflection posture for 2.8s. Parries 100% of incoming attacks & dungeon hazards, rebounding a shockwave that knocks attackers back!'
+      desc: 'Assumes an angled pectoral Fin Deflection posture for 2.8s. Parries 100% of incoming attacks, rebounds a shockwave, and triggers a Counter-Riposte combo proc on Tail Swipe & Spin!'
     },
     double_fin_defense: {
       id: 'double_fin_defense',
       name: 'Double Fin Defense',
       icon: '🛡️🦈',
       category: 'Defensive Posture',
+      isOffensive: false,
       cooldown: 8.5,
       range: 4.0,
       usesFinMod: false,
       shortSub: '80% Aegis Ward',
-      desc: 'Crosses both pectoral fins in an unbreakable plush aegis for 5.5s. Reduces incoming damage & Mange by 80%, grants knockback immunity, and regenerates +30% Stuffing!'
+      desc: 'Crosses both pectoral fins in an unbreakable plush X-aegis for 5.5s. Reduces incoming damage & Mange by 80%, grants knockback immunity, and regenerates +30% Stuffing!'
     },
     snoot_boop: {
       id: 'snoot_boop',
       name: 'Snoot Boop & Launch',
       icon: '🦈💥',
       category: 'Cozy & Knockback Art',
+      isOffensive: true,
       cooldown: 1.0,
       range: 5.0,
       usesFinMod: false,
@@ -314,6 +349,7 @@
       name: 'Tender Plush Groom',
       icon: '🪮✨',
       category: 'Support & Healing',
+      isOffensive: false,
       cooldown: 2.5,
       range: 5.5,
       usesFinMod: false,
@@ -325,6 +361,7 @@
       name: 'Hydro-Tail Sky Leap',
       icon: '🚀🌊',
       category: 'Mobility & Tail Art',
+      isOffensive: false,
       cooldown: 5.0,
       range: 5.5,
       usesFinMod: false,
@@ -449,10 +486,16 @@
     learnedByShark: {},
     barsByShark: {},
     cooldowns: {},
+    maxCooldowns: {},
+    comboProcs: {},       // { poky_fin_strike: remainingSec, tail_swipe: remainingSec, tail_spin: remainingSec }
+    queuedAbilityId: null,// 0.38s Spell Queue window
+    queuedExpire: 0,
+    strikeHandToggle: 1,  // Alternates 1 (Right Fin) and -1 (Left Fin) on Poky Fin Strike
     selectedTarget: null, // { id, name, subtitle, category, icon, getPos(), getHpPct(), ref, kind }
     activePosture: null,  // { id: 'fin_deflection'|'double_fin_defense', remaining: number, duration: number, name: string, icon: string }
     projectiles: [],      // Flying ranged Breb loaves
-    vfxMeshes: [],        // Temporary 3D slashes, rings, and shockwaves
+    vfxMeshes: [],        // Temporary 3D slashes, rings, grapnel lines, and shockwaves
+    fctItems: [],         // 3D-projected Floating Combat Text items
     assigningAbilityId: null // For Spellbook slot assignment
   };
 
@@ -461,6 +504,7 @@
   let targetRingInner = null;
   let postureAuraGroup = null;
   let postureAuraMesh = null;
+  let fctContainerEl = null;
 
   function loadPersistedState() {
     try {
@@ -521,6 +565,14 @@
     return null;
   }
 
+  function getPassiveDamageMultiplier() {
+    const finMod = getActiveFinModifier();
+    if (finMod && typeof finMod.passiveArmorMult === 'number') {
+      return finMod.passiveArmorMult;
+    }
+    return 1.0;
+  }
+
   function isAbilityLearned(sharkId, abilityId) {
     const list = state.learnedByShark[sharkId] || [];
     return list.includes(abilityId);
@@ -565,7 +617,90 @@
   }
 
   // --------------------------------------------------------------------------
-  // TARGETING ENGINE (TAB-TARGET & 3D RAYCAST CLICK-TARGET)
+  // FLOATING COMBAT TEXT (3D-PROJECTED CALLOUTS)
+  // --------------------------------------------------------------------------
+  function ensureFCTContainer() {
+    if (fctContainerEl) return fctContainerEl;
+    fctContainerEl = document.getElementById('mmo-fct-layer');
+    if (!fctContainerEl) {
+      fctContainerEl = document.createElement('div');
+      fctContainerEl.id = 'mmo-fct-layer';
+      fctContainerEl.className = 'mmo-fct-layer';
+      document.body.appendChild(fctContainerEl);
+    }
+    return fctContainerEl;
+  }
+
+  function projectWorldToScreen(worldPos, jitterX = 0, liftY = 0, scale = 1) {
+    const cam = (window.BlahajGame && typeof window.BlahajGame.getCamera === 'function')
+      ? window.BlahajGame.getCamera()
+      : window.camera;
+    if (!cam || !worldPos) return null;
+    const w = window.innerWidth || 1280;
+    const h = window.innerHeight || 720;
+    const proj = new THREE.Vector3(worldPos.x || 0, (worldPos.y || 0) + liftY, worldPos.z || 0);
+    proj.project(cam);
+    if (proj.z > 1.0) return null;
+    const sx = (proj.x * 0.5 + 0.5) * w + jitterX;
+    const sy = (-proj.y * 0.5 + 0.5) * h;
+    return `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(2)})`;
+  }
+
+  function spawnFloatingCombatText(worldPos, text, kind = 'normal') {
+    if (!worldPos || !text) return;
+    const container = ensureFCTContainer();
+    const el = document.createElement('div');
+    el.className = `mmo-fct-item fct-${kind}`;
+    el.textContent = text;
+
+    const jitterX = (Math.random() - 0.5) * 28;
+    const origin = new THREE.Vector3(
+      worldPos.x || 0,
+      (worldPos.y || 0) + 1.85,
+      worldPos.z || 0
+    );
+    const initTransform = projectWorldToScreen(origin, jitterX, 0, 1.05);
+    if (initTransform) {
+      el.style.transform = initTransform;
+    } else {
+      el.style.transform = `translate3d(${(window.innerWidth || 1280) * 0.5}px, ${(window.innerHeight || 720) * 0.42}px, 0) translate(-50%, -50%)`;
+    }
+    container.appendChild(el);
+
+    state.fctItems.push({
+      el,
+      origin,
+      jitterX,
+      age: 0,
+      maxAge: kind === 'crit' || kind === 'proc' ? 1.25 : 0.95
+    });
+  }
+
+  function updateFloatingCombatText(dt) {
+    if (state.fctItems.length === 0) return;
+    for (let i = state.fctItems.length - 1; i >= 0; i--) {
+      const item = state.fctItems[i];
+      item.age += dt;
+      if (item.age >= item.maxAge) {
+        if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+        state.fctItems.splice(i, 1);
+        continue;
+      }
+
+      const prog = item.age / item.maxAge;
+      const scale = prog < 0.18 ? (0.88 + prog * 1.2) : 1.0;
+      const tr = projectWorldToScreen(item.origin, item.jitterX, prog * 1.45, scale);
+      if (!tr) {
+        item.el.style.opacity = '0';
+        continue;
+      }
+      item.el.style.transform = tr;
+      item.el.style.opacity = prog > 0.65 ? ((1 - prog) / 0.35).toFixed(2) : '1';
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // TARGETING ENGINE (TAB-TARGET, SMART AUTO-TARGET & CLICKABLE NAMEPLATES)
   // --------------------------------------------------------------------------
   function getTargetables() {
     const list = [];
@@ -580,20 +715,28 @@
     if ((zone === 'island' || zone === 'overworld') && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
       const enemies = window.BlahajEnemies.getEnemies();
       enemies.forEach((e) => {
-        if (!e || e.state === 'banished' || e.state === 'respawning' || e.hp <= 0 || !e.mesh || !e.mesh.visible) return;
+        if (!e || e.isFlying || e.state === 'flying' || e.state === 'banished' || e.state === 'respawning' || (e.hp !== undefined && e.hp <= 0) || !e.mesh || !e.mesh.visible) return;
+        if (e.labelEl && !e.labelEl.dataset.targetId) {
+          e.labelEl.dataset.targetId = `enemy_${e.id}`;
+          e.labelEl.title = `Click to Target ${e.title || 'Mean Shark'} · Right-Click to Attack`;
+        }
         list.push({
           id: `enemy_${e.id}`,
           name: e.title || 'Mean Shark',
-          subtitle: e.isLandInvader ? 'COSMIC SEAM INVADER · HOSTILE' : 'SHARK WEEK RAIDER · HOSTILE',
+          subtitle: e.tag || (e.isLandInvader ? 'COSMIC SEAM INVADER · HOSTILE' : 'SHARK WEEK RAIDER · HOSTILE'),
           category: 'hostile',
-          icon: e.isLandInvader ? '👾' : '🦈',
+          icon: e.isLandInvader ? '👾' : (e.type === 'urchin' ? '🦔' : (e.type === 'starfish' ? '🌟' : '🦈')),
           radius: 2.2,
           ref: e,
           kind: 'enemy',
           mesh: e.mesh,
           getPos: () => e.pos,
-          getHpPct: () => Math.max(0, Math.min(100, Math.round((e.hp / (e.maxHp || 100)) * 100))),
-          getStatusLabel: () => `Boop Resilience: ${Math.max(0, Math.round(e.hp))}/${e.maxHp || 100}`
+          getHpPct: () => (typeof e.mange === 'number')
+            ? Math.max(0, Math.min(100, Math.round((1.0 - e.mange) * 100)))
+            : Math.max(0, Math.min(100, Math.round(((e.hp ?? 100) / (e.maxHp || 100)) * 100))),
+          getStatusLabel: () => (typeof e.mange === 'number')
+            ? `Boop Resilience: ${Math.max(0, Math.round((1.0 - e.mange) * 100))}% (Mange ${Math.round(e.mange * 100)}%)`
+            : `Boop Resilience: ${Math.max(0, Math.round(e.hp ?? 100))}/${e.maxHp || 100}`
         });
       });
     }
@@ -610,7 +753,7 @@
           icon: '🥕',
           radius: 1.6,
           ref: c,
-           carrotIdx: idx,
+          carrotIdx: idx,
           kind: 'balcony_carrot',
           mesh: c.mesh,
           getPos: () => c.mesh.position,
@@ -761,6 +904,18 @@
     }
     updateTargetHUD();
     updateTargetRing3D(0);
+    renderActionBarUI();
+  }
+
+  function selectTargetById(targetId, playAudio = true) {
+    if (!targetId) return null;
+    const all = getTargetables();
+    const match = all.find((t) => t.id === targetId);
+    if (match) {
+      setTarget(match, playAudio);
+      return match;
+    }
+    return null;
   }
 
   function clearTarget() {
@@ -768,11 +923,65 @@
     state.selectedTarget = null;
     updateTargetHUD();
     if (targetRingGroup) targetRingGroup.visible = false;
+    renderActionBarUI();
     return true;
   }
 
   function hasTarget() {
     return !!state.selectedTarget;
+  }
+
+  // Pass 82: Smart Context Auto-Targeting on Attack!
+  // Pressing an offensive move with no target (or with a friendly target selected during a martial attack)
+  // automatically acquires the nearest hostile (or rift) in front of the shark!
+  function ensureSmartOffensiveTarget(maxDist = 30.0, allowRift = false) {
+    const p = window.player;
+    if (!p || !p.pos) return null;
+
+    if (state.selectedTarget) {
+      const curCat = state.selectedTarget.category;
+      const tPos = state.selectedTarget.getPos && state.selectedTarget.getPos();
+      const d = tPos ? Math.hypot(tPos.x - p.pos.x, tPos.z - p.pos.z) : 999;
+      if ((curCat === 'hostile' || (allowRift && curCat === 'rift')) && d <= maxDist + 8.0) {
+        return state.selectedTarget;
+      }
+      if (state.selectedTarget.category !== 'friendly' && d <= maxDist + 8.0) {
+        return state.selectedTarget;
+      }
+    }
+
+    const fwdX = Math.sin(p.rotY);
+    const fwdZ = Math.cos(p.rotY);
+    const candidates = getTargetables().filter((t) =>
+      t.category === 'hostile' || (allowRift && t.category === 'rift')
+    );
+    if (candidates.length === 0) return state.selectedTarget;
+
+    let best = null;
+    let bestScore = 9999;
+
+    candidates.forEach((t) => {
+      const pos = t.getPos();
+      if (!pos) return;
+      const dx = pos.x - p.pos.x;
+      const dz = pos.z - p.pos.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > maxDist) return;
+      const dot = dist > 0.05 ? (dx / dist) * fwdX + (dz / dist) * fwdZ : 1.0;
+      // Prefer targets in frontal cone (dot >= -0.25) or very close (< 5m)
+      if (dot < -0.35 && dist > 5.5) return;
+      const score = dist - dot * 6.5 + (t.category === 'rift' ? 4.0 : 0.0);
+      if (score < bestScore) {
+        bestScore = score;
+        best = t;
+      }
+    });
+
+    if (best) {
+      setTarget(best, false);
+      return best;
+    }
+    return state.selectedTarget;
   }
 
   function cycleTarget(dir = 1) {
@@ -992,6 +1201,13 @@
     const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
     if (!p || !p.pos || !activeScene) return;
 
+    // Sync activePostureId onto 3D shark rig so fins hold their guard pose!
+    if (p.mesh && p.mesh.userData) {
+      p.mesh.userData.activePostureId = (state.activePosture && state.activePosture.remaining > 0)
+        ? state.activePosture.id
+        : null;
+    }
+
     if (!state.activePosture || state.activePosture.remaining <= 0) {
       postureAuraGroup.visible = false;
       return;
@@ -1017,7 +1233,7 @@
   }
 
   // --------------------------------------------------------------------------
-  // 3D COMBAT SLASH / SHOCKWAVE VFX & RANGED BREB PROJECTILES
+  // 3D COMBAT SLASH RIBBONS, GRAPNEL TETHER, SHOCKWAVES & BREB PROJECTILES
   // --------------------------------------------------------------------------
   function spawnRingWaveVFX(originPos, colorHex = 0x38bdf8, maxScale = 4.5, duration = 0.42) {
     const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
@@ -1037,7 +1253,53 @@
     state.vfxMeshes.push({ mesh, life: duration, maxLife: duration, maxScale });
   }
 
-  function spawnBrebVolleyProjectiles(originPos, targetPos, baseYaw) {
+  // Pass 82: 3D Crescent Slash Ribbon VFX for Fin Strikes & Tail Swipes
+  function spawnSlashArcVFX(originPos, facingYaw, colorHex = 0x38bdf8, radius = 2.4, tiltZ = 0.25, duration = 0.28) {
+    const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
+    if (!activeScene) return;
+    const geo = new THREE.RingGeometry(radius * 0.58, radius, 22, 1, -Math.PI * 0.48, Math.PI * 0.96);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.95,
+      depthWrite: false
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(
+      originPos.x + Math.sin(facingYaw) * 0.65,
+      (originPos.y || 0) + 0.92,
+      originPos.z + Math.cos(facingYaw) * 0.65
+    );
+    mesh.rotation.y = facingYaw;
+    mesh.rotation.z = tiltZ;
+    activeScene.add(mesh);
+    state.vfxMeshes.push({ mesh, life: duration, maxLife: duration, maxScale: 1.45, spinY: tiltZ > 0 ? 5.5 : -5.5 });
+  }
+
+  // Pass 82: 3D Brass Measuring-Tape Grapnel Tether VFX
+  function spawnGrapnelTapeVFX(startPos, endPos, colorHex = 0xfacc15, duration = 0.36) {
+    const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
+    if (!activeScene) return;
+    const a = new THREE.Vector3(startPos.x, (startPos.y || 0) + 0.95, startPos.z);
+    const b = new THREE.Vector3(endPos.x, (endPos.y || 0) + 0.95, endPos.z);
+    const dist = Math.max(0.5, a.distanceTo(b));
+    const geo = new THREE.CylinderGeometry(0.06, 0.06, dist, 8);
+    geo.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: 0.95
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(a).lerp(b, 0.5);
+    mesh.lookAt(b);
+    activeScene.add(mesh);
+    state.vfxMeshes.push({ mesh, life: duration, maxLife: duration, maxScale: 1.0, isLine: true });
+  }
+
+  function spawnBrebVolleyProjectiles(originPos, targetPos, baseYaw, finMod = null) {
     const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
     if (!activeScene) return;
 
@@ -1047,10 +1309,10 @@
         ? new THREE.CapsuleGeometry(0.16, 0.34, 6, 10)
         : new THREE.BoxGeometry(0.28, 0.22, 0.52);
       const loafMat = new THREE.MeshStandardMaterial({
-        color: 0xd99b4e,
-        emissive: 0x78350f,
-        emissiveIntensity: 0.35,
-        roughness: 0.65
+        color: finMod && finMod.rangedSeamStitch ? 0xc084fc : 0xd99b4e,
+        emissive: finMod && finMod.rangedSeamStitch ? 0x6b21a8 : 0x78350f,
+        emissiveIntensity: 0.45,
+        roughness: 0.55
       });
       const mesh = new THREE.Mesh(loafGeo, loafMat);
       mesh.rotation.x = Math.PI / 2;
@@ -1082,6 +1344,7 @@
       state.projectiles.push({
         mesh,
         vel,
+        canStitchSeam: !!(finMod && finMod.rangedSeamStitch),
         life: Math.min(1.6, flightTime + 0.35)
       });
     });
@@ -1090,6 +1353,20 @@
   // --------------------------------------------------------------------------
   // EXECUTING OFFENSIVE, DEFENSIVE & RANGED ABILITIES
   // --------------------------------------------------------------------------
+  function trigger3DMartialPose(poseName, duration = 0.42, isComboProc = false) {
+    const p = window.player;
+    if (!p || !p.mesh || !p.mesh.userData) return;
+    const ud = p.mesh.userData;
+    ud.martialPose = poseName;
+    ud.martialDuration = duration;
+    ud.martialTimer = duration;
+    ud.isComboProc = !!isComboProc;
+    if (poseName === 'poky_strike') {
+      ud.strikeHand = state.strikeHandToggle;
+      state.strikeHandToggle = -state.strikeHandToggle;
+    }
+  }
+
   function faceSelectedTargetIfClose(maxTurnDist = 28.0) {
     const p = window.player;
     if (!p || !state.selectedTarget) return;
@@ -1103,13 +1380,14 @@
     }
   }
 
-  function damageEnemiesAndCarrotsInArc(centerPos, facingYaw, maxRadius, halfAngleCos, baseDamage, knockScale = 1.0, vfxColor = 0x38bdf8) {
+  function damageEnemiesAndCarrotsInArc(centerPos, facingYaw, maxRadius, halfAngleCos, baseDamage, knockScale = 1.0, vfxColor = 0x38bdf8, opts = {}) {
     let hitCount = 0;
     const fwdX = Math.sin(facingYaw);
     const fwdZ = Math.cos(facingYaw);
     const g = window.BlahajGame;
     const worldApi = g && typeof g.getWorldApi === 'function' ? g.getWorldApi() : null;
     const zone = g && typeof g.getZone === 'function' ? g.getZone() : 'island';
+    const finMod = getActiveFinModifier();
 
     // 1. Check Mean Sharks / Sea Invaders
     if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
@@ -1122,10 +1400,39 @@
         if (d <= maxRadius) {
           const dot = d > 0.05 ? (dx / d) * fwdX + (dz / d) * fwdZ : 1.0;
           if (dot >= halfAngleCos || d < 2.1) {
+            let finalDmg = baseDamage;
+            let isCrit = !!opts.forceCrit;
+            // Sacred Scissors / Binoculars Crit & Flanking Bonus
+            if (!isCrit) {
+              const critChance = 0.12 + (finMod && finMod.critChanceBonus ? finMod.critChanceBonus : 0);
+              if (Math.random() < critChance) isCrit = true;
+            }
+            if (finMod && finMod.flankBonusMult && e.rotY !== undefined) {
+              const enemyFwdX = Math.sin(e.rotY);
+              const enemyFwdZ = Math.cos(e.rotY);
+              const flankDot = fwdX * enemyFwdX + fwdZ * enemyFwdZ;
+              if (flankDot > 0.25) {
+                finalDmg = Math.round(finalDmg * finMod.flankBonusMult);
+                isCrit = true;
+              }
+            }
+            if (finMod && finMod.armorBreakerMult && e.isLandInvader) {
+              finalDmg = Math.round(finalDmg * finMod.armorBreakerMult);
+            }
+            if (isCrit) {
+              finalDmg = Math.round(finalDmg * (opts.critMult || 1.45));
+            }
+
             const knockDir = new THREE.Vector3(dx, 0, dz);
             if (knockDir.lengthSq() < 0.01) knockDir.set(fwdX, 0, fwdZ);
             knockDir.normalize().multiplyScalar(knockScale);
-            e.takeBoop(baseDamage, knockDir);
+            const boopArg = (typeof e.mange === 'number' && finalDmg > 1.5) ? (finalDmg / 100) : finalDmg;
+            e.takeBoop(boopArg, knockDir);
+            spawnFloatingCombatText(
+              e.pos,
+              opts.comboLabel ? `${opts.comboLabel} ${finalDmg}!` : (isCrit ? `⚡ ${finalDmg} CRIT!` : `${finalDmg}`),
+              opts.comboLabel ? 'proc' : (isCrit ? 'crit' : 'normal')
+            );
             hitCount++;
           }
         }
@@ -1152,6 +1459,7 @@
               window.player.carrotsKnockedCount = (window.player.carrotsKnockedCount || 0) + 1;
               if (window.player.carrotsKnockedCount % 5 === 0) window.player.trialPoints = (window.player.trialPoints || 0) + 1;
             }
+            spawnFloatingCombatText(c.mesh.position, '🥕 BOOPED!', 'crit');
             hitCount++;
           }
         }
@@ -1176,6 +1484,7 @@
               window.player.carrotsKnockedCount = (window.player.carrotsKnockedCount || 0) + 1;
               if (window.player.carrotsKnockedCount % 5 === 0) window.player.trialPoints = (window.player.trialPoints || 0) + 1;
             }
+            spawnFloatingCombatText(cPos, '🥕 LAUNCHED!', 'crit');
             hitCount++;
           }
         }
@@ -1194,60 +1503,93 @@
 
     const sId = getActiveSharkId();
     if (!isAbilityLearned(sId, abilityId)) {
-      // Auto-learn if triggered so player is never blocked
       learnAbility(sId, abilityId, true);
     }
 
     const remCd = state.cooldowns[abilityId] || 0;
     if (remCd > 0.05) {
+      // Pass 82: 0.38s Spell Queue Window!
+      if (remCd <= 0.38) {
+        state.queuedAbilityId = abilityId;
+        state.queuedExpire = 0.55;
+        renderActionBarUI();
+      }
       return false;
     }
 
+    state.queuedAbilityId = null;
+
     const finMod = ab.usesFinMod ? getActiveFinModifier() : null;
+    const anyFinMod = getActiveFinModifier();
     const dmgMult = finMod ? finMod.dmgMult : 1.0;
     const knockMult = finMod ? finMod.knockMult : 1.0;
     const rangeBonus = finMod ? finMod.rangeBonus : 0.0;
     const vfxColor = finMod ? finMod.colorHex : 0x38bdf8;
 
     state.cooldowns[abilityId] = ab.cooldown;
+    state.maxCooldowns[abilityId] = ab.cooldown;
+
+    // Pass 82: Smart Context Auto-Targeting on Offensive Abilities!
+    if (ab.isOffensive && abilityId !== 'snoot_boop') {
+      const allowRift = !!(anyFinMod && anyFinMod.rangedSeamStitch) || abilityId === 'single_fin_lunge';
+      ensureSmartOffensiveTarget(Math.max(16.0, ab.range + rangeBonus + 6.0), allowRift);
+    }
 
     if (abilityId === 'poky_fin_strike') {
-      faceSelectedTargetIfClose(ab.range + rangeBonus + 3.0);
-      if (p.mesh && p.mesh.userData) {
-        p.mesh.userData.boopTimer = 0.38;
+      const isCrossSlashProc = (state.comboProcs.poky_fin_strike || 0) > 0;
+      if (isCrossSlashProc) {
+        state.comboProcs.poky_fin_strike = 0;
       }
+
+      faceSelectedTargetIfClose(ab.range + rangeBonus + 3.0);
+      trigger3DMartialPose('poky_strike', isCrossSlashProc ? 0.48 : 0.38, isCrossSlashProc);
       if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
 
       const fwd = new THREE.Vector3(Math.sin(p.rotY), 0, Math.cos(p.rotY));
-      p.pos.addScaledVector(fwd, 0.42);
+      p.pos.addScaledVector(fwd, isCrossSlashProc ? 0.65 : 0.42);
+
+      // 3D Crescent Slash Arc VFX (Dual X-Arcs on Cross-Slash Proc!)
+      spawnSlashArcVFX(p.pos, p.rotY, isCrossSlashProc ? 0xfbbf24 : vfxColor, 2.35, state.strikeHandToggle > 0 ? 0.28 : -0.28, 0.28);
+      if (isCrossSlashProc) {
+        spawnSlashArcVFX(p.pos, p.rotY, 0xf43f5e, 2.55, -0.32, 0.32);
+      }
 
       const hits = damageEnemiesAndCarrotsInArc(
         p.pos,
         p.rotY,
-        ab.range + rangeBonus,
+        ab.range + rangeBonus + (isCrossSlashProc ? 0.8 : 0),
         0.15,
-        Math.round(38 * dmgMult),
-        1.1 * knockMult,
-        vfxColor
+        Math.round(38 * dmgMult * (isCrossSlashProc ? 1.35 : 1.0)),
+        1.1 * knockMult * (isCrossSlashProc ? 1.25 : 1.0),
+        isCrossSlashProc ? 0xfbbf24 : vfxColor,
+        {
+          forceCrit: isCrossSlashProc,
+          critMult: 1.35,
+          comboLabel: isCrossSlashProc ? '⚔️ CROSS-SLASH' : null
+        }
       );
 
       if (finMod && finMod.healComfort) {
         p.teaComfort = Math.min(100, (p.teaComfort || 80) + finMod.healComfort);
         p.warmth = Math.min(100, (p.warmth || 80) + finMod.healComfort);
       }
-      if (finMod && finMod.itemId === 'seam_detector' && window.BlahajSeam) {
+      if (anyFinMod && anyFinMod.rangedSeamStitch && window.BlahajSeam) {
         const nearRift = window.BlahajSeam.getNearestRift(p.pos, g.getZone());
-        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 11.0) {
+        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 14.0) {
           window.BlahajSeam.mendRift(nearRift.nearest.id);
+          spawnFloatingCombatText(nearRift.nearest.pos || p.pos, '🪡 SEAM MENDED!', 'proc');
         }
       }
       renderActionBarUI();
-      return { abilityId, hits, finMod: finMod ? finMod.strikeName : ab.name };
+      return { abilityId, hits, isCrossSlashProc, finMod: finMod ? finMod.strikeName : ab.name };
     }
 
     if (abilityId === 'single_fin_lunge') {
-      faceSelectedTargetIfClose(ab.range + rangeBonus + 4.0);
-      const maxDash = 8.5 + rangeBonus * 0.5;
+      const isGrapnel = !!(finMod && finMod.isGrapnel);
+      const maxLungeRange = isGrapnel ? 18.5 : (ab.range + rangeBonus);
+      faceSelectedTargetIfClose(maxLungeRange + 4.0);
+
+      const maxDash = isGrapnel ? 15.5 : (8.5 + rangeBonus * 0.5);
       let dashDist = 6.8;
       if (state.selectedTarget && state.selectedTarget.getPos) {
         const tPos = state.selectedTarget.getPos();
@@ -1277,11 +1619,15 @@
         }
       }
 
-      if (p.mesh && p.mesh.userData) {
-        p.mesh.userData.boopTimer = 0.5;
-      }
+      trigger3DMartialPose('fin_lunge', 0.46, false);
       if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
       spawnRingWaveVFX(startPos, vfxColor, 2.8, 0.3);
+      spawnSlashArcVFX(p.pos, p.rotY, vfxColor, 2.6, 0.15, 0.3);
+
+      if (isGrapnel) {
+        spawnGrapnelTapeVFX(startPos, p.pos, 0xfacc15, 0.38);
+        spawnFloatingCombatText(p.pos, '📏 GRAPNEL PULL!', 'proc');
+      }
 
       const hits = damageEnemiesAndCarrotsInArc(
         p.pos,
@@ -1292,35 +1638,48 @@
         1.45 * knockMult,
         vfxColor
       );
+
+      // Pass 82 Combo Chain: Single Fin Lunge [2] triggers Twin-Fin Cross-Slash Proc on Poky Fin Strike [1]!
+      state.comboProcs.poky_fin_strike = 6.0;
+      state.cooldowns.poky_fin_strike = 0;
+
       renderActionBarUI();
-      return { abilityId, hits, finMod: finMod ? finMod.lungeName : ab.name };
+      return { abilityId, hits, isGrapnel, finMod: finMod ? finMod.lungeName : ab.name };
     }
 
     if (abilityId === 'tail_swipe') {
+      const isRiposteProc = (state.comboProcs.tail_swipe || 0) > 0;
+      if (isRiposteProc) state.comboProcs.tail_swipe = 0;
+
       faceSelectedTargetIfClose(9.0);
-      if (p.mesh && p.mesh.userData) {
-        p.mesh.userData.boopTimer = 0.45;
-      }
+      trigger3DMartialPose('tail_swipe', 0.45, isRiposteProc);
       if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.22, 0.28);
       if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
+
+      spawnSlashArcVFX(p.pos, p.rotY, isRiposteProc ? 0xfbbf24 : 0x38bdf8, 3.4, -0.18, 0.34);
 
       const hits = damageEnemiesAndCarrotsInArc(
         p.pos,
         p.rotY,
         ab.range,
         -0.15, // Wide 195-degree frontal/side arc
-        45,
-        1.65,
-        0x38bdf8
+        Math.round(45 * (isRiposteProc ? 1.4 : 1.0)),
+        1.65 * (isRiposteProc ? 1.25 : 1.0),
+        isRiposteProc ? 0xfbbf24 : 0x38bdf8,
+        {
+          forceCrit: isRiposteProc,
+          comboLabel: isRiposteProc ? '🌊 RIPOSTE CLEAVE' : null
+        }
       );
       renderActionBarUI();
-      return { abilityId, hits };
+      return { abilityId, hits, isRiposteProc };
     }
 
     if (abilityId === 'tail_spin') {
-      if (p.mesh && p.mesh.userData) {
-        p.mesh.userData.flipTimer = 0.62;
-      }
+      const isRiposteProc = (state.comboProcs.tail_spin || 0) > 0;
+      if (isRiposteProc) state.comboProcs.tail_spin = 0;
+
+      trigger3DMartialPose('tail_spin', 0.58, isRiposteProc);
       if (p.isGrounded && !p.inBoat) {
         p.velY = 6.2;
         p.isGrounded = false;
@@ -1328,17 +1687,24 @@
       if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.25, 0.35);
       if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
 
+      spawnSlashArcVFX(p.pos, p.rotY, 0x2dd4bf, 3.6, 0.12, 0.38);
+      spawnSlashArcVFX(p.pos, p.rotY + Math.PI, 0x38bdf8, 3.6, -0.12, 0.38);
+
       const hits = damageEnemiesAndCarrotsInArc(
         p.pos,
         p.rotY,
         ab.range,
         -1.0, // Full 360-degree cyclone
-        52,
-        1.75,
-        0x2dd4bf
+        Math.round(52 * (isRiposteProc ? 1.4 : 1.0)),
+        1.75 * (isRiposteProc ? 1.25 : 1.0),
+        isRiposteProc ? 0xfbbf24 : 0x2dd4bf,
+        {
+          forceCrit: isRiposteProc,
+          comboLabel: isRiposteProc ? '🌪️ RIPOSTE CYCLONE' : null
+        }
       );
       renderActionBarUI();
-      return { abilityId, hits };
+      return { abilityId, hits, isRiposteProc };
     }
 
     if (abilityId === 'fin_deflection') {
@@ -1351,8 +1717,18 @@
         duration: 2.8,
         sub: '100% Parry & Shockwave Rebound Active'
       };
+      if (p.mesh && p.mesh.userData) {
+        p.mesh.userData.activePostureId = 'fin_deflection';
+      }
+      // Pass 82 Combo Chain: Fin Deflection [E] primes Counter-Riposte on Tail Swipe [3] & Tail Spin [Q]!
+      state.comboProcs.tail_swipe = 5.0;
+      state.comboProcs.tail_spin = 5.0;
+      state.cooldowns.tail_swipe = 0;
+      state.cooldowns.tail_spin = 0;
+
       if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
       spawnRingWaveVFX(p.pos, 0x38bdf8, 3.8, 0.45);
+      spawnFloatingCombatText(p.pos, '🛡️ FIN PARRY READY!', 'proc');
       updatePostureBannerUI();
       renderActionBarUI();
       return { abilityId, posture: state.activePosture.name };
@@ -1367,10 +1743,14 @@
         duration: 5.5,
         sub: '80% Damage & Mange Reduction · Knockback Immune'
       };
+      if (p.mesh && p.mesh.userData) {
+        p.mesh.userData.activePostureId = 'double_fin_defense';
+      }
       p.warmth = Math.min(100, (p.warmth || 80) + 20);
       p.stuffing = Math.min(100, (p.stuffing || 80) + 20);
       if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
       spawnRingWaveVFX(p.pos, 0x10b981, 4.2, 0.5);
+      spawnFloatingCombatText(p.pos, '🛡️🦈 DOUBLE FIN AEGIS!', 'heal');
       updatePostureBannerUI();
       renderActionBarUI();
       return { abilityId, posture: state.activePosture.name };
@@ -1379,10 +1759,17 @@
     if (abilityId === 'breb_volley') {
       faceSelectedTargetIfClose(30.0);
       const tPos = (state.selectedTarget && state.selectedTarget.getPos) ? state.selectedTarget.getPos() : null;
-      spawnBrebVolleyProjectiles(p.pos, tPos, p.rotY);
-      // Also drop a physical loaf for Birbs / distractions via main game hook if in melee range
+      spawnBrebVolleyProjectiles(p.pos, tPos, p.rotY, anyFinMod);
       if (typeof g.triggerFeedBreb === 'function') {
         g.triggerFeedBreb();
+      }
+      // Pass 82: Aetheric Diviner allows Ranged Breb Volley to stitch Great Seam rifts within 14m!
+      if (anyFinMod && anyFinMod.rangedSeamStitch && window.BlahajSeam) {
+        const nearRift = window.BlahajSeam.getNearestRift(p.pos, g.getZone());
+        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 14.5) {
+          window.BlahajSeam.mendRift(nearRift.nearest.id);
+          spawnFloatingCombatText(nearRift.nearest.pos || p.pos, '🪡 RANGED SEAM STITCH!', 'proc');
+        }
       }
       renderActionBarUI();
       return { abilityId, ranged: true };
@@ -1399,6 +1786,7 @@
       p.warmth = 100;
       p.teaComfort = 100;
       spawnRingWaveVFX(p.pos, 0x34d399, 5.5, 0.55);
+      spawnFloatingCombatText(p.pos, '🍵 +100% TEA COMFORT!', 'heal');
       renderActionBarUI();
       return { abilityId, healed: true };
     }
@@ -1413,6 +1801,9 @@
     }
 
     if (abilityId === 'snoot_boop') {
+      if (!state.selectedTarget) {
+        ensureSmartOffensiveTarget(9.0, false);
+      }
       faceSelectedTargetIfClose(8.0);
       if (typeof g.triggerBeepNose === 'function') {
         g.triggerBeepNose();
@@ -1429,6 +1820,7 @@
         g.adjustSharkMange(p.sharkId, -0.15, 'Self Plush Groom');
       }
       spawnRingWaveVFX(p.pos, 0x67e8f9, 3.6, 0.4);
+      spawnFloatingCombatText(p.pos, '🪮 -20% MANGE GROOMED!', 'heal');
       renderActionBarUI();
       return { abilityId };
     }
@@ -1436,9 +1828,7 @@
     if (abilityId === 'hydro_tail_launch') {
       p.velY = 15.2;
       p.isGrounded = false;
-      if (p.mesh && p.mesh.userData) {
-        p.mesh.userData.flipTimer = 0.55;
-      }
+      trigger3DMartialPose('tail_spin', 0.52, false);
       if (window.CozyAudio && window.CozyAudio.bounceBoing) window.CozyAudio.bounceBoing();
       damageEnemiesAndCarrotsInArc(p.pos, p.rotY, 5.5, -1.0, 35, 1.4, 0x38bdf8);
       renderActionBarUI();
@@ -1467,12 +1857,21 @@
 
     const p = window.player;
     if (state.activePosture.id === 'fin_deflection') {
-      // 100% Parry & Shockwave Rebound!
+      // 100% Parry & Shockwave Rebound + Counter-Riposte Proc!
       if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
+      state.comboProcs.tail_swipe = 5.0;
+      state.comboProcs.tail_spin = 5.0;
+      state.cooldowns.tail_swipe = 0;
+      state.cooldowns.tail_spin = 0;
       if (p && p.pos) {
-        damageEnemiesAndCarrotsInArc(p.pos, p.rotY, 6.8, -1.0, 48, 1.85, 0x38bdf8);
+        damageEnemiesAndCarrotsInArc(p.pos, p.rotY, 6.8, -1.0, 48, 1.85, 0x38bdf8, {
+          forceCrit: true,
+          comboLabel: '🛡️ PARRY REBOUND'
+        });
         p.teaComfort = Math.min(100, (p.teaComfort || 80) + 15);
+        spawnFloatingCombatText(p.pos, '🛡️ PARRIED! (0 DMG)', 'proc');
       }
+      renderActionBarUI();
       return {
         blocked: true,
         parried: true,
@@ -1489,15 +1888,17 @@
     if (state.activePosture.id === 'double_fin_defense') {
       // 80% Damage & Mange reduction + 0% Knockback
       if (window.CozyAudio && window.CozyAudio.bounceBoing) window.CozyAudio.bounceBoing();
+      const reducedDmg = Math.max(1, Math.round(rawDamage * 0.2));
       if (p && p.pos) {
         spawnRingWaveVFX(p.pos, 0x10b981, 3.5, 0.3);
+        spawnFloatingCombatText(p.pos, `🛡️ AEGIS (-80% → ${reducedDmg})`, 'heal');
       }
       return {
         blocked: true,
         parried: false,
         aegisReduced: true,
         postureName: state.activePosture.name,
-        damage: Math.max(1, Math.round(rawDamage * 0.2)),
+        damage: reducedDmg,
         damageMult: 0.2,
         mangeMultiplier: 0.2,
         mangeMult: 0.2,
@@ -1514,9 +1915,24 @@
   // --------------------------------------------------------------------------
   function updateTargetHUD() {
     const frameEl = document.getElementById('mmo-target-frame');
-    if (!frameEl) return;
-
     const t = state.selectedTarget;
+
+    // Highlight targeted 3D floating nameplate & Co-op party frame
+    document.querySelectorAll('.world-label.targeted-nameplate').forEach((el) => {
+      if (!t || el.dataset.targetId !== t.id) {
+        el.classList.remove('targeted-nameplate');
+      }
+    });
+    if (t && t.id) {
+      const activeLabel = document.querySelector(`.world-label[data-target-id="${t.id}"]`);
+      if (activeLabel) activeLabel.classList.add('targeted-nameplate');
+    }
+    const partyFrame = document.getElementById('coop-party-frame');
+    if (partyFrame) {
+      partyFrame.classList.toggle('targeted-party-frame', !!(t && t.id === 'coop_partner'));
+    }
+
+    if (!frameEl) return;
     if (!t || !t.getPos) {
       frameEl.classList.add('hidden');
       return;
@@ -1569,19 +1985,42 @@
     }
   }
 
+  function syncAutorunUI(isAutoRunning) {
+    const pill = document.getElementById('mmo-fin-mod-pill');
+    if (pill) {
+      pill.classList.toggle('autorun-active', !!isAutoRunning);
+    }
+    renderActionBarUI();
+  }
+
   function renderActionBarUI() {
     const sId = getActiveSharkId();
     const bar = state.barsByShark[sId] || CHARACTER_BASE_MIXES[sId]?.defaultBar || CHARACTER_BASE_MIXES.custom.defaultBar;
     const finMod = getActiveFinModifier();
+    const p = window.player;
+    const isAutoRunning = !!(window.camState && window.camState.isAutoRunning);
 
-    // Update Fin Modifier Status Pill above Action Bar
+    // Update Fin Modifier & Autorun Status Pill above Action Bar
     const finPill = document.getElementById('mmo-fin-mod-pill');
     if (finPill) {
+      const autoBadge = isAutoRunning ? `<span class="mmo-autorun-chip">🏃💨 AUTORUN [NumLock/~]</span>` : '';
       if (finMod) {
         finPill.classList.remove('hidden');
-        finPill.innerHTML = `${finMod.icon} <strong>Fin Stance: ${finMod.tag}</strong> · <span>${finMod.strikeName}</span>`;
+        finPill.innerHTML = `${autoBadge}${finMod.icon} <strong>Fin Stance: ${finMod.stanceName || finMod.tag}</strong> · <span>${finMod.strikeName}</span>`;
+      } else if (isAutoRunning) {
+        finPill.classList.remove('hidden');
+        finPill.innerHTML = `${autoBadge}<span>Steer with Right-Click or press W/S to stop</span>`;
       } else {
         finPill.classList.add('hidden');
+      }
+    }
+
+    // Distance to current target for Live Range Indicators
+    let targetDist = null;
+    if (state.selectedTarget && state.selectedTarget.getPos && p && p.pos) {
+      const tPos = state.selectedTarget.getPos();
+      if (tPos) {
+        targetDist = Math.hypot(tPos.x - p.pos.x, tPos.z - p.pos.z);
       }
     }
 
@@ -1618,15 +2057,57 @@
         displayName = sCfg.abilityName || ab.name;
       }
 
+      // Pass 82 Combo Proc overrides
+      const procRem = state.comboProcs[abId] || 0;
+      if (procRem > 0.05) {
+        btn.classList.add('proc-ready');
+        if (abId === 'poky_fin_strike') {
+          displayIcon = '⚔️⚡';
+          displayName = 'Twin-Fin Cross-Slash';
+          displaySub = `PROC! (${procRem.toFixed(0)}s)`;
+        } else if (abId === 'tail_swipe') {
+          displayName = 'Riposte Tail Swipe';
+          displaySub = `+40% PROC!`;
+        } else if (abId === 'tail_spin') {
+          displayName = 'Riposte Cyclone';
+          displaySub = `+40% PROC!`;
+        }
+      } else {
+        btn.classList.remove('proc-ready');
+      }
+
+      btn.classList.toggle('queued-ability', state.queuedAbilityId === abId);
+
+      // Pass 82 Live Range Indicator on Action Bar Slots
+      if (targetDist !== null && ab.isOffensive) {
+        const effRange = (ab.id === 'single_fin_lunge' && finMod && finMod.isGrapnel)
+          ? 18.5
+          : (ab.range + (ab.usesFinMod && finMod ? finMod.rangeBonus : 0));
+        const outOfRange = targetDist > effRange + 1.2;
+        btn.classList.toggle('out-of-range', outOfRange);
+        btn.classList.toggle('in-range', !outOfRange);
+      } else {
+        btn.classList.remove('out-of-range', 'in-range');
+      }
+
       if (iconEl) iconEl.textContent = displayIcon;
       if (nameEl) nameEl.textContent = displayName;
       if (powerEl) powerEl.textContent = displaySub;
       btn.title = `[${slotKey.toUpperCase()}] ${displayName} (${ab.category}) — ${ab.desc}`;
 
       const rem = state.cooldowns[abId] || 0;
-      btn.classList.toggle('on-cooldown', rem > 0.05);
+      const maxCd = state.maxCooldowns[abId] || ab.cooldown || 1.0;
+      const onCd = rem > 0.05;
+      btn.classList.toggle('on-cooldown', onCd);
       if (cdEl) {
-        cdEl.textContent = rem > 0.05 ? `${rem.toFixed(1)}s` : '';
+        if (onCd) {
+          const pct = Math.max(0, Math.min(100, (rem / maxCd) * 100));
+          cdEl.style.setProperty('--cd-pct', `${pct.toFixed(1)}%`);
+          cdEl.textContent = `${rem.toFixed(1)}s`;
+        } else {
+          cdEl.style.removeProperty('--cd-pct');
+          cdEl.textContent = '';
+        }
       }
     });
 
@@ -1653,9 +2134,9 @@
     const finBanner = document.getElementById('sb-fin-mod-banner');
     if (finBanner) {
       if (finMod) {
-        finBanner.innerHTML = `${finMod.icon} <strong>Active Fin-Slot Item Modifier: ${finMod.tag}</strong> — ${finMod.desc}`;
+        finBanner.innerHTML = `${finMod.icon} <strong>Active Fin-Slot Stance: ${finMod.stanceName || finMod.tag}</strong> — ${finMod.desc}`;
       } else {
-        finBanner.innerHTML = `🐾 <strong>Active Fin-Slot Item: Empty Fin</strong> — Equip any tool, snack, or relic in your Fin <strong>[H]</strong> (e.g. Sacred Allen Key, Scissors, Measuring Tape, Warm Breb, Sacred Tea) to dynamically transform your Fin Strikes &amp; Deflections!`;
+        finBanner.innerHTML = `🐾 <strong>Active Fin-Slot Item: Empty Fin</strong> — Equip any tool, snack, or relic in your Fin <strong>[H]</strong> (e.g. Sacred Allen Key, Scissors, Measuring Tape, Warm Breb, Sacred Tea) to dynamically transform your Fin Strikes, Passive Stance &amp; Deflections!`;
       }
     }
 
@@ -1760,12 +2241,12 @@
   }
 
   // --------------------------------------------------------------------------
-  // PER-FRAME UPDATE (COOLDOWNS, RANGED BREB PROJECTILES, POSTURES & TARGET RING)
+  // PER-FRAME UPDATE (COOLDOWNS, COMBO PROCS, SPELL QUEUE, BREB PROJECTILES & FCT)
   // --------------------------------------------------------------------------
   let uiCooldownTick = 0;
 
   function update(dt, elapsed) {
-    // 1. Update ability cooldowns
+    // 1. Update ability cooldowns & radial sweep
     let anyCdChanged = false;
     Object.keys(state.cooldowns).forEach((abId) => {
       if (state.cooldowns[abId] > 0) {
@@ -1773,6 +2254,27 @@
         anyCdChanged = true;
       }
     });
+
+    // 1B. Update Combo Proc windows
+    Object.keys(state.comboProcs).forEach((abId) => {
+      if (state.comboProcs[abId] > 0) {
+        state.comboProcs[abId] = Math.max(0, state.comboProcs[abId] - dt);
+        anyCdChanged = true;
+      }
+    });
+
+    // 1C. Execute 0.38s Queued Ability on the exact frame its cooldown hits 0!
+    if (state.queuedAbilityId) {
+      state.queuedExpire -= dt;
+      const qId = state.queuedAbilityId;
+      if (state.queuedExpire <= 0) {
+        state.queuedAbilityId = null;
+        anyCdChanged = true;
+      } else if ((state.cooldowns[qId] || 0) <= 0.02) {
+        state.queuedAbilityId = null;
+        executeAbility(qId);
+      }
+    }
 
     // 2. Update active defensive posture
     if (state.activePosture && state.activePosture.remaining > 0) {
@@ -1809,9 +2311,20 @@
           if (d < 2.2) {
             const knockDir = new THREE.Vector3(pr.vel.x, 0, pr.vel.z).normalize();
             e.takeBoop(35, knockDir);
+            spawnFloatingCombatText(e.pos, '🥖 35', 'normal');
             hitSomething = true;
             break;
           }
+        }
+      }
+
+      // Check Ranged Seam Stitch if projectile was fired with Aetheric Diviner
+      if (!hitSomething && pr.canStitchSeam && window.BlahajSeam && g) {
+        const nearRift = window.BlahajSeam.getNearestRift(pr.mesh.position, g.getZone());
+        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 3.5) {
+          window.BlahajSeam.mendRift(nearRift.nearest.id);
+          spawnFloatingCombatText(nearRift.nearest.pos || pr.mesh.position, '🪡 SEAM MENDED!', 'proc');
+          hitSomething = true;
         }
       }
 
@@ -1832,32 +2345,41 @@
       }
     }
 
-    // 4. Update 3D ring shockwave VFX
+    // 4. Update 3D ring shockwave, slash arc & grapnel tether VFX
     for (let i = state.vfxMeshes.length - 1; i >= 0; i--) {
       const v = state.vfxMeshes[i];
       v.life -= dt;
       const t = 1.0 - Math.max(0, v.life / v.maxLife);
-      const s = 1.0 + t * (v.maxScale - 1.0);
-      v.mesh.scale.set(s, 1, s);
-      v.mesh.material.opacity = Math.max(0, (1.0 - t) * 0.85);
+      if (v.isLine) {
+        v.mesh.material.opacity = Math.max(0, (1.0 - t) * 0.95);
+      } else {
+        const s = 1.0 + t * (v.maxScale - 1.0);
+        v.mesh.scale.set(s, 1, s);
+        if (v.spinY) v.mesh.rotation.y += v.spinY * dt;
+        v.mesh.material.opacity = Math.max(0, (1.0 - t) * 0.9);
+      }
       if (v.life <= 0) {
         if (v.mesh.parent) v.mesh.parent.remove(v.mesh);
         state.vfxMeshes.splice(i, 1);
       }
     }
 
-    // 5. Update 3D Target Ring & HUD Target Frame
+    // 5. Update 3D Floating Combat Text
+    updateFloatingCombatText(dt);
+
+    // 6. Update 3D Target Ring & HUD Target Frame
     updateTargetRing3D(elapsed);
     uiCooldownTick += dt;
-    if (uiCooldownTick >= 0.1) {
+    if (uiCooldownTick >= 0.06) {
       uiCooldownTick = 0;
       if (state.selectedTarget) updateTargetHUD();
-      if (anyCdChanged) renderActionBarUI();
+      if (anyCdChanged || state.selectedTarget) renderActionBarUI();
     }
   }
 
   function initDOMListeners() {
     loadPersistedState();
+    ensureFCTContainer();
 
     document.querySelectorAll('.mmo-ability-slot').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1875,6 +2397,37 @@
         }
       });
     });
+
+    // Pass 82: Clickable Floating 3D Nameplates (#world-labels .world-label[data-target-id])
+    const worldLabelsRoot = document.getElementById('world-labels');
+    if (worldLabelsRoot) {
+      worldLabelsRoot.addEventListener('click', (e) => {
+        const label = e.target.closest('.world-label[data-target-id]');
+        if (!label) return;
+        e.stopPropagation();
+        selectTargetById(label.dataset.targetId, true);
+      });
+      worldLabelsRoot.addEventListener('contextmenu', (e) => {
+        const label = e.target.closest('.world-label[data-target-id]');
+        if (!label) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const chosen = selectTargetById(label.dataset.targetId, true);
+        if (chosen && window.player && window.BlahajGame && typeof window.BlahajGame.triggerInteract === 'function') {
+          const d = Math.hypot(chosen.getPos().x - window.player.pos.x, chosen.getPos().z - window.player.pos.z);
+          if (d <= 6.5) window.BlahajGame.triggerInteract();
+        }
+      });
+    }
+
+    // Pass 82: Clickable Co-op Party Unit Frame (#coop-party-frame)
+    const partyFrame = document.getElementById('coop-party-frame');
+    if (partyFrame) {
+      partyFrame.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        selectTargetById('coop_partner', true);
+      });
+    }
 
     document.getElementById('mmo-target-clear-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1902,6 +2455,8 @@
     update,
     cycleTarget,
     setTarget,
+    selectTargetById,
+    ensureSmartOffensiveTarget,
     clearTarget,
     hasTarget,
     getSelectedTarget: () => state.selectedTarget,
@@ -1915,9 +2470,14 @@
     isAbilityLearned,
     assignSlot,
     getActiveFinModifier,
+    getPassiveDamageMultiplier,
+    getComboProcs: () => state.comboProcs,
+    getQueuedAbilityId: () => state.queuedAbilityId,
     getActivePosture: () => state.activePosture,
     getPostureState: () => ({ active: state.activePosture, timer: state.postureTimer }),
     mitigateIncomingHit,
+    spawnFloatingCombatText,
+    syncAutorunUI,
     renderActionBarUI,
     openSpellbookModal,
     closeSpellbookModal,

@@ -2184,7 +2184,97 @@ window.BlahajModels = (function () {
       }
     }
 
-    if (ud.flipTimer > 0) {
+    if (ud.martialTimer > 0 && ud.martialPose) {
+      ud.martialTimer = Math.max(0, ud.martialTimer - dt);
+      const dur = ud.martialDuration || 0.42;
+      const prog = Math.max(0, Math.min(1, 1 - ud.martialTimer / dur));
+      const surge = Math.sin(prog * Math.PI);
+
+      if (ud.martialPose === 'poky_strike') {
+        const hand = ud.strikeHand || 1; // 1 = Right Fin (Weapon Hand), -1 = Left Fin
+        rig.position.z = surge * 0.52;
+        rig.rotation.x = -surge * 0.28;
+        if (ud.isComboProc) {
+          // Twin-Fin Cross-Slash Proc! Both fins slash across in an X arc
+          rig.rotation.y = Math.sin(prog * Math.PI * 2) * 0.48;
+          if (ud.leftFinPivot && ud.rightFinPivot) {
+            ud.leftFinPivot.rotation.y = surge * 1.65;
+            ud.leftFinPivot.rotation.x = -surge * 0.65;
+            ud.leftFinPivot.rotation.z = -surge * 0.45;
+            ud.rightFinPivot.rotation.y = -surge * 1.65;
+            ud.rightFinPivot.rotation.x = -surge * 0.65;
+            ud.rightFinPivot.rotation.z = surge * 0.45;
+          }
+        } else if (hand > 0) {
+          rig.rotation.y = surge * 0.38;
+          if (ud.rightFinPivot) {
+            ud.rightFinPivot.rotation.y = -surge * 1.68;
+            ud.rightFinPivot.rotation.x = -surge * 0.62;
+            ud.rightFinPivot.rotation.z = -surge * 0.35;
+          }
+          if (ud.leftFinPivot) {
+            ud.leftFinPivot.rotation.y = -surge * 0.45;
+          }
+        } else {
+          rig.rotation.y = -surge * 0.38;
+          if (ud.leftFinPivot) {
+            ud.leftFinPivot.rotation.y = surge * 1.68;
+            ud.leftFinPivot.rotation.x = -surge * 0.62;
+            ud.leftFinPivot.rotation.z = surge * 0.35;
+          }
+          if (ud.rightFinPivot) {
+            ud.rightFinPivot.rotation.y = surge * 0.45;
+          }
+        }
+        if (ud.tailGroup) {
+          ud.tailGroup.rotation.y = Math.sin(prog * Math.PI * 3.0) * 0.42;
+        }
+      } else if (ud.martialPose === 'fin_lunge') {
+        rig.position.z = surge * 0.72;
+        rig.position.y += surge * 0.28;
+        rig.rotation.x = -surge * 0.48;
+        rig.rotation.y = surge * 0.32;
+        if (ud.rightFinPivot) {
+          ud.rightFinPivot.rotation.y = -surge * 1.75;
+          ud.rightFinPivot.rotation.x = -surge * 0.75;
+          ud.rightFinPivot.rotation.z = -surge * 0.3;
+        }
+        if (ud.leftFinPivot) {
+          ud.leftFinPivot.rotation.y = -surge * 0.65;
+          ud.leftFinPivot.rotation.z = surge * 0.35;
+        }
+        if (ud.tailGroup) {
+          ud.tailGroup.rotation.y = Math.sin(prog * Math.PI * 5.0) * 0.55;
+        }
+      } else if (ud.martialPose === 'tail_swipe') {
+        const whip = Math.sin(prog * Math.PI * 2);
+        rig.rotation.y = whip * 1.15;
+        rig.rotation.x = surge * 0.24;
+        rig.position.z = surge * 0.32;
+        if (ud.tailGroup) {
+          ud.tailGroup.rotation.y = whip * 0.95;
+        }
+        if (ud.leftFinPivot && ud.rightFinPivot) {
+          ud.leftFinPivot.rotation.z = 0.55 * surge;
+          ud.rightFinPivot.rotation.z = -0.55 * surge;
+        }
+      } else if (ud.martialPose === 'tail_spin') {
+        rig.rotation.y = prog * Math.PI * 2;
+        rig.position.y += surge * 0.35;
+        if (ud.leftFinPivot && ud.rightFinPivot) {
+          ud.leftFinPivot.rotation.z = 0.85;
+          ud.rightFinPivot.rotation.z = -0.85;
+        }
+        if (ud.tailGroup) {
+          ud.tailGroup.rotation.y = Math.cos(prog * Math.PI * 4) * 0.75;
+        }
+      }
+      if (ud.martialTimer <= 0) {
+        ud.martialPose = null;
+        ud.isComboProc = false;
+        rig.rotation.y = 0;
+      }
+    } else if (ud.flipTimer > 0) {
       ud.flipTimer = Math.max(0, ud.flipTimer - dt);
       const flipProgress = 1 - ud.flipTimer / 0.45;
       rig.rotation.x = Math.sin(flipProgress * Math.PI * 2) * 0.75;
@@ -2270,9 +2360,36 @@ window.BlahajModels = (function () {
     } else {
       rig.position.z = 0;
       rig.rotation.x = 0;
+      rig.rotation.y = 0;
       if (ud.leftFinPivot && ud.rightFinPivot) {
         ud.leftFinPivot.rotation.y = 0;
         ud.rightFinPivot.rotation.y = 0;
+      }
+    }
+
+    // Active Defensive Posture Fin Guards (Fin Deflection Parry & Double Fin Defense X-Aegis)
+    if (ud.activePostureId && (!ud.martialTimer || ud.martialTimer <= 0)) {
+      if (ud.activePostureId === 'fin_deflection') {
+        const guardPulse = Math.sin(time * 6.0) * 0.06;
+        if (ud.rightFinPivot) {
+          ud.rightFinPivot.rotation.x = -0.85 + guardPulse;
+          ud.rightFinPivot.rotation.y = -1.22;
+          ud.rightFinPivot.rotation.z = 0.42;
+        }
+        if (ud.leftFinPivot) {
+          ud.leftFinPivot.rotation.y = 0.45;
+          ud.leftFinPivot.rotation.z = 0.28;
+        }
+      } else if (ud.activePostureId === 'double_fin_defense') {
+        const aegisPulse = Math.sin(time * 4.5) * 0.04;
+        if (ud.leftFinPivot && ud.rightFinPivot) {
+          ud.leftFinPivot.rotation.x = -0.78 + aegisPulse;
+          ud.leftFinPivot.rotation.y = 1.38;
+          ud.leftFinPivot.rotation.z = -0.38;
+          ud.rightFinPivot.rotation.x = -0.78 + aegisPulse;
+          ud.rightFinPivot.rotation.y = -1.38;
+          ud.rightFinPivot.rotation.z = 0.38;
+        }
       }
     }
   }

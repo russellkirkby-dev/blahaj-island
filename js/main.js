@@ -2456,6 +2456,9 @@
     isLeftDragging: false,
     isRightDragging: false,
     isChordMoving: false,
+    isAutoRunning: false,
+    hasFreeLookOffset: false,
+    isDragPointerLock: false,
     isPointerLocked: false
   };
 
@@ -3027,6 +3030,8 @@
       scene.add(mesh);
 
       const labelEl = createWorldLabel(labelsRoot, sCfg.name, 'REVERED FOUNDER · THE SACRED FOUR');
+      labelEl.dataset.targetId = `actor_${sCfg.id}`;
+      labelEl.title = `Click to Target ${sCfg.name} · Right-Click to Interact`;
       if (sCfg.id === player.sharkId) labelEl.style.display = 'none';
 
       worldActors.push({
@@ -3075,6 +3080,8 @@
       scene.add(mesh);
 
       const labelEl = createWorldLabel(labelsRoot, npc.name, npc.tag);
+      labelEl.dataset.targetId = `actor_${npc.id}`;
+      labelEl.title = `Click to Target ${npc.name} · Right-Click to Interact`;
 
       worldActors.push({
         id: npc.id,
@@ -3308,7 +3315,11 @@
       prevPointerDx = 0;
       prevPointerDy = 0;
       if (!camState.isPointerLocked) {
-        clearAllMovementKeys();
+        if (camState.isDragPointerLock) {
+          camState.isDragPointerLock = false;
+        } else {
+          clearAllMovementKeys();
+        }
         const vhudCard = document.getElementById('volcano-hud-card');
         if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
           hideVolcanoHUDCard();
@@ -3401,11 +3412,25 @@
 
     let mouseDownPos = { x: 0, y: 0 };
 
+    let accumDragDist = 0;
+
     canvas.addEventListener('mousedown', (e) => {
       CozyAudio.ensure();
       mouseDownPos = { x: e.clientX, y: e.clientY };
+      accumDragDist = 0;
       lastClientX = e.clientX;
       lastClientY = e.clientY;
+      // Middle-Mouse Click (button 1) toggles MMO Autorun!
+      if (e.button === 1 && !isAnyModalOpen()) {
+        e.preventDefault();
+        camState.isAutoRunning = !camState.isAutoRunning;
+        if (window.BlahajMMO && window.BlahajMMO.syncAutorunUI) window.BlahajMMO.syncAutorunUI(camState.isAutoRunning);
+        showToast(
+          camState.isAutoRunning ? '🏃💨 AUTORUN ENGAGED [NumLock / Mid-Click]' : '🛑 AUTORUN STOPPED',
+          camState.isAutoRunning ? 'Cruising forward hands-free! Steer with Right-Click or tap W/S to stop.' : 'Manual WASD control resumed.'
+        );
+        return;
+      }
       if (e.button === 0) {
         camState.isLeftDown = true;
         camState.isLeftDragging = true;
@@ -3417,7 +3442,7 @@
     });
 
     canvas.addEventListener('mouseup', (e) => {
-      const dragDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      const dragDist = Math.max(accumDragDist, Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y));
       if (e.button === 0) {
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
@@ -3426,6 +3451,11 @@
         camState.isRightDragging = false;
       }
       camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
+
+      if (!camState.isLeftDown && !camState.isRightDown && document.pointerLockElement === canvas) {
+        camState.isDragPointerLock = true;
+        document.exitPointerLock?.();
+      }
 
       if (dragDist < 6 && !isAnyModalOpen()) {
         if (e.button === 0 && builderState.active) {
@@ -3451,6 +3481,10 @@
       if (!camState.isLeftDragging && !camState.isRightDragging) {
         lastClientX = null;
         lastClientY = null;
+        if (document.pointerLockElement === canvas) {
+          camState.isDragPointerLock = true;
+          document.exitPointerLock?.();
+        }
       }
       prevPointerDx = 0;
       prevPointerDy = 0;
@@ -3500,6 +3534,13 @@
           // Generous safe clamping for smooth click-and-drag turns
           dx = Math.max(-100, Math.min(100, dx));
           dy = Math.max(-80, Math.min(80, dy));
+          accumDragDist += Math.hypot(dx, dy);
+
+          // True MMO Cursor Hide & Lock while dragging!
+          if (accumDragDist >= 5 && (camState.isLeftDown || camState.isRightDown) && document.pointerLockElement !== canvas) {
+            camState.isDragPointerLock = true;
+            try { canvas.requestPointerLock?.(); } catch (err) {}
+          }
         }
 
         const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
@@ -3531,6 +3572,9 @@
         // (Left-Click + Drag only orbits camera around character without changing facing)
         if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
           player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+          camState.hasFreeLookOffset = false;
+        } else if (camState.isLeftDown || camState.isLeftDragging) {
+          camState.hasFreeLookOffset = true;
         }
       }
     });
@@ -3675,6 +3719,18 @@
           return;
         }
         toggleSettingsModal();
+        return;
+      }
+
+      // MMO Autorun Toggle (NumLock or Backquote ` / ~)
+      if ((e.key === 'NumLock' || e.code === 'NumLock' || e.code === 'Backquote') && !isAnyModalOpen()) {
+        e.preventDefault();
+        camState.isAutoRunning = !camState.isAutoRunning;
+        if (window.BlahajMMO && window.BlahajMMO.syncAutorunUI) window.BlahajMMO.syncAutorunUI(camState.isAutoRunning);
+        showToast(
+          camState.isAutoRunning ? '🏃💨 AUTORUN ENGAGED [NumLock / ~]' : '🛑 AUTORUN STOPPED',
+          camState.isAutoRunning ? 'Cruising forward hands-free! Steer with Right-Click or tap W/S to stop.' : 'Manual WASD control resumed.'
+        );
         return;
       }
 
@@ -10314,8 +10370,12 @@
   function damagePlayer(amount = 16, attackerTitle = 'Enemy', knockbackDir = null) {
     if (playerInvulnTimer > 0) return;
 
-    // Pass 81: MMO Defensive Postures (Fin Deflection & Double Fin Defense)
+    // Pass 81 & 82: MMO Defensive Postures & Passive Fin-Stance Armor
     let mangeDelta = 0.05;
+    if (window.BlahajMMO && typeof window.BlahajMMO.getPassiveDamageMultiplier === 'function') {
+      const passiveMult = window.BlahajMMO.getPassiveDamageMultiplier();
+      amount = Math.max(1, Math.round(amount * passiveMult));
+    }
     if (window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {
       const mit = window.BlahajMMO.mitigateIncomingHit(amount, attackerTitle, knockbackDir);
       if (mit.parried) {
@@ -12290,6 +12350,8 @@
         `${cfg.name} (Partner)`,
         '★ CROSS-OCEAN CO-OP SHARK'
       );
+      coopPartner.labelEl.dataset.targetId = 'coop_partner';
+      coopPartner.labelEl.title = `Click to Target ${cfg.name} (Partner)`;
     } else {
       coopPartner.labelEl.querySelector('.npc-name').textContent = `${cfg.name} (Partner)`;
     }
@@ -12616,12 +12678,34 @@
     }
 
     if (!isAnyModalOpen() && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+      if (keys['w'] || keys['arrowup'] || keys['s'] || keys['arrowdown']) {
+        if (camState.isAutoRunning) {
+          camState.isAutoRunning = false;
+          if (window.BlahajMMO && window.BlahajMMO.syncAutorunUI) window.BlahajMMO.syncAutorunUI(false);
+        }
+      }
       if (keys['w'] || keys['arrowup']) moveForward += 1;
       if (keys['s'] || keys['arrowdown']) moveForward -= 1;
 
-      // Left + Right Click Together (Mouse Chording): forces character to run forward along mouse aim!
-      if (camState.isChordMoving) {
+      // Left + Right Click Together (Mouse Chording) or Autorun Toggle: forces character to run forward!
+      if (camState.isChordMoving || camState.isAutoRunning) {
         moveForward = Math.min(1, moveForward + 1);
+      }
+
+      // Pass 82: Auto-Snap Camera Behind Shark on Forward Run (when not holding Left-Click free-look)
+      if (moveForward > 0 && camState.hasFreeLookOffset && !camState.isLeftDown && !camState.isRightDown) {
+        const desiredCamYaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+        let yawDiff = desiredCamYaw - camState.yaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        if (Math.abs(yawDiff) < 0.025) {
+          camState.yaw = desiredCamYaw;
+          camState.hasFreeLookOffset = false;
+        } else {
+          camState.yaw += yawDiff * Math.min(1.0, dt * 8.5);
+          while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+          while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+        }
       }
 
       // A / D Mode: Strafe Left/Right (default MMO) vs Classic Keyboard Turn Left/Right

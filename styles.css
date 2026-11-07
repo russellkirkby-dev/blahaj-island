@@ -6891,8 +6891,12 @@ body.minimal-hud .seam-mini-watch {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(2, 6, 23, 0.78);
+  background: conic-gradient(
+    rgba(2, 6, 23, 0.84) var(--cd-pct, 100%),
+    rgba(15, 23, 42, 0.18) 0%
+  );
   color: #fde047;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
   font-size: 0.78rem;
   font-weight: 900;
   display: none;
@@ -6904,7 +6908,7 @@ body.minimal-hud .seam-mini-watch {
   display: flex;
 }
 .mmo-ability-slot.on-cooldown {
-  filter: saturate(0.45);
+  filter: saturate(0.65);
 }
 .mmo-ability-slot.fin-empowered {
   border-color: rgba(250, 204, 21, 0.8) !important;
@@ -6912,6 +6916,125 @@ body.minimal-hud .seam-mini-watch {
 }
 .mmo-ability-slot.posture-slot {
   border-color: rgba(56, 189, 248, 0.55);
+}
+/* Pass 82: 1-2-3 Combo Proc Glowing Border, Spell Queue & Live Range Indicators */
+@keyframes mmoProcPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(250, 204, 21, 0.85), inset 0 0 8px rgba(251, 191, 36, 0.45);
+    transform: translateY(-2px) scale(1.03);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.9), inset 0 0 12px rgba(250, 204, 21, 0.65);
+    transform: translateY(-3px) scale(1.06);
+  }
+}
+.mmo-ability-slot.proc-ready {
+  border: 2px solid #fde047 !important;
+  background: linear-gradient(145deg, rgba(120, 53, 15, 0.92), rgba(30, 41, 59, 0.95)) !important;
+  animation: mmoProcPulse 1.1s infinite ease-in-out;
+  z-index: 2;
+}
+.mmo-ability-slot.proc-ready .slot-power {
+  color: #fde047 !important;
+  font-weight: 900;
+}
+.mmo-ability-slot.queued-ability {
+  outline: 2px solid #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.85) !important;
+}
+.mmo-ability-slot.out-of-range .slot-key {
+  background: rgba(225, 29, 72, 0.92) !important;
+  color: #ffffff !important;
+  border-color: #fda4af !important;
+}
+.mmo-ability-slot.out-of-range .slot-emoji {
+  opacity: 0.72;
+}
+.mmo-ability-slot.in-range .slot-key {
+  border-color: rgba(52, 211, 153, 0.75);
+}
+
+/* Pass 82: Clickable Floating 3D Nameplates & Co-op Party Frame Targeting */
+.world-label[data-target-id] {
+  pointer-events: auto !important;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+.world-label[data-target-id]:hover {
+  border-color: rgba(56, 189, 248, 0.95) !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+}
+.world-label.targeted-nameplate {
+  border: 1.5px solid #fde047 !important;
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.75) !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+#coop-party-frame {
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#coop-party-frame.targeted-party-frame {
+  border-color: #fde047 !important;
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.55);
+}
+.mmo-autorun-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid #34d399;
+  color: #a7f3d0;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+/* Pass 82: 3D Floating Combat Text & Status Callouts */
+.mmo-fct-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  overflow: hidden;
+}
+.mmo-fct-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(56, 189, 248, 0.65);
+  color: #f8fafc;
+  will-change: transform, opacity;
+}
+.mmo-fct-item.fct-crit {
+  font-size: 0.98rem;
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.92), rgba(180, 83, 9, 0.92));
+  border-color: #fde047;
+  color: #fef08a;
+  box-shadow: 0 4px 14px rgba(250, 204, 21, 0.45);
+}
+.mmo-fct-item.fct-proc {
+  font-size: 0.94rem;
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.92), rgba(109, 40, 217, 0.92));
+  border-color: #fde047;
+  color: #fef08a;
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.55);
+}
+.mmo-fct-item.fct-heal {
+  font-size: 0.88rem;
+  background: rgba(6, 78, 59, 0.9);
+  border-color: #34d399;
+  color: #a7f3d0;
 }
 
 /* Spellbook & Fin Martial Arts Codex Modal [I / P] */
