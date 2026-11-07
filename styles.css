@@ -6895,10 +6895,13 @@ body.minimal-hud .seam-mini-watch {
   color: #fde047;
   font-size: 0.78rem;
   font-weight: 900;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+}
+.mmo-ability-slot.on-cooldown .slot-cd-badge {
+  display: flex;
 }
 .mmo-ability-slot.on-cooldown {
   filter: saturate(0.45);
