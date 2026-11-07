@@ -4803,39 +4803,135 @@ window.BlahajWorld = (function () {
   }
 
   // ==========================================================================
-  // 4 OUTER BUILDABLE SANCTUARY ISLANDS (DOCKS, CHARTER ARCHES & PALMS)
+  // 4 OUTER BUILDABLE SANCTUARY ISLANDS & PERSONAL ATOLL (DOCKS, CHARTER ARCHES & PALMS)
   // ==========================================================================
+  let sharedDeckWoodTex = null;
+  let sharedStonePlazaTex = null;
+
+  function getSharedDeckWoodTex() {
+    if (sharedDeckWoodTex) return sharedDeckWoodTex;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#6b472b';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#3d2412';
+    for (let i = 0; i < 48; i++) {
+      ctx.globalAlpha = 0.12 + (i % 4) * 0.04;
+      ctx.lineWidth = 1 + (i % 3);
+      const y = (i / 48) * 256;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(85, y + Math.sin(i) * 5, 170, y - Math.cos(i) * 5, 256, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = '#1f1107';
+    for (let p = 32; p < 256; p += 32) {
+      ctx.fillRect(0, p, 256, 2);
+    }
+    sharedDeckWoodTex = new THREE.CanvasTexture(c);
+    sharedDeckWoodTex.wrapS = THREE.RepeatWrapping;
+    sharedDeckWoodTex.wrapT = THREE.RepeatWrapping;
+    sharedDeckWoodTex.repeat.set(3, 3);
+    return sharedDeckWoodTex;
+  }
+
+  function getSharedStonePlazaTex() {
+    if (sharedStonePlazaTex) return sharedStonePlazaTex;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 4;
+    for (let r = 36; r <= 120; r += 36) {
+      ctx.beginPath();
+      ctx.arc(128, 128, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    for (let a = 0; a < 12; a++) {
+      const ang = (a / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(128, 128);
+      ctx.lineTo(128 + Math.cos(ang) * 124, 128 + Math.sin(ang) * 124);
+      ctx.stroke();
+    }
+    sharedStonePlazaTex = new THREE.CanvasTexture(c);
+    return sharedStonePlazaTex;
+  }
+
   function buildOuterSanctuaryIslands(scene) {
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x6b472b, roughness: 0.85 });
-    const postMat = new THREE.MeshStandardMaterial({ color: 0x452b17, roughness: 0.9 });
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.65, roughness: 0.25 });
+    const deckTex = getSharedDeckWoodTex();
+    const plazaTex = getSharedStonePlazaTex();
+    const woodMat = new THREE.MeshStandardMaterial({
+      color: 0x9c6b43,
+      map: deckTex,
+      bumpMap: deckTex,
+      bumpScale: 0.03,
+      roughness: 0.76
+    });
+    const postMat = new THREE.MeshStandardMaterial({
+      color: 0x5c381c,
+      map: deckTex,
+      bumpMap: deckTex,
+      bumpScale: 0.03,
+      roughness: 0.85
+    });
+    const stonePlazaMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      map: plazaTex,
+      bumpMap: plazaTex,
+      bumpScale: 0.03,
+      roughness: 0.80
+    });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.72, roughness: 0.22 });
+    const ropeMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.88 });
 
     const islandSpecs = (window.BLAHAJ_LORE && window.BLAHAJ_LORE.sanctuaryIslands) || OUTER_ISLANDS;
 
     islandSpecs.forEach((isl, idx) => {
       const group = new THREE.Group();
 
-      // 1. Coastal Boat Dock at (isl.dockX, 1.4, isl.dockZ)
+      // 1. Planked Coastal Boat Dock with Mooring Bollards & Rope Coils at (isl.dockX, 1.4, isl.dockZ)
       const dockPlank = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.35, 8.5), woodMat);
       dockPlank.position.set(isl.dockX, 1.4, isl.dockZ);
       dockPlank.receiveShadow = true;
       group.add(dockPlank);
 
-      [[-3.8, -3.8], [3.8, -3.8], [-3.8, 3.8], [3.8, 3.8]].forEach(([ox, oz]) => {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 4.2, 10), postMat);
-        post.position.set(isl.dockX + ox, 0.4, isl.dockZ + oz);
-        group.add(post);
+      // Side timber curbing along the dock
+      [-4.1, 4.1].forEach((cx) => {
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.16, 8.5), postMat);
+        curb.position.set(isl.dockX + cx, 1.64, isl.dockZ);
+        group.add(curb);
       });
 
-      // Glowing Dock Beacon Lantern
-      const beaconOrb = new THREE.Mesh(
-        new THREE.SphereGeometry(0.45, 14, 14),
-        new THREE.MeshBasicMaterial({ color: isl.themeColor || 0xf5cd79 })
-      );
-      beaconOrb.position.set(isl.dockX + 3.8, 2.8, isl.dockZ - 3.8);
-      group.add(beaconOrb);
+      [[-3.8, -3.8], [3.8, -3.8], [-3.8, 3.8], [3.8, 3.8]].forEach(([ox, oz]) => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.30, 4.4, 10), postMat);
+        post.position.set(isl.dockX + ox, 0.45, isl.dockZ + oz);
+        group.add(post);
 
-      // 2. Sanctuary Island Charter Arch & Signpost at (isl.signX, gy, isl.signZ)
+        // Coiled hemp mooring rope around each corner bollard
+        const ropeRing = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.06, 8, 16), ropeMat);
+        ropeRing.rotation.x = Math.PI / 2;
+        ropeRing.position.set(isl.dockX + ox, 1.85, isl.dockZ + oz);
+        group.add(ropeRing);
+      });
+
+      // Twin Glowing Dock Beacon Lanterns on the seaward corners
+      [-3.8, 3.8].forEach((bx) => {
+        const beaconOrb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.42, 14, 14),
+          new THREE.MeshBasicMaterial({ color: isl.themeColor || 0xf5cd79 })
+        );
+        beaconOrb.position.set(isl.dockX + bx, 2.85, isl.dockZ - 3.8);
+        group.add(beaconOrb);
+      });
+
+      // 2. Sanctuary Island Charter Arch, Carved Stone Plaza Ring & Signpost at (isl.signX, gy, isl.signZ)
       const sx = isl.signX || (isl.x + isl.dockX) * 0.5;
       const sz = isl.signZ || (isl.z + isl.dockZ) * 0.5;
       const sy = getTerrainHeight(sx, sz);
@@ -4844,26 +4940,37 @@ window.BlahajWorld = (function () {
       archGroup.position.set(sx, sy, sz);
       archGroup.rotation.y = Math.atan2(isl.dockX - sx, isl.dockZ - sz);
 
+      // Circular Carved Flagstone Plaza under the Charter Arch
+      const plazaDisc = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 3.9, 0.22, 24), stonePlazaMat);
+      plazaDisc.position.y = 0.08;
+      archGroup.add(plazaDisc);
+
       [-2.2, 2.2].forEach((px) => {
+        const pBase = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 0.45, 10), stonePlazaMat);
+        pBase.position.set(px, 0.22, 0);
         const p = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 4.2, 12), woodMat);
         p.position.set(px, 2.1, 0);
-        archGroup.add(p);
+        archGroup.add(pBase, p);
       });
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.45, 0.5), goldMat);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.48, 0.54), goldMat);
       beam.position.set(0, 4.1, 0);
-      archGroup.add(beam);
+      const subBeam = new THREE.Mesh(new THREE.BoxGeometry(4.9, 0.26, 0.38), postMat);
+      subBeam.position.set(0, 3.65, 0);
+      archGroup.add(beam, subBeam);
 
       const crest = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.55, 0),
+        new THREE.OctahedronGeometry(0.58, 0),
         new THREE.MeshBasicMaterial({ color: isl.themeColor || 0x7ce8ff })
       );
-      crest.position.set(0, 4.9, 0);
+      crest.position.set(0, 4.95, 0);
       archGroup.add(crest);
-      animatedObjects.push({ mesh: crest, type: 'spin_bob', baseY: 4.9 });
+      animatedObjects.push({ mesh: crest, type: 'spin_bob', baseY: 4.95 });
 
       group.add(archGroup);
 
-      // 3. Perimeter Palm Trees around the outer rim (leaving the central plateau wide open for building!)
+      // 3. Perimeter Palm Trees & Tropical Hibiscus Shrubs around the outer rim (leaving central plateau open for building!)
+      const bushMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.72 });
+      const blossomMat = new THREE.MeshBasicMaterial({ color: isl.themeColor || 0xf472b6 });
       for (let p = 0; p < 6; p++) {
         const ang = (p / 6) * Math.PI * 2 + idx * 0.5;
         const px = isl.x + Math.cos(ang) * (isl.radius * 0.72);
@@ -4874,6 +4981,14 @@ window.BlahajWorld = (function () {
           palm.position.set(px, py - 0.15, pz);
           palm.rotation.y = ang + 1.2;
           group.add(palm);
+
+          // Tropical flowering bush at the base of the palm
+          const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.75, 1), bushMat);
+          shrub.scale.set(1.2, 0.7, 1.2);
+          shrub.position.set(px + 0.65, py + 0.25, pz + 0.45);
+          const flower = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), blossomMat);
+          flower.position.set(px + 0.65, py + 0.75, pz + 0.45);
+          group.add(shrub, flower);
         }
       }
 
@@ -4939,14 +5054,16 @@ window.BlahajWorld = (function () {
 
   function createStructureMesh(type, isPreview = false) {
     const group = new THREE.Group();
-    const birchMat = new THREE.MeshStandardMaterial({ color: 0xd9b382, roughness: 0.78 });
-    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x6b4426, roughness: 0.85 });
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x2f5378, roughness: 0.72, side: THREE.DoubleSide });
-    const plushBlueMat = new THREE.MeshStandardMaterial({ color: 0x3b6998, roughness: 0.85 });
-    const plushRoseMat = new THREE.MeshStandardMaterial({ color: 0xd97b96, roughness: 0.85 });
-    const creamMat = new THREE.MeshStandardMaterial({ color: 0xf5ecdc, roughness: 0.82 });
-    const basaltMat = new THREE.MeshStandardMaterial({ color: 0x2b2638, roughness: 0.82 });
-    const goldMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.65, roughness: 0.25 });
+    const woodTex = getSharedDeckWoodTex();
+    const stoneTex = getSharedStonePlazaTex();
+    const birchMat = new THREE.MeshStandardMaterial({ color: 0xe8c79b, map: woodTex, bumpMap: woodTex, bumpScale: 0.02, roughness: 0.72 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x855530, map: woodTex, bumpMap: woodTex, bumpScale: 0.025, roughness: 0.80 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x2f5378, roughness: 0.65, metalness: 0.12, side: THREE.DoubleSide });
+    const plushBlueMat = new THREE.MeshStandardMaterial({ color: 0x3b6998, roughness: 0.82 });
+    const plushRoseMat = new THREE.MeshStandardMaterial({ color: 0xd97b96, roughness: 0.82 });
+    const creamMat = new THREE.MeshStandardMaterial({ color: 0xf5ecdc, roughness: 0.78 });
+    const basaltMat = new THREE.MeshStandardMaterial({ color: 0x475569, map: stoneTex, bumpMap: stoneTex, bumpScale: 0.03, roughness: 0.80 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xf5cd79, metalness: 0.75, roughness: 0.22 });
     const warmGlowMat = new THREE.MeshBasicMaterial({ color: 0xffe099 });
     const portalGlowMat = new THREE.MeshBasicMaterial({ color: 0xa864ff, side: THREE.DoubleSide });
 

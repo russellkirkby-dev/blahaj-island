@@ -514,32 +514,265 @@
   }
 
   // ==========================================================================
-  // 4. MODULAR 3D IKEA FURNITURE CATALOG (Used across all Showroom & Surreal Wings)
+  // 4. MODULAR 3D IKEA FURNITURE CATALOG & PROCEDURAL TEXTURE GENERATORS
   // ==========================================================================
   const MAT = {};
+
+  function makeProceduralWoodTexture(baseHex, grainHex, repeatX = 2, repeatY = 2) {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = baseHex;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = grainHex;
+    for (let i = 0; i < 64; i++) {
+      ctx.globalAlpha = 0.08 + (i % 5) * 0.03;
+      ctx.lineWidth = 1 + (i % 3);
+      const y = (i / 64) * 256;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(85, y + Math.sin(i) * 6, 170, y - Math.cos(i) * 6, 256, y);
+      ctx.stroke();
+    }
+    // Subtle plank seam lines
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#0f172a';
+    for (let p = 64; p < 256; p += 64) {
+      ctx.fillRect(0, p, 256, 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatX, repeatY);
+    return tex;
+  }
+
+  function makeShowroomParquetTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const tileW = 64;
+    const tileH = 128;
+    const tones = ['#334155', '#293548', '#3b495e', '#243042'];
+    for (let x = 0; x < 512; x += tileW) {
+      for (let y = 0; y < 512; y += tileH) {
+        const idx = ((x / tileW) + (y / tileH)) % tones.length;
+        ctx.fillStyle = tones[idx];
+        ctx.fillRect(x + 2, y + 2, tileW - 4, tileH - 4);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+        ctx.fillRect(x + 8, y + 6, 4, tileH - 12);
+        ctx.fillRect(x + 28, y + 6, 2, tileH - 12);
+      }
+    }
+    ctx.strokeStyle = 'rgba(255, 218, 26, 0.22)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(4, 4, 504, 504);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(10, 32);
+    return tex;
+  }
+
+  function makeWarehouseConcreteTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, 512, 512);
+
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 6;
+    for (let g = 0; g <= 512; g += 128) {
+      ctx.beginPath();
+      ctx.moveTo(g, 0);
+      ctx.lineTo(g, 512);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, g);
+      ctx.lineTo(512, g);
+      ctx.stroke();
+    }
+    for (let s = 0; s < 220; s++) {
+      ctx.fillStyle = s % 2 === 0 ? 'rgba(148, 163, 184, 0.06)' : 'rgba(15, 23, 42, 0.25)';
+      ctx.fillRect((s * 73) % 512, (s * 137) % 512, 6, 6);
+    }
+    ctx.fillStyle = 'rgba(255, 218, 26, 0.32)';
+    ctx.fillRect(14, 0, 8, 512);
+    ctx.fillRect(490, 0, 8, 512);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(8, 44);
+    return tex;
+  }
+
+  function makeFabricWeaveTexture(baseHex, accentHex) {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = baseHex;
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = accentHex;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 128; i += 8) {
+      ctx.globalAlpha = 0.14;
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, 128);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i);
+      ctx.lineTo(128, i);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 4);
+    return tex;
+  }
+
+  function makeCorrugatedCardboardTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#d6b384';
+    ctx.fillRect(0, 0, 512, 256);
+
+    ctx.fillStyle = 'rgba(120, 53, 15, 0.10)';
+    for (let x = 0; x < 512; x += 6) {
+      ctx.fillRect(x, 0, 3, 256);
+    }
+    ctx.fillStyle = '#0058a3';
+    ctx.fillRect(24, 24, 220, 62);
+    ctx.strokeStyle = '#ffda1a';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(24, 24, 220, 62);
+    ctx.fillStyle = '#ffda1a';
+    ctx.font = '900 32px sans-serif';
+    ctx.fillText('SKÄRHAJ', 42, 66);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(272, 24, 212, 92);
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(272, 24, 212, 92);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '900 20px monospace';
+    ctx.fillText('ART. 303.735.88', 290, 52);
+    for (let bx = 290; bx < 466; bx += 8) {
+      ctx.fillRect(bx, 62, (bx % 16 === 0) ? 5 : 2, 42);
+    }
+
+    ctx.fillStyle = 'rgba(254, 240, 138, 0.45)';
+    ctx.fillRect(0, 140, 512, 22);
+    ctx.fillStyle = '#451a03';
+    ctx.font = '800 22px sans-serif';
+    ctx.fillText('⬆️ THIS SIDE UP · FRAGILE SHARK KIT 📦🔧', 32, 214);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  function makeNordicRugTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#ffda1a';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(10, 10, 236, 236);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 4;
+    for (let y = 32; y < 224; y += 48) {
+      ctx.beginPath();
+      ctx.moveTo(20, y);
+      ctx.lineTo(84, y + 20);
+      ctx.lineTo(148, y);
+      ctx.lineTo(212, y + 20);
+      ctx.lineTo(236, y);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
   function initMaterials() {
-    MAT.birch = new THREE.MeshStandardMaterial({ color: 0xf3e5ab, roughness: 0.62 });
-    MAT.oak = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.68 });
-    MAT.white = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.48 });
-    MAT.darkWood = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.65 });
-    MAT.ikeaBlue = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.45 });
-    MAT.ikeaYellow = new THREE.MeshStandardMaterial({ color: 0xffda1a, roughness: 0.38 });
-    MAT.sofaRed = new THREE.MeshStandardMaterial({ color: 0xbe123c, roughness: 0.82 });
-    MAT.sofaTeal = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.82 });
-    MAT.sofaMustard = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.82 });
-    MAT.sofaNavy = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.82 });
-    MAT.chrome = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.78, roughness: 0.25 });
-    MAT.plantGreen = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.65 });
-    MAT.terracotta = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.75 });
+    const birchTex = makeProceduralWoodTexture('#f3e5ab', '#c8a96e', 2, 2);
+    const oakTex = makeProceduralWoodTexture('#d4a373', '#9c6639', 2, 2);
+    const darkWoodTex = makeProceduralWoodTexture('#3e2723', '#1b0f0d', 2, 3);
+    const cardboardTex = makeCorrugatedCardboardTexture();
+
+    MAT.birch = new THREE.MeshStandardMaterial({ color: 0xf5ebd6, map: birchTex, bumpMap: birchTex, bumpScale: 0.02, roughness: 0.58 });
+    MAT.oak = new THREE.MeshStandardMaterial({ color: 0xe2b887, map: oakTex, bumpMap: oakTex, bumpScale: 0.025, roughness: 0.62 });
+    MAT.white = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.42 });
+    MAT.darkWood = new THREE.MeshStandardMaterial({ color: 0x4e342e, map: darkWoodTex, bumpMap: darkWoodTex, bumpScale: 0.03, roughness: 0.58 });
+    MAT.ikeaBlue = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.40, metalness: 0.08 });
+    MAT.ikeaYellow = new THREE.MeshStandardMaterial({ color: 0xffda1a, roughness: 0.34, metalness: 0.08 });
+
+    const redWeave = makeFabricWeaveTexture('#be123c', '#881337');
+    const tealWeave = makeFabricWeaveTexture('#0f766e', '#115e59');
+    const mustardWeave = makeFabricWeaveTexture('#d97706', '#92400e');
+    const navyWeave = makeFabricWeaveTexture('#1e3a8a', '#172554');
+
+    MAT.sofaRed = new THREE.MeshStandardMaterial({ color: 0xe11d48, map: redWeave, bumpMap: redWeave, bumpScale: 0.03, roughness: 0.82 });
+    MAT.sofaTeal = new THREE.MeshStandardMaterial({ color: 0x14b8a6, map: tealWeave, bumpMap: tealWeave, bumpScale: 0.03, roughness: 0.82 });
+    MAT.sofaMustard = new THREE.MeshStandardMaterial({ color: 0xf59e0b, map: mustardWeave, bumpMap: mustardWeave, bumpScale: 0.03, roughness: 0.82 });
+    MAT.sofaNavy = new THREE.MeshStandardMaterial({ color: 0x2563eb, map: navyWeave, bumpMap: navyWeave, bumpScale: 0.03, roughness: 0.82 });
+    MAT.chrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.84, roughness: 0.20 });
+    MAT.plantGreen = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.62 });
+    MAT.terracotta = new THREE.MeshStandardMaterial({ color: 0xc2410c, roughness: 0.72 });
     MAT.lampGlow = new THREE.MeshStandardMaterial({
       color: 0xfef08a,
       emissive: 0xf59e0b,
-      emissiveIntensity: 0.75,
-      roughness: 0.25
+      emissiveIntensity: 0.85,
+      roughness: 0.22
     });
-    MAT.wallBlue = new THREE.MeshStandardMaterial({ color: 0x004b8d, roughness: 0.58 });
-    MAT.partitionCream = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.7 });
-    MAT.partitionSlate = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.68 });
+    MAT.wallBlue = new THREE.MeshStandardMaterial({ color: 0x004b8d, roughness: 0.54 });
+    MAT.partitionCream = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.65 });
+    MAT.partitionSlate = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.64 });
+    MAT.cardboard = new THREE.MeshStandardMaterial({
+      color: 0xf5deb3,
+      map: cardboardTex,
+      bumpMap: cardboardTex,
+      bumpScale: 0.025,
+      roughness: 0.75
+    });
+    MAT.nordicRug = new THREE.MeshStandardMaterial({
+      map: makeNordicRugTexture(),
+      roughness: 0.88
+    });
+    const parquetTex = makeShowroomParquetTexture();
+    MAT.showroomFloor = new THREE.MeshStandardMaterial({
+      map: parquetTex,
+      bumpMap: parquetTex,
+      bumpScale: 0.02,
+      roughness: 0.36,
+      metalness: 0.14
+    });
+    const concreteTex = makeWarehouseConcreteTexture();
+    MAT.warehouseFloor = new THREE.MeshStandardMaterial({
+      map: concreteTex,
+      bumpMap: concreteTex,
+      bumpScale: 0.025,
+      roughness: 0.34,
+      metalness: 0.18
+    });
   }
 
   // Place a solid labyrinth partition wall with optional doorway gap
@@ -552,10 +785,12 @@
     mesh.position.set(cx, yBase + height / 2, cz);
     spScene.add(mesh);
 
-    // Baseboard trim
-    const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.04, 0.16, d + 0.04), MAT.ikeaBlue);
-    trim.position.set(cx, yBase + 0.08, cz);
-    spScene.add(trim);
+    // Baseboard & Crown Trim
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.18, d + 0.05), MAT.ikeaBlue);
+    trim.position.set(cx, yBase + 0.09, cz);
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.14, d + 0.06), MAT.birch);
+    crown.position.set(cx, yBase + height - 0.07, cz);
+    spScene.add(trim, crown);
 
     addCollider(minX, maxX, minZ, maxZ, yBase + height, true, yBase, true);
   }
@@ -570,14 +805,20 @@
     frame.position.y = h / 2;
     g.add(frame);
 
-    const insertColors = [MAT.ikeaBlue, MAT.ikeaYellow, MAT.sofaRed];
+    const insertColors = [MAT.ikeaBlue, MAT.ikeaYellow, MAT.sofaRed, MAT.sofaTeal];
     for (let i = 0; i < 3; i++) {
       const box = new THREE.Mesh(
         new THREE.BoxGeometry(w * 0.26, h * 0.34, d + 0.06),
         insertColors[i % insertColors.length]
       );
-      box.position.set((i - 1) * (w * 0.3), h * 0.32 + (i % 2) * (h * 0.36), 0);
+      const bx = (i - 1) * (w * 0.3);
+      const by = h * 0.32 + (i % 2) * (h * 0.36);
+      box.position.set(bx, by, 0);
       g.add(box);
+
+      const pullRing = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 8, 16), MAT.chrome);
+      pullRing.position.set(bx, by, d * 0.5 + 0.04);
+      g.add(pullRing);
     }
     spScene.add(g);
 
@@ -598,15 +839,15 @@
 
     const sMat = sofaMat || MAT.sofaTeal;
 
-    // Area Rug
+    // Woven Patterned Nordic Area Rug
     const rug = new THREE.Mesh(
       new THREE.BoxGeometry(4.4, 0.04, 3.6),
-      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 })
+      MAT.nordicRug || new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 })
     );
     rug.position.set(0, 0.02, 0.5);
     g.add(rug);
 
-    // Sofa Base, Backrest & Arms (Provides 1.45m high cover!)
+    // Sofa Base, Backrest, Tufted Cushions & Throw Pillows (Provides 1.45m high cover!)
     const seat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.55, 1.25), sMat);
     seat.position.set(0, 0.28, -0.8);
     const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.45, 0.38), sMat);
@@ -617,15 +858,35 @@
     armR.position.x = 1.45;
     g.add(seat, back, armL, armR);
 
-    // LACK Coffee Table in front of sofa
+    // Contrasting Throw Pillows on Sofa
+    [-0.95, 0.95].forEach((px, idx) => {
+      const pillow = new THREE.Mesh(
+        new THREE.BoxGeometry(0.52, 0.48, 0.22),
+        idx === 0 ? MAT.ikeaYellow : MAT.white
+      );
+      pillow.position.set(px, 0.78, -0.96);
+      pillow.rotation.z = idx === 0 ? 0.18 : -0.18;
+      g.add(pillow);
+    });
+
+    // LACK Coffee Table in front of sofa with 4 legs + lower magazine shelf
     const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.1, 0.95), MAT.white);
     tableTop.position.set(0, 0.52, 0.65);
-    g.add(tableTop);
+    const tableShelf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.75), MAT.birch);
+    tableShelf.position.set(0, 0.22, 0.65);
+    g.add(tableTop, tableShelf);
+    [[-0.78, 0.25], [0.78, 0.25], [-0.78, 1.05], [0.78, 1.05]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.5, 0.09), MAT.white);
+      leg.position.set(lx, 0.25, lz);
+      g.add(leg);
+    });
 
-    // FADO Glowing Sphere Lamp on table
+    // FADO Glowing Sphere Lamp on table with chrome base
+    const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 0.08, 12), MAT.chrome);
+    lampBase.position.set(0.45, 0.60, 0.65);
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), MAT.lampGlow);
-    lamp.position.set(0.45, 0.78, 0.65);
-    g.add(lamp);
+    lamp.position.set(0.45, 0.80, 0.65);
+    g.add(lampBase, lamp);
 
     // FEJKA Potted Plant beside sofa
     const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.42, 10), MAT.terracotta);
@@ -658,13 +919,22 @@
     headboard.position.set(0, 0.82, -1.48);
     const mattress = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.28, 2.9), MAT.white);
     mattress.position.set(0, 0.52, 0.08);
-    const duvet = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.3, 2.1), MAT.ikeaBlue);
+    const duvet = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.3, 2.1), MAT.sofaNavy || MAT.ikeaBlue);
     duvet.position.set(0, 0.54, 0.45);
-    g.add(frame, headboard, mattress, duvet);
+    const throwBlanket = new THREE.Mesh(new THREE.BoxGeometry(2.48, 0.32, 0.65), MAT.ikeaYellow);
+    throwBlanket.position.set(0, 0.55, 1.15);
+    g.add(frame, headboard, mattress, duvet, throwBlanket);
+
+    [-0.6, 0.6].forEach((px) => {
+      const pil = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.52), MAT.white);
+      pil.position.set(px, 0.72, -1.05);
+      pil.rotation.x = 0.2;
+      g.add(pil);
+    });
 
     // Sleeping Mini Blåhaj on the pillow!
     const shonk = createMiniPlushShark(0x3b82f6, 0xf8fafc, 0.65);
-    shonk.position.set(0, 0.82, -0.85);
+    shonk.position.set(0, 0.86, -0.85);
     g.add(shonk);
 
     spScene.add(g);
@@ -692,6 +962,12 @@
       doorGap.position.y = h / 2;
       g.add(doorGap);
 
+      [-0.18, 0.18].forEach((hx) => {
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 8), MAT.chrome);
+        handle.position.set(hx, h * 0.5, d / 2 + 0.04);
+        g.add(handle);
+      });
+
       addCollider(x - w / 2, x + w / 2, z - d / 2, z + d / 2, yBase + h, true, yBase, true);
     } else {
       // Secret open Narnia-style PAX Wardrobe portal frame that you can walk straight through!
@@ -702,13 +978,15 @@
       const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.35, d), MAT.darkWood);
       top.position.set(0, h - 0.18, 0);
 
-      // Glowing violet Hermes rune bar inside the open wardrobe
+      const coatRail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, w - 0.4, 8), MAT.chrome);
+      coatRail.rotation.z = Math.PI / 2;
+      coatRail.position.set(0, h - 0.62, 0);
       const glowBar = new THREE.Mesh(
         new THREE.BoxGeometry(w - 0.5, 0.12, 0.12),
         new THREE.MeshBasicMaterial({ color: 0xc084fc })
       );
       glowBar.position.set(0, h - 0.42, 0);
-      g.add(sideL, sideR, top, glowBar);
+      g.add(sideL, sideR, top, coatRail, glowBar);
     }
 
     spScene.add(g);
@@ -720,18 +998,18 @@
     pGroup.position.set(x, yBase, z);
 
     const pallet = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, 0.18, 1.7),
-      new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 })
+      new THREE.BoxGeometry(1.75, 0.16, 1.75),
+      MAT.oak || new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 })
     );
-    pallet.position.y = 0.09;
+    pallet.position.y = 0.08;
     pGroup.add(pallet);
 
     const crateGroup = new THREE.Group();
     crateGroup.position.set(0, 0.58, 0);
 
     const box = new THREE.Mesh(
-      new THREE.BoxGeometry(1.3, 0.44, 0.98),
-      new THREE.MeshStandardMaterial({
+      new THREE.BoxGeometry(1.36, 0.46, 1.02),
+      MAT.cardboard || new THREE.MeshStandardMaterial({
         color: 0xeab308,
         roughness: 0.42,
         emissive: 0xca8a04,
@@ -741,14 +1019,24 @@
     crateGroup.add(box);
 
     const blueBand = new THREE.Mesh(
-      new THREE.BoxGeometry(1.32, 0.46, 0.34),
+      new THREE.BoxGeometry(1.38, 0.48, 0.28),
       new THREE.MeshStandardMaterial({
         color: 0x0058a3,
         emissive: 0x1d4ed8,
-        emissiveIntensity: 0.45
+        emissiveIntensity: 0.48
       })
     );
     crateGroup.add(blueBand);
+
+    const yellowBand = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.49, 1.04),
+      new THREE.MeshStandardMaterial({
+        color: 0xffda1a,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.45
+      })
+    );
+    crateGroup.add(yellowBand);
 
     pGroup.add(crateGroup);
     spScene.add(pGroup);
@@ -1428,8 +1716,8 @@
     whSign.position.set(0, Y + 6.2, -256.0);
     spScene.add(whSign);
 
-    const orangeSteel = new THREE.MeshStandardMaterial({ color: 0xea580c, metalness: 0.55, roughness: 0.4 });
-    const cardboardMat = new THREE.MeshStandardMaterial({ color: 0xd6b384, roughness: 0.8 });
+    const orangeSteel = new THREE.MeshStandardMaterial({ color: 0xea580c, metalness: 0.62, roughness: 0.35 });
+    const cardboardMat = MAT.cardboard || new THREE.MeshStandardMaterial({ color: 0xd6b384, roughness: 0.8 });
 
     // 4 Towering Columns of 10.5m-tall Heavy Steel Pallet Racks across Z = -265 to -332
     const rackColumnsX = [-16.5, -6.8, 6.8, 16.5];
@@ -2141,7 +2429,7 @@
     const upperCenterZ = (36.0 + (-120.0)) / 2; // -42.0
     const upperFloor = new THREE.Mesh(
       new THREE.BoxGeometry(STORE_HALF_W * 2, 0.5, upperLen),
-      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.12 })
+      MAT.showroomFloor || new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.12 })
     );
     upperFloor.position.set(0, UPPER_FLOOR_Y - 0.25, upperCenterZ);
     spScene.add(upperFloor);
@@ -2151,7 +2439,7 @@
     const lowerCenterZ = (-115.0 + (-390.0)) / 2; // -252.5
     const lowerFloor = new THREE.Mesh(
       new THREE.BoxGeometry(STORE_HALF_W * 2, 0.5, lowerLen),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.38, metalness: 0.15 })
+      MAT.warehouseFloor || new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.38, metalness: 0.15 })
     );
     lowerFloor.position.set(0, LOWER_FLOOR_Y - 0.25, lowerCenterZ);
     spScene.add(lowerFloor);

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4.9" />
+  <link rel="stylesheet" href="styles.css?v=5.8" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -339,6 +339,36 @@
       <div style="text-align: center;">
         <button type="button" class="hud-declutter-btn active" id="btn-hud-declutter" title="Toggle Minimal Zen HUD Mode [V] (Hides top panels and meters, keeps time and navigation compass)">👁️ Minimal HUD [V]</button>
       </div>
+
+      <!-- PASS 81: TAB-TARGET MMORPG TARGET UNIT FRAME & ACTIVE DEFENSIVE POSTURE BANNER -->
+      <div id="mmo-target-frame" class="mmo-target-frame hidden" data-cat="hostile" title="Selected MMO Target · Press [Tab] to cycle targets · [Esc] to clear target">
+        <div class="mmo-target-portrait" id="mmo-target-icon">🦈</div>
+        <div class="mmo-target-body">
+          <div class="mmo-target-header-row">
+            <span class="mmo-target-name" id="mmo-target-name">Mean Shark Raider</span>
+            <span class="mmo-target-dist" id="mmo-target-dist">12m</span>
+          </div>
+          <div class="mmo-target-sub" id="mmo-target-sub">SHARK WEEK RAIDER · HOSTILE</div>
+          <div class="mmo-target-hp-bar">
+            <div class="mmo-target-hp-fill" id="mmo-target-hp-fill" style="width: 100%;"></div>
+            <span class="mmo-target-hp-label" id="mmo-target-hp-label">100%</span>
+          </div>
+        </div>
+        <button type="button" class="mmo-target-clear" id="mmo-target-clear-btn" title="Clear Target [Esc]">✕</button>
+      </div>
+
+      <div id="mmo-posture-banner" class="mmo-posture-banner hidden">
+        <span class="mmo-posture-icon" id="mmo-posture-icon">🛡️⚡</span>
+        <div class="mmo-posture-info">
+          <div class="mmo-posture-top">
+            <strong id="mmo-posture-title">Fin Deflection Posture</strong>
+            <span id="mmo-posture-timer">2.8s</span>
+          </div>
+          <div class="mmo-posture-bar">
+            <div class="mmo-posture-fill" id="mmo-posture-fill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
       <div class="island-meters">
         <div class="meter-pill volcano-pill" title="Honor the Volcano with offerings at the Temple!">
           <span class="pill-icon">🌋</span>
@@ -579,75 +609,127 @@
         <div class="builder-items-row" id="builder-items-row"></div>
       </div>
 
-      <div class="action-bar">
-        <!-- 4 Playable Blue Sharks -->
-        <button class="action-slot shark-slot active" data-shark="hermes" id="slot-1" title="[1] Play as Hermes (The Weary Guide) — Opens Portals & reveals Between paths">
+      <!-- PASS 81: COMPACT SHARK PARTY SWITCHER (F1–F5) & ACTIVE FIN-SLOT MODIFIER PILL -->
+      <div class="mmo-subbar-row" id="mmo-subbar-row">
+        <div class="shark-switcher-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F5] or [Alt+1..5]">
+          <button type="button" class="shark-switcher-btn shark-slot active" data-shark="hermes" id="slot-1" title="[F1 / Alt+1] Play as Hermes (The Weary Guide)">
+            <span class="sw-key">F1</span>
+            <img src="assets/gallery/Hermes.png" alt="Hermes" />
+            <span class="sw-name">Hermes</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="solomon" id="slot-2" title="[F2 / Alt+2] Play as Solomon (The Star Shark)">
+            <span class="sw-key">F2</span>
+            <img src="assets/gallery/Solomon.png" alt="Solomon" />
+            <span class="sw-name">Solomon</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="hiram" id="slot-3" title="[F3 / Alt+3] Play as Hiram (The Builder)">
+            <span class="sw-key">F3</span>
+            <img src="assets/gallery/Hiram.png" alt="Hiram" />
+            <span class="sw-name">Hiram</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="nimue" id="slot-4" title="[F4 / Alt+4] Play as Nimue (Seam Weaver)">
+            <span class="sw-key">F4</span>
+            <img src="assets/gallery/Nimue.png" alt="Nimue" />
+            <span class="sw-name">Nimue</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[F5 / Alt+5] Play as Your Custom Named Shark (Rite of Detagging)">
+            <span class="sw-key">F5</span>
+            <img src="assets/gallery/Names.png" alt="Custom Shark" />
+            <span class="sw-name slot-name">Finley</span>
+          </button>
+        </div>
+
+        <div id="mmo-fin-mod-pill" class="mmo-fin-mod-pill hidden" title="Equipping an item in your Fin [H] dynamically modifies your Fin Strikes &amp; Deflections!">
+          🔧 <strong>Fin Stance: Allen-Key Torque</strong> · <span>Allen-Key Torque Strike</span>
+        </div>
+      </div>
+
+      <div class="action-bar mmo-action-bar" id="mmo-action-bar">
+        <!-- NUMBER ROW COMBAT, RANGED & SUPPORT SLOTS (1 through 6) -->
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="1" id="mmo-slot-1" title="[1] Poky Fin Strike — Rapid fin jab (Modified by equipped Fin Item!)">
           <span class="slot-key">1</span>
-          <img src="assets/gallery/Hermes.png" alt="Hermes" />
-          <span class="slot-name">Hermes</span>
-          <span class="slot-power">Portal Guide</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🦈⚡</div>
+          <span class="slot-name">Poky Fin Strike</span>
+          <span class="slot-power">Fin Jab</span>
         </button>
 
-        <button class="action-slot shark-slot" data-shark="solomon" id="slot-2" title="[2] Play as Solomon (The Star Shark) — Summons Sacred Tea & Spherical Foods">
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="2" id="mmo-slot-2" title="[2] Single Fin Lunge — Gap-closing forward fin thrust">
           <span class="slot-key">2</span>
-          <img src="assets/gallery/Solomon.png" alt="Solomon" />
-          <span class="slot-name">Solomon</span>
-          <span class="slot-power">Star Chef</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🦈💨</div>
+          <span class="slot-name">Single Fin Lunge</span>
+          <span class="slot-power">Gap Closer</span>
         </button>
 
-        <button class="action-slot shark-slot" data-shark="hiram" id="slot-3" title="[3] Play as Hiram (The Builder) — Unlocks Master Builder Mode [C] & Sacred Allen Key!">
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="3" id="mmo-slot-3" title="[3] Crescent Tail Swipe — 180° frontal arc knockback cleave">
           <span class="slot-key">3</span>
-          <img src="assets/gallery/Hiram.png" alt="Hiram" />
-          <span class="slot-name">Hiram</span>
-          <span class="slot-power">Master Builder</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🌊🦈</div>
+          <span class="slot-name">Tail Swipe</span>
+          <span class="slot-power">Arc Cleave</span>
         </button>
 
-        <button class="action-slot shark-slot" data-shark="nimue" id="slot-4" title="[4] Play as Nimue (An Angel) — Needle of Restoration & Lost Constellations">
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="4" id="slot-b" title="[4] Warm Breb Volley — Ranged 3-loaf barrage (Feeds Birbs or pelts Mean Sharks!)">
           <span class="slot-key">4</span>
-          <img src="assets/gallery/Nimue.png" alt="Nimue" />
-          <span class="slot-name">Nimue</span>
-          <span class="slot-power">Seam Weaver</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🥖🎯</div>
+          <span class="slot-name">Breb Volley</span>
+          <span class="slot-power">Ranged Loaves</span>
         </button>
 
-        <button class="action-slot shark-slot" data-shark="custom" id="slot-5" title="[5] Play as Your Custom Named Shark (Rite of Detagging) — Press [C] to Build!">
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="5" id="mmo-slot-5" title="[5] Sacred Tea Infusion — Restores Stuffing, Comfort &amp; cleanses Mange">
           <span class="slot-key">5</span>
-          <img src="assets/gallery/Names.png" alt="Custom Shark" />
-          <span class="slot-name">Finley</span>
-          <span class="slot-power">Detagged [5]</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🍵✨</div>
+          <span class="slot-name">Tea Infusion</span>
+          <span class="slot-power">Heal &amp; Cleanse</span>
+        </button>
+
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="6" id="mmo-slot-6" title="[6] Founder Signature Art — Active Shark's unique Relic Power">
+          <span class="slot-key">6</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji" id="ability-icon">🌀</div>
+          <span class="slot-name" id="ability-name">Signature Art</span>
+          <span class="slot-power">Relic Power</span>
         </button>
 
         <div class="bar-divider"></div>
 
-        <!-- Signature Actions -->
-        <button class="action-slot ability-slot" id="slot-c" title="[C] Toggle Hiram's Master Builder Mode (Requires Hiram [3])">
-          <span class="slot-key">C</span>
-          <div class="slot-emoji">🔧🏗️</div>
-          <span class="slot-name">Build</span>
-          <span class="slot-power" id="slot-c-sub">Hiram [3]</span>
-        </button>
-
-        <button class="action-slot ability-slot" id="slot-q" title="[Q] Cast Active Shark's Signature Relic Power!">
+        <!-- LETTER KEY MARTIAL POSTURES & AOEs (Q, E, R, F) -->
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="q" id="slot-q" title="[Q] Whirlpool Tail Spin — 360° AoE hydro-plush cyclone!">
           <span class="slot-key">Q</span>
-          <div class="slot-emoji" id="ability-icon">🌀</div>
-          <span class="slot-name" id="ability-name">Open Portal</span>
-          <span class="slot-power">Relic Power</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🌪️🦈</div>
+          <span class="slot-name">Tail Spin</span>
+          <span class="slot-power">360° Cyclone</span>
         </button>
 
-        <button class="action-slot ability-slot" id="slot-b" title="[B] Toss Warm Breb to feed the plump Birbs!">
-          <span class="slot-key">B</span>
-          <div class="slot-emoji">🥖🐦</div>
-          <span class="slot-name">Toss Breb</span>
-          <span class="slot-power">Feed Birbs</span>
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="e" id="mmo-slot-e" title="[Shift+E / Click] Fin Deflection Posture — Parries attacks &amp; rebounds shockwaves! ([E] interacts when near NPCs/objects)">
+          <span class="slot-key">E</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🛡️⚡</div>
+          <span class="slot-name">Fin Deflection</span>
+          <span class="slot-power">Parry Posture</span>
         </button>
 
-        <button class="action-slot ability-slot" id="slot-f" title="[F] Boop Attack! Friendly nose beep on allies, or boops enemies to send them flying!">
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="r" id="mmo-slot-r" title="[R] Double Fin Defense — Crossed-fin aegis reducing damage &amp; Mange by 80%!">
+          <span class="slot-key">R</span>
+          <span class="slot-cd-badge"></span>
+          <div class="slot-emoji">🛡️🦈</div>
+          <span class="slot-name">Double Fin</span>
+          <span class="slot-power">80% Aegis Ward</span>
+        </button>
+
+        <button class="action-slot ability-slot mmo-ability-slot" data-mmo-slot="f" id="slot-f" title="[F] Snoot Boop &amp; Launch — High-impulse boop on foes, Plushie Camo in IKEA, or Nose-Beep on allies!">
           <span class="slot-key">F</span>
+          <span class="slot-cd-badge"></span>
           <div class="slot-emoji" id="slot-f-icon">🦈💥</div>
-          <span class="slot-name">Boop Attack</span>
-          <span class="slot-power">Knockback [F]</span>
+          <span class="slot-name">Snoot Boop</span>
+          <span class="slot-power">Boop / Camo</span>
         </button>
 
-        <button class="action-slot ability-slot" id="slot-g" title="[G] Groom & De-Mange nearby avatars, or exclaim 'Shonk!'">
+        <button class="action-slot ability-slot" id="slot-g" title="[G] Groom &amp; De-Mange nearby avatars, or exclaim 'Shonk!'">
           <span class="slot-key">G</span>
           <div class="slot-emoji" id="slot-g-icon">🪮✨</div>
           <span class="slot-name" id="slot-g-name">Groom</span>
@@ -656,46 +738,61 @@
 
         <div class="bar-divider"></div>
 
-                <button class="action-slot util-slot" id="slot-h" title="[H] Fin Item (Hold Drinks, Snacks, Tools and Toys)">
+        <!-- MMO INTERFACE & UTILITY SHORTCUTS (H, I/P, C/B, V, M, Esc) -->
+        <button class="action-slot util-slot" id="slot-h" title="[H] Fin-Slot Item (Equip tools, drinks &amp; relics in your Fin to modify Fin Strikes!)">
           <span class="slot-key">H</span>
           <div class="slot-emoji" id="slot-h-icon">🐾</div>
           <span class="slot-name" id="slot-h-name">Fin Item</span>
           <span class="slot-power" id="slot-h-sub">Empty Fin</span>
         </button>
 
-<button class="action-slot util-slot" id="slot-k" title="[K] Open Character Sheet &amp; MMO Inventory">
-          <span class="slot-key">K</span>
-          <div class="slot-emoji">🎒</div>
-          <span class="slot-name">Character</span>
-          <span class="slot-power">Inventory</span>
+        <button class="action-slot util-slot" id="slot-spellbook" title="[I / P] Open MMO Spellbook &amp; Learnable Fin/Tail Martial Arts">
+          <span class="slot-key">I</span>
+          <div class="slot-emoji">📖✨</div>
+          <span class="slot-name">Spellbook</span>
+          <span class="slot-power">Martial Arts [I/P]</span>
         </button>
 
-        <button class="action-slot util-slot" id="slot-u" title="[U] Spend Volcano Trial Points to upgrade your Sharks!">
+        <button class="action-slot util-slot" id="slot-k" title="[C] Character Info &amp; Equipment · [B] Satchel Bags">
+          <span class="slot-key">C/B</span>
+          <div class="slot-emoji">🎒</div>
+          <span class="slot-name">Character</span>
+          <span class="slot-power">Gear &amp; Bags</span>
+        </button>
+
+        <button class="action-slot util-slot" id="slot-c" title="[Shift+C] Toggle Hiram's SKÄRHAJ Master Builder Mode">
+          <span class="slot-key">🔧</span>
+          <div class="slot-emoji">🔧🏗️</div>
+          <span class="slot-name">Build</span>
+          <span class="slot-power" id="slot-c-sub">Builder</span>
+        </button>
+
+        <button class="action-slot util-slot" id="slot-u" title="[U] Spend Volcano Trial Points to upgrade your Sharks!" style="display:none;">
           <span class="slot-key">U</span>
           <div class="slot-emoji">⚔️</div>
           <span class="slot-name">Upgrades</span>
           <span class="slot-power" id="slot-u-sub">0 Trial Pts</span>
         </button>
 
-        <button class="action-slot util-slot" id="slot-m" title="[M] Open Blåhaj Island Tapestry Gallery & Lore Codex">
+        <button class="action-slot util-slot" id="slot-m" title="[M] Open Archipelago Map &amp; Fast Travel">
           <span class="slot-key">M</span>
-          <div class="slot-emoji">🖼️</div>
-          <span class="slot-name">Gallery</span>
-          <span class="slot-power">14 Paintings</span>
+          <div class="slot-emoji">🗺️</div>
+          <span class="slot-name">Map</span>
+          <span class="slot-power">Sea Chart [M]</span>
         </button>
 
-        <button class="action-slot util-slot" id="slot-p" title="[P] Connect across the ocean (LA <-> NZ Co-op Portal)">
+        <button class="action-slot util-slot" id="slot-p" title="Open Cross-Ocean Co-op Portal (NZ ↔ LA)" style="display:none;">
           <span class="slot-key">P</span>
           <div class="slot-emoji">🌌</div>
           <span class="slot-name">Co-op</span>
           <span class="slot-power">NZ ↔ LA</span>
         </button>
 
-        <button class="action-slot util-slot" id="slot-o" title="[O / Esc] Island Settings & Audio Panel">
-          <span class="slot-key">O</span>
+        <button class="action-slot util-slot" id="slot-o" title="[O / Esc] Clear Target or Open Island Settings &amp; Audio Panel">
+          <span class="slot-key">Esc</span>
           <div class="slot-emoji">⚙️</div>
-          <span class="slot-name">Settings</span>
-          <span class="slot-power">Audio &amp; Display</span>
+          <span class="slot-name">Menu</span>
+          <span class="slot-power">Settings [O]</span>
         </button>
       </div>
     </div>
@@ -1595,6 +1692,17 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">A / D Keyboard Movement Mode (MMO Controls)</span>
+            <span class="setting-desc">Strafe Left/Right (standard tab-target MMO) or Classic Keyboard Turn Left/Right</span>
+          </div>
+          <div class="setting-btn-group" id="group-ad-mode">
+            <button class="btn-group-item active" data-admode="strafe">Strafe Left / Right</button>
+            <button class="btn-group-item" data-admode="turn">Classic Turn Left / Right</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">Invert Vertical Pitch (Y-Axis)</span>
             <span class="setting-desc">Invert vertical mouse look angle (flight-simulator controls)</span>
           </div>
@@ -1757,25 +1865,24 @@
       <!-- Tab 5: Keybindings Reference -->
       <div class="settings-panel hidden" id="panel-keybinds">
         <div class="keybinds-table">
-          <div class="keybind-item"><span class="keybind-action">Move Shark</span><span class="keybind-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Arrows</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Move Forward / Backward</span><span class="keybind-keys"><kbd>W</kbd> / <kbd>S</kbd> or <kbd>Left+Right Click</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Strafe Left / Right (or Classic Turn in Settings)</span><span class="keybind-keys"><kbd>A</kbd> / <kbd>D</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Free-Look Orbit Camera (Keep Facing)</span><span class="keybind-keys"><kbd>Left-Click + Drag</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Steer Shark &amp; Lock Camera Behind</span><span class="keybind-keys"><kbd>Right-Click + Drag</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Tab-Target Cycle Enemies / Entities</span><span class="keybind-keys"><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> / <kbd>Left-Click</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Jump / Double-Jump / Swim Up</span><span class="keybind-keys"><kbd>Space</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Sprint on Land / Dive Down in Water</span><span class="keybind-keys"><kbd>Shift</kbd> / <kbd>C</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Interact / Talk / Enter Machine / Board Boat</span><span class="keybind-keys"><kbd>E</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Switch Playable Shark (Hermes, Solomon, Hiram, Nimue)</span><span class="keybind-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Hiram's Master Builder Mode</span><span class="keybind-keys"><kbd>C</kbd> (when Hiram)</span></div>
-          <div class="keybind-item"><span class="keybind-action">Rotate Active Blueprint</span><span class="keybind-keys"><kbd>R</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Remove Nearest Built Structure</span><span class="keybind-keys"><kbd>X</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Toss Warm Breb Loaves for Birbs</span><span class="keybind-keys"><kbd>B</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Beep Noses With Other Sharks</span><span class="keybind-keys"><kbd>F</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Plush Hop &amp; "Shonk!" Emote</span><span class="keybind-keys"><kbd>G</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Cast Signature Relic Ability</span><span class="keybind-keys"><kbd>Q</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">MMO Character Sheet &amp; Inventory</span><span class="keybind-keys"><kbd>K</kbd> / <kbd>I</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Volcano Trial Upgrades Modal</span><span class="keybind-keys"><kbd>U</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Blåhaj Island Tapestry Gallery</span><span class="keybind-keys"><kbd>M</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Cross-Ocean Online Co-op Portal</span><span class="keybind-keys"><kbd>P</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Island Settings &amp; Audio Panel</span><span class="keybind-keys"><kbd>O</kbd> / <kbd>Esc</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Camera Orbit / Look</span><span class="keybind-keys"><kbd>Right-Click Drag</kbd> / <kbd>Click to Lock</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Camera Zoom Distance</span><span class="keybind-keys"><kbd>Mouse Scroll Wheel</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Primary Fin &amp; Tail Martial Arts Bar</span><span class="keybind-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd> <kbd>6</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Whirlpool Tail Spin / Fin Deflection / Double Fin Aegis / Snoot Boop</span><span class="keybind-keys"><kbd>Q</kbd> / <kbd>E</kbd> / <kbd>R</kbd> / <kbd>F</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Secondary Ability Modifiers (Groom / Sky Leap)</span><span class="keybind-keys"><kbd>Shift+1</kbd> / <kbd>Shift+2</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Interact / Talk / Board Boat / Enter Machine</span><span class="keybind-keys"><kbd>E</kbd> (near prompt)</span></div>
+          <div class="keybind-item"><span class="keybind-action">Switch Playable Shark (Hermes, Solomon, Hiram, Nimue, Custom)</span><span class="keybind-keys"><kbd>F1</kbd>–<kbd>F5</kbd> or <kbd>Alt+1..5</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Spellbook &amp; Fin Martial Arts Codex</span><span class="keybind-keys"><kbd>I</kbd> / <kbd>P</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Character Info &amp; Equipment / Satchel Bags</span><span class="keybind-keys"><kbd>C</kbd> / <kbd>B</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Archipelago World Map</span><span class="keybind-keys"><kbd>M</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Open Chat Box</span><span class="keybind-keys"><kbd>Enter</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Clear Target / Close Window / Settings Menu</span><span class="keybind-keys"><kbd>Esc</kbd> / <kbd>O</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Personal Pocket Atoll &amp; Boat Shipyard</span><span class="keybind-keys"><kbd>H</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Hiram's Master Builder Mode</span><span class="keybind-keys"><kbd>Shift+C</kbd> or Build Button</span></div>
         </div>
       </div>
 
@@ -2223,22 +2330,45 @@
     </div>
   </div>
 
+  <!-- Pass 81: MMO Spellbook & Fin Martial Arts Codex Modal [I / P] -->
+  <div id="spellbook-modal" class="modal-backdrop hidden">
+    <div class="modal-card spellbook-card">
+      <button class="modal-close" id="close-spellbook-modal" title="Close Spellbook [Esc]">&times;</button>
+      <div class="modal-header-badge">📖 FIN &amp; TAIL MARTIAL ARTS SPELLBOOK [I / P]</div>
+      <div id="sb-shark-header" class="sb-shark-header"></div>
+      <div id="sb-fin-mod-banner" class="sb-fin-mod-banner"></div>
+      <div class="sb-controls-hint">
+        <span>🎯 <strong>Tab</strong> Cycles Targets · <strong>Left-Drag</strong> Free-Look Camera · <strong>Right-Drag</strong> Steer Shark · <strong>L+R Click</strong> Auto-Run</span>
+        <span>⚔️ Click any learned move’s <strong>Bind Key</strong> below to map it to <code>1–6</code>, <code>Q</code>, <code>E</code>, <code>R</code>, <code>F</code>, or <code>Shift+1/2</code>!</span>
+      </div>
+      <div id="spellbook-abilities-grid" class="spellbook-abilities-grid"></div>
+      <div class="modal-actions" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn-secondary" id="btn-sb-learn-all">✨ Master All Fin &amp; Tail Arts (Free Study)</button>
+          <button type="button" class="btn-secondary" id="btn-sb-open-portal">🌐 Online Co-op Portal</button>
+        </div>
+        <button type="button" class="btn-primary" id="btn-sb-done">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=5.5"></script>
-  <script src="js/sharks3d.js?v=5.5"></script>
-  <script src="js/world3d.js?v=5.5"></script>
-  <script src="js/volcano.js?v=5.5"></script>
-  <script src="js/laundromat.js?v=5.5"></script>
-  <script src="js/sphericalFoods.js?v=5.5"></script>
-  <script src="js/volleyball.js?v=5.5"></script>
-  <script src="js/spawningPits.js?v=5.5"></script>
-  <script src="js/homestead.js?v=5.5"></script>
-  <script src="js/network.js?v=5.5"></script>
-  <script src="js/inventory.js?v=5.5"></script>
-  <script src="js/enemies.js?v=5.5"></script>
-  <script src="js/seam.js?v=5.5"></script>
+  <script src="js/lore.js?v=5.8"></script>
+  <script src="js/sharks3d.js?v=5.8"></script>
+  <script src="js/world3d.js?v=5.8"></script>
+  <script src="js/volcano.js?v=5.8"></script>
+  <script src="js/laundromat.js?v=5.8"></script>
+  <script src="js/sphericalFoods.js?v=5.8"></script>
+  <script src="js/volleyball.js?v=5.8"></script>
+  <script src="js/spawningPits.js?v=5.8"></script>
+  <script src="js/homestead.js?v=5.8"></script>
+  <script src="js/network.js?v=5.8"></script>
+  <script src="js/inventory.js?v=5.8"></script>
+  <script src="js/enemies.js?v=5.8"></script>
+  <script src="js/seam.js?v=5.8"></script>
+  <script src="js/mmoControls.js?v=5.8"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=5.5"></script>
-  <script src="js/main.js?v=5.5"></script>
+  <script src="js/saveSystem.js?v=5.8"></script>
+  <script src="js/main.js?v=5.8"></script>
 </body>
 </html>

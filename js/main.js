@@ -22,6 +22,7 @@
     fov: 60,
     camDist: 6.5,
     shoulder: 'right',
+    adTurnMode: 'strafe',
     invertY: false,
     binocularInvertY: false,
     binocularInvertX: false,
@@ -2165,6 +2166,10 @@
         if (savorTimer) savorTimer.textContent = '0s';
       }
     }
+
+    if (window.BlahajMMO && typeof window.BlahajMMO.renderActionBarUI === 'function') {
+      window.BlahajMMO.renderActionBarUI();
+    }
   }
 
   function equipHeldItem(itemId, isTimed = false, duration = 0, priorItemId = null) {
@@ -2439,14 +2444,18 @@
     }
   }
 
-  // Neverwinter / MMO Over-The-Shoulder Camera State
+  // Tab-Target MMORPG Camera & Mouse Split State
   const camState = {
     yaw: -Math.PI / 2,
     pitch: 0.22,
     distance: 7.4,
     shoulderRight: 0.85,
     heightOffset: 2.35,
+    isLeftDown: false,
+    isRightDown: false,
+    isLeftDragging: false,
     isRightDragging: false,
+    isChordMoving: false,
     isPointerLocked: false
   };
 
@@ -2474,7 +2483,11 @@
     Object.keys(keys).forEach((k) => {
       keys[k] = false;
     });
+    camState.isLeftDown = false;
+    camState.isRightDown = false;
+    camState.isLeftDragging = false;
     camState.isRightDragging = false;
+    camState.isChordMoving = false;
   }
 
   // World Character Registry
@@ -2995,6 +3008,10 @@
       type: 'shark_swap',
       sharkId
     });
+
+    if (window.BlahajMMO && typeof window.BlahajMMO.renderActionBarUI === 'function') {
+      window.BlahajMMO.renderActionBarUI();
+    }
   }
 
   function spawnWorldCharacters() {
@@ -3277,9 +3294,6 @@
         hideVolcanoHUDCard();
         return;
       }
-      if (!isAnyModalOpen() && document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock?.();
-      }
     });
 
     let lastClientX = null;
@@ -3392,35 +3406,64 @@
       mouseDownPos = { x: e.clientX, y: e.clientY };
       lastClientX = e.clientX;
       lastClientY = e.clientY;
-      if (e.button === 2 || e.button === 0) {
+      if (e.button === 0) {
+        camState.isLeftDown = true;
+        camState.isLeftDragging = true;
+      } else if (e.button === 2) {
+        camState.isRightDown = true;
         camState.isRightDragging = true;
       }
+      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
     });
 
     canvas.addEventListener('mouseup', (e) => {
       const dragDist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
-      if (e.button === 0 && dragDist < 6 && builderState.active && !isAnyModalOpen()) {
-        placeActiveBlueprint();
+      if (e.button === 0) {
+        camState.isLeftDown = false;
+        camState.isLeftDragging = false;
+      } else if (e.button === 2) {
+        camState.isRightDown = false;
+        camState.isRightDragging = false;
+      }
+      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
+
+      if (dragDist < 6 && !isAnyModalOpen()) {
+        if (e.button === 0 && builderState.active) {
+          placeActiveBlueprint();
+        } else if (e.button === 0 && window.BlahajMMO) {
+          window.BlahajMMO.handleCanvasClick(e.clientX, e.clientY, camera, false);
+        } else if (e.button === 2 && window.BlahajMMO) {
+          window.BlahajMMO.handleCanvasClick(e.clientX, e.clientY, camera, true);
+        }
       }
     });
 
-    window.addEventListener('mouseup', () => {
-      camState.isRightDragging = false;
-      lastClientX = null;
-      lastClientY = null;
+    window.addEventListener('mouseup', (e) => {
+      if (!e || e.button === 0) {
+        camState.isLeftDown = false;
+        camState.isLeftDragging = false;
+      }
+      if (!e || e.button === 2) {
+        camState.isRightDown = false;
+        camState.isRightDragging = false;
+      }
+      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
+      if (!camState.isLeftDragging && !camState.isRightDragging) {
+        lastClientX = null;
+        lastClientY = null;
+      }
       prevPointerDx = 0;
       prevPointerDy = 0;
     });
 
     window.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      clearAllMovementKeys();
     });
 
     window.addEventListener('mousemove', (e) => {
       if (isAnyModalOpen()) return;
 
-      if (camState.isPointerLocked || camState.isRightDragging) {
+      if (camState.isPointerLocked || camState.isRightDragging || camState.isLeftDragging) {
         let dx = 0;
         let dy = 0;
 
@@ -3483,6 +3526,12 @@
         // Keep yaw cleanly wrapped within [-PI, PI] to prevent floating point drift
         while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
         while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+
+        // MMO Right-Click Steer: Locks camera behind character and turns character's body to match mouse aim!
+        // (Left-Click + Drag only orbits camera around character without changing facing)
+        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
+          player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+        }
       }
     });
 
@@ -3609,8 +3658,43 @@
           uModal.classList.add('hidden');
           return;
         }
+        const sbModal = document.getElementById('spellbook-modal');
+        if (sbModal && !sbModal.classList.contains('hidden')) {
+          if (window.BlahajMMO) window.BlahajMMO.closeSpellbookModal();
+          else sbModal.classList.add('hidden');
+          return;
+        }
+        const hsModal = document.getElementById('modal-homestead-commissions');
+        if (hsModal && !hsModal.classList.contains('hidden')) {
+          closeHomesteadCommissionsModal();
+          return;
+        }
+        // MMO Standard: Escape clears active target first before opening Main/Settings menu!
+        if (window.BlahajMMO && window.BlahajMMO.hasTarget && window.BlahajMMO.hasTarget()) {
+          window.BlahajMMO.clearTarget();
+          return;
+        }
         toggleSettingsModal();
         return;
+      }
+
+      // MMO Tab-Target Cycling (Tab = Next Target, Shift+Tab = Previous Target)
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        if (!isAnyModalOpen() && window.BlahajMMO) {
+          window.BlahajMMO.cycleTarget(e.shiftKey ? -1 : 1);
+        }
+        return;
+      }
+
+      // MMO Enter Key: Focus Chat Box to type to other players
+      if (e.key === 'Enter' && !isAnyModalOpen() && !isUsingTelescope && !isUsingBinoculars) {
+        const chatInp = document.getElementById('chat-input');
+        if (chatInp && document.activeElement !== chatInp) {
+          e.preventDefault();
+          chatInp.focus();
+          return;
+        }
       }
 
       const k = (e.key || '').toLowerCase();
@@ -3622,6 +3706,10 @@
 
       if (k === 'm') {
         e.preventDefault();
+        if (currentZone === 'spherical_foods' && player.isSeatedInBooth) {
+          openSphericalFoodsMenuModal();
+          return;
+        }
         toggleIslandMap();
         return;
       }
@@ -3673,13 +3761,51 @@
         return;
       }
 
-      if (k === '1') spawnPlayerShark('hermes');
-      if (k === '2') spawnPlayerShark('solomon');
-      if (k === '3') spawnPlayerShark('hiram');
-      if (k === '4') spawnPlayerShark('nimue');
-      if (k === '5') spawnPlayerShark('custom');
+      // Playable Shark Switcher: F1-F5 or Alt+1..5
+      if (e.key === 'F1' || (e.altKey && e.code === 'Digit1')) { e.preventDefault(); spawnPlayerShark('hermes'); return; }
+      if (e.key === 'F2' || (e.altKey && e.code === 'Digit2')) { e.preventDefault(); spawnPlayerShark('solomon'); return; }
+      if (e.key === 'F3' || (e.altKey && e.code === 'Digit3')) { e.preventDefault(); spawnPlayerShark('hiram'); return; }
+      if (e.key === 'F4' || (e.altKey && e.code === 'Digit4')) { e.preventDefault(); spawnPlayerShark('nimue'); return; }
+      if (e.key === 'F5' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
 
-      if (k === 'c') toggleBuilderMode();
+      // MMO Number Row (1 through 6) & Shift/Ctrl Modifiers
+      if (!e.altKey && !isAnyModalOpen() && /^Digit[1-6]$/.test(e.code)) {
+        e.preventDefault();
+        const numStr = e.code.replace('Digit', '');
+        if (window.BlahajMMO) {
+          if (e.shiftKey) {
+            window.BlahajMMO.triggerSlot(`shift+${numStr}`);
+          } else if (e.ctrlKey && numStr === '1') {
+            window.BlahajMMO.executeAbility('tea_infusion');
+          } else {
+            window.BlahajMMO.triggerSlot(numStr);
+          }
+        }
+        return;
+      }
+
+      // C: Opens Character Info / Equipment screen (or Shift+C / active builder toggles Builder Mode)
+      if (k === 'c') {
+        e.preventDefault();
+        if (e.shiftKey || builderState.active) {
+          toggleBuilderMode();
+        } else {
+          toggleCharacterSheetModal(player.sharkId, 'stats');
+        }
+        return;
+      }
+
+      // B: Opens Bags / Satchel Inventory (or Shift+B tosses Breb)
+      if (k === 'b') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          triggerFeedBreb();
+        } else {
+          toggleCharacterSheetModal(player.sharkId, 'inventory');
+        }
+        return;
+      }
+
       if (k === 'v') {
         if (builderState.active) {
           toggleFreeBuild();
@@ -3687,18 +3813,22 @@
           toggleMinimalHUD();
         }
       }
-      if (k === 'r' && builderState.active) {
-        builderState.rotOffset += builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
-        CozyAudio.shonk();
+      if (k === 'r') {
+        if (builderState.active) {
+          builderState.rotOffset += builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
+          CozyAudio.shonk();
+        } else if (!isAnyModalOpen() && window.BlahajMMO) {
+          e.preventDefault();
+          window.BlahajMMO.triggerSlot('r');
+        }
+        return;
       }
       if (k === 'z' && builderState.active) {
         cycleBuilderStoryElevation();
       }
       if (k === 'x') removeNearestBuiltStructure();
 
-      // (Binocular prompt handled in main interaction loop)
-
-    if (player.isLounging) {
+      if (player.isLounging) {
         if (k === ' ' || k === 'f') {
           e.preventDefault();
           sipPinaColada();
@@ -3718,44 +3848,60 @@
           return;
         }
       } else if (playerHeldItem && playerHeldItem.id === 'binoculars') {
-        if (k === 'f' || k === ' ') {
+        if (k === ' ') {
           e.preventDefault();
           toggleBinocularMode();
           return;
         }
       }
 
-      if (k === 'e') triggerInteract();
-      if (k === 'b') triggerFeedBreb();
-      if (k === 'f') triggerBeepNose();
-      if (k === 'q') triggerSignatureAbility();
-      if (k === 'g') {
-
-        if (builderState.active) {
-
-          toggleSnapGrid();
-
+      // E: Context Interact if near an interactable (or in boat/cart), otherwise Fin Deflection Posture!
+      if (k === 'e') {
+        if (!e.shiftKey && (nearestInteractable || player.inBoat || player.inCart || builderState.active)) {
+          triggerInteract();
+        } else if (!isAnyModalOpen() && window.BlahajMMO) {
+          window.BlahajMMO.triggerSlot('e');
         } else {
-
-          triggerGroomAvatar();
-
+          triggerInteract();
         }
-
+      }
+      if (k === 'f') {
+        if (!isAnyModalOpen() && window.BlahajMMO) {
+          window.BlahajMMO.triggerSlot('f');
+        } else {
+          triggerBeepNose();
+        }
+      }
+      if (k === 'q') {
+        if (!isAnyModalOpen() && window.BlahajMMO) {
+          window.BlahajMMO.triggerSlot('q');
+        } else {
+          triggerSignatureAbility();
+        }
+      }
+      if (k === 'g') {
+        if (builderState.active) {
+          toggleSnapGrid();
+        } else {
+          triggerGroomAvatar();
+        }
       }
       if (k === 'u') toggleUpgradesModal();
-      if (k === 'm') {
-        if (currentZone === 'spherical_foods' || player.isSeatedInBooth) {
-          openSphericalFoodsMenuModal();
-          return;
-        }
-        toggleGalleryModal();
-      }
-      if (k === 'p') {
-        if (player.isSeatedInBooth && currentZone === 'spherical_foods') {
+      // I or P: Opens MMO Spellbook / Fin Martial Arts Codex (Shift+P opens Co-op Portal)
+      if (k === 'i' || k === 'p') {
+        if (k === 'p' && player.isSeatedInBooth && currentZone === 'spherical_foods') {
           popBirthdayCracker(player.seatedBoothIndex);
           return;
         }
-        togglePortalModal();
+        if (k === 'p' && e.shiftKey) {
+          togglePortalModal();
+          return;
+        }
+        e.preventDefault();
+        if (window.BlahajMMO) {
+          window.BlahajMMO.toggleSpellbookModal();
+        }
+        return;
       }
       if (k === 'h') {
         e.preventDefault();
@@ -3773,7 +3919,7 @@
         e.preventDefault();
         toggleHomesteadCommissionsModal();
       }
-      if (k === 'k' || k === 'i') toggleCharacterSheetModal(player.sharkId);
+      if (k === 'k') toggleCharacterSheetModal(player.sharkId);
       if (k === 'o') toggleSettingsModal();
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
@@ -3849,6 +3995,8 @@
     const isRaidOpen = raidModal && !raidModal.classList.contains('hidden');
     const hsModal = document.getElementById('modal-homestead-commissions');
     const isHsOpen = hsModal && !hsModal.classList.contains('hidden');
+    const sbModal = document.getElementById('spellbook-modal');
+    const isSbOpen = sbModal && !sbModal.classList.contains('hidden');
     return (
       isSkyOpen ||
       isCSOpen ||
@@ -3858,6 +4006,7 @@
       isGoogleOpen ||
       isRaidOpen ||
       isHsOpen ||
+      isSbOpen ||
       !document.getElementById('dialogue-modal').classList.contains('hidden') ||
       !document.getElementById('portal-modal').classList.contains('hidden') ||
       !document.getElementById('gallery-modal').classList.contains('hidden') ||
@@ -3874,12 +4023,19 @@
   // ==========================================================================
   // MMO CHARACTER SHEET & ARCHIPELAGO DOSSIER MODAL
   // ==========================================================================
-  function openCharacterSheet(sharkId = null) {
+  function openCharacterSheet(sharkId = null, initialSubtab = null) {
     releasePointerLock();
     const m = document.getElementById('character-sheet-modal');
     if (!m) return;
     selectedCSShark = sharkId || player.sharkId || 'hermes';
     renderCharacterSheet(selectedCSShark);
+    if (initialSubtab) {
+      document.querySelectorAll('.cs-subtab').forEach((s) => s.classList.toggle('active', s.dataset.subtab === initialSubtab));
+      ['inventory', 'stats', 'emotes'].forEach((name) => {
+        const pane = document.getElementById(`pane-${name}`);
+        if (pane) pane.classList.toggle('hidden', name !== initialSubtab);
+      });
+    }
     m.classList.remove('hidden');
     CozyAudio.shonk();
   }
@@ -3889,11 +4045,11 @@
     if (m) m.classList.add('hidden');
   }
 
-  function toggleCharacterSheetModal(sharkId = null) {
+  function toggleCharacterSheetModal(sharkId = null, initialSubtab = null) {
     const m = document.getElementById('character-sheet-modal');
     if (!m) return;
     if (m.classList.contains('hidden')) {
-      openCharacterSheet(sharkId);
+      openCharacterSheet(sharkId, initialSubtab);
     } else {
       closeCharacterSheetModal();
     }
@@ -6247,6 +6403,21 @@
   function handleVolcanoTrapHit(trapName) {
     if (player.trapCooldown > 0) return;
 
+    // Pass 81: MMO Defensive Postures (Fin Deflection Parry & Double Fin Defense Aegis)
+    if (window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {
+      const mit = window.BlahajMMO.mitigateIncomingHit(25, trapName, null);
+      if (mit.parried) {
+        player.trapCooldown = 1.4;
+        return;
+      }
+      if (mit.blocked && trapName !== 'Molten Lava Sea') {
+        player.trapCooldown = 1.4;
+        player.warmth = Math.max(0, player.warmth - mit.damage);
+        updateMetersUI();
+        return;
+      }
+    }
+
     // Freshly Laundered Shield: Absorbs up to 2 trap strikes without fluff damage!
     if (player.launderedShieldHits > 0) {
       player.launderedShieldHits--;
@@ -7673,6 +7844,10 @@
       btn.classList.toggle('active', btn.dataset.shoulder === gameSettings.shoulder);
     });
 
+    document.querySelectorAll('#group-ad-mode .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.admode === (gameSettings.adTurnMode || 'strafe'));
+    });
+
     const invY = document.getElementById('set-invert-y');
     if (invY) invY.checked = !!gameSettings.invertY;
     const bInY = document.getElementById('set-binoc-invert-y');
@@ -8092,6 +8267,20 @@
       });
     });
 
+    document.querySelectorAll('#group-ad-mode .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-ad-mode .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('adTurnMode', btn.dataset.admode);
+        showToast(
+          btn.dataset.admode === 'turn' ? 'CLASSIC KEYBOARD TURNING [A / D] 🔄' : 'MMO STRAFE MODE [A / D] 🦈',
+          btn.dataset.admode === 'turn'
+            ? 'A and D now turn your shark Left and Right (Right-Click + A/D still strafes).'
+            : 'A and D now Strafe Left and Right while facing your target!'
+        );
+      });
+    });
+
     document.getElementById('set-invert-y')?.addEventListener('change', (e) => {
       applySetting('invertY', e.target.checked);
     });
@@ -8187,16 +8376,18 @@
       CozyAudio.ensure();
       toggleSettingsModal();
     });
-    document.getElementById('slot-q').addEventListener('click', triggerSignatureAbility);
-    document.getElementById('slot-b').addEventListener('click', triggerFeedBreb);
-    document.getElementById('slot-f').addEventListener('click', triggerBeepNose);
-    document.getElementById('slot-g').addEventListener('click', triggerGroomAvatar);
+    if (!window.BlahajMMO) {
+      document.getElementById('slot-q')?.addEventListener('click', triggerSignatureAbility);
+      document.getElementById('slot-b')?.addEventListener('click', triggerFeedBreb);
+      document.getElementById('slot-f')?.addEventListener('click', triggerBeepNose);
+    }
+    document.getElementById('slot-g')?.addEventListener('click', triggerGroomAvatar);
     document.getElementById('btn-party-groom')?.addEventListener('click', triggerGroomAvatar);
     document.getElementById('btn-groom-prompt')?.addEventListener('click', triggerGroomAvatar);
-    document.getElementById('slot-u').addEventListener('click', toggleUpgradesModal);
-    document.getElementById('pill-open-upgrades').addEventListener('click', toggleUpgradesModal);
-    document.getElementById('slot-m').addEventListener('click', toggleGalleryModal);
-    document.getElementById('slot-p').addEventListener('click', togglePortalModal);
+    document.getElementById('slot-u')?.addEventListener('click', toggleUpgradesModal);
+    document.getElementById('pill-open-upgrades')?.addEventListener('click', toggleUpgradesModal);
+    document.getElementById('slot-m')?.addEventListener('click', toggleIslandMap);
+    document.getElementById('slot-p')?.addEventListener('click', togglePortalModal);
     document.getElementById('btn-open-portal-hud').addEventListener('click', togglePortalModal);
 
     document.querySelectorAll('.mod-tab').forEach((tab) => {
@@ -8724,15 +8915,19 @@
       slotUSub.textContent = `${player.trialPoints} Trial Pt${player.trialPoints === 1 ? '' : 's'}`;
     }
 
-    // Refresh Slot B (Toss Breb) dynamic quantity badge
-    const slotB = document.getElementById('slot-b');
-    if (slotB && player.inventory) {
-      const bCount = player.inventory.getItemCount('breb');
-      const nameEl = slotB.querySelector('.slot-name');
-      const powerEl = slotB.querySelector('.slot-power');
-      if (nameEl) nameEl.textContent = `Toss Breb (${bCount})`;
-      if (powerEl) powerEl.textContent = bCount > 0 ? `${bCount} Loaves` : 'Bake at Oven!';
-      slotB.style.opacity = bCount > 0 ? '1.0' : '0.65';
+    // Refresh MMO Action Bar or legacy Slot B dynamic quantity badge
+    if (window.BlahajMMO && typeof window.BlahajMMO.renderActionBarUI === 'function') {
+      window.BlahajMMO.renderActionBarUI();
+    } else {
+      const slotB = document.getElementById('slot-b');
+      if (slotB && player.inventory) {
+        const bCount = player.inventory.getItemCount('breb');
+        const nameEl = slotB.querySelector('.slot-name');
+        const powerEl = slotB.querySelector('.slot-power');
+        if (nameEl) nameEl.textContent = `Toss Breb (${bCount})`;
+        if (powerEl) powerEl.textContent = bCount > 0 ? `${bCount} Loaves` : 'Bake at Oven!';
+        slotB.style.opacity = bCount > 0 ? '1.0' : '0.65';
+      }
     }
 
     // Active Steaming Spirit Buff Indicator
@@ -10118,11 +10313,27 @@
 
   function damagePlayer(amount = 16, attackerTitle = 'Enemy', knockbackDir = null) {
     if (playerInvulnTimer > 0) return;
+
+    // Pass 81: MMO Defensive Postures (Fin Deflection & Double Fin Defense)
+    let mangeDelta = 0.05;
+    if (window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {
+      const mit = window.BlahajMMO.mitigateIncomingHit(amount, attackerTitle, knockbackDir);
+      if (mit.parried) {
+        playerInvulnTimer = 0.85;
+        return;
+      }
+      if (mit.blocked) {
+        amount = mit.damage;
+        mangeDelta *= (mit.mangeMultiplier ?? 0.2);
+        if (mit.ignoreKnockback) knockbackDir = null;
+      }
+    }
+
     playerInvulnTimer = 0.85; // 0.85s i-frame window
 
-    player.stuffing = Math.max(0, player.stuffing - amount);
+    player.stuffing = Math.max(0, (player.stuffing ?? 100) - amount);
     player.teaComfort = Math.max(0, player.teaComfort - Math.round(amount * 0.7));
-    adjustSharkMange(player.sharkId, 0.05, attackerTitle);
+    adjustSharkMange(player.sharkId, mangeDelta, attackerTitle);
     updateMetersUI();
 
     // Recoil knockback impulse
@@ -11684,6 +11895,14 @@
         if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
           window.BlahajVolleyball.broadcastMatchSync(true);
         }
+
+        // Sync The Great Seam 6 rifts on connect so both players see the exact same state
+        if (window.BlahajSeam && typeof window.BlahajSeam.getSyncState === 'function') {
+          window.BlahajNetwork.send({
+            type: 'seam_sync',
+            state: window.BlahajSeam.getSyncState()
+          });
+        }
       },
       onData(data) {
         if (data.type === 'enemy_boop') {
@@ -11818,19 +12037,45 @@
             bb.vel.set(data.vx || 0, 0, data.vz || 0);
             CozyAudio.shonk();
           }
-        } else if (data.type === 'rift_mend' && data.riftId) {
+        } else if (data.type === 'seam_sync' && data.state) {
+          if (window.BlahajSeam && typeof window.BlahajSeam.applySyncState === 'function') {
+            window.BlahajSeam.applySyncState(data.state);
+            player.seamMendedCount = window.BlahajSeam.getState().mendedCount;
+            updateMetersUI();
+            if (player.seamMendedCount >= 6) {
+              completeQuest('q-sw-seam');
+            }
+          }
+        } else if ((data.type === 'seam_rift_mended' || data.type === 'rift_mend') && (data.riftId || data.locId)) {
+          const idToMend = data.riftId || data.locId;
+          let mendedSuccess = false;
+          if (window.BlahajSeam && typeof window.BlahajSeam.mendRift === 'function') {
+            mendedSuccess = window.BlahajSeam.mendRift(idToMend, true);
+            player.seamMendedCount = window.BlahajSeam.getState().mendedCount;
+          }
           worldApi.getSeamRifts().forEach((r) => {
-            if (r.userData.id === data.riftId && !r.userData.mended) {
+            if ((r.userData.id === idToMend || r.userData.locId === idToMend) && !r.userData.mended) {
               r.userData.mended = true;
-              r.userData.core.material.color.setHex(0xf5cd79);
-              r.userData.core.material.wireframe = false;
-              r.userData.ring.material.color.setHex(0x52f29c);
-              player.seamMendedCount = worldApi.getSeamRifts().filter((x) => x.userData.mended).length;
-              updateMetersUI();
-              CozyAudio.portalChime();
-              addChatLog('🪡✨ Your partner stitched a Great Seam Rift!', 'coop');
+              if (r.userData.core && r.userData.core.material) {
+                r.userData.core.material.color.setHex(0xf5cd79);
+                r.userData.core.material.wireframe = false;
+              }
+              if (r.userData.ring && r.userData.ring.material) {
+                r.userData.ring.material.color.setHex(0x52f29c);
+              }
             }
           });
+          updateMetersUI();
+          CozyAudio.portalChime();
+          const allRifts = window.BlahajSeam ? window.BlahajSeam.getAllActiveRifts() : [];
+          const rObj = allRifts.find((x) => x.id === idToMend || x.locId === idToMend || x.num === data.num);
+          const rName = rObj ? (rObj.name || `Seam #${rObj.num}`) : (data.num ? `Seam #${data.num}` : 'a Great Seam Rift');
+          showToast('GREAT SEAM MENDED! 🪡✨', `Your partner stitched ${rName}! (${player.seamMendedCount} / 6 Mended)`);
+          addChatLog(`🪡✨ <strong>GREAT SEAM MENDED:</strong> Your partner stitched <em>${rName}</em>! (${player.seamMendedCount} / 6 Mended)`, 'coop');
+          completeQuest('q-seam');
+          if (player.seamMendedCount >= 6) {
+            completeQuest('q-sw-seam');
+          }
         } else if (data.type === 'lounge_sip') {
           CozyAudio.pinaColadaSip();
           const sipPos =
@@ -12190,6 +12435,9 @@
     if (window.BlahajSeam) {
       window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
     }
+    if (window.BlahajMMO && typeof window.BlahajMMO.update === 'function') {
+      window.BlahajMMO.update(dt, elapsed);
+    }
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
 
@@ -12370,8 +12618,28 @@
     if (!isAnyModalOpen() && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
       if (keys['w'] || keys['arrowup']) moveForward += 1;
       if (keys['s'] || keys['arrowdown']) moveForward -= 1;
-      if (keys['d'] || keys['arrowright']) moveRight += 1;
-      if (keys['a'] || keys['arrowleft']) moveRight -= 1;
+
+      // Left + Right Click Together (Mouse Chording): forces character to run forward along mouse aim!
+      if (camState.isChordMoving) {
+        moveForward = Math.min(1, moveForward + 1);
+      }
+
+      // A / D Mode: Strafe Left/Right (default MMO) vs Classic Keyboard Turn Left/Right
+      const useClassicTurn = (gameSettings && gameSettings.adTurnMode === 'turn') && !camState.isRightDown && !camState.isRightDragging;
+      if (useClassicTurn) {
+        let turnDir = 0;
+        if (keys['d'] || keys['arrowright']) turnDir += 1;
+        if (keys['a'] || keys['arrowleft']) turnDir -= 1;
+        if (turnDir !== 0) {
+          camState.yaw -= turnDir * 2.35 * dt;
+          while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+          while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+          player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+        }
+      } else {
+        if (keys['d'] || keys['arrowright']) moveRight += 1;
+        if (keys['a'] || keys['arrowleft']) moveRight -= 1;
+      }
     }
 
     const isMoving = moveForward !== 0 || moveRight !== 0;
@@ -12861,11 +13129,15 @@
             }
           }
 
-          const targetAngle = Math.atan2(dirX / len, dirZ / len);
+          // In Tab-Target MMO mode, strafing (A/D), backpedaling (S), or holding Right-Click keeps your shark facing forward!
+          const keepForwardFacing = camState.isRightDown || camState.isRightDragging || camState.isChordMoving || moveForward < 0 || (moveForward === 0 && moveRight !== 0);
+          const targetAngle = keepForwardFacing
+            ? Math.atan2(fwdX, fwdZ)
+            : Math.atan2(dirX / len, dirZ / len);
           let diff = targetAngle - player.rotY;
           while (diff > Math.PI) diff -= Math.PI * 2;
           while (diff < -Math.PI) diff += Math.PI * 2;
-          player.rotY += diff * Math.min(1, dt * 12);
+          player.rotY += diff * Math.min(1, dt * 14);
 
           // Footstep sounds when walking on land
           if (!player.inBoat && player.isGrounded) {
@@ -14678,6 +14950,8 @@
   window.camState = camState;
   window.player = player;
   window.scene = scene;
+  window.worldActors = worldActors;
+  window.coopPartner = coopPartner;
   window.getActiveScene = getActiveScene;
   window.openDialogueModal = openDialogueModal;
   window.closeDialogueModal = closeDialogueModal;

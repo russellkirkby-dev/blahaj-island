@@ -122,25 +122,177 @@ window.BlahajHomestead = (function () {
     return tex;
   }
 
-  // Build 3D Custom Flat-Pack Boat Model based on Tier (1: SKIFF-ETT, 2: SEGEL-TVÅ, 3: ÅNGBÅT-TRE)
+  // ==========================================================================
+  // PROCEDURAL TEXTURE & BUMP MAP GENERATORS FOR ATOLL, BOATS & SEA-CAVE GROTTO
+  // ==========================================================================
+  const TEX_CACHE = {};
+
+  function getCedarWoodTexture(baseHex = '#7c4a27', grainHex = '#43230f', repeatX = 2, repeatY = 2) {
+    const key = `wood_${baseHex}_${grainHex}_${repeatX}_${repeatY}`;
+    if (TEX_CACHE[key]) return TEX_CACHE[key];
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = baseHex;
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = grainHex;
+    for (let i = 0; i < 56; i++) {
+      ctx.globalAlpha = 0.10 + (i % 4) * 0.04;
+      ctx.lineWidth = 1 + (i % 3);
+      const y = (i / 56) * 256;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(85, y + Math.sin(i) * 5, 170, y - Math.cos(i) * 5, 256, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.24;
+    ctx.fillStyle = '#1c0f06';
+    for (let p = 64; p < 256; p += 64) {
+      ctx.fillRect(0, p, 256, 2);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatX, repeatY);
+    TEX_CACHE[key] = tex;
+    return tex;
+  }
+
+  function getBasaltRockTexture(baseHex = '#1e293b', veinHex = '#38bdf8', repeatX = 6, repeatY = 6) {
+    const key = `basalt_${baseHex}_${veinHex}_${repeatX}_${repeatY}`;
+    if (TEX_CACHE[key]) return TEX_CACHE[key];
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = baseHex;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Craggy polygonal basalt facets
+    for (let i = 0; i < 140; i++) {
+      const rx = (i * 97) % 512;
+      const ry = (i * 151) % 512;
+      const rw = 24 + (i % 5) * 14;
+      const rh = 18 + (i % 4) * 14;
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(15, 23, 42, 0.42)' : 'rgba(71, 85, 105, 0.22)';
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+
+    // Subtle bioluminescent mineral fissures
+    ctx.strokeStyle = veinHex;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.28;
+    for (let v = 0; v < 18; v++) {
+      const sx = (v * 113) % 512;
+      const sy = (v * 79) % 512;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 38, sy + 22);
+      ctx.lineTo(sx + 68, sy - 14);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatX, repeatY);
+    TEX_CACHE[key] = tex;
+    return tex;
+  }
+
+  function getCausticLagoonWaterTexture() {
+    if (TEX_CACHE.causticWater) return TEX_CACHE.causticWater;
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#0891b2';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Glowing aqua caustic rings
+    for (let i = 0; i < 48; i++) {
+      const cx = (i * 83) % 512;
+      const cy = (i * 127) % 512;
+      const r = 22 + (i % 4) * 16;
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(103, 232, 249, 0.35)' : 'rgba(192, 132, 252, 0.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(5, 5);
+    TEX_CACHE.causticWater = tex;
+    return tex;
+  }
+
+  function getSailClothTexture() {
+    if (TEX_CACHE.sailCloth) return TEX_CACHE.sailCloth;
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffda1a';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Bold Scandinavian Blue Cross & Crown Stripe
+    ctx.fillStyle = '#0058a3';
+    ctx.fillRect(0, 210, 512, 92);
+    ctx.fillRect(210, 0, 92, 512);
+
+    // Sail cloth stitching lines
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.22)';
+    ctx.lineWidth = 2;
+    for (let y = 64; y < 512; y += 64) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SKÄRHAJ', 256, 268);
+
+    const tex = new THREE.CanvasTexture(c);
+    TEX_CACHE.sailCloth = tex;
+    return tex;
+  }
+
   function populateCustomBoatMesh(group, tier) {
     while (group.children.length > 0) {
       group.remove(group.children[0]);
     }
-    const birchMat = new THREE.MeshStandardMaterial({ color: 0xe2c08d, roughness: 0.65 });
-    const mahoganyMat = new THREE.MeshStandardMaterial({ color: 0x6e2c1b, roughness: 0.45 });
-    const navyMat = new THREE.MeshStandardMaterial({ color: 0x0058a3, roughness: 0.5 });
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffda1a, roughness: 0.4 });
-    const brassMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.78, roughness: 0.22 });
-    const hullMat = tier >= 3 ? mahoganyMat : (tier === 2 ? navyMat : birchMat);
+    const birchTex = getCedarWoodTexture('#d4a373', '#8c5828', 2, 2);
+    const mahoganyTex = getCedarWoodTexture('#7c2d12', '#3b1106', 2, 3);
+    const blueWoodTex = getCedarWoodTexture('#0058a3', '#00386b', 2, 2);
 
-    // Hull base
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.75, 5.2), hullMat);
-    hull.position.set(0, 0.35, 0);
+    const birchMat = new THREE.MeshStandardMaterial({ color: 0xe6be91, map: birchTex, bumpMap: birchTex, bumpScale: 0.02, roughness: 0.62 });
+    const blueMat = new THREE.MeshStandardMaterial({ color: 0x0062b8, map: blueWoodTex, bumpMap: blueWoodTex, bumpScale: 0.02, roughness: 0.48 });
+    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffda1a, roughness: 0.36 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.20 });
+    const mahoganyMat = new THREE.MeshStandardMaterial({ color: 0x8f3415, map: mahoganyTex, bumpMap: mahoganyTex, bumpScale: 0.025, roughness: 0.50 });
+
+    // Clinker-Built Hull Base + Raised Gunwale Rails
+    const hullMat = tier === 1 ? birchMat : (tier === 2 ? blueMat : mahoganyMat);
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.72, 5.4), hullMat);
+    hull.position.set(0, 0.36, 0);
     hull.castShadow = true;
     group.add(hull);
 
-    // Bow prow wedge
+    // Brass Keel & Side Rub-Rails
+    [-1.33, 1.33].forEach((rx) => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 5.45), tier >= 2 ? brassMat : mahoganyMat);
+      rail.position.set(rx, 0.70, 0);
+      group.add(rail);
+    });
+
+    // Bow prow wedge + carved figurehead fin
     const prow = new THREE.Mesh(new THREE.ConeGeometry(1.35, 1.8, 4), hullMat);
     prow.rotation.x = Math.PI / 2;
     prow.rotation.y = Math.PI / 4;
@@ -164,34 +316,50 @@ window.BlahajHomestead = (function () {
     group.add(lanternOrb);
 
     if (tier === 1) {
-      // Tier 1: SKIFF-ETT — Twin Scandinavian Ash Oars & Bench
+      // Tier 1: SKIFF-ETT — Twin Scandinavian Ash Oars with Blades, Rowlocks & Coiled Bow Rope
       const bench = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.14, 0.55), mahoganyMat);
       bench.position.set(0, 0.92, 0.2);
       group.add(bench);
       [-1.35, 1.35].forEach((ox) => {
-        const oar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 8), birchMat);
-        oar.rotation.z = ox > 0 ? -1.1 : 1.1;
-        oar.position.set(ox, 0.95, 0.2);
-        group.add(oar);
+        const oarGroup = new THREE.Group();
+        oarGroup.position.set(ox, 0.95, 0.2);
+        oarGroup.rotation.z = ox > 0 ? -1.1 : 1.1;
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 3.0, 8), birchMat);
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.85, 0.24), yellowMat);
+        blade.position.y = -1.35;
+        oarGroup.add(shaft, blade);
+        group.add(oarGroup);
       });
+      const ropeCoil = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 8, 16), birchMat);
+      ropeCoil.rotation.x = Math.PI / 2;
+      ropeCoil.position.set(0, 0.88, 1.65);
+      group.add(ropeCoil);
     } else if (tier === 2) {
-      // Tier 2: SEGEL-TVÅ — Outrigger Pontoons, Blue/Yellow SKÄRHAJ Mainsail & Flat-Pack Cargo Rack
+      // Tier 2: SEGEL-TVÅ — Outrigger Pontoons, Stitched SKÄRHAJ Mainsail & Flat-Pack Cargo Rack
       [-2.15, 2.15].forEach((px) => {
         const pontoon = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 4.2, 10), yellowMat);
         pontoon.rotation.x = Math.PI / 2;
         pontoon.position.set(px, 0.25, 0);
         group.add(pontoon);
-        const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 8), birchMat);
-        strut.rotation.z = Math.PI / 2;
-        strut.position.set(px * 0.5, 0.65, 0);
-        group.add(strut);
+        [-1.1, 1.1].forEach((sz) => {
+          const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.2, 8), birchMat);
+          strut.rotation.z = Math.PI / 2;
+          strut.position.set(px * 0.5, 0.65, sz);
+          group.add(strut);
+        });
       });
       const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 5.2, 10), birchMat);
       mast.position.set(0, 3.3, 0.4);
       group.add(mast);
+      const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 8), birchMat);
+      boom.rotation.x = Math.PI / 2;
+      boom.position.set(0, 1.65, -0.4);
+      group.add(boom);
+
+      const sailTex = getSailClothTexture();
       const sail = new THREE.Mesh(
         new THREE.BoxGeometry(0.08, 3.4, 2.5),
-        new THREE.MeshStandardMaterial({ color: 0xffda1a, emissive: 0x0058a3, emissiveIntensity: 0.18 })
+        new THREE.MeshStandardMaterial({ map: sailTex, roughness: 0.55, emissive: 0x0058a3, emissiveIntensity: 0.12 })
       );
       sail.position.set(0, 3.4, -0.4);
       group.add(sail);
@@ -199,39 +367,65 @@ window.BlahajHomestead = (function () {
       for (let b = 0; b < 2; b++) {
         const box = new THREE.Mesh(
           new THREE.BoxGeometry(1.3, 0.26, 0.9),
-          new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.8 })
+          birchMat
         );
         box.position.set(0, 0.96 + b * 0.28, -1.65);
         group.add(box);
       }
     } else {
-      // Tier 3: ÅNGBÅT-TRE — Volcanic & Starlight Steam Launch with Copper Boiler, Smokestack, Whistle & Stern Paddlewheel!
+      // Tier 3: ÅNGBÅT-TRE — Volcanic & Starlight Steam Launch with Riveted Copper Boiler, Gauge, Smokestack, Whistle & Stern Paddlewheel!
       const canopyRoof = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 3.4), mahoganyMat);
       canopyRoof.position.set(0, 2.95, -0.2);
       group.add(canopyRoof);
+      const canopyTrim = new THREE.Mesh(new THREE.BoxGeometry(2.48, 0.08, 3.48), brassMat);
+      canopyTrim.position.set(0, 2.96, -0.2);
+      group.add(canopyTrim);
+
       [[-1.05, -1.6], [1.05, -1.6], [-1.05, 1.2], [1.05, 1.2]].forEach(([px, pz]) => {
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.1, 8), brassMat);
         post.position.set(px, 1.88, pz);
         group.add(post);
       });
-      // Copper Steam Boiler & Brass Smokestack
+      // Copper Steam Boiler with Starlight Core Sight-Glass & Brass Smokestack
       const boiler = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 1.4, 14), brassMat);
       boiler.rotation.x = Math.PI / 2;
       boiler.position.set(0, 1.25, 1.1);
       group.add(boiler);
+      const sightGlass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.50, 0.50, 0.28, 14),
+        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      );
+      sightGlass.rotation.x = Math.PI / 2;
+      sightGlass.position.set(0, 1.25, 1.1);
+      group.add(sightGlass);
+
       const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 2.2, 12), brassMat);
       stack.position.set(0, 2.8, 1.2);
       group.add(stack);
+      const stackCrown = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.05, 8, 14), mahoganyMat);
+      stackCrown.rotation.x = Math.PI / 2;
+      stackCrown.position.set(0, 3.88, 1.2);
+      group.add(stackCrown);
+
       // Musical Brass Steam Whistle on side of stack
       const whistle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.55, 8), yellowMat);
       whistle.position.set(0.28, 3.1, 1.2);
       group.add(whistle);
-      // Stern Paddlewheel
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 1.8, 12), mahoganyMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(0, 0.55, -2.95);
-      wheel.name = 'paddlewheel';
-      group.add(wheel);
+      // Stern Paddlewheel with 6 Paddles
+      const wheelGroup = new THREE.Group();
+      wheelGroup.position.set(0, 0.55, -2.95);
+      wheelGroup.name = 'paddlewheel';
+      const wheelCore = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 1.8, 12), mahoganyMat);
+      wheelCore.rotation.z = Math.PI / 2;
+      wheelGroup.add(wheelCore);
+      for (let p = 0; p < 6; p++) {
+        const pa = (p / 6) * Math.PI * 2;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.14, 0.28), brassMat);
+        blade.position.set(0, Math.cos(pa) * 0.78, Math.sin(pa) * 0.78);
+        blade.rotation.x = -pa;
+        wheelGroup.add(blade);
+      }
+      group.add(wheelGroup);
     }
   }
 
@@ -312,25 +506,57 @@ window.BlahajHomestead = (function () {
     const benchGroup = new THREE.Group();
     benchGroup.position.set(9.5, benchY, 195.0);
 
-    const birchMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.7 });
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
-    const brassMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.8, roughness: 0.2 });
+    const birchTex = getCedarWoodTexture('#d4a373', '#8c5828', 2, 2);
+    const darkWoodTex = getCedarWoodTexture('#5c3a21', '#2b180a', 2, 2);
+    const birchMat = new THREE.MeshStandardMaterial({ color: 0xe6be91, map: birchTex, bumpMap: birchTex, bumpScale: 0.02, roughness: 0.62 });
+    const darkTimberMat = new THREE.MeshStandardMaterial({ color: 0x784b2a, map: darkWoodTex, bumpMap: darkWoodTex, bumpScale: 0.025, roughness: 0.68 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.86, roughness: 0.18 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.84, roughness: 0.20 });
 
     const tableTop = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.25, 2.0), birchMat);
     tableTop.position.set(0, 1.15, 0);
     benchGroup.add(tableTop);
 
+    // Lower storage stretcher shelf & stacked timber logs
+    const lowerShelf = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.12, 1.6), darkTimberMat);
+    lowerShelf.position.set(0, 0.38, 0);
+    benchGroup.add(lowerShelf);
+    [-0.45, 0, 0.45].forEach((lz, idx) => {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.2, 10), idx % 2 === 0 ? darkTimberMat : birchMat);
+      log.rotation.z = Math.PI / 2;
+      log.position.set(-0.3, 0.58, lz);
+      benchGroup.add(log);
+    });
+
+    // Golden sawdust mound under the saw blade
+    const sawdust = new THREE.Mesh(
+      new THREE.ConeGeometry(0.95, 0.36, 14),
+      new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.92 })
+    );
+    sawdust.position.set(-0.7, 0.18, 0);
+    benchGroup.add(sawdust);
+
     [[-1.6, -0.8], [1.6, -0.8], [-1.6, 0.8], [1.6, 0.8]].forEach(([lx, lz]) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.15, 0.22), birchMat);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.15, 0.22), darkTimberMat);
       leg.position.set(lx, 0.57, lz);
       benchGroup.add(leg);
     });
 
-    // Spinning Circular Sawmill Blade
+    // Carpenter's Bench Vice on front edge
+    const vice = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.24, 0.32), steelMat);
+    vice.position.set(1.1, 1.12, -1.08);
+    benchGroup.add(vice);
+
+    // Spinning Circular Sawmill Blade + Protective Brass Guard Hood
     sawBladeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.06, 20), steelMat);
     sawBladeMesh.rotation.z = Math.PI / 2;
     sawBladeMesh.position.set(-0.7, 1.45, 0);
     benchGroup.add(sawBladeMesh);
+
+    const bladeGuard = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.06, 8, 16, Math.PI), brassMat);
+    bladeGuard.rotation.y = Math.PI / 2;
+    bladeGuard.position.set(-0.7, 1.52, 0);
+    benchGroup.add(bladeGuard);
 
     // Floating Golden Allen Key M10 over the bench
     floatingAllenMesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), brassMat);
@@ -368,17 +594,36 @@ window.BlahajHomestead = (function () {
     const poolGroup = new THREE.Group();
     poolGroup.position.set(-9.5, poolY, 196.0);
 
+    const coralStoneTex = getBasaltRockTexture('#64748b', '#38bdf8', 4, 4);
     const poolRing = new THREE.Mesh(
-      new THREE.TorusGeometry(4.2, 0.45, 12, 28),
-      new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 })
+      new THREE.TorusGeometry(4.2, 0.48, 14, 32),
+      new THREE.MeshStandardMaterial({ color: 0xcbd5e1, map: coralStoneTex, bumpMap: coralStoneTex, bumpScale: 0.03, roughness: 0.78 })
     );
     poolRing.rotation.x = Math.PI / 2;
     poolRing.position.y = 0.25;
     poolGroup.add(poolRing);
 
+    // Decorative Coral Boulders, Lily Pads & Hibiscus Blossoms around the Lagoon Rim
+    const lilyMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.65 });
+    const flowerMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 });
+    for (let l = 0; l < 6; l++) {
+      const la = (l / 6) * Math.PI * 2 + 0.4;
+      const lx = Math.cos(la) * 3.1;
+      const lz = Math.sin(la) * 3.1;
+      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.04, 12), lilyMat);
+      pad.position.set(lx, 0.26, lz);
+      poolGroup.add(pad);
+      if (l % 2 === 0) {
+        const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), flowerMat);
+        bloom.position.set(lx, 0.34, lz);
+        poolGroup.add(bloom);
+      }
+    }
+
+    const causticTex = getCausticLagoonWaterTexture();
     const poolWater = new THREE.Mesh(
-      new THREE.CylinderGeometry(4.0, 4.0, 0.18, 24),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 })
+      new THREE.CylinderGeometry(4.0, 4.0, 0.18, 28),
+      new THREE.MeshBasicMaterial({ map: causticTex, color: 0x7dd3fc, transparent: true, opacity: 0.84 })
     );
     poolWater.position.y = 0.22;
     poolGroup.add(poolWater);
@@ -402,36 +647,63 @@ window.BlahajHomestead = (function () {
     const archGroup = new THREE.Group();
     archGroup.position.set(0, caveArchY, 224.0);
 
-    const basaltMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
-    const crystalMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const violetCrystalMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+    const basaltTex = getBasaltRockTexture('#1e293b', '#38bdf8', 4, 4);
+    const basaltMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      map: basaltTex,
+      bumpMap: basaltTex,
+      bumpScale: 0.04,
+      roughness: 0.86
+    });
+    const crystalMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.9,
+      roughness: 0.18
+    });
+    const violetCrystalMat = new THREE.MeshStandardMaterial({
+      color: 0xc084fc,
+      emissive: 0x7e22ce,
+      emissiveIntensity: 0.9,
+      roughness: 0.18
+    });
 
     [-3.2, 3.2].forEach((px) => {
-      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.45, 5.2, 10), basaltMat);
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.55, 5.2, 10), basaltMat);
       pillar.position.set(px, 2.5, 0);
       archGroup.add(pillar);
+      // Flanking craggy basalt shoulder boulders
+      const shoulder = new THREE.Mesh(new THREE.DodecahedronGeometry(1.65, 1), basaltMat);
+      shoulder.position.set(px * 1.35, 1.35, 0.3);
+      archGroup.add(shoulder);
     });
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(8.2, 1.6, 2.8), basaltMat);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(8.4, 1.7, 2.9), basaltMat);
     lintel.position.set(0, 5.2, 0);
     archGroup.add(lintel);
 
-    // Glowing Starlight Portal Curtain inside the Sea-Cave Arch
+    // Glowing Starlight Portal Curtain + Gold Archodect Rim inside the Sea-Cave Arch
+    const portalRim = new THREE.Mesh(new THREE.TorusGeometry(2.85, 0.16, 12, 28), brassMat);
+    portalRim.position.set(0, 2.5, 0);
+    archGroup.add(portalRim);
+
     const portalDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(2.8, 24),
-      new THREE.MeshBasicMaterial({ color: 0x0ea5e9, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
+      new THREE.CircleGeometry(2.8, 28),
+      new THREE.MeshBasicMaterial({ map: causticTex, color: 0x38bdf8, transparent: true, opacity: 0.78, side: THREE.DoubleSide })
     );
     portalDisc.position.set(0, 2.5, 0);
     archGroup.add(portalDisc);
 
-    // Glowing Quartz Crystal Clusters framing the Sea-Cave mouth
+    // Glowing Multi-Shard Quartz Crystal Clusters framing the Sea-Cave mouth
     [[-2.5, 1.2, 0.9], [2.5, 1.2, 0.9], [-2.1, 4.2, 0.9], [2.1, 4.2, 0.9]].forEach(([cx, cy, cz], idx) => {
-      const crys = new THREE.Mesh(
-        new THREE.ConeGeometry(0.38, 1.45, 6),
-        idx % 2 === 0 ? crystalMat : violetCrystalMat
-      );
+      const cMat = idx % 2 === 0 ? crystalMat : violetCrystalMat;
+      const crys = new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.55, 6), cMat);
       crys.position.set(cx, cy, cz);
       crys.rotation.z = cx < 0 ? -0.35 : 0.35;
       archGroup.add(crys);
+      const subShard = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.05, 6), cMat);
+      subShard.position.set(cx + (cx < 0 ? -0.32 : 0.32), cy - 0.2, cz + 0.18);
+      subShard.rotation.z = cx < 0 ? -0.62 : 0.62;
+      archGroup.add(subShard);
     });
 
     const caveSign = new THREE.Mesh(
@@ -493,12 +765,15 @@ window.BlahajHomestead = (function () {
     names = names.slice(0, 6);
 
     const colors = [0x3b82f6, 0xf472b6, 0x10b981, 0xa855f7, 0xf59e0b, 0x06b6d4];
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+    const ribbonMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+
     names.forEach((name, idx) => {
       const babyGroup = new THREE.Group();
-      const bodyMat = new THREE.MeshStandardMaterial({ color: colors[idx % colors.length], roughness: 0.75 });
-      const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+      const bodyMat = new THREE.MeshStandardMaterial({ color: colors[idx % colors.length], roughness: 0.68 });
+      const bellyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.80 });
 
-      const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), bodyMat);
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), bodyMat);
       body.scale.set(0.85, 0.65, 1.55);
       body.position.y = 0.42;
       babyGroup.add(body);
@@ -508,9 +783,33 @@ window.BlahajHomestead = (function () {
       belly.position.set(0, 0.30, 0.05);
       babyGroup.add(belly);
 
-      const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 4), bodyMat);
-      dorsal.position.set(0, 0.75, -0.05);
+      const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.44, 5), bodyMat);
+      dorsal.position.set(0, 0.76, -0.05);
+      dorsal.rotation.x = -0.22;
       babyGroup.add(dorsal);
+
+      // Pectoral fins & crescent tail fluke
+      [-0.36, 0.36].forEach((fx) => {
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 4), bodyMat);
+        fin.position.set(fx, 0.36, 0.12);
+        fin.rotation.z = fx > 0 ? -1.15 : 1.15;
+        babyGroup.add(fin);
+      });
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.46, 5), bodyMat);
+      tail.position.set(0, 0.48, -0.68);
+      tail.rotation.x = Math.PI * 0.38;
+      babyGroup.add(tail);
+
+      // Glossy bead eyes + Golden Liberation Bow Ribbon
+      [-0.22, 0.22].forEach((ex) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
+        eye.position.set(ex, 0.48, 0.42);
+        babyGroup.add(eye);
+      });
+      const ribbon = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 6, 12), ribbonMat);
+      ribbon.rotation.x = Math.PI / 2;
+      ribbon.position.set(0, 0.64, -0.05);
+      babyGroup.add(ribbon);
 
       poolGroup.add(babyGroup);
       companionSharks.push({
@@ -526,68 +825,123 @@ window.BlahajHomestead = (function () {
   // ==========================================================================
   // BUILD 3D WALKABLE SUBTERRANEAN BIOLUMINESCENT SEA-CAVE GROTTO INSTANCE
   // ==========================================================================
+  let caveSporePoints = null;
+  let thermalSteamRings = [];
+
   async function build() {
     if (isBuilt && caveScene) return caveScene;
     caveScene = new THREE.Scene();
-    caveScene.background = new THREE.Color(0x050e1d);
-    caveScene.fog = new THREE.FogExp2(0x07162c, 0.014);
+    caveScene.background = new THREE.Color(0x040b18);
+    caveScene.fog = new THREE.FogExp2(0x061326, 0.013);
 
-    const hemi = new THREE.HemisphereLight(0x38bdf8, 0x1e1b4b, 0.85);
+    const hemi = new THREE.HemisphereLight(0x38bdf8, 0x1e1b4b, 0.92);
     caveScene.add(hemi);
 
-    const centerLight = new THREE.PointLight(0x22d3ee, 1.8, 65);
+    const centerLight = new THREE.PointLight(0x22d3ee, 2.1, 68);
     centerLight.position.set(0, 9.5, -2);
     caveScene.add(centerLight);
 
-    const violetLight = new THREE.PointLight(0xa855f7, 1.4, 55);
+    const violetLight = new THREE.PointLight(0xa855f7, 1.6, 58);
     violetLight.position.set(-14, 7.5, -12);
     caveScene.add(violetLight);
 
-    const warmLoungeLight = new THREE.PointLight(0xfde047, 1.5, 45);
+    const warmLoungeLight = new THREE.PointLight(0xfde047, 1.75, 48);
     warmLoungeLight.position.set(13.5, 6.5, -12);
     caveScene.add(warmLoungeLight);
 
-    const basaltMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.88 });
-    const terraceMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75 });
+    const basaltTex = getBasaltRockTexture('#1e293b', '#38bdf8', 8, 8);
+    const domeBasaltTex = getBasaltRockTexture('#0f172a', '#a855f7', 10, 6);
+    const cedarTex = getCedarWoodTexture('#6b472b', '#382210', 3, 3);
+    const causticTex = getCausticLagoonWaterTexture();
+
+    const basaltMat = new THREE.MeshStandardMaterial({
+      color: 0x26354d,
+      map: basaltTex,
+      bumpMap: basaltTex,
+      bumpScale: 0.05,
+      roughness: 0.84
+    });
+    const terraceMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      map: basaltTex,
+      bumpMap: basaltTex,
+      bumpScale: 0.03,
+      roughness: 0.72
+    });
+    const woodDeckMat = new THREE.MeshStandardMaterial({
+      color: 0xb48456,
+      map: cedarTex,
+      bumpMap: cedarTex,
+      bumpScale: 0.025,
+      roughness: 0.65
+    });
+    const brassMat = new THREE.MeshStandardMaterial({
+      color: 0xfbbf24,
+      metalness: 0.85,
+      roughness: 0.20
+    });
     const crystalCyanMat = new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
       emissive: 0x0284c7,
-      emissiveIntensity: 0.85,
-      roughness: 0.2
+      emissiveIntensity: 0.92,
+      roughness: 0.16,
+      metalness: 0.2
     });
     const crystalVioletMat = new THREE.MeshStandardMaterial({
       color: 0xc084fc,
       emissive: 0x7e22ce,
-      emissiveIntensity: 0.85,
-      roughness: 0.2
+      emissiveIntensity: 0.92,
+      roughness: 0.16,
+      metalness: 0.2
     });
     const crystalEmeraldMat = new THREE.MeshStandardMaterial({
       color: 0x34d399,
       emissive: 0x059669,
-      emissiveIntensity: 0.85,
-      roughness: 0.2
+      emissiveIntensity: 0.92,
+      roughness: 0.16,
+      metalness: 0.2
     });
 
-    // 1. Subterranean Cavern Floor & Glowing Lagoon Water
+    // 1. Subterranean Cavern Floor & Shimmering Caustic Lagoon Water
     const floorMesh = new THREE.Mesh(new THREE.CylinderGeometry(36, 38, 1.2, 36), basaltMat);
     floorMesh.position.set(0, -0.6, -2);
     floorMesh.receiveShadow = true;
     caveScene.add(floorMesh);
 
     caveWaterMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(34, 34, 0.2, 32),
-      new THREE.MeshBasicMaterial({ color: 0x0891b2, transparent: true, opacity: 0.55 })
+      new THREE.CylinderGeometry(34, 34, 0.2, 36),
+      new THREE.MeshBasicMaterial({ map: causticTex, color: 0x22d3ee, transparent: true, opacity: 0.68 })
     );
     caveWaterMesh.position.set(0, -0.08, -2);
     caveScene.add(caveWaterMesh);
 
-    // 2. Cavern Dome Walls & 96 Bioluminescent Glow-Worm Stalactites
-    const domeGeo = new THREE.SphereGeometry(37, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.52);
-    const domeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.95, side: THREE.BackSide });
+    // 2. Bump-Mapped Cavern Dome Walls, Natural Basalt Columns & 84 Bioluminescent Stalactites
+    const domeGeo = new THREE.SphereGeometry(37, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.52);
+    const domeMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      map: domeBasaltTex,
+      bumpMap: domeBasaltTex,
+      bumpScale: 0.06,
+      roughness: 0.90,
+      side: THREE.BackSide
+    });
     const dome = new THREE.Mesh(domeGeo, domeMat);
     dome.position.set(0, -1.0, -2);
     caveScene.add(dome);
 
+    // Perimeter Natural Hexagonal Basalt Columns framing the cavern walls
+    for (let c = 0; c < 18; c++) {
+      const ca = (c / 18) * Math.PI * 2;
+      if (Math.abs(ca - Math.PI * 0.5) < 0.32) continue; // Keep entrance dock clear
+      const cx = Math.cos(ca) * 29.5;
+      const cz = Math.sin(ca) * 29.5 - 2.0;
+      const colH = 12.0 + (c % 3) * 2.5;
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.8, colH, 6), basaltMat);
+      col.position.set(cx, colH * 0.5 - 0.5, cz);
+      caveScene.add(col);
+    }
+
+    caveStalactites.length = 0;
     for (let i = 0; i < 84; i++) {
       const ang = (i / 84) * Math.PI * 2 + (i % 5) * 0.3;
       const rad = 4.0 + ((i * 7) % 27);
@@ -595,17 +949,51 @@ window.BlahajHomestead = (function () {
       const sz = Math.sin(ang) * rad - 2.0;
       const h = 1.6 + (i % 4) * 0.95;
       const mat = i % 3 === 0 ? crystalCyanMat : (i % 3 === 1 ? crystalVioletMat : crystalEmeraldMat);
-      const stal = new THREE.Mesh(new THREE.ConeGeometry(0.32, h, 6), mat);
+      const stal = new THREE.Mesh(new THREE.ConeGeometry(0.34, h, 6), mat);
       stal.rotation.x = Math.PI;
       stal.position.set(sx, 14.5 - (rad * rad) * 0.006, sz);
       caveScene.add(stal);
       caveStalactites.push(stal);
     }
 
-    // 3. Entrance Dock & Subterranean Moored Custom Boat at (0, 0, 22)
-    const dockDeck = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.5, 10.0), terraceMat);
+    // Floating Bioluminescent Spore & Plankton Particle Field (220 glowing motes!)
+    const sporeCount = 220;
+    const sporePositions = new Float32Array(sporeCount * 3);
+    const sporeColors = new Float32Array(sporeCount * 3);
+    const palette = [new THREE.Color(0x38bdf8), new THREE.Color(0xc084fc), new THREE.Color(0x34d399), new THREE.Color(0xfde047)];
+    for (let s = 0; s < sporeCount; s++) {
+      const sa = (s * 1.37) % (Math.PI * 2);
+      const sr = 2.0 + ((s * 11.3) % 26.0);
+      sporePositions[s * 3] = Math.cos(sa) * sr;
+      sporePositions[s * 3 + 1] = 0.8 + ((s * 3.7) % 11.5);
+      sporePositions[s * 3 + 2] = Math.sin(sa) * sr - 2.0;
+      const col = palette[s % palette.length];
+      sporeColors[s * 3] = col.r;
+      sporeColors[s * 3 + 1] = col.g;
+      sporeColors[s * 3 + 2] = col.b;
+    }
+    const sporeGeo = new THREE.BufferGeometry();
+    sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePositions, 3));
+    sporeGeo.setAttribute('color', new THREE.BufferAttribute(sporeColors, 3));
+    caveSporePoints = new THREE.Points(
+      sporeGeo,
+      new THREE.PointsMaterial({ size: 0.28, vertexColors: true, transparent: true, opacity: 0.85 })
+    );
+    caveScene.add(caveSporePoints);
+
+    // 3. Entrance Timber & Stone Dock & Subterranean Moored Custom Boat at (0, 0, 22)
+    const dockDeck = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.5, 10.0), woodDeckMat);
     dockDeck.position.set(0, 0.25, 21.0);
     caveScene.add(dockDeck);
+
+    // Dock Mooring Bollards & Starlight Lanterns
+    [[-3.8, 17.0], [3.8, 17.0], [-3.8, 24.5], [3.8, 24.5]].forEach(([bx, bz]) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.24, 1.6, 8), woodDeckMat);
+      post.position.set(bx, 0.8, bz);
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), crystalCyanMat);
+      orb.position.set(bx, 1.7, bz);
+      caveScene.add(post, orb);
+    });
 
     caveBoatGroup = new THREE.Group();
     caveBoatGroup.position.set(-5.2, 0.05, 21.5);
@@ -624,18 +1012,35 @@ window.BlahajHomestead = (function () {
     exitSign.rotation.y = Math.PI;
     caveScene.add(exitSign);
 
-    // 4. Central Bioluminescent Thermal Mineral Spring at (0, 0.2, -2.0)
-    const springRing = new THREE.Mesh(new THREE.TorusGeometry(4.8, 0.55, 12, 28), terraceMat);
+    // 4. Central Bioluminescent Travertine Thermal Mineral Spring at (0, 0.2, -2.0)
+    const springOuter = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.2, 0.35, 32), terraceMat);
+    springOuter.position.set(0, 0.18, -2.0);
+    caveScene.add(springOuter);
+
+    const springRing = new THREE.Mesh(new THREE.TorusGeometry(4.8, 0.55, 14, 32), terraceMat);
     springRing.rotation.x = Math.PI / 2;
-    springRing.position.set(0, 0.35, -2.0);
+    springRing.position.set(0, 0.38, -2.0);
     caveScene.add(springRing);
 
     const springPool = new THREE.Mesh(
-      new THREE.CylinderGeometry(4.5, 4.5, 0.32, 28),
-      new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: 0.82 })
+      new THREE.CylinderGeometry(4.6, 4.6, 0.34, 32),
+      new THREE.MeshBasicMaterial({ map: causticTex, color: 0x2dd4bf, transparent: true, opacity: 0.88 })
     );
-    springPool.position.set(0, 0.22, -2.0);
+    springPool.position.set(0, 0.24, -2.0);
     caveScene.add(springPool);
+
+    // Plush Waterproof Shark Lounging Cushions & Rising Thermal Steam Rings
+    thermalSteamRings = [];
+    for (let s = 0; s < 3; s++) {
+      const sRing = new THREE.Mesh(
+        new THREE.TorusGeometry(1.4 + s * 0.75, 0.06, 8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x99f6e4, transparent: true, opacity: 0.42 })
+      );
+      sRing.rotation.x = Math.PI / 2;
+      sRing.position.set(0, 0.6 + s * 0.6, -2.0);
+      caveScene.add(sRing);
+      thermalSteamRings.push({ mesh: sRing, phase: s * 2.1 });
+    }
 
     const springSign = new THREE.Mesh(
       new THREE.PlaneGeometry(3.4, 0.92),
@@ -647,7 +1052,7 @@ window.BlahajHomestead = (function () {
     springSign.position.set(0, 2.7, -6.8);
     caveScene.add(springSign);
 
-    // 5. Six Harvestable Starlight Cave Quartz Crystal Nodes
+    // 5. Six Harvestable Starlight Cave Quartz Crystal Nodes with Craggy Basalt Pedestals
     quartzNodes.length = 0;
     const nodeCoords = [
       { id: 'qnode_1', x: -10.5, z: 9.0, mat: crystalCyanMat, name: 'Azure Starlight Quartz Vein' },
@@ -657,16 +1062,27 @@ window.BlahajHomestead = (function () {
       { id: 'qnode_5', x: -9.5, z: -17.5, mat: crystalVioletMat, name: 'Deep Starlight Crystal Cluster' },
       { id: 'qnode_6', x: 9.5, z: -17.5, mat: crystalEmeraldMat, name: 'Prismatic Sea-Cave Quartz Cluster' }
     ];
-    nodeCoords.forEach((nc, idx) => {
+    nodeCoords.forEach((nc) => {
       const cluster = new THREE.Group();
       cluster.position.set(nc.x, 0.2, nc.z);
-      for (let c = 0; c < 4; c++) {
+
+      const rockBase = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.45, 0.48, 8), basaltMat);
+      rockBase.position.y = 0.22;
+      cluster.add(rockBase);
+
+      for (let c = 0; c < 6; c++) {
+        const ca = (c / 6) * Math.PI * 2;
+        const rad = c === 0 ? 0 : 0.48;
+        const h = c === 0 ? 2.55 : (1.45 + (c % 3) * 0.35);
         const shard = new THREE.Mesh(
-          new THREE.ConeGeometry(0.45 - c * 0.06, 2.2 - c * 0.25, 6),
+          new THREE.ConeGeometry(c === 0 ? 0.48 : 0.32, h, 6),
           nc.mat
         );
-        shard.position.set((c - 1.5) * 0.35, 0.9, (c % 2) * 0.25);
-        shard.rotation.z = (c - 1.5) * 0.22;
+        shard.position.set(Math.cos(ca) * rad, h * 0.48 + 0.25, Math.sin(ca) * rad);
+        if (c > 0) {
+          shard.rotation.z = -Math.cos(ca) * 0.32;
+          shard.rotation.x = Math.sin(ca) * 0.32;
+        }
         cluster.add(shard);
       }
       caveScene.add(cluster);
@@ -684,16 +1100,20 @@ window.BlahajHomestead = (function () {
     // 6. Subterranean Great Seam Rift at (-14.5, 0.8, -12.0)
     const riftGroup = new THREE.Group();
     riftGroup.position.set(-14.5, 0.8, -12.0);
+    const riftPlinth = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.0, 0.45, 16), basaltMat);
+    riftPlinth.position.y = 0.1;
+    riftGroup.add(riftPlinth);
+
     caveRiftMesh = new THREE.Mesh(
-      new THREE.TorusGeometry(2.2, 0.24, 12, 28),
+      new THREE.TorusGeometry(2.2, 0.24, 14, 32),
       new THREE.MeshBasicMaterial({ color: 0xc084fc })
     );
     caveRiftMesh.position.y = 2.2;
     riftGroup.add(caveRiftMesh);
 
     const riftCore = new THREE.Mesh(
-      new THREE.CircleGeometry(2.0, 24),
-      new THREE.MeshBasicMaterial({ color: 0x7e22ce, transparent: true, opacity: 0.68, side: THREE.DoubleSide })
+      new THREE.CircleGeometry(2.0, 28),
+      new THREE.MeshBasicMaterial({ color: 0x7e22ce, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
     );
     riftCore.position.y = 2.2;
     riftGroup.add(riftCore);
@@ -702,17 +1122,48 @@ window.BlahajHomestead = (function () {
     // 7. Subterranean SKÄRHAJ Grotto Lounge Terrace at (13.5, 0.6, -12.0)
     const loungeGroup = new THREE.Group();
     loungeGroup.position.set(13.5, 0.0, -12.0);
-    const loungeDeck = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.6, 9.0), terraceMat);
+    const loungeDeck = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.6, 9.2), woodDeckMat);
     loungeDeck.position.y = 0.3;
     loungeGroup.add(loungeDeck);
 
-    // Grotto Golden Archodect Chest on the Lounge Terrace
-    const chestBody = new THREE.Mesh(
-      new THREE.BoxGeometry(1.6, 1.1, 1.1),
-      new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.72, roughness: 0.24 })
+    // Woven Nordic Lounge Rug
+    const loungeRug = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.4, 3.4, 0.05, 24),
+      new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.85 })
     );
-    chestBody.position.set(0, 1.15, 0);
+    loungeRug.position.set(0, 0.63, 0.4);
+    loungeGroup.add(loungeRug);
+
+    // Pair of POÄNG-SHONK Cantilever Armchairs flanking the Vault Chest
+    [-2.4, 2.4].forEach((cx) => {
+      const chair = new THREE.Group();
+      chair.position.set(cx, 0.62, 0.8);
+      chair.rotation.y = cx < 0 ? 0.45 : -0.45;
+      const cSeat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.22, 1.2), woodDeckMat);
+      cSeat.position.y = 0.42;
+      const cBack = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.1, 0.22), crystalCyanMat);
+      cBack.position.set(0, 0.92, -0.45);
+      cBack.rotation.x = -0.22;
+      chair.add(cSeat, cBack);
+      loungeGroup.add(chair);
+    });
+
+    // Overhead MASKROS Starlight Dandelion Chandelier above the Grotto Lounge
+    const chandelier = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.15, 1),
+      new THREE.MeshBasicMaterial({ color: 0xfef08a, wireframe: true })
+    );
+    chandelier.position.set(0, 5.2, 0);
+    loungeGroup.add(chandelier);
+
+    // Banded Mahogany & Gold Archodect Vault Chest on the Lounge Terrace
+    const chestBody = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.95, 1.15), woodDeckMat);
+    chestBody.position.set(0, 1.08, 0);
     loungeGroup.add(chestBody);
+    const chestLid = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 1.72, 12, 1, false, 0, Math.PI), brassMat);
+    chestLid.rotation.z = Math.PI / 2;
+    chestLid.position.set(0, 1.55, 0);
+    loungeGroup.add(chestLid);
 
     const loungeSign = new THREE.Mesh(
       new THREE.PlaneGeometry(3.4, 0.92),
@@ -773,6 +1224,18 @@ window.BlahajHomestead = (function () {
 
     // Update subterranean sea cave animations
     if (isActive && caveScene) {
+      if (caveSporePoints) {
+        caveSporePoints.rotation.y = elapsed * 0.06;
+        caveSporePoints.position.y = Math.sin(elapsed * 1.1) * 0.35;
+      }
+      if (thermalSteamRings && thermalSteamRings.length > 0) {
+        thermalSteamRings.forEach((sr) => {
+          const cycle = ((elapsed * 0.65 + sr.phase) % 3.0) / 3.0;
+          sr.mesh.position.y = 0.4 + cycle * 2.2;
+          sr.mesh.scale.setScalar(0.85 + cycle * 0.45);
+          if (sr.mesh.material) sr.mesh.material.opacity = (1.0 - cycle) * 0.48;
+        });
+      }
       if (caveRiftMesh) {
         caveRiftMesh.rotation.z = elapsed * 1.4;
         caveRiftMesh.scale.setScalar(1.0 + Math.sin(elapsed * 3.0) * 0.08);
