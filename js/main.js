@@ -3904,12 +3904,6 @@
           exitBinocularMode();
           return;
         }
-      } else if (playerHeldItem && playerHeldItem.id === 'binoculars') {
-        if (k === ' ') {
-          e.preventDefault();
-          toggleBinocularMode();
-          return;
-        }
       }
 
       // E: Context Interact if near an interactable (or in boat/cart), otherwise Fin Deflection Posture!
@@ -3980,6 +3974,10 @@
       if (k === 'o') toggleSettingsModal();
 
       if ((e.key === ' ' || e.code === 'Space') && !isAnyModalOpen()) {
+        e.preventDefault();
+        if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+          document.activeElement.blur();
+        }
         if (player.isSeatedInBooth) {
           standUpFromBooth();
           return;
