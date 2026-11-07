@@ -33,7 +33,11 @@
       strikeName: 'Allen-Key Torque Strike',
       lungeName: 'Hex-Wrench Piercing Lunge',
       parryName: 'Iron Cam-Lock Deflection',
-      desc: '+45% Fin Strike impact, +25% bonus vs Armored Raiders, and 15% Passive Damage Reduction from Hiram’s M10 Hex Key!'
+      throwName: 'Hex-Wrench Boomerang',
+      throwSub: 'Returning Wrench',
+      throwShape: 'wrench',
+      throwDmg: 56,
+      desc: '+45% Fin Strike impact, +25% bonus vs Armored Raiders, 15% Passive Damage Reduction, and hurls a returning Hex-Wrench Boomerang!'
     },
     sacred_scissors: {
       tag: 'Sacred Scissors',
@@ -48,7 +52,11 @@
       strikeName: 'Golden Scissor Snip',
       lungeName: 'Twin-Blade Fin Lunge',
       parryName: 'Scissor-Cross Riposte',
-      desc: '+50% Fin Strike power, +30% Critical Strike chance, and +35% Flanking Backstab bonus from the Golden Scissors!'
+      throwName: 'Golden Shear Volley',
+      throwSub: 'Twin Shear Blades',
+      throwShape: 'wrench',
+      throwDmg: 58,
+      desc: '+50% Fin Strike power, +30% Critical Strike chance, +35% Flanking bonus, and fires gleaming Golden Shear Blades at range!'
     },
     ingvar_tape: {
       tag: 'Measuring Tape Whip',
@@ -62,7 +70,11 @@
       strikeName: 'Brass Tape Whip-Strike',
       lungeName: 'Metric Grapnel Pull',
       parryName: 'Retractable Tape Ward',
-      desc: '+4.0m extended Fin Strike reach & upgrades Single Fin Lunge [2] into an 18.5m Metric Grapnel Tether that reels you to your target!'
+      throwName: 'Brass Tape Whip-Shot',
+      throwSub: '28m Metric Snap',
+      throwShape: 'box',
+      throwDmg: 48,
+      desc: '+4.0m extended Fin Strike reach, 18.5m Metric Grapnel Lunge [2], and snaps a ranged Brass Tape Whip-Shot!'
     },
     seam_detector: {
       tag: 'Aetheric Diviner',
@@ -76,7 +88,11 @@
       strikeName: 'Aetheric Resonance Jab',
       lungeName: 'Astral Compass Lunge',
       parryName: 'Harmonic Field Deflection',
-      desc: 'Emits astral sonar shockwaves & allows Poky Fin Strike [1] and Ranged Breb Volley [4] to stitch Great Seam rifts from 14m away!'
+      throwName: 'Astral Compass Volley',
+      throwSub: 'Ranged Seam Stitch',
+      throwShape: 'sphere',
+      throwDmg: 50,
+      desc: 'Emits astral sonar shockwaves & launches Astral Compass Orbs that stitch Great Seam rifts from up to 28m away!'
     },
     breb: {
       tag: 'Warm Breb Loaf',
@@ -87,10 +103,15 @@
       knockMult: 1.4,
       rangeBonus: 0.5,
       healComfort: 6,
+      feedsBirbs: true,
       strikeName: 'Crunchy Baguette Bash',
       lungeName: 'Artisan Loaf Charge',
       parryName: 'Crust-Shield Parry',
-      desc: 'Showers golden bread crumbs on hit, restores +6% Comfort, and feeds nearby hungry Birbs!'
+      throwName: 'Warm Breb Volley',
+      throwSub: 'Ranged Loaves',
+      throwShape: 'loaf',
+      throwDmg: 44,
+      desc: 'Throws steaming golden Breb loaves that pelt foes, restore +6% Comfort, lure IKEA Guards, and feed nearby hungry Birbs!'
     },
     tea: {
       tag: 'Steaming Earl Grey',
@@ -104,7 +125,11 @@
       strikeName: 'Steaming Tea Splash Jab',
       lungeName: 'Bergamot Surge Lunge',
       parryName: 'Porcelain Equilibrium Parry',
-      desc: 'Restores +10% Tea Comfort & splashes soothing herbal steam on every Fin Strike!'
+      throwName: 'Steaming Teacup Toss',
+      throwSub: 'Herbal Splash',
+      throwShape: 'cylinder',
+      throwDmg: 44,
+      desc: 'Restores +10% Tea Comfort & arcs steaming porcelain teacups that splash soothing bergamot steam on impact!'
     },
     margarita: {
       tag: 'Frosted Margarita',
@@ -118,7 +143,11 @@
       strikeName: 'Lime-Salt Frost Jab',
       lungeName: 'Lagoon Chill Lunge',
       parryName: 'Frosted Glass Deflection',
-      desc: 'Chills foes with a lime-salt splash & restores +8% Comfort on hit!'
+      throwName: 'Frosted Shaker Toss',
+      throwSub: 'Lime-Frost Splash',
+      throwShape: 'cylinder',
+      throwDmg: 45,
+      desc: 'Chills foes with a lime-salt splash & restores +8% Comfort on hit or ranged shaker toss!'
     },
     tropical_cocktail: {
       tag: 'Sunset Cocktail',
@@ -132,7 +161,11 @@
       strikeName: 'Tropical Sunset Strike',
       lungeName: 'Pineapple Wave Lunge',
       parryName: 'Parasol Fin Deflection',
-      desc: 'Radiates warm sunset glow & restores +8% Warmth on Fin Strike!'
+      throwName: 'Sunset Cocktail Toss',
+      throwSub: 'Solar Fruit Splash',
+      throwShape: 'cylinder',
+      throwDmg: 45,
+      desc: 'Radiates warm sunset glow & restores +8% Warmth on Fin Strike or ranged cocktail splash!'
     },
     pina_colada: {
       tag: 'Chilled Piña Colada',
@@ -146,7 +179,11 @@
       strikeName: 'Coconut Breeze Strike',
       lungeName: 'Cabana Fin Lunge',
       parryName: 'Beach-Lounge Parry',
-      desc: 'Splashes sweet coconut-pineapple breeze & restores +8% Comfort!'
+      throwName: 'Piña Colada Volley',
+      throwSub: 'Coconut Splash',
+      throwShape: 'cylinder',
+      throwDmg: 45,
+      desc: 'Splashes sweet coconut-pineapple breeze & restores +8% Comfort on melee or ranged toss!'
     },
     celestial_boba: {
       tag: 'Celestial Boba',
@@ -160,7 +197,11 @@
       strikeName: 'Tapioca Pearl Fin Jab',
       lungeName: 'Starlight Boba Lunge',
       parryName: 'Nebula Straw Deflection',
-      desc: 'Pops starlight tapioca pearls on hit (+25% impact & +10% Comfort)!'
+      throwName: 'Starlight Boba Barrage',
+      throwSub: 'Tapioca Pearl Shot',
+      throwShape: 'sphere',
+      throwDmg: 48,
+      desc: 'Fires starlight tapioca pearls at range (+25% impact & +10% Comfort)!'
     },
     kottbullar_feast: {
       tag: 'Midnight Köttbullar',
@@ -171,10 +212,15 @@
       knockMult: 1.3,
       rangeBonus: 0.8,
       healComfort: 12,
+      feedsBirbs: true,
       strikeName: 'Lingonberry Gravy Strike',
       lungeName: 'Swedish Bistro Lunge',
       parryName: 'Porcelain Plate Parry',
-      desc: 'Savory Swedish meatball impact (+30% damage & +12% Comfort)!'
+      throwName: 'Köttbullar Meatball Volley',
+      throwSub: 'Savory Meatballs',
+      throwShape: 'sphere',
+      throwDmg: 52,
+      desc: 'Hurls savory Swedish meatballs that pelt foes (+30% damage, +12% Comfort, feeds Birbs & lures IKEA Guards)!'
     },
     figurine: {
       tag: 'Carrot Figurine',
@@ -187,7 +233,11 @@
       strikeName: 'Elastic Carrot Fin Boop',
       lungeName: 'Balcony-Bounce Lunge',
       parryName: 'Rubber-Carrot Rebound',
-      desc: '+85% elastic knockback bounce from the sacred Beach-Shorts Carrot!'
+      throwName: 'Rubber-Carrot Ricochet',
+      throwSub: '+85% Boop Launch',
+      throwShape: 'cone',
+      throwDmg: 46,
+      desc: '+85% elastic knockback bounce & hurls a ricocheting Rubber-Carrot that sends foes and balcony carrots flying!'
     },
     flatpack_crate: {
       tag: 'SKÄRHAJ Flat-Pack',
@@ -202,7 +252,11 @@
       strikeName: 'Heavy Corrugated Slam',
       lungeName: 'Aisle-14 Flat-Pack Ram',
       parryName: 'Cardboard Box Shield',
-      desc: '+40% heavy box impact, +65% knockback & 15% Passive Damage Reduction!'
+      throwName: 'Flat-Pack Crate Hurl',
+      throwSub: 'Heavy Box Smash',
+      throwShape: 'box',
+      throwDmg: 64,
+      desc: '+40% heavy box impact, +65% knockback, 15% Passive Damage Reduction, and hurls tumbling IKEA Flat-Pack Crates!'
     },
     binoculars: {
       tag: 'Brass Binoculars',
@@ -216,7 +270,178 @@
       strikeName: 'Spotter’s Brass Strike',
       lungeName: 'Horizon-Lock Lunge',
       parryName: 'Brass-Lens Deflection',
-      desc: '+1.5m precision targeting range & +20% critical strike chance!'
+      throwName: 'Brass Spotter Flare',
+      throwSub: 'Solar Lens Volley',
+      throwShape: 'cylinder',
+      throwDmg: 50,
+      desc: '+1.5m precision targeting range, +20% critical strike chance, and fires dazzling Brass Spotter Flares!'
+    },
+    lantern: {
+      tag: 'Between Lantern',
+      stanceName: 'Starlight Guide (+15% Crit & Reach)',
+      icon: '🏮',
+      colorHex: 0xc084fc,
+      dmgMult: 1.25,
+      knockMult: 1.2,
+      rangeBonus: 1.2,
+      critChanceBonus: 0.15,
+      strikeName: 'Between Lantern Swing',
+      lungeName: 'Starlight Beacon Lunge',
+      parryName: 'Aetheric Lantern Ward',
+      throwName: 'Starlight Wisp Volley',
+      throwSub: 'Lantern Star-Bolts',
+      throwShape: 'sphere',
+      throwDmg: 50,
+      desc: 'Guides travelers through the Between and fires luminous Starlight Wisp Bolts at range!'
+    },
+    retired_tag: {
+      tag: 'Retired Barcode Tag',
+      stanceName: 'Liberated Sovereign (+25% Crit)',
+      icon: '🏷️',
+      colorHex: 0x38bdf8,
+      dmgMult: 1.25,
+      knockMult: 1.2,
+      rangeBonus: 1.0,
+      critChanceBonus: 0.25,
+      strikeName: 'Sovereign Tag Slash',
+      lungeName: 'Unbound Plush Lunge',
+      parryName: 'Detagged Freedom Parry',
+      throwName: 'Barcode Tag Shuriken',
+      throwSub: '303.735.88 Spin',
+      throwShape: 'box',
+      throwDmg: 48,
+      desc: 'Spins your retired Art. 303.735.88 barcode tag like a razor-sharp cardstock shuriken!'
+    },
+    party_favor: {
+      tag: 'Birthday Cracker',
+      stanceName: 'Festive Jubilee (+10% Comfort/Hit)',
+      icon: '🎉',
+      colorHex: 0xf472b6,
+      dmgMult: 1.2,
+      knockMult: 1.4,
+      rangeBonus: 1.0,
+      healComfort: 10,
+      strikeName: 'Festive Cracker Pop',
+      lungeName: 'Confetti Burst Lunge',
+      parryName: 'Paper-Crown Riposte',
+      throwName: 'Confetti Cracker Barrage',
+      throwSub: 'Festive Pop Volley',
+      throwShape: 'cone',
+      throwDmg: 46,
+      desc: 'Launches popping birthday crackers that shower confetti and knock enemies back!'
+    },
+    helen_cake: {
+      tag: 'Birthday Bombe',
+      stanceName: 'Patisserie Grandeur (+12% Comfort)',
+      icon: '🎂',
+      colorHex: 0xf472b6,
+      dmgMult: 1.25,
+      knockMult: 1.3,
+      rangeBonus: 0.8,
+      healComfort: 12,
+      feedsBirbs: true,
+      strikeName: 'Frosting Bombe Bash',
+      lungeName: 'Candlelight Patisserie Lunge',
+      parryName: 'Buttercream Shield',
+      throwName: 'Birthday Cake Toss',
+      throwSub: 'Frosted Pastry Arc',
+      throwShape: 'sphere',
+      throwDmg: 48,
+      desc: 'Hurls frosted patisserie spheres that delight Birbs, restore +12% Comfort, and splat foes!'
+    },
+    cake_slice: {
+      tag: 'Velvet Cake Slice',
+      stanceName: 'Sweet Velvet (+10% Comfort)',
+      icon: '🍰',
+      colorHex: 0xfb7185,
+      dmgMult: 1.2,
+      knockMult: 1.25,
+      rangeBonus: 0.6,
+      healComfort: 10,
+      feedsBirbs: true,
+      strikeName: 'Velvet Sponge Strike',
+      lungeName: 'Sugar-Rush Lunge',
+      parryName: 'Cream-Cheese Ward',
+      throwName: 'Velvet Cake Volley',
+      throwSub: 'Pastry Slice Toss',
+      throwShape: 'cone',
+      throwDmg: 45,
+      desc: 'Tosses slices of velvet cake that restore +10% Comfort and feed island Birbs!'
+    },
+    spherical_beetroot_tart: {
+      tag: 'Beetroot Tart',
+      stanceName: 'Spherical Gastronomy (+10% Comfort)',
+      icon: '🥧',
+      colorHex: 0xe11d48,
+      dmgMult: 1.2,
+      knockMult: 1.25,
+      rangeBonus: 0.6,
+      healComfort: 10,
+      feedsBirbs: true,
+      strikeName: 'Savory Tart Strike',
+      lungeName: 'Bistro Sphere Lunge',
+      parryName: 'Flaky-Pastry Guard',
+      throwName: 'Beetroot Tart Toss',
+      throwSub: 'Spherical Pastry',
+      throwShape: 'sphere',
+      throwDmg: 46,
+      desc: 'Hurls perfectly spherical beetroot tarts from the Rotunda Bistro!'
+    },
+    spherical_mochi: {
+      tag: 'Rainbow Mochi',
+      stanceName: 'Elastic Mochi Bounce (+40% Knockback)',
+      icon: '🍡',
+      colorHex: 0xf472b6,
+      dmgMult: 1.2,
+      knockMult: 1.45,
+      rangeBonus: 0.8,
+      healComfort: 10,
+      feedsBirbs: true,
+      strikeName: 'Chewy Mochi Skewer Jab',
+      lungeName: 'Rainbow Mochi Bounce',
+      parryName: 'Sweet Rice-Paste Rebound',
+      throwName: 'Rainbow Mochi Trio Toss',
+      throwSub: 'Bouncy Mochi Spheres',
+      throwShape: 'sphere',
+      throwDmg: 46,
+      desc: 'Launches bouncy pastel mochi spheres that ricochet off foes and restore +10% Comfort!'
+    },
+    steamed_algae_bun: {
+      tag: 'Steamed Algae Bun',
+      stanceName: 'Warm Steamer Basket (+10% Warmth)',
+      icon: '🥟',
+      colorHex: 0x34d399,
+      dmgMult: 1.2,
+      knockMult: 1.25,
+      rangeBonus: 0.6,
+      healComfort: 10,
+      feedsBirbs: true,
+      strikeName: 'Fluffy Bao Strike',
+      lungeName: 'Steaming Bun Lunge',
+      parryName: 'Bamboo-Steamer Parry',
+      throwName: 'Steamed Bao Volley',
+      throwSub: 'Fluffy Algae Buns',
+      throwShape: 'sphere',
+      throwDmg: 45,
+      desc: 'Tosses warm, pillowy steamed algae buns that feed Birbs and restore +10% Warmth!'
+    },
+    volcanic_sorbet: {
+      tag: 'Volcanic Sorbet',
+      stanceName: 'Caldera Frost-Fire (+10% Comfort)',
+      icon: '🍧',
+      colorHex: 0xf97316,
+      dmgMult: 1.25,
+      knockMult: 1.3,
+      rangeBonus: 0.8,
+      healComfort: 10,
+      strikeName: 'Frost-Fire Sorbet Jab',
+      lungeName: 'Glacial Caldera Lunge',
+      parryName: 'Chilled Sorbet Shield',
+      throwName: 'Volcanic Sorbet Scoop Toss',
+      throwSub: 'Frost-Fire Spheres',
+      throwShape: 'sphere',
+      throwDmg: 48,
+      desc: 'Hurls chilled volcanic sorbet spheres that sizzle on impact!'
     }
   };
 
@@ -262,15 +487,15 @@
     },
     breb_volley: {
       id: 'breb_volley',
-      name: 'Warm Breb Volley',
+      name: 'Fin-Sling Toss',
       icon: '🥖🎯',
-      category: 'Ranged & Cozy Art',
+      category: 'Ranged Fin-Slot Art',
       isOffensive: true,
       cooldown: 1.8,
       range: 28.0,
-      usesFinMod: false,
-      shortSub: 'Ranged Loaves',
-      desc: 'Launches a ranged arc volley of 3 steaming golden Breb loaves up to 28m! Pelts Mean Sharks at range, feeds Birbs, lures Erf Guards, or stitches Rifts with Aetheric Diviner.'
+      usesFinMod: true,
+      shortSub: 'Throw Fin Item',
+      desc: 'Hurls or fires whatever eligible item is equipped in your Fin Slot [H] up to 28m! Throws Returning Hex-Wrenches, Golden Shear Blades, Brass Spotter Flares, Heavy Flat-Pack Crates, Rubber Carrots, Steaming Tea, or Warm Breb Loaves (feeds Birbs & lures IKEA Guards).'
     },
     soothing_tea_pulse: {
       id: 'soothing_tea_pulse',
@@ -559,10 +784,30 @@
   function getActiveFinModifier() {
     const g = window.BlahajGame;
     const held = g && typeof g.getPlayerHeldItem === 'function' ? g.getPlayerHeldItem() : null;
-    if (held && held.id && FIN_ITEM_MODIFIERS[held.id]) {
+    if (!held || !held.id || held.id === 'none') return null;
+    if (FIN_ITEM_MODIFIERS[held.id]) {
       return Object.assign({ itemId: held.id }, FIN_ITEM_MODIFIERS[held.id]);
     }
-    return null;
+    const label = held.name || held.id;
+    const icon = held.icon || '🦈';
+    return {
+      itemId: held.id,
+      tag: label,
+      stanceName: `${label} Stance`,
+      icon,
+      colorHex: 0x38bdf8,
+      dmgMult: 1.2,
+      knockMult: 1.25,
+      rangeBonus: 0.6,
+      strikeName: `${label} Fin Strike`,
+      lungeName: `${label} Fin Lunge`,
+      parryName: `${label} Fin Parry`,
+      throwName: `${label} Toss`,
+      throwSub: 'Equipped Fin Toss',
+      throwShape: 'sphere',
+      throwDmg: 45,
+      desc: `Empowers Fin Strikes, Lunges, Deflections, and Ranged Fin-Sling Tosses with your equipped ${label}!`
+    };
   }
 
   function getPassiveDamageMultiplier() {
@@ -1355,18 +1600,41 @@
     const activeScene = typeof window.getActiveScene === 'function' ? window.getActiveScene() : window.scene;
     if (!activeScene) return;
 
+    const shape = (finMod && finMod.throwShape) ? finMod.throwShape : 'loaf';
+    const baseColor = (finMod && finMod.colorHex) ? finMod.colorHex : 0xd99b4e;
+    const projIcon = (finMod && finMod.icon) ? finMod.icon : '🥖';
+    const projDmg = (finMod && finMod.throwDmg) ? finMod.throwDmg : 42;
+    const projKnock = (finMod && finMod.knockMult) ? finMod.knockMult : 1.25;
+    const projCritBonus = (finMod && finMod.critChanceBonus) ? finMod.critChanceBonus : 0;
+    const feedsBirbs = !finMod || !!finMod.feedsBirbs;
+
     const spreads = [-0.14, 0.0, 0.14];
     spreads.forEach((angleOffset, i) => {
-      const loafGeo = new THREE.CapsuleGeometry
-        ? new THREE.CapsuleGeometry(0.16, 0.34, 6, 10)
-        : new THREE.BoxGeometry(0.28, 0.22, 0.52);
-      const loafMat = new THREE.MeshStandardMaterial({
-        color: finMod && finMod.rangedSeamStitch ? 0xc084fc : 0xd99b4e,
-        emissive: finMod && finMod.rangedSeamStitch ? 0x6b21a8 : 0x78350f,
-        emissiveIntensity: 0.45,
-        roughness: 0.55
+      let geo = null;
+      if (shape === 'wrench') {
+        geo = new THREE.TorusGeometry(0.24, 0.075, 8, 18);
+      } else if (shape === 'box') {
+        geo = new THREE.BoxGeometry(0.42, 0.28, 0.46);
+      } else if (shape === 'cone') {
+        geo = new THREE.ConeGeometry(0.18, 0.52, 10);
+      } else if (shape === 'cylinder') {
+        geo = new THREE.CylinderGeometry(0.16, 0.13, 0.38, 12);
+      } else if (shape === 'sphere') {
+        geo = new THREE.SphereGeometry(0.22, 12, 10);
+      } else {
+        geo = new THREE.CapsuleGeometry
+          ? new THREE.CapsuleGeometry(0.16, 0.34, 6, 10)
+          : new THREE.BoxGeometry(0.28, 0.22, 0.52);
+      }
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: baseColor,
+        emissive: baseColor,
+        emissiveIntensity: 0.42,
+        roughness: shape === 'wrench' ? 0.28 : 0.5,
+        metalness: shape === 'wrench' ? 0.65 : 0.15
       });
-      const mesh = new THREE.Mesh(loafGeo, loafMat);
+      const mesh = new THREE.Mesh(geo, mat);
       mesh.rotation.x = Math.PI / 2;
 
       const start = new THREE.Vector3(originPos.x, originPos.y + 1.05, originPos.z);
@@ -1385,17 +1653,24 @@
         dist = Math.max(4.0, Math.min(28.0, Math.hypot(dx, dz)));
       }
 
-      const flightSpeed = 22.0;
+      const flightSpeed = 23.0;
       const flightTime = dist / flightSpeed;
       const vel = new THREE.Vector3(
         dirX * flightSpeed,
-        4.2 + (i === 1 ? 1.2 : 0.6),
+        4.1 + (i === 1 ? 1.15 : 0.55),
         dirZ * flightSpeed
       );
 
       state.projectiles.push({
         mesh,
         vel,
+        shape,
+        icon: projIcon,
+        baseDmg: projDmg,
+        knockMult: projKnock,
+        critBonus: projCritBonus,
+        colorHex: baseColor,
+        feedsBirbs,
         canStitchSeam: !!(finMod && finMod.rangedSeamStitch),
         life: Math.min(1.6, flightTime + 0.35)
       });
@@ -1810,21 +2085,35 @@
 
     if (abilityId === 'breb_volley') {
       faceSelectedTargetIfClose(30.0);
+      trigger3DMartialPose('poky_strike', 0.36, false);
       const tPos = (state.selectedTarget && state.selectedTarget.getPos) ? state.selectedTarget.getPos() : null;
       spawnBrebVolleyProjectiles(p.pos, tPos, p.rotY, anyFinMod);
-      if (typeof g.triggerFeedBreb === 'function') {
-        g.triggerFeedBreb();
+
+      if (anyFinMod && anyFinMod.healComfort) {
+        p.teaComfort = Math.min(100, (p.teaComfort || 80) + anyFinMod.healComfort);
+        p.warmth = Math.min(100, (p.warmth || 80) + anyFinMod.healComfort);
       }
-      // Pass 82: Aetheric Diviner allows Ranged Breb Volley to stitch Great Seam rifts within 14m!
+
+      if (!anyFinMod || anyFinMod.feedsBirbs || g.getZone() === 'spawning_pits') {
+        if (typeof g.triggerFeedBreb === 'function') {
+          g.triggerFeedBreb();
+        }
+      } else if (window.CozyAudio) {
+        if (anyFinMod.throwShape === 'wrench' && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
+        else if (anyFinMod.throwShape === 'cylinder' && window.CozyAudio.teaPour) window.CozyAudio.teaPour();
+        else if (window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
+      }
+
+      // Pass 82: Aetheric Diviner allows Ranged Fin-Sling Toss to stitch Great Seam rifts within 18m!
       if (anyFinMod && anyFinMod.rangedSeamStitch && window.BlahajSeam) {
         const nearRift = window.BlahajSeam.getNearestRift(p.pos, g.getZone());
-        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 14.5) {
+        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 18.0) {
           window.BlahajSeam.mendRift(nearRift.nearest.id);
           spawnFloatingCombatText(nearRift.nearest.pos || p.pos, '🪡 RANGED SEAM STITCH!', 'proc');
         }
       }
       renderActionBarUI();
-      return { abilityId, ranged: true };
+      return { abilityId, ranged: true, thrownItem: anyFinMod ? anyFinMod.throwName : 'Warm Breb Volley' };
     }
 
     if (abilityId === 'soothing_tea_pulse') {
@@ -2093,13 +2382,19 @@
       let displaySub = ab.shortSub;
 
       if (ab.usesFinMod && finMod) {
-        displayIcon = `${finMod.icon}⚡`;
+        displayIcon = ab.id === 'breb_volley' ? `${finMod.icon}🎯` : `${finMod.icon}⚡`;
         if (ab.id === 'poky_fin_strike') displayName = finMod.strikeName;
         else if (ab.id === 'single_fin_lunge') displayName = finMod.lungeName;
         else if (ab.id === 'fin_deflection') displayName = finMod.parryName;
-        displaySub = finMod.tag;
+        else if (ab.id === 'breb_volley') displayName = finMod.throwName || `${finMod.tag} Toss`;
+        displaySub = (ab.id === 'breb_volley' && finMod.throwSub) ? finMod.throwSub : finMod.tag;
         btn.classList.add('fin-empowered');
       } else {
+        if (ab.id === 'breb_volley') {
+          displayIcon = '🥖🎯';
+          displayName = 'Warm Breb Volley';
+          displaySub = 'Empty Fin -> Breb';
+        }
         btn.classList.remove('fin-empowered');
       }
 
@@ -2209,6 +2504,7 @@
         if (ab.id === 'poky_fin_strike') displayName = `${ab.name} → ${finMod.strikeName}`;
         else if (ab.id === 'single_fin_lunge') displayName = `${ab.name} → ${finMod.lungeName}`;
         else if (ab.id === 'fin_deflection') displayName = `${ab.name} → ${finMod.parryName}`;
+        else if (ab.id === 'breb_volley') displayName = `${ab.name} → ${finMod.throwName || `${finMod.tag} Toss`}`;
       }
 
       card.innerHTML = `
@@ -2343,37 +2639,104 @@
     }
     updatePostureAura3D(dt, elapsed);
 
-    // 3. Update flying Ranged Breb Volley projectiles
+    // 3. Update flying Ranged Fin-Sling Toss projectiles
     const g = window.BlahajGame;
     const worldApi = g && typeof g.getWorldApi === 'function' ? g.getWorldApi() : null;
+    const zone = g && typeof g.getZone === 'function' ? g.getZone() : 'island';
     for (let i = state.projectiles.length - 1; i >= 0; i--) {
       const pr = state.projectiles[i];
       pr.life -= dt;
       pr.vel.y -= 14.0 * dt; // Gravity arc
       pr.mesh.position.addScaledVector(pr.vel, dt);
-      pr.mesh.rotation.z += dt * 9.0;
+      if (pr.shape === 'wrench') {
+        pr.mesh.rotation.y += dt * 16.0;
+      } else {
+        pr.mesh.rotation.z += dt * 9.0;
+        pr.mesh.rotation.x += dt * 6.0;
+      }
 
       let hitSomething = false;
-      // Check enemy hit
+      const pIcon = pr.icon || '🥖';
+      const baseDmg = pr.baseDmg || 42;
+      const knockMult = pr.knockMult || 1.25;
+
+      // 3A. Check Mean Sharks / Sea Invaders hit
       if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
         const enemies = window.BlahajEnemies.getEnemies();
         for (const e of enemies) {
           if (!e || e.state === 'banished' || e.state === 'respawning' || e.hp <= 0) continue;
           const d = Math.hypot(e.pos.x - pr.mesh.position.x, e.pos.z - pr.mesh.position.z);
-          if (d < 2.2) {
-            const knockDir = new THREE.Vector3(pr.vel.x, 0, pr.vel.z).normalize();
-            e.takeBoop(35, knockDir);
-            spawnFloatingCombatText(e.pos, '🥖 35', 'normal');
+          if (d < 2.35) {
+            const isCrit = Math.random() < (0.12 + (pr.critBonus || 0));
+            const finalDmg = Math.round(baseDmg * (isCrit ? 1.45 : 1.0));
+            const knockDir = new THREE.Vector3(pr.vel.x, 0, pr.vel.z).normalize().multiplyScalar(knockMult);
+            const boopArg = (typeof e.mange === 'number' && finalDmg > 1.5) ? (finalDmg / 100) : finalDmg;
+            e.takeBoop(boopArg, knockDir);
+            spawnFloatingCombatText(
+              e.pos,
+              isCrit ? `⚡ ${pIcon} ${finalDmg} CRIT!` : `${pIcon} ${finalDmg}`,
+              isCrit ? 'crit' : 'normal'
+            );
             hitSomething = true;
             break;
           }
         }
       }
 
-      // Check Ranged Seam Stitch if projectile was fired with Aetheric Diviner
+      // 3B. Check Balcony Carrots hit at range
+      if (!hitSomething && (zone === 'island' || zone === 'overworld') && worldApi && typeof worldApi.getBalconyCarrots === 'function') {
+        const carrots = worldApi.getBalconyCarrots();
+        for (const c of carrots) {
+          if (!c || c.knockedOff || !c.mesh) continue;
+          const d = Math.hypot(c.mesh.position.x - pr.mesh.position.x, c.mesh.position.z - pr.mesh.position.z);
+          if (d < 2.2) {
+            c.knockedOff = true;
+            c.respawnTimer = 9.5;
+            const pushDir = new THREE.Vector3(pr.vel.x, 0, pr.vel.z).normalize();
+            if (!c.structureId && pushDir.z > -0.25) pushDir.z = -0.75;
+            c.vel.set(pushDir.x * 14.5 * knockMult, 10.0 * knockMult, pushDir.z * 15.5 * knockMult);
+            if (window.CozyAudio && window.CozyAudio.carrotBoop) window.CozyAudio.carrotBoop();
+            if (window.player) {
+              window.player.carrotsKnockedCount = (window.player.carrotsKnockedCount || 0) + 1;
+              if (window.player.carrotsKnockedCount % 5 === 0) window.player.trialPoints = (window.player.trialPoints || 0) + 1;
+            }
+            spawnFloatingCombatText(c.mesh.position, `${pIcon}🥕 BOOPED!`, 'crit');
+            hitSomething = true;
+            break;
+          }
+        }
+      }
+
+      // 3C. Check Volcano Instance Carrots hit at range
+      if (!hitSomething && zone === 'volcano' && window.BlahajVolcano && typeof window.BlahajVolcano.getCarrots === 'function') {
+        const vCarrots = window.BlahajVolcano.getCarrots();
+        for (let cIdx = 0; cIdx < vCarrots.length; cIdx++) {
+          const c = vCarrots[cIdx];
+          if (!c || c.state !== 'home') continue;
+          const cPos = (c.mesh && c.mesh.position) || c.pos || c.home;
+          if (!cPos) continue;
+          const d = Math.hypot(cPos.x - pr.mesh.position.x, cPos.z - pr.mesh.position.z);
+          if (d < 2.2) {
+            const pushDir = new THREE.Vector3(pr.vel.x, 0, pr.vel.z).normalize();
+            if (pushDir.z > -0.25) pushDir.z = -0.75;
+            if (window.BlahajVolcano.knockCarrot(cIdx, pushDir.x * 13.0 * knockMult, 9.0 * knockMult, pushDir.z * 15.0 * knockMult)) {
+              if (window.CozyAudio && window.CozyAudio.carrotBoop) window.CozyAudio.carrotBoop();
+              if (window.player) {
+                window.player.carrotsKnockedCount = (window.player.carrotsKnockedCount || 0) + 1;
+                if (window.player.carrotsKnockedCount % 5 === 0) window.player.trialPoints = (window.player.trialPoints || 0) + 1;
+              }
+              spawnFloatingCombatText(cPos, `${pIcon}🥕 LAUNCHED!`, 'crit');
+              hitSomething = true;
+              break;
+            }
+          }
+        }
+      }
+
+      // 3D. Check Ranged Seam Stitch if projectile was fired with Aetheric Diviner
       if (!hitSomething && pr.canStitchSeam && window.BlahajSeam && g) {
-        const nearRift = window.BlahajSeam.getNearestRift(pr.mesh.position, g.getZone());
-        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 3.5) {
+        const nearRift = window.BlahajSeam.getNearestRift(pr.mesh.position, zone);
+        if (nearRift && nearRift.nearest && nearRift.nearest.dist < 3.8) {
           window.BlahajSeam.mendRift(nearRift.nearest.id);
           spawnFloatingCombatText(nearRift.nearest.pos || pr.mesh.position, '🪡 SEAM MENDED!', 'proc');
           hitSomething = true;
@@ -2386,7 +2749,7 @@
         : 0.0;
 
       if (hitSomething || pr.life <= 0 || pr.mesh.position.y <= groundY + 0.15) {
-        if (!hitSomething && worldApi && typeof worldApi.spawnBrebLoaf === 'function' && i === 1) {
+        if (!hitSomething && pr.feedsBirbs && worldApi && typeof worldApi.spawnBrebLoaf === 'function' && i === 1) {
           worldApi.spawnBrebLoaf(new THREE.Vector3(pr.mesh.position.x, Math.max(0.1, groundY), pr.mesh.position.z));
         }
         if (window.BlahajEffects && window.BlahajEffects.spawnBreadCrumbs) {
