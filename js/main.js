@@ -12058,9 +12058,115 @@
     m.classList.toggle('hidden');
   }
 
-  // ==========================================================================
-  // CO-OP NETWORKING (NZ <-> LA PORTAL SYNC)
-  // ==========================================================================
+  // Additional Co-op Peers (for 3+ players in the Shared World, e.g. Russell, Helen & Argon!)
+  const extraCoopPeers = new Map();
+
+  function removeExtraCoopPeer(remClientId) {
+    const peerObj = extraCoopPeers.get(remClientId);
+    if (!peerObj) return;
+    if (peerObj.mesh && peerObj.mesh.parent) {
+      peerObj.mesh.parent.remove(peerObj.mesh);
+    }
+    if (peerObj.labelEl) {
+      peerObj.labelEl.remove();
+    }
+    extraCoopPeers.delete(remClientId);
+  }
+
+  function upsertExtraCoopPeer(data) {
+    const remId = data.clientId;
+    if (!remId) return;
+    let peerObj = extraCoopPeers.get(remId);
+    const sharkId = data.sharkId || (peerObj && peerObj.sharkId) || 'solomon';
+    const cfg = LORE.sharks[sharkId] || LORE.sharks.solomon;
+    const mVal = typeof data.mange === 'number' ? data.mange : (peerObj && peerObj.mangeFactor !== undefined ? peerObj.mangeFactor : 0.70);
+
+    if (!peerObj) {
+      peerObj = {
+        clientId: remId,
+        machineId: data.machineId || null,
+        sharkId: cfg.id,
+        mangeFactor: mVal,
+        mesh: null,
+        labelEl: null,
+        targetPos: new THREE.Vector3(typeof data.x === 'number' ? data.x : 58, typeof data.y === 'number' ? data.y : 3.9, typeof data.z === 'number' ? data.z : -10),
+        targetRotY: data.rotY || 0,
+        isMoving: !!data.isMoving,
+        inBoat: !!data.inBoat,
+        inCart: !!data.inCart,
+        zone: (!data.zone || data.zone === 'overworld') ? 'island' : data.zone,
+        lastSeen: Date.now()
+      };
+      extraCoopPeers.set(remId, peerObj);
+    }
+
+    peerObj.lastSeen = Date.now();
+    if (!peerObj.mesh || peerObj.sharkId !== cfg.id || Math.abs((peerObj.mangeFactor || 0) - mVal) > 0.02) {
+      peerObj.sharkId = cfg.id;
+      peerObj.mangeFactor = mVal;
+      if (peerObj.mesh && peerObj.mesh.parent) peerObj.mesh.parent.remove(peerObj.mesh);
+      peerObj.mesh = window.BlahajModels.createPlushShark(cfg, mVal);
+      peerObj.mesh.position.copy(peerObj.targetPos);
+      getActiveScene().add(peerObj.mesh);
+    }
+
+    if (!peerObj.labelEl) {
+      peerObj.labelEl = createWorldLabel(
+        document.getElementById('world-labels'),
+        `${cfg.name} (Shared World)`,
+        '★ FELLOW ISLAND SHARK'
+      );
+    } else {
+      const nm = peerObj.labelEl.querySelector('.npc-name');
+      if (nm) nm.textContent = `${cfg.name} (Shared World)`;
+    }
+
+    const prevZone = peerObj.zone || 'island';
+    const nextZone = (!data.zone || data.zone === 'overworld') ? 'island' : data.zone;
+    peerObj.zone = nextZone;
+    if (typeof data.x === 'number' && typeof data.z === 'number') {
+      peerObj.targetPos.set(data.x, typeof data.y === 'number' ? data.y : 0, data.z);
+    }
+    if (typeof data.rotY === 'number') peerObj.targetRotY = data.rotY;
+    peerObj.isMoving = !!data.isMoving;
+
+    if (peerObj.mesh && (prevZone !== nextZone || peerObj.mesh.position.distanceTo(peerObj.targetPos) > 20)) {
+      peerObj.mesh.position.copy(peerObj.targetPos);
+      peerObj.mesh.rotation.y = peerObj.targetRotY || 0;
+    }
+  }
+
+  function shouldRouteToPrimaryPartner(data) {
+    if (!data || !data.clientId) return true;
+    const myMach = window.BlahajNetwork && window.BlahajNetwork.getMachineId ? window.BlahajNetwork.getMachineId() : null;
+    const isCrossMachine = !!(data.machineId && myMach && data.machineId !== myMach);
+
+    // If primary partner is not assigned yet, or matches this clientId, route to primary
+    if (!coopPartner.active || !coopPartner.clientId || coopPartner.clientId === data.clientId) {
+      coopPartner.clientId = data.clientId;
+      if (data.machineId) coopPartner.machineId = data.machineId;
+      return true;
+    }
+
+    // If primary partner hasn't sent a packet in >8s, allow takeover
+    if (coopPartner.lastPacketAt && Date.now() - coopPartner.lastPacketAt > 8000) {
+      coopPartner.clientId = data.clientId;
+      coopPartner.machineId = data.machineId || null;
+      removeExtraCoopPeer(data.clientId);
+      return true;
+    }
+
+    // If current primary partner is a same-machine tab, and a real cross-machine partner arrives, promote cross-machine partner to primary!
+    const primaryIsSameMachine = !!(coopPartner.machineId && myMach && coopPartner.machineId === myMach);
+    if (primaryIsSameMachine && isCrossMachine) {
+      coopPartner.clientId = data.clientId;
+      coopPartner.machineId = data.machineId;
+      removeExtraCoopPeer(data.clientId);
+      return true;
+    }
+
+    return false;
+  }
   function updateBlueSharkVisibility() {
     worldActors.forEach((actor) => {
       if (actor.isBlueShark) {
@@ -12341,20 +12447,30 @@
     window.BlahajNetwork.init({
       onConnect(info) {
         CozyAudio.portalChime();
-        const partnerShark = (info && info.partnerState && info.partnerState.sharkId) || 'solomon';
-        if (
-          info &&
-          info.partnerClientId &&
-          player.sharkId === partnerShark &&
-          window.BlahajNetwork.getClientId() > info.partnerClientId
-        ) {
-          const alt = player.sharkId === 'hermes' ? 'solomon' : 'hermes';
-          spawnPlayerShark(alt);
+        const st = info && info.partnerState;
+        const partnerShark = (st && st.sharkId) || coopPartner.sharkId || 'solomon';
+        if (!coopPartner.active || !coopPartner.clientId) {
+          coopPartner.clientId = (info && info.partnerClientId) || null;
+          coopPartner.machineId = (info && info.partnerMachineId) || null;
+          if (st && typeof st.x === 'number' && typeof st.z === 'number') {
+            coopPartner.targetPos.set(st.x, typeof st.y === 'number' ? st.y : 0, st.z);
+            coopPartner.targetRotY = st.rotY || 0;
+            coopPartner.zone = (!st.zone || st.zone === 'overworld') ? 'island' : st.zone;
+          }
+          spawnCoopPartnerShark(partnerShark, st && typeof st.mange === 'number' ? st.mange : undefined);
         }
-        spawnCoopPartnerShark(partnerShark);
         showToast('SHARED WORLD LINKED! 🦈💕🦈', 'Connected across the ocean! Click [✨ Join] on the top-left HUD anytime to warp to your partner!');
         addChatLog('🌌 <strong>Shared World Linked:</strong> You and your partner are in the same persistent world! Click <strong>[✨ Join]</strong> on the top-left HUD to warp to their side anytime.', 'coop');
         broadcastSharedWorldState();
+      },
+      onPeerDisconnect(remClientId) {
+        if (remClientId && extraCoopPeers.has(remClientId)) {
+          removeExtraCoopPeer(remClientId);
+        }
+        if (remClientId && coopPartner.clientId === remClientId) {
+          coopPartner.clientId = null;
+          coopPartner.machineId = null;
+        }
       },
       onData(data) {
         if (data.type === 'enemy_boop') {
@@ -12373,6 +12489,11 @@
             window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
           }
         } else if (data.type === 'move') {
+          if (!shouldRouteToPrimaryPartner(data)) {
+            upsertExtraCoopPeer(data);
+            return;
+          }
+          coopPartner.lastPacketAt = Date.now();
           if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
             spawnCoopPartnerShark(data.sharkId || 'solomon', typeof data.mange === 'number' ? data.mange : undefined);
           } else if (typeof data.mange === 'number' && data.mange !== coopPartner.mangeFactor) {
@@ -12424,6 +12545,11 @@
             spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
           }
         } else if (data.type === 'zone_change') {
+          if (!shouldRouteToPrimaryPartner(data)) {
+            upsertExtraCoopPeer(data);
+            return;
+          }
+          coopPartner.lastPacketAt = Date.now();
           if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
             spawnCoopPartnerShark(data.sharkId || coopPartner.sharkId || 'solomon');
           }
@@ -12719,14 +12845,19 @@
           coopPartner.labelEl.remove();
           coopPartner.labelEl = null;
         }
+        extraCoopPeers.forEach((_, remId) => removeExtraCoopPeer(remId));
+        extraCoopPeers.clear();
         const pBoat = worldApi.getPartnerBoatMesh && worldApi.getPartnerBoatMesh();
         if (pBoat) pBoat.visible = false;
         coopPartner.active = false;
+        coopPartner.clientId = null;
+        coopPartner.machineId = null;
         coopPartner.inBoat = false;
         player.ridingWithPartner = false;
         updateBlueSharkVisibility();
       }
     });
+    broadcastSharedWorldState();
   }
 
   function updateCoopPartnerVisibility() {
@@ -15247,6 +15378,40 @@
   }
 
   function updateCoopPartner(dt, elapsed) {
+    const activeScene = getActiveScene();
+    const normCurrentZone = (!currentZone || currentZone === 'overworld') ? 'island' : currentZone;
+
+    // Update any 3rd/4th+ sharks in the shared world
+    const now = Date.now();
+    extraCoopPeers.forEach((peerObj, remId) => {
+      if (now - (peerObj.lastSeen || 0) > 15000) {
+        removeExtraCoopPeer(remId);
+        return;
+      }
+      if (!peerObj.mesh) return;
+      const peerZone = (!peerObj.zone || peerObj.zone === 'overworld') ? 'island' : peerObj.zone;
+      const sameZ = peerZone === normCurrentZone;
+      peerObj.mesh.visible = sameZ;
+      if (peerObj.mesh.parent !== activeScene) {
+        if (peerObj.mesh.parent) peerObj.mesh.parent.remove(peerObj.mesh);
+        activeScene.add(peerObj.mesh);
+      }
+      let rDiff = (peerObj.targetRotY || 0) - peerObj.mesh.rotation.y;
+      while (rDiff < -Math.PI) rDiff += Math.PI * 2;
+      while (rDiff > Math.PI) rDiff -= Math.PI * 2;
+      peerObj.mesh.rotation.y += rDiff * Math.min(1.0, dt * 14.0);
+      peerObj.mesh.position.lerp(peerObj.targetPos, Math.min(1.0, dt * 12.0));
+      window.BlahajModels.animateShark(peerObj.mesh, dt, !!peerObj.isMoving, elapsed);
+      if (peerObj.labelEl) {
+        if (sameZ) {
+          projectLabel(peerObj.mesh.position, peerObj.labelEl, 3.35, true);
+        } else {
+          peerObj.labelEl.style.opacity = '0';
+          peerObj.labelEl.style.display = 'none';
+        }
+      }
+    });
+
     if (!coopPartner.active || !coopPartner.mesh) return;
     updateCoopPartnerVisibility();
 
@@ -15302,6 +15467,42 @@
         coopPartner.isMoving && !coopPartner.inBoat,
         elapsed
       );
+    }
+
+    // 5. Project Partner 3D Nameplate & Update HUD Distance Status in ALL zones (including Laundromat & Bistro!)
+    if (coopPartner.labelEl) {
+      const pZone = (!coopPartner.zone || coopPartner.zone === 'overworld') ? 'island' : coopPartner.zone;
+      const sameZone = pZone === normCurrentZone;
+      const distToPlayer = Math.round(coopPartner.mesh.position.distanceTo(player.pos));
+      const zoneName = getZoneFriendlyName(pZone);
+
+      const subEl = document.getElementById('coop-status-sub');
+      if (subEl) {
+        const nextSub = sameZone
+          ? (distToPlayer <= 20
+              ? `🦈 Beside you in <strong>${zoneName}</strong> (${distToPlayer}m)`
+              : `📍 <strong>${distToPlayer}m away</strong> in ${zoneName} — Click <strong>[✨ Join]</strong>!`)
+          : `🚪 Partner is in <strong>${zoneName}</strong> — Click <strong>[✨ Join]</strong>!`;
+        if (subEl._lastPartnerSub !== nextSub) {
+          subEl.innerHTML = nextSub;
+          subEl._lastPartnerSub = nextSub;
+        }
+      }
+
+      if (sameZone && coopPartner.mesh.visible) {
+        const tagEl = coopPartner.labelEl.querySelector('.npc-tag');
+        if (tagEl) {
+          const nextTag = distToPlayer > 12 ? `★ PARTNER SHARK · ${distToPlayer}m` : '★ CROSS-OCEAN CO-OP SHARK';
+          if (tagEl._lastText !== nextTag) {
+            tagEl.textContent = nextTag;
+            tagEl._lastText = nextTag;
+          }
+        }
+        projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35, true);
+      } else {
+        coopPartner.labelEl.style.opacity = '0';
+        coopPartner.labelEl.style.display = 'none';
+      }
     }
 
     // Sync Partner's Regatta Sailboat Mesh whenever Partner is sailing!
