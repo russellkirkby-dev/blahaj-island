@@ -6366,19 +6366,22 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(async () => {
-          currentZone = 'laundromat'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajLaundromat) {
             await window.BlahajLaundromat.build();
             window.BlahajLaundromat.setActive(true);
             const start = window.BlahajLaundromat.getStart();
             player.pos.set(start.x, start.y, start.z);
             player.rotY = start.rotY;
+            currentZone = 'laundromat';
+            if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
             if (player.mesh) {
               if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
               window.BlahajLaundromat.getScene().add(player.mesh);
               player.mesh.position.copy(player.pos);
               player.mesh.rotation.y = player.rotY;
             }
+          } else {
+            currentZone = 'laundromat';
           }
           player.velY = 0;
           player.isGrounded = true;
@@ -6393,7 +6396,12 @@
 
           window.BlahajNetwork.send({
             type: 'zone_change',
-            zone: 'laundromat'
+            zone: 'laundromat',
+            sharkId: player.sharkId,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            rotY: player.rotY
           });
         }, 250);
       }
@@ -6449,19 +6457,22 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(async () => {
-          currentZone = 'spherical_foods'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajSphericalFoods) {
             await window.BlahajSphericalFoods.build();
             window.BlahajSphericalFoods.setActive(true);
             const start = window.BlahajSphericalFoods.getStart();
             player.pos.set(start.x, start.y, start.z);
             player.rotY = start.rotY;
+            currentZone = 'spherical_foods';
+            if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
             if (player.mesh) {
               if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
               window.BlahajSphericalFoods.getScene().add(player.mesh);
               player.mesh.position.copy(player.pos);
               player.mesh.rotation.y = player.rotY;
             }
+          } else {
+            currentZone = 'spherical_foods';
           }
           player.velY = 0;
           player.isGrounded = true;
@@ -6484,7 +6495,12 @@
 
           window.BlahajNetwork.send({
             type: 'zone_change',
-            zone: 'spherical_foods'
+            zone: 'spherical_foods',
+            sharkId: player.sharkId,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            rotY: player.rotY
           });
         }, 250);
       }
@@ -6541,7 +6557,12 @@
 
           window.BlahajNetwork.send({
             type: 'zone_change',
-            zone: 'overworld'
+            zone: 'island',
+            sharkId: player.sharkId,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            rotY: player.rotY
           });
         }, 250);
       }
@@ -6605,7 +6626,12 @@
 
           window.BlahajNetwork.send({
             type: 'zone_change',
-            zone: 'island'
+            zone: 'island',
+            sharkId: player.sharkId,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            rotY: player.rotY
           });
         }, 250);
       }
@@ -12147,6 +12173,24 @@
       mange: window.__BLAHAJ_MANGE__
     });
 
+    window.BlahajNetwork.send({
+      type: 'move',
+      sharkId: player.sharkId,
+      x: player.pos.x,
+      y: player.pos.y,
+      z: player.pos.z,
+      rotY: player.rotY,
+      isMoving: false,
+      inBoat: !!player.inBoat,
+      inCart: !!player.inCart,
+      cartId: player.cartId || null,
+      zone: currentZone || 'island',
+      mange: window.__BLAHAJ_MANGE__,
+      heldItemId: playerHeldItem ? playerHeldItem.id : null,
+      isLounging: !!player.isLounging,
+      loungeChairId: player.loungeChairId || null
+    });
+
     if (worldApi && worldApi.getBuiltStructures().length > 0) {
       const items = worldApi.getBuiltStructures().map((s) => ({
         id: s.id,
@@ -12334,6 +12378,8 @@
           } else if (typeof data.mange === 'number' && data.mange !== coopPartner.mangeFactor) {
             spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
           }
+          const prevZone = coopPartner.zone || 'island';
+          const nextZone = (!data.zone || data.zone === 'overworld') ? 'island' : data.zone;
           coopPartner.targetPos.set(data.x, data.y, data.z);
           coopPartner.targetRotY = data.rotY;
           coopPartner.isMoving = data.isMoving;
@@ -12342,9 +12388,14 @@
           const prevCartId = coopPartner.cartId;
           coopPartner.inCart = !!data.inCart;
           coopPartner.cartId = data.cartId || null;
-          coopPartner.zone = data.zone || 'island';
+          coopPartner.zone = nextZone;
           coopPartner.isLounging = !!data.isLounging;
           coopPartner.loungeChairId = data.loungeChairId || null;
+
+          if (coopPartner.mesh && (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20)) {
+            coopPartner.mesh.position.copy(coopPartner.targetPos);
+            coopPartner.mesh.rotation.y = coopPartner.targetRotY || 0;
+          }
 
           if (coopPartner.mesh && coopPartner.heldItemId !== data.heldItemId) {
             coopPartner.heldItemId = data.heldItemId || null;
@@ -12373,7 +12424,18 @@
             spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
           }
         } else if (data.type === 'zone_change') {
-          coopPartner.zone = data.zone;
+          if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
+            spawnCoopPartnerShark(data.sharkId || coopPartner.sharkId || 'solomon');
+          }
+          coopPartner.zone = (!data.zone || data.zone === 'overworld') ? 'island' : data.zone;
+          if (typeof data.x === 'number' && typeof data.z === 'number') {
+            coopPartner.targetPos.set(data.x, typeof data.y === 'number' ? data.y : 0, data.z);
+            if (typeof data.rotY === 'number') coopPartner.targetRotY = data.rotY;
+            if (coopPartner.mesh) {
+              coopPartner.mesh.position.copy(coopPartner.targetPos);
+              coopPartner.mesh.rotation.y = coopPartner.targetRotY || 0;
+            }
+          }
           updateCoopPartnerVisibility();
         } else if (data.type === 'volcano_carrot_knock') {
           if (window.BlahajVolcano) {
@@ -12669,7 +12731,10 @@
 
   function updateCoopPartnerVisibility() {
     if (!coopPartner.mesh) return;
-    const sameZone = (coopPartner.zone || 'island') === currentZone;
+    const normPartnerZone = (!coopPartner.zone || coopPartner.zone === 'overworld') ? 'island' : coopPartner.zone;
+    const normCurrentZone = (!currentZone || currentZone === 'overworld') ? 'island' : currentZone;
+    const sameZone = normPartnerZone === normCurrentZone;
+    const wasVisible = coopPartner.mesh.visible;
     coopPartner.mesh.visible = sameZone;
     if (coopPartner.labelEl) {
       coopPartner.labelEl.style.display = sameZone ? '' : 'none';
@@ -12681,6 +12746,9 @@
     if (coopPartner.mesh.parent !== currentScene) {
       if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
       currentScene.add(coopPartner.mesh);
+      coopPartner.mesh.position.copy(coopPartner.targetPos);
+    } else if (!wasVisible && sameZone) {
+      coopPartner.mesh.position.copy(coopPartner.targetPos);
     }
   }
 
@@ -12847,7 +12915,11 @@
       updateMetersUI();
     }
 
-    updatePlayerMovement(dt, elapsed);
+    try {
+      updatePlayerMovement(dt, elapsed);
+    } catch (err) {
+      console.error('[Blahaj] Movement update error:', err);
+    }
     updateMangeSettling(dt, elapsed);
     updateStuffingRegen(dt, elapsed);
     updateSavePointCapture(dt);
@@ -13324,8 +13396,8 @@
           const normDirZ = dirZ / len;
 
           const rawNext = {
-            x: player.pos.x + normDirX * speed * trolleyBoost * dt,
-            z: player.pos.z + normDirZ * speed * trolleyBoost * dt
+            x: player.pos.x + normDirX * speed * dt,
+            z: player.pos.z + normDirZ * speed * dt
           };
 
           const resolved = window.BlahajLaundromat.resolveMove(player.pos, rawNext, player.isGrounded, 0.35);
@@ -13463,8 +13535,8 @@
           const normDirZ = dirZ / len;
 
           const rawNext = {
-            x: player.pos.x + normDirX * speed * dt,
-            z: player.pos.z + normDirZ * speed * dt
+            x: player.pos.x + normDirX * speed * trolleyBoost * dt,
+            z: player.pos.z + normDirZ * speed * trolleyBoost * dt
           };
           const resolved = window.BlahajSpawningPits.resolveMove(player.pos, rawNext, player.isGrounded, 0.95);
           if (resolved && !isNaN(resolved.x) && !isNaN(resolved.z)) {
