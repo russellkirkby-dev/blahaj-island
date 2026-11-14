@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6.9" />
+  <link rel="stylesheet" href="styles.css?v=7.0" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -622,9 +622,9 @@
         </div>
       </div>
 
-      <!-- PASS 81: COMPACT SHARK PARTY SWITCHER (F1–F5) & ACTIVE FIN-SLOT MODIFIER PILL -->
+      <!-- PASS 81: COMPACT SHARK PARTY SWITCHER (F1–F4, Alt+1..5) & ACTIVE FIN-SLOT MODIFIER PILL -->
       <div class="mmo-subbar-row" id="mmo-subbar-row">
-        <div class="shark-switcher-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F5] or [Alt+1..5]">
+        <div class="shark-switcher-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F4] or [Alt+1..5]">
           <button type="button" class="shark-switcher-btn shark-slot active" data-shark="hermes" id="slot-1" title="[F1 / Alt+1] Play as Hermes (The Weary Guide)">
             <span class="sw-key">F1</span>
             <img src="assets/gallery/Hermes.png" alt="Hermes" />
@@ -645,8 +645,8 @@
             <img src="assets/gallery/Nimue.png" alt="Nimue" />
             <span class="sw-name">Nimue</span>
           </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[F5 / Alt+5] Play as Your Custom Named Shark (Rite of Detagging)">
-            <span class="sw-key">F5</span>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[Alt+5 / F6] Play as Your Custom Named Shark (Rite of Detagging)">
+            <span class="sw-key">Alt+5</span>
             <img src="assets/gallery/Names.png" alt="Custom Shark" />
             <span class="sw-name slot-name">Finley</span>
           </button>
@@ -1893,7 +1893,7 @@
           <div class="keybind-item"><span class="keybind-action">Whirlpool Tail Spin / Fin Deflection / Double Fin Aegis / Snoot Boop</span><span class="keybind-keys"><kbd>Q</kbd> / <kbd>E</kbd> / <kbd>R</kbd> / <kbd>F</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Secondary Ability Modifiers (Groom / Sky Leap)</span><span class="keybind-keys"><kbd>Shift+1</kbd> / <kbd>Shift+2</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Interact / Talk / Board Boat / Enter Machine</span><span class="keybind-keys"><kbd>E</kbd> (near prompt)</span></div>
-          <div class="keybind-item"><span class="keybind-action">Switch Playable Shark (Hermes, Solomon, Hiram, Nimue, Custom)</span><span class="keybind-keys"><kbd>F1</kbd>–<kbd>F5</kbd> or <kbd>Alt+1..5</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Switch Playable Shark (Hermes, Solomon, Hiram, Nimue, Custom)</span><span class="keybind-keys"><kbd>F1</kbd>–<kbd>F4</kbd> or <kbd>Alt+1..5</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Spellbook &amp; Fin Martial Arts Codex</span><span class="keybind-keys"><kbd>I</kbd> / <kbd>P</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Character Info &amp; Equipment / Satchel Bags</span><span class="keybind-keys"><kbd>C</kbd> / <kbd>B</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Archipelago World Map</span><span class="keybind-keys"><kbd>M</kbd></span></div>
@@ -2371,22 +2371,22 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=6.9"></script>
-  <script src="js/sharks3d.js?v=6.9"></script>
-  <script src="js/world3d.js?v=6.9"></script>
-  <script src="js/volcano.js?v=6.9"></script>
-  <script src="js/laundromat.js?v=6.9"></script>
-  <script src="js/sphericalFoods.js?v=6.9"></script>
-  <script src="js/volleyball.js?v=6.9"></script>
-  <script src="js/spawningPits.js?v=6.9"></script>
-  <script src="js/homestead.js?v=6.9"></script>
-  <script src="js/network.js?v=6.9"></script>
-  <script src="js/inventory.js?v=6.9"></script>
-  <script src="js/enemies.js?v=6.9"></script>
-  <script src="js/seam.js?v=6.9"></script>
-  <script src="js/mmoControls.js?v=6.9"></script>
+  <script src="js/lore.js?v=7.0"></script>
+  <script src="js/sharks3d.js?v=7.0"></script>
+  <script src="js/world3d.js?v=7.0"></script>
+  <script src="js/volcano.js?v=7.0"></script>
+  <script src="js/laundromat.js?v=7.0"></script>
+  <script src="js/sphericalFoods.js?v=7.0"></script>
+  <script src="js/volleyball.js?v=7.0"></script>
+  <script src="js/spawningPits.js?v=7.0"></script>
+  <script src="js/homestead.js?v=7.0"></script>
+  <script src="js/network.js?v=7.0"></script>
+  <script src="js/inventory.js?v=7.0"></script>
+  <script src="js/enemies.js?v=7.0"></script>
+  <script src="js/seam.js?v=7.0"></script>
+  <script src="js/mmoControls.js?v=7.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=6.9"></script>
-  <script src="js/main.js?v=6.9"></script>
+  <script src="js/saveSystem.js?v=7.0"></script>
+  <script src="js/main.js?v=7.0"></script>
 </body>
 </html>

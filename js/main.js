@@ -3761,6 +3761,12 @@
     });
 
     window.addEventListener('keydown', (e) => {
+      // Pass 85B: Never hijack native browser refresh, fullscreen, devtools, or Ctrl/Cmd system shortcuts
+      // (F5, Ctrl+F5, Ctrl+R, Ctrl+Shift+R, Cmd+R, Cmd+Shift+R, F11, F12, Ctrl+Shift+I, etc.)
+      if (e.key === 'F5' || e.key === 'F11' || e.key === 'F12' || e.ctrlKey || e.metaKey) {
+        return;
+      }
+
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
         clearAllMovementKeys();
         if (e.key === 'Escape') document.activeElement.blur();
@@ -3993,12 +3999,12 @@
         return;
       }
 
-      // Playable Shark Switcher: F1-F5 or Alt+1..5
+      // Playable Shark Switcher: F1-F4, F6, or Alt+1..5 (F5 is reserved for native Browser Refresh!)
       if (e.key === 'F1' || (e.altKey && e.code === 'Digit1')) { e.preventDefault(); spawnPlayerShark('hermes'); return; }
       if (e.key === 'F2' || (e.altKey && e.code === 'Digit2')) { e.preventDefault(); spawnPlayerShark('solomon'); return; }
       if (e.key === 'F3' || (e.altKey && e.code === 'Digit3')) { e.preventDefault(); spawnPlayerShark('hiram'); return; }
       if (e.key === 'F4' || (e.altKey && e.code === 'Digit4')) { e.preventDefault(); spawnPlayerShark('nimue'); return; }
-      if (e.key === 'F5' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
+      if (e.key === 'F6' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
 
       // MMO Number Row (1 through 6) & Shift/Ctrl Modifiers
       if (!e.altKey && !isAnyModalOpen() && /^Digit[1-6]$/.test(e.code)) {
