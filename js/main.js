@@ -2467,22 +2467,30 @@
   }
 
   // ==========================================================================
-  // PASS 83: LAST SAVE POINT (Where you return after Rebirth in the Spawning Pits)
-  // Captured on the main island only, when standing safely on solid ground.
+  // PASS 83/84: PERSISTENT WORLD POSITION & SAVE POINT
+  // Remembers where you are standing in the shared world so you always return to the same spot!
   // ==========================================================================
   const SAVE_POINT_KEY = 'blahaj_last_save_point_v1';
   let lastSavePoint = null;
+  let hasStoredSavePoint = false;
+  let hasMovedInSession = false;
   let savePointTimer = 0;
   try {
     const rawSp = localStorage.getItem(SAVE_POINT_KEY);
-    if (rawSp) lastSavePoint = JSON.parse(rawSp);
+    if (rawSp) {
+      const parsedSp = JSON.parse(rawSp);
+      if (parsedSp && typeof parsedSp.x === 'number' && typeof parsedSp.z === 'number') {
+        lastSavePoint = parsedSp;
+        hasStoredSavePoint = true;
+      }
+    }
   } catch (e) { lastSavePoint = null; }
   if (!lastSavePoint) {
     lastSavePoint = {
-      x: -12.5,
-      y: 5.89,
-      z: 19.2,
-      rotY: -Math.PI,
+      x: 58.0,
+      y: 3.9,
+      z: -10.0,
+      rotY: -Math.PI / 2,
       savedAt: Date.now()
     };
   }
@@ -2490,11 +2498,11 @@
   function isSafeToCaptureSavePoint() {
     return currentZone === 'island' && !isRebirthing && !isTransitioningZone &&
       player.isGrounded && !player.isSwimming && !player.inWater && !player.inBoat && !player.inCart &&
-      (player.stuffing ?? 100) >= 35 && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z);
+      (player.stuffing ?? 100) >= 25 && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z);
   }
 
   function captureSavePoint(force = false) {
-    if (!force && !isSafeToCaptureSavePoint()) return false;
+    if (!force && (!hasMovedInSession || !isSafeToCaptureSavePoint())) return false;
     if (currentZone !== 'island') return false;
     lastSavePoint = {
       x: Number(player.pos.x.toFixed(2)),
@@ -2503,17 +2511,25 @@
       rotY: Number((player.rotY || 0).toFixed(3)),
       savedAt: Date.now()
     };
+    hasStoredSavePoint = true;
     try { localStorage.setItem(SAVE_POINT_KEY, JSON.stringify(lastSavePoint)); } catch (e) {}
     return true;
   }
 
   function updateSavePointCapture(dt) {
+    if (!hasMovedInSession && Math.hypot(player.pos.x - lastSavePoint.x, player.pos.z - lastSavePoint.z) > 0.6) {
+      hasMovedInSession = true;
+    }
     savePointTimer += dt;
-    if (savePointTimer >= 20.0) {
+    if (savePointTimer >= 3.0) {
       savePointTimer = 0;
       captureSavePoint(false);
     }
   }
+
+  window.addEventListener('beforeunload', () => {
+    captureSavePoint(false);
+  });
 
   // Pass 83 Window exports for MMO Controls & HUD
   window.spendMangeForAbility = spendMangeForAbility;
@@ -2841,19 +2857,12 @@
       }, 800);
     }
 
-    // Pass 74: First-time new sharks wake up inside the 3D IKEA Spawning Pits Wire Bin (#303.735.88)
-    // and escape to Blåhaj Island while gathering their first SKÄRHAJ Flat-Pack Kits!
-    const hasEscapedPits = localStorage.getItem('blahaj_escaped_spawning_pits_v1') === 'true';
-    const isFounder = window.BlahajSaveSystem && typeof window.BlahajSaveSystem.isFounderArchodect === 'function'
-      ? window.BlahajSaveSystem.isFounderArchodect()
-      : false;
-    if (!hasEscapedPits && !isFounder && currentZone !== 'spawning_pits') {
-      setTimeout(() => {
-        if (currentZone !== 'spawning_pits') {
-          enterSpawningPits(true);
-        }
-      }, 320);
-    }
+    // Pass 84: Persistent Shared World by Default!
+    // Players always enter the shared Blåhaj Island overworld together on login.
+    // Going to the IKEA Spawning Pits instance is strictly an exception (when Stuffing Coherence drops to 0 or via the Raid Portal).
+    try {
+      localStorage.setItem('blahaj_escaped_spawning_pits_v1', 'true');
+    } catch (e) {}
   }
 
   async function init() {
@@ -2901,6 +2910,16 @@
       window.BlahajHomestead.buildSurfaceSetPieces(scene, worldApi);
     }
     loadSavedStructures();
+
+    // Pass 84: Restore persistent world position so returning players wake up right where they left off!
+    if (hasStoredSavePoint && lastSavePoint && Number.isFinite(lastSavePoint.x) && Number.isFinite(lastSavePoint.z)) {
+      player.pos.x = lastSavePoint.x;
+      player.pos.z = lastSavePoint.z;
+      if (typeof lastSavePoint.rotY === 'number' && Number.isFinite(lastSavePoint.rotY)) {
+        player.rotY = lastSavePoint.rotY;
+        camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+      }
+    }
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
 
     setLoadingProgress(48, 'Placing landmarks, Birb sanctuary & bread oven…');
@@ -3724,9 +3743,9 @@
         while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
         while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
 
-        // Pass 82B: Effortless Mouse Drag Steer!
-        // Dragging with either Right-Click or Left-Click turns the shark to match mouse aim (hold Alt + Left-Drag for stationary free-look)
-        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving || ((camState.isLeftDown || camState.isLeftDragging) && !e.altKey)) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
+        // Pass 84: Classic MMO Camera Split!
+        // Left-Click + Drag freely orbits the camera around your shark (Free-Look); Right-Click + Drag steers the shark!
+        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
           player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
           player.clickTurnTimer = 0;
           camState.hasFreeLookOffset = false;
@@ -12029,6 +12048,168 @@
     });
   }
 
+  const ZONE_DISPLAY_NAMES = {
+    island: 'Main Island',
+    spherical_foods: 'Chez Betterave Bistro',
+    laundromat: 'The Laundromat',
+    volcano: 'Mount Blåhaj Volcano',
+    sea_cave: 'Starlight Sea-Cave Grotto',
+    spawning_pits: 'IKEA Spawning Pits',
+    volleyball: 'Crescent Beach Volleyball'
+  };
+
+  function getZoneFriendlyName(z) {
+    return ZONE_DISPLAY_NAMES[z || 'island'] || 'Main Island';
+  }
+
+  function teleportToCoopPartner() {
+    if (!coopPartner.active) {
+      CozyAudio.portalChime();
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.forceReconnect === 'function') {
+        window.BlahajNetwork.forceReconnect();
+      }
+      showToast('SCANNING SHARED WORLD… 🌌', 'Re-probing all realm slots to link up with your partner!');
+      return;
+    }
+
+    const pModal = document.getElementById('portal-modal');
+    if (pModal && !pModal.classList.contains('hidden')) {
+      pModal.classList.add('hidden');
+    }
+
+    const targetZone = coopPartner.zone || 'island';
+    const pPos = coopPartner.targetPos;
+    const partnerName = (LORE.sharks[coopPartner.sharkId] && LORE.sharks[coopPartner.sharkId].name) || 'Partner';
+
+    const snapBesidePartner = () => {
+      const offsetAngle = (coopPartner.targetRotY || 0) + Math.PI * 0.5;
+      const tx = pPos.x + Math.sin(offsetAngle) * 2.1;
+      const tz = pPos.z + Math.cos(offsetAngle) * 2.1;
+      const ty = (currentZone === 'island' && worldApi)
+        ? Math.max(pPos.y, worldApi.getGroundAndStructureHeight(tx, tz))
+        : pPos.y;
+      player.inBoat = !!coopPartner.inBoat;
+      player.pos.set(tx, ty, tz);
+      player.rotY = Math.atan2(pPos.x - tx, pPos.z - tz);
+      camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+      player.velY = 0;
+      player.isGrounded = true;
+      if (player.mesh) {
+        player.mesh.position.copy(player.pos);
+        player.mesh.rotation.y = player.rotY;
+      }
+      hasMovedInSession = true;
+      captureSavePoint(true);
+      updateCoopPartnerVisibility();
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0x52f29c, 22);
+      spawnFloatingBurst(player.pos, 0xff7eb6, 18);
+      showToast('JOINED YOUR PARTNER! 🦈💕🦈', `Warped directly beside ${partnerName} in ${getZoneFriendlyName(targetZone)}!`);
+      addChatLog(`✨ <strong>Shared World Warp:</strong> Teleported directly beside <strong>${partnerName}</strong> in <em>${getZoneFriendlyName(targetZone)}</em>!`, 'coop');
+    };
+
+    if (currentZone === targetZone) {
+      snapBesidePartner();
+      return;
+    }
+
+    if (targetZone === 'island') {
+      if (currentZone === 'laundromat') exitLaundromat();
+      else if (currentZone === 'spherical_foods') exitSphericalFoods();
+      else if (currentZone === 'volcano') exitVolcanoTrial();
+      else if (currentZone === 'sea_cave') exitSeaCaveGrotto();
+      else if (currentZone === 'spawning_pits') exitSpawningPits();
+      else if (currentZone === 'volleyball') exitVolleyballCourt();
+      setTimeout(snapBesidePartner, 650);
+    } else if (targetZone === 'laundromat') {
+      enterLaundromat();
+      setTimeout(snapBesidePartner, 650);
+    } else if (targetZone === 'spherical_foods') {
+      enterSphericalFoods();
+      setTimeout(snapBesidePartner, 650);
+    } else if (targetZone === 'volcano') {
+      enterVolcanoTrial();
+      setTimeout(snapBesidePartner, 650);
+    } else if (targetZone === 'sea_cave') {
+      enterSeaCaveGrotto();
+      setTimeout(snapBesidePartner, 650);
+    } else {
+      snapBesidePartner();
+    }
+  }
+
+  function broadcastSharedWorldState() {
+    if (!window.BlahajNetwork) return;
+
+    window.BlahajNetwork.send({
+      type: 'shark_swap',
+      sharkId: player.sharkId,
+      mange: window.__BLAHAJ_MANGE__
+    });
+
+    if (worldApi && worldApi.getBuiltStructures().length > 0) {
+      const items = worldApi.getBuiltStructures().map((s) => ({
+        id: s.id,
+        type: s.type,
+        x: s.x,
+        y: s.y,
+        z: s.z,
+        rotY: s.rotY,
+        builder: s.builder
+      }));
+      window.BlahajNetwork.send({ type: 'build_sync', items });
+    }
+
+    if (worldPickups) {
+      const droppedItems = worldPickups.getPickups()
+        .filter((p) => !p.isStatic && !p.collected)
+        .map((p) => ({
+          id: p.id,
+          itemType: p.type,
+          pos: p.pos,
+          count: p.count
+        }));
+      if (droppedItems.length > 0) {
+        window.BlahajNetwork.send({
+          type: 'pickups_sync',
+          items: droppedItems
+        });
+      }
+    }
+
+    if (communityTrunk && typeof communityTrunk.getSlots === 'function') {
+      window.BlahajNetwork.send({
+        type: 'trunk_sync',
+        slots: communityTrunk.getSlots()
+      });
+    }
+
+    if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
+      window.BlahajVolleyball.broadcastMatchSync(true);
+    }
+
+    if (window.BlahajSeam && typeof window.BlahajSeam.getSyncState === 'function') {
+      window.BlahajNetwork.send({
+        type: 'seam_sync',
+        state: window.BlahajSeam.getSyncState()
+      });
+    }
+
+    if (islandClaims && Object.keys(islandClaims).length > 0) {
+      window.BlahajNetwork.send({
+        type: 'island_claims_sync',
+        claims: islandClaims
+      });
+    }
+
+    if (Array.isArray(pierNotes) && pierNotes.length > 0) {
+      window.BlahajNetwork.send({
+        type: 'pier_notes_sync',
+        notes: pierNotes
+      });
+    }
+  }
+
   function setupNetwork() {
     const copyBtn = document.getElementById('btn-copy-tunnel-url');
     if (copyBtn) {
@@ -12048,8 +12229,34 @@
       newRoomBtn.addEventListener('click', () => {
         const newCode = window.BlahajNetwork.generatePrivateRoom();
         CozyAudio.portalChime();
-        showToast('PRIVATE ROOM CREATED! 🎲', `Switched to secret room ${newCode}! Click "Copy Link" to send to Helen.`);
-        addChatLog(`🎲 Switched to secret private room <strong>${newCode}</strong>.`, 'system');
+        showToast('PRIVATE INSTANCE CREATED! 🎲', `Switched to temporary instance ${newCode}! Click "Return to Shared World" anytime to rejoin SHONK-LOVE.`);
+        addChatLog(`🎲 Switched to temporary private instance <strong>${newCode}</strong>.`, 'system');
+      });
+    }
+
+    const resetRealmBtn = document.getElementById('btn-reset-home-realm');
+    if (resetRealmBtn) {
+      resetRealmBtn.addEventListener('click', () => {
+        CozyAudio.portalChime();
+        if (window.BlahajNetwork && typeof window.BlahajNetwork.resetToHomeRealm === 'function') {
+          window.BlahajNetwork.resetToHomeRealm();
+        }
+        showToast('RETURNED TO SHARED HOME WORLD! 🏠🌍', 'Back in the permanent shared world (SHONK-LOVE)!');
+        addChatLog('🏠 <strong>Shared World:</strong> Returned to canonical home realm <strong>SHONK-LOVE</strong>.', 'coop');
+      });
+    }
+
+    const hudTpBtn = document.getElementById('btn-party-teleport');
+    if (hudTpBtn) {
+      hudTpBtn.addEventListener('click', () => {
+        teleportToCoopPartner();
+      });
+    }
+
+    const modalTpBtn = document.getElementById('btn-modal-teleport-partner');
+    if (modalTpBtn) {
+      modalTpBtn.addEventListener('click', () => {
+        teleportToCoopPartner();
       });
     }
 
@@ -12060,7 +12267,7 @@
         if (window.BlahajNetwork && typeof window.BlahajNetwork.forceReconnect === 'function') {
           window.BlahajNetwork.forceReconnect();
         }
-        showToast('PORTAL RE-LINKING! ⚡', 'Cleared stale sockets and re-probing for partner in room!');
+        showToast('PORTAL RE-LINKING! ⚡', 'Cleared stale sockets and re-probing all 6 shared world slots!');
         addChatLog('⚡ <strong>Portal Gateway:</strong> Re-linking connection and re-probing peer slots.', 'system');
       });
     }
@@ -12072,7 +12279,7 @@
         const code = inp ? inp.value : '';
         CozyAudio.portalChime();
         window.BlahajNetwork.setRoom(code);
-        showToast('PORTAL ROOM SET 🌌', `Switched to Room ${code.trim().toUpperCase()}!`);
+        showToast('PORTAL INSTANCE SET 🌌', `Switched to ${code.trim().toUpperCase()}!`);
       });
     }
 
@@ -12083,7 +12290,7 @@
         const code = inp ? inp.value : '';
         CozyAudio.portalChime();
         window.BlahajNetwork.setRoom(code);
-        showToast('STEPPED THROUGH PORTAL 🌌', `Joined Room ${code.trim().toUpperCase()}!`);
+        showToast('STEPPED THROUGH PORTAL 🌌', `Joined ${code.trim().toUpperCase()}!`);
       });
     }
 
@@ -12101,66 +12308,9 @@
           spawnPlayerShark(alt);
         }
         spawnCoopPartnerShark(partnerShark);
-        showToast('PORTAL LINK ESTABLISHED! 🦈💕🦈', 'Connected across the ocean! You are now on Blåhaj Island together!');
-        addChatLog('🌌 <strong>Great Portal Gate:</strong> Connected across the ocean! You are now exploring together.', 'coop');
-        window.BlahajNetwork.send({
-          type: 'shark_swap',
-          sharkId: player.sharkId,
-          mange: window.__BLAHAJ_MANGE__
-        });
-
-        // Share any existing Hiram-built structures with our partner on connect!
-        if (worldApi && worldApi.getBuiltStructures().length > 0) {
-          const items = worldApi.getBuiltStructures().map((s) => ({
-            id: s.id,
-            type: s.type,
-            x: s.x,
-            y: s.y,
-            z: s.z,
-            rotY: s.rotY,
-            builder: s.builder
-          }));
-          window.BlahajNetwork.send({ type: 'build_sync', items });
-        }
-
-        // Sync dropped world pickups on connect so partner sees all currently dropped items
-        if (worldPickups) {
-          const droppedItems = worldPickups.getPickups()
-            .filter((p) => !p.isStatic && !p.collected)
-            .map((p) => ({
-              id: p.id,
-              itemType: p.type,
-              pos: p.pos,
-              count: p.count
-            }));
-          if (droppedItems.length > 0) {
-            window.BlahajNetwork.send({
-              type: 'pickups_sync',
-              items: droppedItems
-            });
-          }
-        }
-
-        // Sync shared Archipelago Community Trunk on connect
-        if (communityTrunk && typeof communityTrunk.getSlots === 'function') {
-          window.BlahajNetwork.send({
-            type: 'trunk_sync',
-            slots: communityTrunk.getSlots()
-          });
-        }
-
-        // Sync active Crescent Beach volleyball match on connect
-        if (window.BlahajVolleyball && window.BlahajVolleyball.isMatchActive()) {
-          window.BlahajVolleyball.broadcastMatchSync(true);
-        }
-
-        // Sync The Great Seam 6 rifts on connect so both players see the exact same state
-        if (window.BlahajSeam && typeof window.BlahajSeam.getSyncState === 'function') {
-          window.BlahajNetwork.send({
-            type: 'seam_sync',
-            state: window.BlahajSeam.getSyncState()
-          });
-        }
+        showToast('SHARED WORLD LINKED! 🦈💕🦈', 'Connected across the ocean! Click [✨ Join] on the top-left HUD anytime to warp to your partner!');
+        addChatLog('🌌 <strong>Shared World Linked:</strong> You and your partner are in the same persistent world! Click <strong>[✨ Join]</strong> on the top-left HUD to warp to their side anytime.', 'coop');
+        broadcastSharedWorldState();
       },
       onData(data) {
         if (data.type === 'enemy_boop') {
@@ -12261,6 +12411,18 @@
             if (worldApi.placeBuiltStructure(item)) added++;
           });
           if (added > 0) saveBuiltStructuresToStorage();
+        } else if (data.type === 'island_claims_sync' && data.claims && typeof data.claims === 'object') {
+          Object.assign(islandClaims, data.claims);
+          try { localStorage.setItem('blahaj_island_claims_v1', JSON.stringify(islandClaims)); } catch (e) {}
+        } else if (data.type === 'pier_notes_sync' && Array.isArray(data.notes)) {
+          let addedNote = false;
+          data.notes.forEach((n) => {
+            if (n && n.text && !pierNotes.some((ex) => ex.text === n.text && ex.author === n.author)) {
+              pierNotes.push(n);
+              addedNote = true;
+            }
+          });
+          if (addedNote) savePierNotes();
         } else if (data.type === 'island_claim' && data.islandId) {
           islandClaims[data.islandId] = data.claimer || 'Partner';
           localStorage.setItem('blahaj_island_claims_v1', JSON.stringify(islandClaims));
@@ -14847,13 +15009,38 @@
 
     worldActors.forEach((act) => {
       if (!act.mesh.visible) return;
-      projectLabel(act.mesh.position, act.labelEl, 3.25);
+      projectLabel(act.mesh.position, act.labelEl, 3.25, false);
     });
 
     if (coopPartner.active && coopPartner.mesh && coopPartner.labelEl) {
-      const sameZone = (coopPartner.zone || 'island') === currentZone;
+      const pZone = coopPartner.zone || 'island';
+      const sameZone = pZone === currentZone;
+      const distToPlayer = Math.round(coopPartner.mesh.position.distanceTo(player.pos));
+      const zoneName = getZoneFriendlyName(pZone);
+
+      const subEl = document.getElementById('coop-status-sub');
+      if (subEl) {
+        const nextSub = sameZone
+          ? (distToPlayer <= 20
+              ? `🦈 Beside you in <strong>${zoneName}</strong> (${distToPlayer}m)`
+              : `📍 <strong>${distToPlayer}m away</strong> in ${zoneName} — Click <strong>[✨ Join]</strong>!`)
+          : `🚪 Partner is in <strong>${zoneName}</strong> — Click <strong>[✨ Join]</strong>!`;
+        if (subEl._lastPartnerSub !== nextSub) {
+          subEl.innerHTML = nextSub;
+          subEl._lastPartnerSub = nextSub;
+        }
+      }
+
       if (sameZone && coopPartner.mesh.visible) {
-        projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35);
+        const tagEl = coopPartner.labelEl.querySelector('.npc-tag');
+        if (tagEl) {
+          const nextTag = distToPlayer > 12 ? `★ PARTNER SHARK · ${distToPlayer}m` : '★ CROSS-OCEAN CO-OP SHARK';
+          if (tagEl._lastText !== nextTag) {
+            tagEl.textContent = nextTag;
+            tagEl._lastText = nextTag;
+          }
+        }
+        projectLabel(coopPartner.mesh.position, coopPartner.labelEl, 3.35, true);
       } else {
         coopPartner.labelEl.style.opacity = '0';
         coopPartner.labelEl.style.display = 'none';
@@ -14940,14 +15127,14 @@
   }
 
   const _projScratch = new THREE.Vector3();
-  function projectLabel(worldPos, domEl, heightOffset) {
+  function projectLabel(worldPos, domEl, heightOffset, isPartnerBeacon = false) {
     if (!domEl) return;
     _projScratch.copy(worldPos);
     _projScratch.y += heightOffset;
     const dist = _projScratch.distanceTo(camera.position);
 
-    // Proximity Fade: Smoothly fade between 8m and 18m. Completely hidden beyond 18m!
-    if (dist > 18.0) {
+    const maxDist = isPartnerBeacon ? 800.0 : 18.0;
+    if (dist > maxDist) {
       if (domEl._lastDisplay !== 'none') {
         domEl.style.opacity = '0';
         domEl.style.display = 'none';
@@ -14966,13 +15153,19 @@
       return;
     }
 
-    const x = (_projScratch.x * 0.5 + 0.5) * window.innerWidth;
-    const y = (-(_projScratch.y * 0.5) + 0.5) * window.innerHeight;
+    let x = (_projScratch.x * 0.5 + 0.5) * window.innerWidth;
+    let y = (-(_projScratch.y * 0.5) + 0.5) * window.innerHeight;
+    if (isPartnerBeacon) {
+      x = Math.max(80, Math.min(window.innerWidth - 80, x));
+      y = Math.max(70, Math.min(window.innerHeight - 90, y));
+    }
     if (domEl._lastDisplay !== '') {
       domEl.style.display = '';
       domEl._lastDisplay = '';
     }
-    const opacity = (dist <= 8.0 ? 1.0 : Math.max(0, (18.0 - dist) / 10.0)).toFixed(2);
+    const opacity = isPartnerBeacon
+      ? '0.96'
+      : (dist <= 8.0 ? 1.0 : Math.max(0, (18.0 - dist) / 10.0)).toFixed(2);
     if (domEl._lastOpacity !== opacity) {
       domEl.style.opacity = opacity;
       domEl._lastOpacity = opacity;
@@ -15153,6 +15346,7 @@
     castBetweenPortalFastTravel,
     selectMapLandmark,
     renderIslandMap,
+    teleportToCoopPartner,
     spawnPlayerShark,
     switchShark: (sharkId) => spawnPlayerShark(sharkId),
     toggleBuilderMode,
