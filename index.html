@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=7.0" />
+  <link rel="stylesheet" href="styles.css?v=7.1" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1885,8 +1885,8 @@
         <div class="keybinds-table">
           <div class="keybind-item"><span class="keybind-action">Move Forward / Backward</span><span class="keybind-keys"><kbd>W</kbd> / <kbd>S</kbd> or <kbd>Left+Right Click</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Strafe Left / Right (or Classic Turn in Settings)</span><span class="keybind-keys"><kbd>A</kbd> / <kbd>D</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Free-Look Orbit Camera (Keep Facing)</span><span class="keybind-keys"><kbd>Left-Click + Drag</kbd></span></div>
-          <div class="keybind-item"><span class="keybind-action">Steer Shark &amp; Lock Camera Behind</span><span class="keybind-keys"><kbd>Right-Click + Drag</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Orbit Camera Around Character (No Click Needed)</span><span class="keybind-keys"><kbd>Move Mouse</kbd></span></div>
+          <div class="keybind-item"><span class="keybind-action">Toggle Free Mouse Cursor (Click HUD / Menus)</span><span class="keybind-keys"><kbd>Alt</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Tab-Target Cycle Enemies / Entities</span><span class="keybind-keys"><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> / <kbd>Left-Click</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Jump / Double-Jump / Swim Up</span><span class="keybind-keys"><kbd>Space</kbd></span></div>
           <div class="keybind-item"><span class="keybind-action">Primary Fin &amp; Tail Martial Arts Bar</span><span class="keybind-keys"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd> <kbd>6</kbd></span></div>
@@ -2356,7 +2356,7 @@
       <div id="sb-shark-header" class="sb-shark-header"></div>
       <div id="sb-fin-mod-banner" class="sb-fin-mod-banner"></div>
       <div class="sb-controls-hint">
-        <span>🎯 <strong>Tab</strong> Cycles Targets · <strong>Left-Drag</strong> Free-Look Camera · <strong>Right-Drag</strong> Steer Shark · <strong>L+R Click</strong> Auto-Run</span>
+        <span>🎯 <strong>Tab</strong> Cycles Targets · <strong>Mouse</strong> Orbit Camera · <strong>Alt</strong> Toggle Free Mouse · <strong>L+R Click</strong> Auto-Run</span>
         <span>⚔️ Click any learned move’s <strong>Bind Key</strong> below to map it to <code>1–6</code>, <code>Q</code>, <code>E</code>, <code>R</code>, <code>F</code>, or <code>Shift+1/2</code>!</span>
       </div>
       <div id="spellbook-abilities-grid" class="spellbook-abilities-grid"></div>
@@ -2371,22 +2371,22 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=7.0"></script>
-  <script src="js/sharks3d.js?v=7.0"></script>
-  <script src="js/world3d.js?v=7.0"></script>
-  <script src="js/volcano.js?v=7.0"></script>
-  <script src="js/laundromat.js?v=7.0"></script>
-  <script src="js/sphericalFoods.js?v=7.0"></script>
-  <script src="js/volleyball.js?v=7.0"></script>
-  <script src="js/spawningPits.js?v=7.0"></script>
-  <script src="js/homestead.js?v=7.0"></script>
-  <script src="js/network.js?v=7.0"></script>
-  <script src="js/inventory.js?v=7.0"></script>
-  <script src="js/enemies.js?v=7.0"></script>
-  <script src="js/seam.js?v=7.0"></script>
-  <script src="js/mmoControls.js?v=7.0"></script>
+  <script src="js/lore.js?v=7.1"></script>
+  <script src="js/sharks3d.js?v=7.1"></script>
+  <script src="js/world3d.js?v=7.1"></script>
+  <script src="js/volcano.js?v=7.1"></script>
+  <script src="js/laundromat.js?v=7.1"></script>
+  <script src="js/sphericalFoods.js?v=7.1"></script>
+  <script src="js/volleyball.js?v=7.1"></script>
+  <script src="js/spawningPits.js?v=7.1"></script>
+  <script src="js/homestead.js?v=7.1"></script>
+  <script src="js/network.js?v=7.1"></script>
+  <script src="js/inventory.js?v=7.1"></script>
+  <script src="js/enemies.js?v=7.1"></script>
+  <script src="js/seam.js?v=7.1"></script>
+  <script src="js/mmoControls.js?v=7.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=7.0"></script>
-  <script src="js/main.js?v=7.0"></script>
+  <script src="js/saveSystem.js?v=7.1"></script>
+  <script src="js/main.js?v=7.1"></script>
 </body>
 </html>

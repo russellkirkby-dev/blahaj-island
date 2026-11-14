@@ -2630,7 +2630,9 @@
     isChordMoving: false,
     isAutoRunning: false,
     hasFreeLookOffset: false,
+    freeMouse: false,
     isDragPointerLock: false,
+    isAltToggleUnlock: false,
     isPointerLocked: false
   };
 
@@ -3482,8 +3484,10 @@
     let lastClientY = null;
     let prevPointerDx = 0;
     let prevPointerDy = 0;
+    let altComboUsed = false;
 
     document.addEventListener('pointerlockchange', () => {
+      const wasLocked = camState.isPointerLocked;
       camState.isPointerLocked = document.pointerLockElement === canvas;
       lastClientX = null;
       lastClientY = null;
@@ -3492,8 +3496,13 @@
       if (!camState.isPointerLocked) {
         if (camState.isDragPointerLock) {
           camState.isDragPointerLock = false;
+        } else if (camState.isAltToggleUnlock) {
+          camState.isAltToggleUnlock = false;
         } else {
           clearAllMovementKeys();
+          if (wasLocked && !isAnyModalOpen()) {
+            camState.freeMouse = true;
+          }
         }
         const vhudCard = document.getElementById('volcano-hud-card');
         if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
@@ -3627,7 +3636,7 @@
       }
       camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
 
-      if (!camState.isLeftDown && !camState.isRightDown && document.pointerLockElement === canvas) {
+      if (!camState.isLeftDown && !camState.isRightDown && camState.freeMouse && document.pointerLockElement === canvas) {
         camState.isDragPointerLock = true;
         document.exitPointerLock?.();
       }
@@ -3640,6 +3649,10 @@
         } else if (e.button === 2 && window.BlahajMMO) {
           window.BlahajMMO.handleCanvasClick(e.clientX, e.clientY, camera, true);
         }
+      }
+
+      if (!camState.freeMouse && !isAnyModalOpen() && document.pointerLockElement !== canvas) {
+        try { canvas.requestPointerLock?.(); } catch (err) {}
       }
     });
 
@@ -3656,7 +3669,7 @@
       if (!camState.isLeftDragging && !camState.isRightDragging) {
         lastClientX = null;
         lastClientY = null;
-        if (document.pointerLockElement === canvas) {
+        if (camState.freeMouse && document.pointerLockElement === canvas) {
           camState.isDragPointerLock = true;
           document.exitPointerLock?.();
         }
@@ -3670,9 +3683,14 @@
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (isAnyModalOpen()) return;
+      if (isAnyModalOpen()) {
+        lastClientX = null;
+        lastClientY = null;
+        return;
+      }
 
-      if (camState.isPointerLocked || camState.isRightDragging || camState.isLeftDragging) {
+      const shouldOrbit = camState.isPointerLocked || !camState.freeMouse || camState.isRightDragging || camState.isLeftDragging;
+      if (shouldOrbit) {
         let dx = 0;
         let dy = 0;
 
@@ -3698,7 +3716,7 @@
           dx = Math.max(-120, Math.min(120, rawDx));
           dy = Math.max(-90, Math.min(90, rawDy));
         } else {
-          // Drag mode: compute delta using smooth client coordinates
+          // Smooth client coordinate delta for orbit mode before pointer lock or drag fallback in free mouse mode
           if (lastClientX !== null && lastClientY !== null) {
             dx = e.clientX - lastClientX;
             dy = e.clientY - lastClientY;
@@ -3706,13 +3724,14 @@
           lastClientX = e.clientX;
           lastClientY = e.clientY;
 
-          // Generous safe clamping for smooth click-and-drag turns
           dx = Math.max(-100, Math.min(100, dx));
           dy = Math.max(-80, Math.min(80, dy));
-          accumDragDist += Math.hypot(dx, dy);
+          if (camState.isLeftDown || camState.isRightDown) {
+            accumDragDist += Math.hypot(dx, dy);
+          }
 
-          // True MMO Cursor Hide & Lock while dragging!
-          if (accumDragDist >= 5 && (camState.isLeftDown || camState.isRightDown) && document.pointerLockElement !== canvas) {
+          // Lock pointer when dragging in free mouse mode
+          if (camState.freeMouse && accumDragDist >= 5 && (camState.isLeftDown || camState.isRightDown) && document.pointerLockElement !== canvas) {
             camState.isDragPointerLock = true;
             try { canvas.requestPointerLock?.(); } catch (err) {}
           }
@@ -3743,13 +3762,12 @@
         while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
         while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
 
-        // Pass 84: Classic MMO Camera Split!
-        // Left-Click + Drag freely orbits the camera around your shark (Free-Look); Right-Click + Drag steers the shark!
+        // Orbit around character while standing still; Right-Click+Drag or walking aligns character to camera
         if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
           player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
           player.clickTurnTimer = 0;
           camState.hasFreeLookOffset = false;
-        } else if (camState.isLeftDown || camState.isLeftDragging) {
+        } else {
           camState.hasFreeLookOffset = true;
         }
       }
@@ -3765,6 +3783,16 @@
       // (F5, Ctrl+F5, Ctrl+R, Ctrl+Shift+R, Cmd+R, Cmd+Shift+R, F11, F12, Ctrl+Shift+I, etc.)
       if (e.key === 'F5' || e.key === 'F11' || e.key === 'F12' || e.ctrlKey || e.metaKey) {
         return;
+      }
+
+      // Pass 86: Track Alt key for Free-Mouse toggle (prevent Windows browser menu focus, allow Alt+1..5 combos)
+      if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
+        e.preventDefault();
+        if (!e.repeat) altComboUsed = false;
+        return;
+      }
+      if (e.altKey) {
+        altComboUsed = true;
       }
 
       if (document.activeElement && document.activeElement.tagName === 'INPUT') {
@@ -4207,6 +4235,26 @@
     });
 
     window.addEventListener('keyup', (e) => {
+      if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
+        e.preventDefault();
+        if (!altComboUsed && !isAnyModalOpen()) {
+          camState.freeMouse = !camState.freeMouse;
+          lastClientX = null;
+          lastClientY = null;
+          if (camState.freeMouse) {
+            if (document.pointerLockElement === canvas) {
+              camState.isAltToggleUnlock = true;
+              document.exitPointerLock?.();
+            }
+            showToast('🖱️ FREE MOUSE: ON [Alt]', 'Cursor unlocked to click HUD, targets & menus. Press [Alt] again to orbit camera.');
+          } else {
+            try { canvas.requestPointerLock?.(); } catch (err) {}
+            showToast('🎥 CAMERA ORBIT: ON [Alt]', 'Move mouse to orbit around your shark. Walk (WASD) to move in the camera direction!');
+          }
+        }
+        altComboUsed = false;
+        return;
+      }
       const k = (e.key || '').toLowerCase();
       const mapped = mapCodeToKey(e.code);
       if (k) keys[k] = false;
