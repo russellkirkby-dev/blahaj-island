@@ -2633,6 +2633,7 @@
     freeMouse: false,
     isDragPointerLock: false,
     isAltToggleUnlock: false,
+    isModalPointerUnlock: false,
     isPointerLocked: false
   };
 
@@ -3498,6 +3499,8 @@
           camState.isDragPointerLock = false;
         } else if (camState.isAltToggleUnlock) {
           camState.isAltToggleUnlock = false;
+        } else if (camState.isModalPointerUnlock) {
+          camState.isModalPointerUnlock = false;
         } else {
           clearAllMovementKeys();
           if (wasLocked && !isAnyModalOpen()) {
@@ -3642,12 +3645,14 @@
       }
 
       if (dragDist < 6 && !isAnyModalOpen()) {
+        const clickX = camState.isPointerLocked ? (window.innerWidth * 0.5) : e.clientX;
+        const clickY = camState.isPointerLocked ? (window.innerHeight * 0.5) : e.clientY;
         if (e.button === 0 && builderState.active) {
           placeActiveBlueprint();
         } else if (e.button === 0 && window.BlahajMMO) {
-          window.BlahajMMO.handleCanvasClick(e.clientX, e.clientY, camera, false);
+          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, camState.isPointerLocked);
         } else if (e.button === 2 && window.BlahajMMO) {
-          window.BlahajMMO.handleCanvasClick(e.clientX, e.clientY, camera, true);
+          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, true, camState.isPointerLocked);
         }
       }
 
@@ -3888,8 +3893,13 @@
           return;
         }
         const mapModal = document.getElementById('modal-island-map');
-        if (mapModal && mapModal.classList.contains('open')) {
+        if (mapModal && (!mapModal.classList.contains('hidden') || mapModal.classList.contains('open'))) {
           closeIslandMap();
+          return;
+        }
+        const trunkModal = document.getElementById('community-trunk-modal');
+        if (trunkModal && !trunkModal.classList.contains('hidden')) {
+          closeCommunityTrunkModal();
           return;
         }
         const raidModal = document.getElementById('modal-spawning-pits-raid');
@@ -4263,43 +4273,35 @@
   }
 
   function isAnyModalOpen() {
-    const skyFlyout = document.getElementById('sky-controls-flyout');
-    const isSkyOpen = skyFlyout && !skyFlyout.classList.contains('hidden');
-    const csModal = document.getElementById('character-sheet-modal');
-    const isCSOpen = csModal && !csModal.classList.contains('hidden');
-    const setModal = document.getElementById('settings-modal');
-    const isSetOpen = setModal && !setModal.classList.contains('hidden');
-    const travelModal = document.getElementById('modal-fast-travel');
-    const isTravelOpen = travelModal && !travelModal.classList.contains('hidden');
-    const detagModal = document.getElementById('modal-rite-of-detagging');
-    const isDetagOpen = detagModal && !detagModal.classList.contains('hidden');
-    const googleModal = document.getElementById('modal-google-connect');
-    const isGoogleOpen = googleModal && !googleModal.classList.contains('hidden');
-    const raidModal = document.getElementById('modal-spawning-pits-raid');
-    const isRaidOpen = raidModal && !raidModal.classList.contains('hidden');
-    const hsModal = document.getElementById('modal-homestead-commissions');
-    const isHsOpen = hsModal && !hsModal.classList.contains('hidden');
-    const sbModal = document.getElementById('spellbook-modal');
-    const isSbOpen = sbModal && !sbModal.classList.contains('hidden');
+    const isVisible = (id) => {
+      const el = document.getElementById(id);
+      return !!(el && !el.classList.contains('hidden'));
+    };
+    const mapModal = document.getElementById('modal-island-map');
+    const isMapOpen = !!(mapModal && (!mapModal.classList.contains('hidden') || mapModal.classList.contains('open')));
     return (
-      isSkyOpen ||
-      isCSOpen ||
-      isSetOpen ||
-      isTravelOpen ||
-      isDetagOpen ||
-      isGoogleOpen ||
-      isRaidOpen ||
-      isHsOpen ||
-      isSbOpen ||
-      !document.getElementById('dialogue-modal').classList.contains('hidden') ||
-      !document.getElementById('portal-modal').classList.contains('hidden') ||
-      !document.getElementById('gallery-modal').classList.contains('hidden') ||
-      !document.getElementById('upgrades-modal').classList.contains('hidden')
+      isMapOpen ||
+      isVisible('sky-controls-flyout') ||
+      isVisible('character-sheet-modal') ||
+      isVisible('community-trunk-modal') ||
+      isVisible('settings-modal') ||
+      isVisible('modal-fast-travel') ||
+      isVisible('modal-rite-of-detagging') ||
+      isVisible('modal-google-connect') ||
+      isVisible('modal-spawning-pits-raid') ||
+      isVisible('modal-homestead-commissions') ||
+      isVisible('spellbook-modal') ||
+      isVisible('dialogue-modal') ||
+      isVisible('portal-modal') ||
+      isVisible('gallery-modal') ||
+      isVisible('upgrades-modal') ||
+      isVisible('instance-loading')
     );
   }
 
   function releasePointerLock() {
     if (document.pointerLockElement) {
+      camState.isModalPointerUnlock = true;
       document.exitPointerLock?.();
     }
   }
@@ -6511,51 +6513,55 @@
       if (p >= 100) {
         clearInterval(interval);
         setTimeout(async () => {
-          if (window.BlahajSphericalFoods) {
-            await window.BlahajSphericalFoods.build();
-            window.BlahajSphericalFoods.setActive(true);
-            const start = window.BlahajSphericalFoods.getStart();
-            player.pos.set(start.x, start.y, start.z);
-            player.rotY = start.rotY;
-            currentZone = 'spherical_foods';
-            if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
-            if (player.mesh) {
-              if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
-              window.BlahajSphericalFoods.getScene().add(player.mesh);
-              player.mesh.position.copy(player.pos);
-              player.mesh.rotation.y = player.rotY;
+          try {
+            if (window.BlahajSphericalFoods) {
+              await window.BlahajSphericalFoods.build();
+              window.BlahajSphericalFoods.setActive(true);
+              const start = window.BlahajSphericalFoods.getStart();
+              player.pos.set(start.x, start.y, start.z);
+              player.rotY = start.rotY;
+              currentZone = 'spherical_foods';
+              if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
+              if (player.mesh) {
+                if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+                window.BlahajSphericalFoods.getScene().add(player.mesh);
+                player.mesh.position.copy(player.pos);
+                player.mesh.rotation.y = player.rotY;
+              }
+            } else {
+              currentZone = 'spherical_foods';
             }
-          } else {
-            currentZone = 'spherical_foods';
+            player.velY = 0;
+            player.isGrounded = true;
+            camState.yaw = 0;
+            updateCamera(0);
+
+            const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
+            if (isWeek) {
+              showToast("HELEN'S BIRTHDAY WEEK! 🎂✨", "Joyeux Anniversaire! Feast your eyes upon Helen's Celestial Birthday Bombe!");
+              addChatLog("🎂 Stepped inside <strong>Spherical Foods Bistro</strong>. Festive balloons float around Helen's Birthday Alcove!", 'lore');
+              CozyAudio.birthdayFanfare();
+            } else {
+              showToast('SPHERICAL FOODS BISTRO 🧆', 'No flat food allowed! Step up to Monsieur Betterave [E].');
+              addChatLog('🧆 Stepped inside <strong>Spherical Foods Bistro</strong>. Aromatic steam swirls around the brass chandelier.', 'lore');
+            }
+            updateCoopPartnerVisibility();
+
+            window.BlahajNetwork.send({
+              type: 'zone_change',
+              zone: 'spherical_foods',
+              sharkId: player.sharkId,
+              x: player.pos.x,
+              y: player.pos.y,
+              z: player.pos.z,
+              rotY: player.rotY
+            });
+          } catch (err) {
+            console.error('[Blahaj] enterSphericalFoods error:', err);
+          } finally {
+            overlay.classList.add('hidden');
+            isTransitioningZone = false;
           }
-          player.velY = 0;
-          player.isGrounded = true;
-          camState.yaw = 0;
-          updateCamera(0);
-
-          overlay.classList.add('hidden');
-          isTransitioningZone = false;
-
-          const isWeek = window.BlahajSphericalFoods && window.BlahajSphericalFoods.isHelensBirthdayWeek();
-          if (isWeek) {
-            showToast("HELEN'S BIRTHDAY WEEK! 🎂✨", "Joyeux Anniversaire! Feast your eyes upon Helen's Celestial Birthday Bombe!");
-            addChatLog("🎂 Stepped inside <strong>Spherical Foods Bistro</strong>. Festive balloons float around Helen's Birthday Alcove!", 'lore');
-            CozyAudio.birthdayFanfare();
-          } else {
-            showToast('SPHERICAL FOODS BISTRO 🧆', 'No flat food allowed! Step up to Monsieur Betterave [E].');
-            addChatLog('🧆 Stepped inside <strong>Spherical Foods Bistro</strong>. Aromatic steam swirls around the brass chandelier.', 'lore');
-          }
-          updateCoopPartnerVisibility();
-
-          window.BlahajNetwork.send({
-            type: 'zone_change',
-            zone: 'spherical_foods',
-            sharkId: player.sharkId,
-            x: player.pos.x,
-            y: player.pos.y,
-            z: player.pos.z,
-            rotY: player.rotY
-          });
         }, 250);
       }
     }, 90);
@@ -11629,6 +11635,7 @@
 
   // --- ARCHIPELAGO COMMUNITY TRUNK MODAL LOGIC ---
   function openCommunityTrunkModal() {
+    releasePointerLock();
     const modal = document.getElementById('community-trunk-modal');
     if (!modal) return;
     modal.classList.remove('hidden');
@@ -13112,8 +13119,12 @@
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
-    updateCamera(elapsed, dt);
-    updateInteractionsAndHUD();
+    try {
+      updateCamera(elapsed, dt);
+      updateInteractionsAndHUD();
+    } catch (err) {
+      console.error('[Blahaj] Camera/HUD update error:', err);
+    }
     updateSeamClockAndDetector(dt, elapsed);
     if (window.BlahajSeam) {
       window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
@@ -13125,68 +13136,72 @@
     updateFloatingBursts(dt);
 
     const activeScene = getActiveScene();
-    if (currentZone === 'volcano' && window.BlahajVolcano) {
-      const activeActors = [player.pos];
-      if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
-      window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
-    } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
-      window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
-    } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
-      window.BlahajSpawningPits.update(dt, elapsed, player.pos);
-    } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
-      window.BlahajHomestead.update(dt, elapsed);
-    } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
-      window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
-    } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
-      window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
-    } else {
-      window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
-      if (window.BlahajHomestead) {
+    try {
+      if (currentZone === 'volcano' && window.BlahajVolcano) {
+        const activeActors = [player.pos];
+        if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
+        window.BlahajVolcano.update(dt, elapsed, activeActors, camera.position);
+      } else if (currentZone === 'laundromat' && window.BlahajLaundromat) {
+        window.BlahajLaundromat.update(dt, elapsed, player.pos, player.mesh);
+      } else if (currentZone === 'spawning_pits' && window.BlahajSpawningPits) {
+        window.BlahajSpawningPits.update(dt, elapsed, player.pos);
+      } else if (currentZone === 'sea_cave' && window.BlahajHomestead) {
         window.BlahajHomestead.update(dt, elapsed);
-      }
-      if (window.BlahajVolleyball) {
-        if (window.BlahajVolleyball.isMatchActive()) {
-          window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
-        } else if (window.BlahajVolleyball.isSpectating()) {
-          window.BlahajVolleyball.updateSpectator(dt);
+      } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
+        window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
+      } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
+        window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+      } else {
+        window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
+        if (window.BlahajHomestead) {
+          window.BlahajHomestead.update(dt, elapsed);
         }
-      }
-      if (worldPickups) {
-        worldPickups.update(dt, elapsed);
-      }
-      if (solomonBreadOven && solomonBreadOven.smokeParticles) {
-        solomonBreadOven.smokeParticles.forEach((sp, idx) => {
-          const t = (elapsed * 0.8 + idx * 0.35) % 1.5;
-          sp.mesh.position.y = sp.baseY + t * 0.75;
-          sp.mesh.position.x = Math.sin(elapsed * 1.5 + sp.phase) * 0.08;
-          sp.mesh.scale.setScalar(0.8 + t * 0.8);
-          sp.mesh.material.opacity = Math.max(0, 0.35 * (1.0 - t / 1.5));
-        });
-      }
+        if (window.BlahajVolleyball) {
+          if (window.BlahajVolleyball.isMatchActive()) {
+            window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+          } else if (window.BlahajVolleyball.isSpectating()) {
+            window.BlahajVolleyball.updateSpectator(dt);
+          }
+        }
+        if (worldPickups) {
+          worldPickups.update(dt, elapsed);
+        }
+        if (solomonBreadOven && solomonBreadOven.smokeParticles) {
+          solomonBreadOven.smokeParticles.forEach((sp, idx) => {
+            const t = (elapsed * 0.8 + idx * 0.35) % 1.5;
+            sp.mesh.position.y = sp.baseY + t * 0.75;
+            sp.mesh.position.x = Math.sin(elapsed * 1.5 + sp.phase) * 0.08;
+            sp.mesh.scale.setScalar(0.8 + t * 0.8);
+            sp.mesh.material.opacity = Math.max(0, 0.35 * (1.0 - t / 1.5));
+          });
+        }
 
-      if (communityTrunk) {
-        communityTrunk.update(dt);
-      }
-      if (launchMortarStation && typeof launchMortarStation.update === 'function') {
-        launchMortarStation.update(elapsed, dt);
-      }
+        if (communityTrunk) {
+          communityTrunk.update(dt);
+        }
+        if (launchMortarStation && typeof launchMortarStation.update === 'function') {
+          launchMortarStation.update(elapsed, dt);
+        }
 
-      // Animate active aerial fireworks rockets
-      for (let r = activeRockets.length - 1; r >= 0; r--) {
-        const ro = activeRockets[r];
-        ro.life -= dt;
-        ro.pos.addScaledVector(ro.vel, dt);
-        ro.mesh.position.copy(ro.pos);
-        ro.light.position.copy(ro.pos);
-        if (Math.random() < 0.45) {
-          spawnFloatingBurst(ro.pos, 0xfde047, 3);
-        }
-        if (ro.life <= 0) {
-          if (ro.mesh.parent) ro.mesh.parent.remove(ro.mesh);
-          if (ro.light.parent) ro.light.parent.remove(ro.light);
-          activeRockets.splice(r, 1);
+        // Animate active aerial fireworks rockets
+        for (let r = activeRockets.length - 1; r >= 0; r--) {
+          const ro = activeRockets[r];
+          ro.life -= dt;
+          ro.pos.addScaledVector(ro.vel, dt);
+          ro.mesh.position.copy(ro.pos);
+          ro.light.position.copy(ro.pos);
+          if (Math.random() < 0.45) {
+            spawnFloatingBurst(ro.pos, 0xfde047, 3);
+          }
+          if (ro.life <= 0) {
+            if (ro.mesh.parent) ro.mesh.parent.remove(ro.mesh);
+            if (ro.light.parent) ro.light.parent.remove(ro.light);
+            activeRockets.splice(r, 1);
+          }
         }
       }
+    } catch (err) {
+      console.error('[Blahaj] Zone update error:', err);
     }
 
     const useBloom = !!(gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled);

@@ -1324,7 +1324,7 @@
     return chosen;
   }
 
-  function handleCanvasClick(clientX, clientY, camera, isRightClick = false) {
+  function handleCanvasClick(clientX, clientY, camera, isRightClick = false, skipGroundFace = false) {
     if (!camera || !window.player || !window.player.pos) return false;
     const p = window.player;
     const all = getTargetables();
@@ -1381,6 +1381,8 @@
       }
       return true;
     }
+
+    if (skipGroundFace) return false;
 
     // Pass 82B: Click-to-Face on Open Ground / Water / Horizon!
     // Project the clicked camera ray forward from the shark so even clicks in the lower half of the screen
