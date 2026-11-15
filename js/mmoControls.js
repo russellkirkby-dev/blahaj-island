@@ -1709,6 +1709,20 @@
       ud.strikeHand = state.strikeHandToggle;
       state.strikeHandToggle = -state.strikeHandToggle;
     }
+    if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      const finMod = getActiveFinModifier();
+      const g = window.BlahajGame;
+      window.BlahajNetwork.send({
+        type: 'mmo_action',
+        actionKind: 'martial',
+        poseName,
+        duration,
+        isComboProc: !!isComboProc,
+        strikeHand: ud.strikeHand || 1,
+        colorHex: finMod ? finMod.colorHex : 0x38bdf8,
+        zone: (g && typeof g.getZone === 'function') ? g.getZone() : 'island'
+      });
+    }
   }
 
   function faceSelectedTargetIfClose(maxTurnDist = 28.0) {
@@ -2092,6 +2106,17 @@
       if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
       spawnRingWaveVFX(p.pos, 0x38bdf8, 3.8, 0.45);
       spawnFloatingCombatText(p.pos, '🛡️ FIN PARRY READY!', 'proc');
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'mmo_action',
+          actionKind: 'posture',
+          postureId: 'fin_deflection',
+          colorHex: 0x38bdf8,
+          label: '🛡️ FIN PARRY!',
+          tone: 'proc',
+          zone: (g && typeof g.getZone === 'function') ? g.getZone() : 'island'
+        });
+      }
       updatePostureBannerUI();
       renderActionBarUI();
       return { abilityId, posture: state.activePosture.name };
@@ -2114,6 +2139,17 @@
       if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
       spawnRingWaveVFX(p.pos, 0x10b981, 4.2, 0.5);
       spawnFloatingCombatText(p.pos, '🛡️🦈 DOUBLE FIN AEGIS!', 'heal');
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'mmo_action',
+          actionKind: 'posture',
+          postureId: 'double_fin_defense',
+          colorHex: 0x10b981,
+          label: '🛡️🦈 DOUBLE AEGIS!',
+          tone: 'heal',
+          zone: (g && typeof g.getZone === 'function') ? g.getZone() : 'island'
+        });
+      }
       updatePostureBannerUI();
       renderActionBarUI();
       return { abilityId, posture: state.activePosture.name };
@@ -2164,6 +2200,18 @@
       p.teaComfort = 100;
       spawnRingWaveVFX(p.pos, 0x34d399, 5.5, 0.55);
       spawnFloatingCombatText(p.pos, '🍵 +100% TEA COMFORT!', 'heal');
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'mmo_action',
+          actionKind: 'ring',
+          colorHex: 0x34d399,
+          radius: 5.5,
+          duration: 0.55,
+          label: '🍵 TEA INFUSION!',
+          tone: 'heal',
+          zone: (g && typeof g.getZone === 'function') ? g.getZone() : 'island'
+        });
+      }
       renderActionBarUI();
       return { abilityId, healed: true };
     }
@@ -2173,6 +2221,18 @@
         g.triggerSignatureAbility();
       }
       spawnRingWaveVFX(p.pos, 0xc084fc, 5.2, 0.5);
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'mmo_action',
+          actionKind: 'ring',
+          colorHex: 0xc084fc,
+          radius: 5.2,
+          duration: 0.5,
+          label: '✨ SIGNATURE!',
+          tone: 'proc',
+          zone: (g && typeof g.getZone === 'function') ? g.getZone() : 'island'
+        });
+      }
       renderActionBarUI();
       return { abilityId };
     }
@@ -2912,6 +2972,87 @@
     renderActionBarUI();
   }
 
+  /** Replay a remote player's martial pose, defensive posture burst, or ring VFX on their 3D shark mesh. */
+  function playRemoteAction(targetMesh, data) {
+    if (!targetMesh || !targetMesh.position || !data) return;
+    const ud = targetMesh.userData || (targetMesh.userData = {});
+    const pos = targetMesh.position;
+    const rotY = targetMesh.rotation ? targetMesh.rotation.y : 0;
+    const colorHex = typeof data.colorHex === 'number' ? data.colorHex : 0x38bdf8;
+
+    if (data.poseName) {
+      const dur = typeof data.duration === 'number' ? data.duration : 0.44;
+      ud.martialPose = data.poseName;
+      ud.martialDuration = dur;
+      ud.martialTimer = dur;
+      ud.isComboProc = !!data.isComboProc;
+      if (typeof data.strikeHand === 'number') ud.strikeHand = data.strikeHand;
+
+      if (data.poseName === 'poky_strike') {
+        spawnSlashArcVFX(pos, rotY, ud.isComboProc ? 0xfbbf24 : colorHex, 2.35, (ud.strikeHand || 1) > 0 ? 0.28 : -0.28, 0.28);
+        if (ud.isComboProc) spawnSlashArcVFX(pos, rotY, 0xf43f5e, 2.55, -0.32, 0.32);
+        if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
+      } else if (data.poseName === 'fin_lunge') {
+        spawnRingWaveVFX(pos, colorHex, 2.8, 0.3);
+        spawnSlashArcVFX(pos, rotY, colorHex, 2.6, 0.15, 0.3);
+        if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
+      } else if (data.poseName === 'tail_swipe') {
+        spawnSlashArcVFX(pos, rotY, ud.isComboProc ? 0xfbbf24 : 0x38bdf8, 3.4, -0.18, 0.34);
+        if (window.CozyAudio && window.CozyAudio.boopAttack) window.CozyAudio.boopAttack();
+      } else if (data.poseName === 'tail_spin') {
+        spawnSlashArcVFX(pos, rotY, 0x2dd4bf, 3.6, 0.12, 0.38);
+        spawnSlashArcVFX(pos, rotY + Math.PI, 0x38bdf8, 3.6, -0.12, 0.38);
+        if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.22, 0.3);
+      }
+      return;
+    }
+
+    if (data.actionKind === 'posture') {
+      ud.activePostureId = data.postureId || null;
+      spawnRingWaveVFX(pos, colorHex, data.postureId === 'double_fin_defense' ? 4.2 : 3.8, 0.45);
+      if (data.label) spawnFloatingCombatText(pos, data.label, data.tone || 'proc');
+      if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+      return;
+    }
+
+    spawnRingWaveVFX(pos, colorHex, data.radius || 4.5, data.duration || 0.48);
+    if (data.label) spawnFloatingCombatText(pos, data.label, data.tone || 'proc');
+  }
+
+  /** Maintain a glowing 3D defensive posture aura ring on a remote shark mesh while in guard posture. */
+  function syncRemotePostureAura(targetMesh, activePostureId, elapsed) {
+    if (!targetMesh || typeof THREE === 'undefined') return;
+    const ud = targetMesh.userData || (targetMesh.userData = {});
+    ud.activePostureId = activePostureId || null;
+    if (!ud.remotePostureAura) {
+      const geo = new THREE.RingGeometry(1.15, 1.48, 32);
+      geo.rotateX(-Math.PI / 2);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const ring = new THREE.Mesh(geo, mat);
+      ring.position.y = 0.14;
+      ring.visible = false;
+      targetMesh.add(ring);
+      ud.remotePostureAura = ring;
+    }
+    const aura = ud.remotePostureAura;
+    if (activePostureId === 'fin_deflection' || activePostureId === 'double_fin_defense') {
+      aura.visible = true;
+      const isDouble = activePostureId === 'double_fin_defense';
+      aura.material.color.setHex(isDouble ? 0x10b981 : 0x38bdf8);
+      const pulse = 1.0 + Math.sin((elapsed || 0) * 5.0) * 0.08;
+      aura.scale.set(pulse, 1.0, pulse);
+      aura.rotation.y = (elapsed || 0) * (isDouble ? 2.2 : 1.4);
+    } else {
+      aura.visible = false;
+    }
+  }
+
   window.BlahajMMO = {
     ABILITIES,
     FIN_ITEM_MODIFIERS,
@@ -2942,6 +3083,8 @@
     getActivePosture: () => state.activePosture,
     getPostureState: () => ({ active: state.activePosture, timer: state.postureTimer }),
     mitigateIncomingHit,
+    playRemoteAction,
+    syncRemotePostureAura,
     spawnFloatingCombatText,
     syncAutorunUI,
     renderActionBarUI,

@@ -4227,6 +4227,9 @@
           if (player.mesh && player.mesh.userData) {
             player.mesh.userData.flipTimer = 0.35;
           }
+          if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'emote', kind: 'jump_flip', doubleJump: false, zone: currentZone });
+          }
         } else if (player.canDoubleJump && !player.doubleJumped) {
           // Double jump: mid-air tail swish / plush flutter!
           player.doubleJumped = true;
@@ -4239,6 +4242,9 @@
           spawnFloatingBurst(player.pos, 0x56c2ff, 10);
           if (player.mesh && player.mesh.userData) {
             player.mesh.userData.flipTimer = 0.45;
+          }
+          if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'emote', kind: 'jump_flip', doubleJump: true, zone: currentZone });
           }
         }
       }
@@ -12156,6 +12162,11 @@
         inBoat: !!data.inBoat,
         inCart: !!data.inCart,
         zone: (!data.zone || data.zone === 'overworld') ? 'island' : data.zone,
+        activePostureId: data.activePostureId || null,
+        isLounging: !!data.isLounging,
+        isSeatedInBooth: !!data.isSeatedInBooth,
+        isPlayingPlushie: !!data.isPlayingPlushie,
+        heldItemId: data.heldItemId || null,
         lastSeen: Date.now()
       };
       extraCoopPeers.set(remId, peerObj);
@@ -12169,6 +12180,9 @@
       peerObj.mesh = window.BlahajModels.createPlushShark(cfg, mVal);
       peerObj.mesh.position.copy(peerObj.targetPos);
       getActiveScene().add(peerObj.mesh);
+      if (peerObj.heldItemId && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+        window.BlahajSharks3D.attachHeldItem(peerObj.mesh, peerObj.heldItemId);
+      }
     }
 
     if (!peerObj.labelEl) {
@@ -12190,11 +12204,31 @@
     }
     if (typeof data.rotY === 'number') peerObj.targetRotY = data.rotY;
     peerObj.isMoving = !!data.isMoving;
+    peerObj.activePostureId = data.activePostureId || null;
+    peerObj.isLounging = !!data.isLounging;
+    peerObj.isSeatedInBooth = !!data.isSeatedInBooth;
+    peerObj.isPlayingPlushie = !!data.isPlayingPlushie;
+
+    if (peerObj.mesh && peerObj.heldItemId !== data.heldItemId) {
+      peerObj.heldItemId = data.heldItemId || null;
+      if (window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
+        window.BlahajSharks3D.attachHeldItem(peerObj.mesh, peerObj.heldItemId);
+      }
+    }
 
     if (peerObj.mesh && (prevZone !== nextZone || peerObj.mesh.position.distanceTo(peerObj.targetPos) > 20)) {
       peerObj.mesh.position.copy(peerObj.targetPos);
       peerObj.mesh.rotation.y = peerObj.targetRotY || 0;
     }
+  }
+
+  /** Resolve the remote 3D shark mesh for a network packet (supports primary partner and extra peers). */
+  function resolvePeerMesh(data) {
+    if (shouldRouteToPrimaryPartner(data)) {
+      return coopPartner.mesh || null;
+    }
+    const peerObj = data && data.clientId ? extraCoopPeers.get(data.clientId) : null;
+    return (peerObj && peerObj.mesh) ? peerObj.mesh : null;
   }
 
   function shouldRouteToPrimaryPartner(data) {
@@ -12573,6 +12607,9 @@
           coopPartner.zone = nextZone;
           coopPartner.isLounging = !!data.isLounging;
           coopPartner.loungeChairId = data.loungeChairId || null;
+          coopPartner.activePostureId = data.activePostureId || null;
+          coopPartner.isSeatedInBooth = !!data.isSeatedInBooth;
+          coopPartner.isPlayingPlushie = !!data.isPlayingPlushie;
 
           if (coopPartner.mesh && (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20)) {
             coopPartner.mesh.position.copy(coopPartner.targetPos);
@@ -12773,29 +12810,44 @@
             window.BlahajVolleyball.handleSpectatorEvent(data);
           }
         } else if (data.type === 'emote') {
-          if (coopPartner.mesh) {
-            if (data.kind === 'beep') {
-              CozyAudio.beepNose();
-              coopPartner.mesh.userData.beepTimer = 0.9;
-              spawnFloatingBurst(coopPartner.mesh.position, 0xff7eb6, 10);
-              addChatLog('🦈💕 Your partner sent a fin Nose-Beep!', 'coop');
-            } else if (data.kind === 'breb') {
-              CozyAudio.birbChirp();
-              const bPos =
-                typeof data.x === 'number'
-                  ? new THREE.Vector3(data.x, data.y || coopPartner.mesh.position.y, data.z)
-                  : coopPartner.mesh.position.clone();
-              worldApi.spawnBrebLoaf(bPos);
-              if (data.golden) {
-                worldApi.spawnBrebLoaf(new THREE.Vector3(bPos.x + 1.4, bPos.y, bPos.z - 0.8));
-                worldApi.spawnBrebLoaf(new THREE.Vector3(bPos.x - 1.4, bPos.y, bPos.z + 0.8));
+          const peerMesh = resolvePeerMesh(data);
+          if (peerMesh) {
+            const normCur = (!currentZone || currentZone === 'overworld') ? 'island' : currentZone;
+            const pktZone = (!data.zone || data.zone === 'overworld') ? normCur : data.zone;
+            if (pktZone === normCur) {
+              if (data.kind === 'beep') {
+                CozyAudio.beepNose();
+                peerMesh.userData.beepTimer = 0.9;
+                spawnFloatingBurst(peerMesh.position, 0xff7eb6, 10);
+                addChatLog('🦈💕 Your partner sent a fin Nose-Beep!', 'coop');
+              } else if (data.kind === 'breb') {
+                CozyAudio.birbChirp();
+                const bPos =
+                  typeof data.x === 'number'
+                    ? new THREE.Vector3(data.x, data.y || peerMesh.position.y, data.z)
+                    : peerMesh.position.clone();
+                worldApi.spawnBrebLoaf(bPos);
+                if (data.golden) {
+                  worldApi.spawnBrebLoaf(new THREE.Vector3(bPos.x + 1.4, bPos.y, bPos.z - 0.8));
+                  worldApi.spawnBrebLoaf(new THREE.Vector3(bPos.x - 1.4, bPos.y, bPos.z + 0.8));
+                }
+                spawnFloatingBurst(bPos, 0xfbbf24, 8);
+                addChatLog('🥖🐦 Your partner tossed warm Breb for the Birbs!', 'coop');
+              } else if (data.kind === 'jump_flip') {
+                peerMesh.userData.flipTimer = data.doubleJump ? 0.45 : 0.35;
+                if (data.doubleJump) spawnFloatingBurst(peerMesh.position, 0x56c2ff, 8);
+              } else {
+                CozyAudio.portalChime();
+                spawnFloatingBurst(peerMesh.position, 0x9b6dff, 12);
               }
-              spawnFloatingBurst(bPos, 0xfbbf24, 8);
-              addChatLog('🥖🐦 Your partner tossed warm Breb for the Birbs!', 'coop');
-            } else {
-              CozyAudio.portalChime();
-              spawnFloatingBurst(coopPartner.mesh.position, 0x9b6dff, 12);
             }
+          }
+        } else if (data.type === 'mmo_action') {
+          const peerMesh = resolvePeerMesh(data);
+          const normCur = (!currentZone || currentZone === 'overworld') ? 'island' : currentZone;
+          const pktZone = (!data.zone || data.zone === 'overworld') ? normCur : data.zone;
+          if (peerMesh && pktZone === normCur && window.BlahajMMO && typeof window.BlahajMMO.playRemoteAction === 'function') {
+            window.BlahajMMO.playRemoteAction(peerMesh, data);
           }
         } else if (data.type === 'groom_partner') {
           if (coopPartner.mesh && coopPartner.mesh.userData) {
@@ -14100,6 +14152,10 @@
       netSyncTimer = 0;
       const occCart = (player.inCart && window.BlahajLaundromat) ? window.BlahajLaundromat.getOccupiedCart() : null;
       const cartMoving = occCart ? (Math.abs(occCart.speed) > 0.05) : false;
+      const mmoPosture = (window.BlahajMMO && typeof window.BlahajMMO.getActivePosture === 'function')
+        ? window.BlahajMMO.getActivePosture()
+        : null;
+      const playingPlushie = !!(window.BlahajSpawningPits && typeof window.BlahajSpawningPits.isPlayingPlushie === 'function' && window.BlahajSpawningPits.isPlayingPlushie());
       window.BlahajNetwork.send({
         type: 'move',
         sharkId: player.sharkId,
@@ -14115,7 +14171,10 @@
         mange: window.__BLAHAJ_MANGE__,
         heldItemId: playerHeldItem ? playerHeldItem.id : null,
         isLounging: !!player.isLounging,
-        loungeChairId: player.loungeChairId || null
+        loungeChairId: player.loungeChairId || null,
+        activePostureId: mmoPosture ? mmoPosture.id : null,
+        isSeatedInBooth: !!player.isSeatedInBooth,
+        isPlayingPlushie: playingPlushie
       });
     }
   }
@@ -15470,6 +15529,23 @@
       while (rDiff > Math.PI) rDiff -= Math.PI * 2;
       peerObj.mesh.rotation.y += rDiff * Math.min(1.0, dt * 14.0);
       peerObj.mesh.position.lerp(peerObj.targetPos, Math.min(1.0, dt * 12.0));
+      if (peerObj.isLounging) {
+        peerObj.mesh.rotation.x = -0.34;
+        const breath = Math.sin(elapsed * 2.2) * 0.03;
+        peerObj.mesh.scale.set(1.12 + breath * 0.5, 0.78 + breath, 1.05);
+      } else if (peerObj.isPlayingPlushie) {
+        peerObj.mesh.rotation.x = 0.08;
+        peerObj.mesh.scale.set(1.06, 0.88, 1.04);
+      } else if (peerObj.isSeatedInBooth) {
+        peerObj.mesh.rotation.x = -0.18;
+        peerObj.mesh.scale.set(1.02, 0.94, 0.96);
+      } else {
+        peerObj.mesh.rotation.x = 0;
+        peerObj.mesh.scale.set(1.0, 1.0, 1.0);
+      }
+      if (window.BlahajMMO && typeof window.BlahajMMO.syncRemotePostureAura === 'function') {
+        window.BlahajMMO.syncRemotePostureAura(peerObj.mesh, peerObj.activePostureId, elapsed);
+      }
       window.BlahajModels.animateShark(peerObj.mesh, dt, !!peerObj.isMoving, elapsed);
       if (peerObj.labelEl) {
         if (sameZ) {
@@ -15502,14 +15578,23 @@
     // 3. Smooth Position Interpolation
     coopPartner.mesh.position.lerp(coopPartner.targetPos, Math.min(1.0, dt * 12.0));
 
-    // 4. Plush Anatomy & Posture Handling (Lounging Beach Recline vs Regular)
+    // 4. Plush Anatomy & Posture Handling (Lounging, Playing Plushie, Seated Booth, Guard Aura)
     if (coopPartner.isLounging) {
       coopPartner.mesh.rotation.x = -0.34;
       const breath = Math.sin(elapsed * 2.2) * 0.03;
       coopPartner.mesh.scale.set(1.12 + breath * 0.5, 0.78 + breath, 1.05);
+    } else if (coopPartner.isPlayingPlushie) {
+      coopPartner.mesh.rotation.x = 0.08;
+      coopPartner.mesh.scale.set(1.06, 0.88, 1.04);
+    } else if (coopPartner.isSeatedInBooth) {
+      coopPartner.mesh.rotation.x = -0.18;
+      coopPartner.mesh.scale.set(1.02, 0.94, 0.96);
     } else {
       coopPartner.mesh.rotation.x = 0;
       coopPartner.mesh.scale.set(1.0, 1.0, 1.0);
+    }
+    if (window.BlahajMMO && typeof window.BlahajMMO.syncRemotePostureAura === 'function') {
+      window.BlahajMMO.syncRemotePostureAura(coopPartner.mesh, coopPartner.activePostureId, elapsed);
     }
 
     if (coopPartner.inCart && currentZone === 'laundromat') {
