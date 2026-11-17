@@ -2324,6 +2324,29 @@
     return ridingTrolley;
   }
 
+  function clearDisguiseAndTrolley(playerMesh) {
+    playingPlushie = false;
+    boxDisguised = false;
+    ridingTrolley = false;
+    if (plushieTagHalo) {
+      plushieTagHalo.visible = false;
+      if (plushieTagHalo.parent) plushieTagHalo.parent.remove(plushieTagHalo);
+    }
+    if (boxDisguiseMesh) {
+      boxDisguiseMesh.visible = false;
+      if (boxDisguiseMesh.parent) boxDisguiseMesh.parent.remove(boxDisguiseMesh);
+    }
+    if (mountedTrolleyMesh) {
+      mountedTrolleyMesh.visible = false;
+      if (mountedTrolleyMesh.parent) mountedTrolleyMesh.parent.remove(mountedTrolleyMesh);
+    }
+    const pm = playerMesh || (window.player && window.player.mesh);
+    if (pm) {
+      pm.rotation.z = 0;
+      pm.scale.set(1, 1, 1);
+    }
+  }
+
   function triggerDistraction(pos) {
     if (!spScene || !pos) return null;
     const ring = new THREE.Mesh(
@@ -3054,6 +3077,7 @@
     isBoxDisguised: () => boxDisguised,
     toggleFlatbedTrolley,
     isRidingTrolley: () => ridingTrolley,
+    clearDisguiseAndTrolley,
     triggerDistraction,
     isPlayerInBallPit,
     toggleLightingJungleDimmer,
@@ -3062,7 +3086,12 @@
     getStoreManagerBoss: () => storeManagerBoss,
     unlockGoldenBlueprint,
     getUnlockedGoldenBlueprints: () => Array.from(goldenBlueprintsUnlocked),
-    setActive: (v) => { isActive = !!v; },
+    setActive: (v) => {
+      isActive = !!v;
+      if (!isActive) {
+        clearDisguiseAndTrolley(window.player && window.player.mesh);
+      }
+    },
     isActive: () => isActive,
     getStart: () => ({ ...START_POS }),
     getActiveCheckpoint,

@@ -4201,6 +4201,12 @@
           standUpFromBooth();
           return;
         }
+        if (window.BlahajSpawningPits && window.BlahajSpawningPits.isRidingTrolley && window.BlahajSpawningPits.isRidingTrolley()) {
+          window.BlahajSpawningPits.toggleFlatbedTrolley(player.mesh, 0, false);
+          CozyAudio.shonk();
+          showToast('HOPPED OFF FLATBED TROLLEY 🛒', 'Stepped off the yellow IKEA warehouse trolley.');
+          return;
+        }
         if (player.inCart) {
           dismountLaundryCart();
           return;
@@ -5932,6 +5938,9 @@
         setTimeout(() => {
           currentZone = 'island';
           if (window.BlahajSpawningPits) {
+            if (typeof window.BlahajSpawningPits.clearDisguiseAndTrolley === 'function') {
+              window.BlahajSpawningPits.clearDisguiseAndTrolley(player.mesh);
+            }
             window.BlahajSpawningPits.setActive(false);
           }
 
@@ -13189,6 +13198,16 @@
 
     const activeScene = getActiveScene();
     try {
+      if (currentZone !== 'spawning_pits' && window.BlahajSpawningPits && typeof window.BlahajSpawningPits.clearDisguiseAndTrolley === 'function') {
+        if (
+          (window.BlahajSpawningPits.isRidingTrolley && window.BlahajSpawningPits.isRidingTrolley()) ||
+          (window.BlahajSpawningPits.isBoxDisguised && window.BlahajSpawningPits.isBoxDisguised()) ||
+          (window.BlahajSpawningPits.isPlayingPlushie && window.BlahajSpawningPits.isPlayingPlushie())
+        ) {
+          window.BlahajSpawningPits.clearDisguiseAndTrolley(player.mesh);
+        }
+      }
+
       if (currentZone === 'volcano' && window.BlahajVolcano) {
         const activeActors = [player.pos];
         if (coopPartner.active && coopPartner.targetPos) activeActors.push(coopPartner.targetPos);
@@ -13467,6 +13486,16 @@
       const speedMult = (player.unlockedUpgrades.has('turbo_fins') ? 1.35 : 1.0) * roadBoost * teaAgilityBoost * boatTierBoost * grottoSpeedBoost;
       const baseSpeed = player.inBoat ? 24.0 : (keys['shift'] ? 16.5 : 10.8);
       const speed = baseSpeed * speedMult;
+
+      if (currentZone !== 'spawning_pits' && window.BlahajSpawningPits && typeof window.BlahajSpawningPits.clearDisguiseAndTrolley === 'function') {
+        if (
+          (window.BlahajSpawningPits.isRidingTrolley && window.BlahajSpawningPits.isRidingTrolley()) ||
+          (window.BlahajSpawningPits.isBoxDisguised && window.BlahajSpawningPits.isBoxDisguised()) ||
+          (window.BlahajSpawningPits.isPlayingPlushie && window.BlahajSpawningPits.isPlayingPlushie())
+        ) {
+          window.BlahajSpawningPits.clearDisguiseAndTrolley(player.mesh);
+        }
+      }
 
       if (currentZone === 'volcano' && window.BlahajVolcano) {
         if (isMoving) {
@@ -14148,7 +14177,8 @@
     });
 
     netSyncTimer += dt;
-    if (netSyncTimer > 0.05) {
+    const syncInterval = (isMoving || player.inCart || player.inBoat) ? 0.075 : 0.25;
+    if (netSyncTimer > syncInterval) {
       netSyncTimer = 0;
       const occCart = (player.inCart && window.BlahajLaundromat) ? window.BlahajLaundromat.getOccupiedCart() : null;
       const cartMoving = occCart ? (Math.abs(occCart.speed) > 0.05) : false;
@@ -14517,6 +14547,9 @@
   let detectorPrevDist = null;
   let detectorPingCooldown = 0;
   let detectorOscPhase = 0;
+  let lastSeamWatchKey = '';
+  let detectorUiAccum = 0;
+  let celestialHudAccum = 0;
 
   function claimAethericSeamDiviner() {
     localStorage.setItem('blahaj_unlocked_seam_detector', 'true');
@@ -14532,65 +14565,73 @@
     if (!window.BlahajSeam) return;
     const seamState = window.BlahajSeam.getState();
 
-    // 1. UPDATE FLOATING MINI-WATCH WIDGET (Next to Compass)
-    const watchEl = document.getElementById('seam-mini-watch');
-    const timerEl = document.getElementById('seam-watch-timer');
-    const badgeEl = document.getElementById('seam-watch-badge');
-    const handEl = document.getElementById('seam-watch-hand');
-    const iconEl = document.getElementById('seam-watch-icon');
+    // 1. UPDATE FLOATING MINI-WATCH WIDGET (Throttled to only mutate DOM when second or state changes!)
+    const remaining = Math.max(0, Math.floor(seamState.timer));
+    const watchKey = `${seamState.state}|${remaining}|${seamState.mendedCount}`;
+    if (watchKey !== lastSeamWatchKey || seamState.state === 'incursion') {
+      lastSeamWatchKey = watchKey;
+      const watchEl = document.getElementById('seam-mini-watch');
+      const timerEl = document.getElementById('seam-watch-timer');
+      const badgeEl = document.getElementById('seam-watch-badge');
+      const handEl = document.getElementById('seam-watch-hand');
+      const iconEl = document.getElementById('seam-watch-icon');
 
-    if (watchEl && timerEl && badgeEl) {
-      const remaining = Math.max(0, Math.floor(seamState.timer));
-      const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
-      const ss = String(remaining % 60).padStart(2, '0');
+      if (watchEl && timerEl && badgeEl) {
+        const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const ss = String(remaining % 60).padStart(2, '0');
 
-      if (seamState.state === 'incursion') {
-        timerEl.textContent = 'BREACH!';
-        badgeEl.textContent = 'INCURSION';
-        badgeEl.className = 'watch-status-badge status-incursion';
-        watchEl.className = 'seam-mini-watch status-incursion';
-        if (iconEl) iconEl.textContent = '🚨';
-        if (handEl) {
-          handEl.style.transform = `rotate(${(elapsed * 360) % 360}deg)`;
-        }
-      } else {
-        timerEl.textContent = `${mm}:${ss}`;
-        if (iconEl) iconEl.textContent = '🪡';
-        watchEl.className = 'seam-mini-watch';
-
-        if (remaining < 600) {
-          badgeEl.textContent = 'FRAYING';
-          badgeEl.className = 'watch-status-badge status-warn';
+        if (seamState.state === 'incursion') {
+          timerEl.textContent = 'BREACH!';
+          badgeEl.textContent = 'INCURSION';
+          badgeEl.className = 'watch-status-badge status-incursion';
+          watchEl.className = 'seam-mini-watch status-incursion';
+          if (iconEl) iconEl.textContent = '🚨';
+          if (handEl) {
+            handEl.style.transform = `rotate(${(elapsed * 360) % 360}deg)`;
+          }
         } else {
-          badgeEl.textContent = 'CALM';
-          badgeEl.className = 'watch-status-badge status-calm';
-        }
+          timerEl.textContent = `${mm}:${ss}`;
+          if (iconEl) iconEl.textContent = '🪡';
+          watchEl.className = 'seam-mini-watch';
 
-        if (handEl) {
-          handEl.style.transform = `rotate(${(remaining % 60) * 6}deg)`;
-        }
-      }
-
-      // Update 6 diamond pips
-      for (let i = 0; i < 6; i++) {
-        const pip = document.getElementById(`spip-${i}`);
-        if (pip) {
-          const r = seamState.rifts[i];
-          if (r && r.mended) {
-            pip.className = 'seam-pip mended';
-            pip.textContent = '◆';
-            pip.title = `${r.name}: MENDED`;
+          if (remaining < 600) {
+            badgeEl.textContent = 'FRAYING';
+            badgeEl.className = 'watch-status-badge status-warn';
           } else {
-            pip.className = 'seam-pip open';
-            pip.textContent = '◇';
-            pip.title = r ? `${r.name}: OPEN` : 'Rift Open';
+            badgeEl.textContent = 'CALM';
+            badgeEl.className = 'watch-status-badge status-calm';
+          }
+
+          if (handEl) {
+            handEl.style.transform = `rotate(${(remaining % 60) * 6}deg)`;
+          }
+        }
+
+        // Update 6 diamond pips
+        for (let i = 0; i < 6; i++) {
+          const pip = document.getElementById(`spip-${i}`);
+          if (pip) {
+            const r = seamState.rifts[i];
+            if (r && r.mended) {
+              pip.className = 'seam-pip mended';
+              pip.textContent = '◆';
+              pip.title = `${r.name}: MENDED`;
+            } else {
+              pip.className = 'seam-pip open';
+              pip.textContent = '◇';
+              pip.title = r ? `${r.name}: OPEN` : 'Rift Open';
+            }
           }
         }
       }
     }
 
-    // 2. UPDATE HANDHELD AETHERIC DIVINER SIDE PANEL (When held in fin)
+    // 2. UPDATE HANDHELD AETHERIC DIVINER SIDE PANEL (When held in fin, throttled to ~15Hz)
     if (playerHeldItem.id === 'seam_detector') {
+      detectorUiAccum += dt;
+      if (detectorUiAccum < 0.065) return;
+      const stepDt = detectorUiAccum;
+      detectorUiAccum = 0;
       const detInfo = window.BlahajSeam.getNearestRift(player.pos, currentZone);
       const needleEl = document.getElementById('detector-needle');
       const sigBadge = document.getElementById('detector-signal-badge');
@@ -14666,7 +14707,7 @@
 
         // Sonar audio pings (accelerates as distance drops)
         if (!detectorAudioMuted) {
-          detectorPingCooldown -= dt;
+          detectorPingCooldown -= stepDt;
           if (detectorPingCooldown <= 0) {
             const pingInterval = Math.max(0.24, 2.4 - prox * 2.15); // 2.4s down to 0.24s
             detectorPingCooldown = pingInterval;
@@ -14697,7 +14738,7 @@
       }
 
       // Spring lerp for needle
-      detectorCurrentNeedleAngle += (targetAngle - detectorCurrentNeedleAngle) * Math.min(1.0, dt * 7.5);
+      detectorCurrentNeedleAngle += (targetAngle - detectorCurrentNeedleAngle) * Math.min(1.0, stepDt * 7.5);
       if (needleEl) {
         needleEl.style.transform = `rotate(${detectorCurrentNeedleAngle.toFixed(1)}deg)`;
       }
@@ -14706,7 +14747,7 @@
         sigBadge.style.color = signalPct > 70 ? '#ef4444' : (signalPct > 35 ? '#a855f7' : '#38bdf8');
       }
 
-      // Draw Oscilloscope Waveform on Canvas
+      // Draw Oscilloscope Waveform on Canvas (without expensive shadowBlur)
       const oscCanvas = document.getElementById('detector-oscilloscope-canvas');
       if (oscCanvas) {
         const ctx = oscCanvas.getContext('2d');
@@ -14724,23 +14765,20 @@
           ctx.stroke();
 
           // Wave
-          detectorOscPhase += dt * (3.0 + prox * 10.0);
+          detectorOscPhase += stepDt * (3.0 + prox * 10.0);
           const amp = 3.0 + prox * 14.0;
           const freq = 0.05 + prox * 0.09;
 
           ctx.strokeStyle = prox > 0.7 ? '#f43f5e' : (prox > 0.35 ? '#c084fc' : '#38bdf8');
-          ctx.shadowColor = ctx.strokeStyle;
-          ctx.shadowBlur = 6;
           ctx.lineWidth = 2.0;
 
           ctx.beginPath();
-          for (let x = 0; x < w; x++) {
+          for (let x = 0; x < w; x += 2) {
             const y = h * 0.5 + Math.sin(x * freq + detectorOscPhase) * amp;
             if (x === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
           }
           ctx.stroke();
-          ctx.shadowBlur = 0;
         }
       }
     }
@@ -15378,7 +15416,11 @@
       }
     }
 
-    updateCelestialClockHUD();
+    celestialHudAccum += 0.016;
+    if (celestialHudAccum >= 0.25) {
+      celestialHudAccum = 0;
+      updateCelestialClockHUD();
+    }
   }
 
   function updateCelestialClockHUD() {

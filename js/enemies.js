@@ -753,14 +753,6 @@ window.BlahajEnemies = (function () {
         return;
       }
 
-      // Water and ground heights at current location
-      const curGroundY = worldApi && typeof worldApi.getGroundAndStructureHeight === 'function'
-        ? worldApi.getGroundAndStructureHeight(enemy.pos.x, enemy.pos.z)
-        : enemy.homePos.y;
-      const curWaveY = worldApi && typeof worldApi.getWaveHeight === 'function'
-        ? worldApi.getWaveHeight(enemy.pos.x, enemy.pos.z, elapsed)
-        : 0.22;
-
       // STATE B: GROUND / WATER RECOIL PHYSICS
       if (enemy.vel.lengthSq() > 0.01) {
         const nextRecoilX = enemy.pos.x + enemy.vel.x * dt;
@@ -981,19 +973,31 @@ window.BlahajEnemies = (function () {
 
         // Proximity declutter: fade smoothly between 6m and 14m, completely hidden beyond 14m!
         if (distToCam > 14.0) {
-          enemy.labelEl.style.display = 'none';
-          enemy.labelEl.style.opacity = '0';
+          if (enemy.labelEl._lastDisplay !== 'none') {
+            enemy.labelEl.style.display = 'none';
+            enemy.labelEl.style.opacity = '0';
+            enemy.labelEl._lastDisplay = 'none';
+          }
         } else {
           const p = enemy.pos.clone();
           p.y += (enemy.type === 'shark' ? 2.3 : 1.8);
           p.project(cam);
 
           if (p.z > 1) {
-            enemy.labelEl.style.display = 'none';
+            if (enemy.labelEl._lastDisplay !== 'none') {
+              enemy.labelEl.style.display = 'none';
+              enemy.labelEl._lastDisplay = 'none';
+            }
           } else {
-            enemy.labelEl.style.display = '';
-            const opacity = distToCam <= 6.0 ? 1.0 : (14.0 - distToCam) / 8.0;
-            enemy.labelEl.style.opacity = opacity.toFixed(2);
+            if (enemy.labelEl._lastDisplay !== '') {
+              enemy.labelEl.style.display = '';
+              enemy.labelEl._lastDisplay = '';
+            }
+            const opacity = (distToCam <= 6.0 ? 1.0 : (14.0 - distToCam) / 8.0).toFixed(2);
+            if (enemy.labelEl._lastOpacity !== opacity) {
+              enemy.labelEl.style.opacity = opacity;
+              enemy.labelEl._lastOpacity = opacity;
+            }
             const screenX = (p.x * 0.5 + 0.5) * window.innerWidth;
             const screenY = (-(p.y * 0.5) + 0.5) * window.innerHeight;
             enemy.labelEl.style.left = `${screenX}px`;

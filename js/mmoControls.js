@@ -2441,14 +2441,19 @@
     const finPill = document.getElementById('mmo-fin-mod-pill');
     if (finPill) {
       const autoBadge = isAutoRunning ? `<span class="mmo-autorun-chip">🏃💨 AUTORUN [NumLock/~]</span>` : '';
+      let nextHtml = '';
       if (finMod) {
         finPill.classList.remove('hidden');
-        finPill.innerHTML = `${autoBadge}${finMod.icon} <strong>Fin Stance: ${finMod.stanceName || finMod.tag}</strong> · <span>${finMod.strikeName}</span>`;
+        nextHtml = `${autoBadge}${finMod.icon} <strong>Fin Stance: ${finMod.stanceName || finMod.tag}</strong> · <span>${finMod.strikeName}</span>`;
       } else if (isAutoRunning) {
         finPill.classList.remove('hidden');
-        finPill.innerHTML = `${autoBadge}<span>Steer with Right-Click or press W/S to stop</span>`;
+        nextHtml = `${autoBadge}<span>Steer with Right-Click or press W/S to stop</span>`;
       } else {
         finPill.classList.add('hidden');
+      }
+      if (nextHtml && finPill._lastHtml !== nextHtml) {
+        finPill.innerHTML = nextHtml;
+        finPill._lastHtml = nextHtml;
       }
     }
 
@@ -2533,9 +2538,18 @@
         btn.classList.remove('out-of-range', 'in-range');
       }
 
-      if (iconEl) iconEl.textContent = displayIcon;
-      if (nameEl) nameEl.textContent = displayName;
-      if (powerEl) powerEl.textContent = displaySub;
+      if (iconEl && iconEl._lastText !== displayIcon) {
+        iconEl.textContent = displayIcon;
+        iconEl._lastText = displayIcon;
+      }
+      if (nameEl && nameEl._lastText !== displayName) {
+        nameEl.textContent = displayName;
+        nameEl._lastText = displayName;
+      }
+      if (powerEl && powerEl._lastText !== displaySub) {
+        powerEl.textContent = displaySub;
+        powerEl._lastText = displaySub;
+      }
 
       // Pass 83 Fray Lock / Inverse Mana check
       const curMange = (typeof window.getSharkMange === 'function' && p && p.sharkId)
@@ -2546,7 +2560,11 @@
       btn.classList.toggle('fray-locked', isFrayLocked);
 
       const frayTag = mCost > 0 ? ` [Costs +${Math.round(mCost * 100)}% Fray]` : (mCost < 0 ? ` [Restores +${Math.round(-mCost * 100)}% Fray]` : '');
-      btn.title = `[${slotKey.toUpperCase()}] ${displayName} (${ab.category})${frayTag} — ${ab.desc}${isFrayLocked ? ' (LOCKED: Coat too frayed! Groom [G] or sip Sacred Tea to restore Fray Capacity)' : ''}`;
+      const nextTitle = `[${slotKey.toUpperCase()}] ${displayName} (${ab.category})${frayTag} — ${ab.desc}${isFrayLocked ? ' (LOCKED: Coat too frayed! Groom [G] or sip Sacred Tea to restore Fray Capacity)' : ''}`;
+      if (btn._lastTitle !== nextTitle) {
+        btn.title = nextTitle;
+        btn._lastTitle = nextTitle;
+      }
 
       const rem = state.cooldowns[abId] || 0;
       const maxCd = state.maxCooldowns[abId] || ab.cooldown || 1.0;
@@ -2895,7 +2913,7 @@
     // 6. Update 3D Target Ring & HUD Target Frame
     updateTargetRing3D(elapsed);
     uiCooldownTick += dt;
-    if (uiCooldownTick >= 0.06) {
+    if (uiCooldownTick >= 0.15) {
       uiCooldownTick = 0;
       if (state.selectedTarget) updateTargetHUD();
       if (anyCdChanged || state.selectedTarget) renderActionBarUI();

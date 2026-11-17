@@ -473,8 +473,11 @@ window.BlahajNetwork = (function () {
 
     const topic = getRealmTopic(currentRoom);
     let packetBinary = null;
+    const isHighFreq = payload.type === 'move' || payload.type === '__presence__';
+    let sentToPrimary = false;
 
     wssClients.forEach((st) => {
+      if (isHighFreq && sentToPrimary) return;
       if (st && st.connected && st.ws && st.ws.readyState === WebSocket.OPEN) {
         if (st.subscribedTopic !== topic) {
           st.subscribedTopic = topic;
@@ -491,6 +494,7 @@ window.BlahajNetwork = (function () {
         }
         try {
           st.ws.send(packetBinary);
+          sentToPrimary = true;
         } catch (e) {}
       }
     });
@@ -754,18 +758,20 @@ window.BlahajNetwork = (function () {
     if (isCleaningUp) return;
     const now = Date.now();
 
-    // 1. Broadcast our current position & presence over WSS + WebRTC every 1.0s even when standing still!
-    if (latestPlayerState) {
-      sendRawControl({
-        type: '__presence__',
-        state: latestPlayerState,
-        time: now
-      });
-    } else {
-      sendRawControl({
-        type: '__ping__',
-        time: now
-      });
+    // 1. Broadcast our current position & presence over WSS + WebRTC every 1.0s when standing still!
+    if (now - lastWssMoveSentAt > 850) {
+      if (latestPlayerState) {
+        sendRawControl({
+          type: '__presence__',
+          state: latestPlayerState,
+          time: now
+        });
+      } else {
+        sendRawControl({
+          type: '__ping__',
+          time: now
+        });
+      }
     }
 
     // 2. Prune remote peers that haven't sent any packet in >14 seconds
