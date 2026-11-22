@@ -4085,6 +4085,7 @@
         if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
         if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
         if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
+        if (k === 'k') { e.preventDefault(); window.BlahajUFO.openSharedVault(); return; }
         if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
         if (k === 'f') { e.preventDefault(); window.BlahajUFO.playJetsonsHorn(); return; }
         if (k === 'e') { e.preventDefault(); window.BlahajUFO.exitUFO(); return; }

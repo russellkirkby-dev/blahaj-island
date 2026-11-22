@@ -645,6 +645,7 @@ window.BlahajEnemies = (function () {
 
     // 2. Update each enemy
     enemies.forEach((enemy, enemyIdx) => {
+      if (enemy.inSubspaceVault) return;
       enemy.animPhase += dt * 4.0;
       if (enemy.attackCooldown > 0) enemy.attackCooldown -= dt;
 

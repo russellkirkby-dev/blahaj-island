@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=7.9" />
+  <link rel="stylesheet" href="styles.css?v=8.0" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2424,6 +2424,11 @@
           <div id="ufo-hud-alt" class="ufo-tele-val">0m AGL</div>
           <div id="ufo-hud-vsi" class="ufo-tele-sub">+0.0 m/s</div>
         </div>
+        <div class="ufo-telemetry-card ufo-vault-card" id="ufo-vault-card">
+          <div class="ufo-tele-lbl">SUBSPACE VAULT</div>
+          <div id="ufo-vault-val" class="ufo-tele-val" style="font-size: 0.88rem; line-height: 1.25;">EMPTY</div>
+          <div id="ufo-vault-sub" class="ufo-tele-sub">Beam [T] · Trunk [K]</div>
+        </div>
       </div>
       <div id="ufo-hud-status" class="ufo-status-line">☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL</div>
       <div class="ufo-controls-bar">
@@ -2432,6 +2437,7 @@
         <button type="button" id="ufo-btn-tracy" class="ufo-ctrl-btn">🏝️ Tracy Isle [R]</button>
         <button type="button" id="ufo-btn-hatch" class="ufo-ctrl-btn">🪜 Hatch &amp; Stairs [H]</button>
         <button type="button" id="ufo-btn-beam" class="ufo-ctrl-btn">🟢 Tractor Beam [T]</button>
+        <button type="button" id="ufo-btn-trunk" class="ufo-ctrl-btn">📦 Community Trunk [K]</button>
         <button type="button" id="ufo-btn-disco" class="ufo-ctrl-btn">🪩 Disco Dome [B]</button>
         <button type="button" id="ufo-btn-horn" class="ufo-ctrl-btn">🔊 Jetsons Horn [F]</button>
         <button type="button" id="ufo-btn-chasecam" class="ufo-ctrl-btn active">🎥 Chase Cam: ON</button>
@@ -2441,23 +2447,23 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=7.9"></script>
-  <script src="js/sharks3d.js?v=7.9"></script>
-  <script src="js/ufo.js?v=7.9"></script>
-  <script src="js/world3d.js?v=7.9"></script>
-  <script src="js/volcano.js?v=7.9"></script>
-  <script src="js/laundromat.js?v=7.9"></script>
-  <script src="js/sphericalFoods.js?v=7.9"></script>
-  <script src="js/volleyball.js?v=7.9"></script>
-  <script src="js/spawningPits.js?v=7.9"></script>
-  <script src="js/homestead.js?v=7.9"></script>
-  <script src="js/network.js?v=7.9"></script>
-  <script src="js/inventory.js?v=7.9"></script>
-  <script src="js/enemies.js?v=7.9"></script>
-  <script src="js/seam.js?v=7.9"></script>
-  <script src="js/mmoControls.js?v=7.9"></script>
+  <script src="js/lore.js?v=8.0"></script>
+  <script src="js/sharks3d.js?v=8.0"></script>
+  <script src="js/ufo.js?v=8.0"></script>
+  <script src="js/world3d.js?v=8.0"></script>
+  <script src="js/volcano.js?v=8.0"></script>
+  <script src="js/laundromat.js?v=8.0"></script>
+  <script src="js/sphericalFoods.js?v=8.0"></script>
+  <script src="js/volleyball.js?v=8.0"></script>
+  <script src="js/spawningPits.js?v=8.0"></script>
+  <script src="js/homestead.js?v=8.0"></script>
+  <script src="js/network.js?v=8.0"></script>
+  <script src="js/inventory.js?v=8.0"></script>
+  <script src="js/enemies.js?v=8.0"></script>
+  <script src="js/seam.js?v=8.0"></script>
+  <script src="js/mmoControls.js?v=8.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=7.9"></script>
-  <script src="js/main.js?v=7.9"></script>
+  <script src="js/saveSystem.js?v=8.0"></script>
+  <script src="js/main.js?v=8.0"></script>
 </body>
 </html>

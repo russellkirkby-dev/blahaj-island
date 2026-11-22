@@ -79,6 +79,10 @@ window.BlahajUFO = (function () {
     hatchOpenProg: 1.0,
     viewMode: 'outside', // 'outside' | 'inside'
     tractorBeam: false,
+    subspaceVault: null, // { kind: 'enemy' | 'beach_ball' | 'carrot', title, icon, ref }
+    remoteVaultSummary: null, // { icon, title } synced to passengers
+    beamingTarget: null, // { kind, title, icon, ref, startPos, progress }
+    disgorgeFlashTimer: 0,
     discoMode: false,
     turboActive: false,
     antiGravCushionActive: false,
@@ -1087,7 +1091,102 @@ window.BlahajUFO = (function () {
     broadcastState(true);
   }
 
+  function getActiveVaultSummary() {
+    if (state.subspaceVault) {
+      return { icon: state.subspaceVault.icon || '🛸', title: state.subspaceVault.title || 'Captured Object' };
+    }
+    return state.remoteVaultSummary || null;
+  }
+
+  function playBeamCaptureChime(isRelease = false) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(isRelease ? 760 : 280, now);
+      osc.frequency.exponentialRampToValueAtTime(isRelease ? 260 : 880, now + 0.42);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.connect(gain);
+      gain.connect(getUfoAudioDest(ctx));
+      osc.start(now);
+      osc.stop(now + 0.48);
+    } catch (e) {}
+  }
+
+  function disgorgeFromSubspaceVault() {
+    const item = state.subspaceVault;
+    if (!item) return;
+    state.subspaceVault = null;
+    state.remoteVaultSummary = null;
+    state.tractorBeam = false;
+    state.disgorgeFlashTimer = 0.65;
+    if (tractorBeamMesh) tractorBeamMesh.visible = true;
+
+    const dropX = state.pos.x;
+    const dropZ = state.pos.z;
+    const dropY = getSafeGroundHeight(dropX, dropZ) + 0.45;
+
+    if (item.kind === 'enemy' && item.ref) {
+      const e = item.ref;
+      e.inSubspaceVault = false;
+      e.isFlying = false;
+      e.vel.set(0, -1.5, 0);
+      e.pos.set(dropX, Math.max(dropY, state.pos.y - 2.4), dropZ);
+      if (e.mesh) {
+        e.mesh.position.copy(e.pos);
+        e.mesh.scale.set(1, 1, 1);
+        e.mesh.rotation.set(0, e.rotY || 0, 0);
+        e.mesh.visible = true;
+      }
+      if (e.labelEl) e.labelEl.style.display = '';
+    } else if (item.kind === 'beach_ball' && item.ref) {
+      const bb = item.ref;
+      bb.inSubspaceVault = false;
+      bb.vel.set((Math.random() - 0.5) * 4.0, 0, (Math.random() - 0.5) * 4.0);
+      if (bb.mesh) {
+        bb.mesh.position.set(dropX, dropY + 0.4, dropZ);
+        bb.mesh.scale.set(1, 1, 1);
+        bb.mesh.visible = true;
+      }
+    } else if (item.kind === 'carrot' && item.ref) {
+      const c = item.ref;
+      c.inSubspaceVault = false;
+      c.knockedOff = true;
+      c.respawnTimer = 14.0;
+      c.vel.set((Math.random() - 0.5) * 3.0, 2.0, (Math.random() - 0.5) * 3.0);
+      if (c.mesh) {
+        c.mesh.position.set(dropX, dropY + 0.3, dropZ);
+        c.mesh.scale.set(1, 1, 1);
+        c.mesh.visible = true;
+      }
+    }
+
+    playBeamCaptureChime(true);
+    if (window.showToast) {
+      window.showToast(`${item.icon} SUBSPACE VAULT DISGORGED!`, `Released ${item.title} directly beneath the saucer!`);
+    }
+    updateAvionicsButtonsUI();
+    updateAvionicsHUD();
+    broadcastState(true);
+  }
+
+  function openSharedVault() {
+    if (window.BlahajGame && typeof window.BlahajGame.openCommunityTrunkModal === 'function') {
+      window.BlahajGame.openCommunityTrunkModal();
+    }
+  }
+
   function toggleTractorBeam() {
+    if (state.beamingTarget) return; // Wait for current capture animation (~0.75s) to finish
+    if (state.subspaceVault) {
+      disgorgeFromSubspaceVault();
+      return;
+    }
     state.tractorBeam = !state.tractorBeam;
     if (tractorBeamMesh) tractorBeamMesh.visible = state.tractorBeam;
     if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
@@ -1138,7 +1237,8 @@ window.BlahajUFO = (function () {
       pilotClientId: state.pilotClientId,
       pilotName: state.pilotName,
       passengerClientId: state.passengerClientId,
-      passengerName: state.passengerName
+      passengerName: state.passengerName,
+      vaultSummary: getActiveVaultSummary()
     });
   }
 
@@ -1146,6 +1246,7 @@ window.BlahajUFO = (function () {
     if (!data || data.type !== 'ufo_state') return;
     state.lastRemotePacketAt = Date.now();
     const myId = getMyClientId();
+    state.remoteVaultSummary = data.vaultSummary || null;
 
     // If someone else is piloting, smoothly sync UFO transform & systems
     if (state.localRole !== 'pilot') {
@@ -1222,7 +1323,12 @@ window.BlahajUFO = (function () {
 
     if (btnView) btnView.textContent = state.viewMode === 'inside' ? '🪟 View: COCKPIT [V]' : '🛸 View: OUTSIDE [V]';
     if (btnHatch) btnHatch.classList.toggle('active', state.hatchTargetOpen);
-    if (btnBeam) btnBeam.classList.toggle('active', state.tractorBeam);
+    if (btnBeam) {
+      btnBeam.classList.toggle('active', state.tractorBeam || !!state.subspaceVault);
+      btnBeam.textContent = state.subspaceVault
+        ? '📤 Disgorge Vault [T]'
+        : (state.tractorBeam ? '🟢 Tractor Beam: ON [T]' : '🟢 Tractor Beam [T]');
+    }
     if (btnDisco) btnDisco.classList.toggle('active', state.discoMode);
     if (btnLand) btnLand.classList.toggle('active', state.phase === 'landing');
     if (btnChase) {
@@ -1325,6 +1431,11 @@ window.BlahajUFO = (function () {
     const elHdg = document.getElementById('ufo-hud-hdg');
     const elStatus = document.getElementById('ufo-hud-status');
     const elOrbital = document.getElementById('ufo-orbital-banner');
+    const elVaultVal = document.getElementById('ufo-vault-val');
+    const elVaultSub = document.getElementById('ufo-vault-sub');
+    const vaultSum = getActiveVaultSummary();
+    if (elVaultVal) elVaultVal.textContent = vaultSum ? `${vaultSum.icon} ${vaultSum.title}` : 'EMPTY';
+    if (elVaultSub) elVaultSub.textContent = vaultSum ? 'Press [T] to Disgorge!' : 'Beam [T] · Trunk [K]';
 
     if (elPhase) {
       const phaseLabel = state.orbitalCeilingReached
@@ -1419,9 +1530,144 @@ window.BlahajUFO = (function () {
     if (lavaLampBlob) {
       lavaLampBlob.position.y = 1.74 + Math.sin(elapsed * 1.6) * 0.09;
     }
-    if (tractorBeamMesh && tractorBeamMesh.visible) {
-      tractorBeamMesh.rotation.y = elapsed * 2.4;
-      tractorBeamMesh.material.opacity = 0.22 + Math.sin(elapsed * 5.0) * 0.07;
+    if (tractorBeamMesh) {
+      if (state.disgorgeFlashTimer > 0) {
+        state.disgorgeFlashTimer = Math.max(0, state.disgorgeFlashTimer - dt);
+        tractorBeamMesh.visible = true;
+        tractorBeamMesh.material.color.setHex(0xfbbf24);
+        tractorBeamMesh.material.opacity = 0.35 * (state.disgorgeFlashTimer / 0.65);
+        if (state.disgorgeFlashTimer <= 0 && !state.tractorBeam) {
+          tractorBeamMesh.visible = false;
+        }
+      } else if (state.tractorBeam) {
+        tractorBeamMesh.visible = true;
+        tractorBeamMesh.rotation.y = elapsed * 2.4;
+        tractorBeamMesh.material.color.setHex(state.beamingTarget ? 0x5eead4 : 0x34d399);
+        tractorBeamMesh.material.opacity = (state.beamingTarget ? 0.38 : 0.24) + Math.sin(elapsed * 5.0) * 0.07;
+      } else {
+        tractorBeamMesh.visible = false;
+      }
+    }
+
+    // 3B. Tractor Beam Capture & Inventory Pickup Engine (when local pilot has beam active)
+    if (state.localRole === 'pilot' && state.tractorBeam) {
+      // A) Pull nearby inventory pickups into your Satchel!
+      const wpMgr = window.BlahajGame && window.BlahajGame.getWorldPickups ? window.BlahajGame.getWorldPickups() : null;
+      if (wpMgr && typeof wpMgr.getPickups === 'function') {
+        const pickups = wpMgr.getPickups();
+        for (let pi = pickups.length - 1; pi >= 0; pi--) {
+          const pk = pickups[pi];
+          if (!pk || pk.collected || !pk.mesh || !pk.mesh.visible) continue;
+          const dx = state.pos.x - pk.mesh.position.x;
+          const dz = state.pos.z - pk.mesh.position.z;
+          const hd = Math.hypot(dx, dz);
+          if (hd < 15.0 && pk.mesh.position.y <= state.pos.y + 2.0 && state.pos.y - pk.mesh.position.y < 28.0) {
+            pk.mesh.position.x += dx * Math.min(1.0, dt * 6.0);
+            pk.mesh.position.z += dz * Math.min(1.0, dt * 6.0);
+            pk.mesh.position.y += (state.pos.y - pk.mesh.position.y) * Math.min(1.0, dt * 6.0);
+            if (hd < 2.2 && Math.abs(state.pos.y - pk.mesh.position.y) < 2.8) {
+              if (window.BlahajGame && typeof window.BlahajGame.collectWorldPickup === 'function') {
+                window.BlahajGame.collectWorldPickup(pk);
+              }
+            }
+          }
+        }
+      }
+
+      // B) Animate active Subspace Vault capture OR scan for 1 living creature / large world toy!
+      if (state.beamingTarget) {
+        const bt = state.beamingTarget;
+        bt.progress = Math.min(1.0, bt.progress + dt * 1.4);
+        const mesh = bt.ref && bt.ref.mesh;
+        if (mesh) {
+          const t = bt.progress;
+          const spiralR = (1.0 - t) * 1.4;
+          const ang = t * Math.PI * 6.0;
+          mesh.position.set(
+            bt.startPos.x + (state.pos.x - bt.startPos.x) * t + Math.cos(ang) * spiralR,
+            bt.startPos.y + (state.pos.y - 0.6 - bt.startPos.y) * t,
+            bt.startPos.z + (state.pos.z - bt.startPos.z) * t + Math.sin(ang) * spiralR
+          );
+          mesh.rotation.y += dt * 12.0;
+          const sc = Math.max(0.08, 1.0 - t * 0.85);
+          mesh.scale.setScalar(sc);
+        }
+        if (bt.progress >= 1.0) {
+          if (bt.kind === 'enemy' && bt.ref) {
+            bt.ref.inSubspaceVault = true;
+            if (bt.ref.labelEl) bt.ref.labelEl.style.display = 'none';
+          } else if (bt.ref) {
+            bt.ref.inSubspaceVault = true;
+          }
+          if (mesh) {
+            mesh.visible = false;
+            mesh.scale.set(1, 1, 1);
+          }
+          state.subspaceVault = { kind: bt.kind, title: bt.title, icon: bt.icon, ref: bt.ref };
+          state.beamingTarget = null;
+          state.tractorBeam = false; // Auto-shutoff once sucked into Subspace Vault!
+          if (tractorBeamMesh) tractorBeamMesh.visible = false;
+          playBeamCaptureChime(false);
+          if (window.showToast) {
+            window.showToast(`${bt.icon} CAPTURED IN SUBSPACE VAULT!`, `${bt.title} beamed aboard! Press [T] anytime to disgorge.`);
+          }
+          updateAvionicsButtonsUI();
+          updateAvionicsHUD();
+          broadcastState(true);
+        }
+      } else if (!state.subspaceVault) {
+        // Scan below saucer for a living creature or large toy (Beach Ball / Carrot)
+        let candidate = null;
+        let bestD = 7.2;
+
+        if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+          const enemies = window.BlahajEnemies.getEnemies();
+          for (let ei = 0; ei < enemies.length; ei++) {
+            const e = enemies[ei];
+            if (!e || e.inSubspaceVault || e.isFlying || !e.mesh || !e.mesh.visible) continue;
+            if (e.pos.y > state.pos.y + 1.5 || state.pos.y - e.pos.y > 28.0) continue;
+            const hd = Math.hypot(e.pos.x - state.pos.x, e.pos.z - state.pos.z);
+            if (hd < bestD) {
+              bestD = hd;
+              const icon = e.type === 'urchin' ? '🟣' : (e.type === 'starfish' ? '⭐' : (e.type === 'puffball' ? '🐡' : '🦈'));
+              candidate = { kind: 'enemy', title: e.title || 'Sea Creature', icon, ref: e, startPos: e.pos.clone() };
+            }
+          }
+        }
+
+        if (!candidate && window.BlahajWorld && typeof window.BlahajWorld.getBeachBalls === 'function') {
+          const balls = window.BlahajWorld.getBeachBalls();
+          for (let bi = 0; bi < balls.length; bi++) {
+            const bb = balls[bi];
+            if (!bb || bb.inSubspaceVault || !bb.mesh || !bb.mesh.visible) continue;
+            if (bb.mesh.position.y > state.pos.y + 1.5 || state.pos.y - bb.mesh.position.y > 28.0) continue;
+            const hd = Math.hypot(bb.mesh.position.x - state.pos.x, bb.mesh.position.z - state.pos.z);
+            if (hd < bestD) {
+              bestD = hd;
+              candidate = { kind: 'beach_ball', title: 'Striped Beach Ball', icon: '🏖️', ref: bb, startPos: bb.mesh.position.clone() };
+            }
+          }
+        }
+
+        if (!candidate && window.BlahajWorld && typeof window.BlahajWorld.getBalconyCarrots === 'function') {
+          const carrots = window.BlahajWorld.getBalconyCarrots();
+          for (let ci = 0; ci < carrots.length; ci++) {
+            const c = carrots[ci];
+            if (!c || c.inSubspaceVault || !c.mesh || !c.mesh.visible) continue;
+            if (c.mesh.position.y > state.pos.y + 1.5 || state.pos.y - c.mesh.position.y > 28.0) continue;
+            const hd = Math.hypot(c.mesh.position.x - state.pos.x, c.mesh.position.z - state.pos.z);
+            if (hd < bestD) {
+              bestD = hd;
+              candidate = { kind: 'carrot', title: 'Beach-Shorts Carrot', icon: '🥕', ref: c, startPos: c.mesh.position.clone() };
+            }
+          }
+        }
+
+        if (candidate) {
+          state.beamingTarget = { ...candidate, progress: 0 };
+          playBeamCaptureChime(false);
+        }
+      }
     }
 
     // 4. Flight Simulator Physics (Local Pilot vs Remote Synced vs Parked)
@@ -1726,6 +1972,7 @@ window.BlahajUFO = (function () {
     bind('ufo-btn-tracy', resetToTracyIsle);
     bind('ufo-btn-hatch', toggleHatch);
     bind('ufo-btn-beam', toggleTractorBeam);
+    bind('ufo-btn-trunk', openSharedVault);
     bind('ufo-btn-disco', toggleDiscoMode);
     bind('ufo-btn-horn', playJetsonsHorn);
     bind('ufo-btn-chasecam', toggleAutoChaseCam);
@@ -1756,6 +2003,7 @@ window.BlahajUFO = (function () {
     toggleViewMode,
     toggleHatch,
     toggleTractorBeam,
+    openSharedVault,
     toggleDiscoMode,
     toggleAutoChaseCam,
     updateAvionicsButtonsUI,
