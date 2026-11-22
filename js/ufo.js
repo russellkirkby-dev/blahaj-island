@@ -283,10 +283,10 @@ window.BlahajUFO = (function () {
     grassRing.position.y = 4.0;
     islandGroup.add(grassRing);
 
-    // Subterranean launch silo rim (metallic Thunderbirds collar around central 13m bay)
-    const siloRim = new THREE.Mesh(new THREE.TorusGeometry(13.2, 1.15, 14, 36), chromeMat);
+    // Subterranean launch silo rim (flush metallic Thunderbirds collar around central 13m bay)
+    const siloRim = new THREE.Mesh(new THREE.TorusGeometry(13.2, 0.95, 14, 36), chromeMat);
     siloRim.rotation.x = Math.PI / 2;
-    siloRim.position.y = ISLE_DECK_Y + 0.15;
+    siloRim.position.y = ISLE_DECK_Y - 0.35;
     islandGroup.add(siloRim);
 
     // Dark recessed launch bay interior pit
@@ -756,18 +756,9 @@ window.BlahajUFO = (function () {
     const dz = z - ISLE_Z;
     const d = Math.hypot(dx, dz);
 
-    // Northwest Boarding Pier Ramp leading from water up to Tracy Isle deck
-    const pierDx = dx - (-22.5);
-    const pierDz = dz - (-16.5);
-    if (Math.hypot(pierDx, pierDz) < 12.5) {
-      const rampProg = Math.max(0, Math.min(1, 1.0 - (d - 16.0) / 18.0));
-      const rampY = 0.6 + rampProg * (ISLE_DECK_Y - 0.6);
-      if (d > 14.0 && d < 36.0) return rampY;
-    }
+    if (d > ISLE_RADIUS + 4.0) return -999;
 
-    if (d > ISLE_RADIUS + 2.0) return -999;
-
-    // Central Hangar Bay (Radius 12.8m)
+    // 1. Central Hangar Bay (Radius 12.8m)
     if (d < 12.8) {
       if (state.hangarOpenProg < 0.35) {
         // Pool roof is closed -> walkable turquoise deck!
@@ -777,9 +768,20 @@ window.BlahajUFO = (function () {
       return HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y) + 0.38;
     }
 
-    // Outer Grass & Sand Ring
-    if (d < ISLE_RADIUS - 6.0) return ISLE_DECK_Y;
-    const beachSlope = Math.max(0, 1.0 - (d - (ISLE_RADIUS - 6.0)) / 8.0);
+    // 2. Flat Emerald Tropical Plateau Rim (12.8m .. 26.0m): always flush at ISLE_DECK_Y (5.4m)!
+    if (d <= 26.0) {
+      return ISLE_DECK_Y;
+    }
+
+    // 3. Outer Slope & Northwest Boarding Pier Ramp (26.0m .. 36.0m)
+    const pierDx = dx - (-22.5);
+    const pierDz = dz - (-16.5);
+    if (Math.hypot(pierDx, pierDz) < 11.5) {
+      const rampProg = Math.max(0, Math.min(1, 1.0 - (d - 26.0) / 10.0));
+      return 0.6 + rampProg * (ISLE_DECK_Y - 0.6);
+    }
+
+    const beachSlope = Math.max(0, 1.0 - (d - 26.0) / 9.0);
     return beachSlope * ISLE_DECK_Y;
   }
 
@@ -1048,12 +1050,18 @@ window.BlahajUFO = (function () {
     state.phase = 'landing';
     state.phaseTimer = 0;
     state.orbitalCeilingReached = false;
-    // If landing near Tracy Isle, automatically open the Thunderbirds bay!
-    if (Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z) < 30.0) {
+    // If landing near Tracy Isle, automatically open the Thunderbirds bay & funnel onto the pad!
+    const nearIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z) < 42.0;
+    if (nearIsle) {
       state.hangarTargetOpen = true;
     }
     if (window.showToast) {
-      window.showToast('🛬 AUTO-LANDING SEQUENCE ACTIVE', 'Stabilizing hull, extending landing stairs & touching down softly…');
+      window.showToast(
+        nearIsle ? '🏝️ TRACY ISLE PAD APPROACH ENGAGED' : '🛬 AUTO-LANDING SEQUENCE ACTIVE',
+        nearIsle
+          ? 'Opening Thunderbirds bay & funneling onto the hydraulic pad…'
+          : 'Stabilizing hull, extending landing stairs & touching down softly…'
+      );
     }
     broadcastState(true);
   }
@@ -1362,8 +1370,9 @@ window.BlahajUFO = (function () {
 
     if (hangarDoorL && hangarDoorR) {
       const slideDist = state.hangarOpenProg * 13.8;
-      hangarDoorL.position.x = -slideDist;
-      hangarDoorR.position.x = slideDist;
+      const doorSinkY = ISLE_DECK_Y + 0.05 - state.hangarOpenProg * 0.28;
+      hangarDoorL.position.set(-slideDist, doorSinkY, 0);
+      hangarDoorR.position.set(slideDist, doorSinkY, 0);
     }
     if (elevatorMesh) {
       elevatorMesh.position.y = HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y);
@@ -1439,26 +1448,54 @@ window.BlahajUFO = (function () {
           state.phase = 'flying';
         }
       } else if (state.phase === 'landing') {
-        // Automated gentle touchdown sequence!
-        state.vel.x *= Math.max(0, 1 - dt * 3.5);
-        state.vel.z *= Math.max(0, 1 - dt * 3.5);
-        const groundY = getSafeGroundHeight(state.pos.x, state.pos.z);
-        const targetY = groundY + 1.45;
-        state.pos.x += state.vel.x * dt;
-        state.pos.z += state.vel.z * dt;
-        const descentSpeed = Math.max(1.8, Math.min(9.5, (state.pos.y - targetY) * 1.4));
-        state.pos.y = Math.max(targetY, state.pos.y - descentSpeed * dt);
-        state.vel.y = -descentSpeed;
+        // Automated gentle touchdown sequence (funnels onto Tracy Isle pad if within 42m!)
+        const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
+        const funnelToPad = dIsle < 42.0;
+        let targetY;
+        if (funnelToPad) {
+          state.hangarTargetOpen = true;
+          state.pos.x += (ISLE_X - state.pos.x) * Math.min(1.0, dt * 2.6);
+          state.pos.z += (ISLE_Z - state.pos.z) * Math.min(1.0, dt * 2.6);
+          const padYaw = -Math.PI * 0.72;
+          let yd = padYaw - state.yaw;
+          while (yd > Math.PI) yd -= Math.PI * 2;
+          while (yd < -Math.PI) yd += Math.PI * 2;
+          state.yaw += yd * Math.min(1.0, dt * 3.0);
+          targetY = HANGAR_RAISED_Y + 1.5;
+        } else {
+          state.vel.x *= Math.max(0, 1 - dt * 3.5);
+          state.vel.z *= Math.max(0, 1 - dt * 3.5);
+          state.pos.x += state.vel.x * dt;
+          state.pos.z += state.vel.z * dt;
+          targetY = getSafeGroundHeight(state.pos.x, state.pos.z) + 1.45;
+        }
+        const descentSpeed = Math.max(2.0, Math.min(9.5, Math.abs(state.pos.y - targetY) * 1.5));
+        if (state.pos.y > targetY) {
+          state.pos.y = Math.max(targetY, state.pos.y - descentSpeed * dt);
+          state.vel.y = -descentSpeed;
+        } else {
+          state.pos.y = Math.min(targetY, state.pos.y + descentSpeed * dt);
+          state.vel.y = descentSpeed;
+        }
         state.pitch *= Math.max(0, 1 - dt * 5.0);
         state.roll *= Math.max(0, 1 - dt * 5.0);
-        if (state.pos.y <= targetY + 0.15) {
-          state.pos.y = targetY;
+        const alignedOnPad = !funnelToPad || Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z) < 0.65;
+        if (Math.abs(state.pos.y - targetY) <= 0.16 && alignedOnPad) {
+          if (funnelToPad) {
+            state.pos.set(ISLE_X, targetY, ISLE_Z);
+            state.yaw = -Math.PI * 0.72;
+          } else {
+            state.pos.y = targetY;
+          }
           state.vel.set(0, 0, 0);
           state.phase = 'parked';
           state.hatchTargetOpen = true;
           if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
           if (window.showToast) {
-            window.showToast('🛸 TOUCHDOWN COMPLETE!', 'Glowing boarding stairs deployed! Press [E] to step out or [Space] to lift off again.');
+            window.showToast(
+              funnelToPad ? '🏝️ DOCKED ON TRACY ISLE PAD!' : '🛸 TOUCHDOWN COMPLETE!',
+              'Glowing boarding stairs deployed! Press [E] to step out—walk away to fold the secret base shut.'
+            );
           }
         }
       } else if (state.phase === 'parked') {
@@ -1582,6 +1619,19 @@ window.BlahajUFO = (function () {
         const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
         if (dIsle < 11.5 && state.phase === 'parked') {
           state.pos.y = HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y) + 1.5;
+          // Auto-retract UFO & fold secret Thunderbirds island back up once player walks away!
+          if (state.hangarTargetOpen && !state.localRole && !state.pilotClientId && !state.passengerClientId && window.player && window.player.pos) {
+            const pDist = Math.hypot(window.player.pos.x - ISLE_X, window.player.pos.z - ISLE_Z);
+            if (pDist > 16.5) {
+              state.hangarTargetOpen = false;
+              state.hatchTargetOpen = false;
+              playHangarKlaxon();
+              if (window.showToast) {
+                window.showToast('🌴 SECRET BASE FOLDING SHUT…', 'Lowering S.S. Shonk-Saucer into the silo & sealing the turquoise pool!');
+              }
+              broadcastState(true);
+            }
+          }
         }
       }
       state.speed = 0;
