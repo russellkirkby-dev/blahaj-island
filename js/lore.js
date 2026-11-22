@@ -133,25 +133,25 @@ window.BLAHAJ_LORE = {
     {
       id: 'tatiana',
       name: 'Tatiana',
-      tag: 'THE PINK GUARD · ROYAL PROTECTION',
+      tag: 'THE PINK GUARD · PORTAL SENTINEL (LEFT)',
       type: 'pink_shark',
       beautySpot: true,
       hasMirror: true,
-      pos: { x: 56, z: -4, rotY: -0.9 },
+      pos: { x: 67.2, z: -15.0, rotY: -1.19 },
       portrait: 'assets/gallery/Wedding-1.png',
       lines: [
         '“Halt! State your business, your tea preference, and how many Birbs you have fed with Breb today!”',
-        '“This Beauty Spot Mirror is strictly ceremonial Pink Guard optical equipment. Anyone saying otherwise goes on the Clipboard.”',
+        '“Ivanka and I stand sentinel on either side of the Great Portal Gate. None pass without Pink Guard inspection!”',
         '“You may pass, sharkitty. The Pink Guard approves of cozy exploration.”'
       ]
     },
     {
       id: 'ivanka',
       name: 'Ivanka',
-      tag: 'THE PINK GUARD · CLIPBOARD AUTHORITY',
+      tag: 'THE PINK GUARD · PORTAL SENTINEL (RIGHT)',
       type: 'pink_shark',
       hasClipboard: true,
-      pos: { x: 60, z: -16, rotY: -1.4 },
+      pos: { x: 72.0, z: -3.1, rotY: -1.19 },
       portrait: 'assets/gallery/Whirlings.png',
       lines: [
         '“I am consulting the Security Clipboard. It contains nothing. It remains terrifying.”',

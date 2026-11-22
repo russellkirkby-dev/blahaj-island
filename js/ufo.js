@@ -1130,11 +1130,40 @@ window.BlahajUFO = (function () {
     const dropX = state.pos.x;
     const dropZ = state.pos.z;
     const dropY = getSafeGroundHeight(dropX, dropZ) + 0.45;
+    const inVolcanoCrater = Math.hypot(dropX - (-28.0), dropZ - (-148.0)) < 21.0;
 
     if (item.kind === 'enemy' && item.ref) {
       const e = item.ref;
       e.inSubspaceVault = false;
       e.isFlying = false;
+      if (inVolcanoCrater) {
+        // Dropped directly into the Main Island Volcano Caldera -> Volcanic Incineration!
+        if (e.isIncursionInvader && window.BlahajSeam && typeof window.BlahajSeam.onInvaderExpelledToSea === 'function') {
+          e.isIncursionInvader = false;
+          window.BlahajSeam.onInvaderExpelledToSea(e);
+        }
+        e.mange = 0;
+        if (e.patrolRoute && e.patrolRoute.length > 0) {
+          const wp = e.patrolRoute[0];
+          e.pos.set(wp.x, e.homePos ? e.homePos.y : -0.65, wp.z);
+        } else if (e.homePos) {
+          e.pos.copy(e.homePos);
+        }
+        if (e.mesh) {
+          e.mesh.position.copy(e.pos);
+          e.mesh.scale.set(1, 1, 1);
+          e.mesh.visible = true;
+        }
+        if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
+        playBeamCaptureChime(true);
+        if (window.showToast) {
+          window.showToast('🌋🔥 VOLCANIC INCINERATION!', `${item.title} was dropped into the molten caldera and poofed back to respawn refreshed!`);
+        }
+        updateAvionicsButtonsUI();
+        updateAvionicsHUD();
+        broadcastState(true);
+        return;
+      }
       e.vel.set(0, -1.5, 0);
       e.pos.set(dropX, Math.max(dropY, state.pos.y - 2.4), dropZ);
       if (e.mesh) {

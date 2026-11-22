@@ -4042,6 +4042,20 @@
         }
       }
 
+      // S.S. Shonk-Saucer Mk. VII Flight Controls (checked BEFORE Binoculars [T]!)
+      if (!isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
+        if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
+        if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
+        if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
+        if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
+        if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
+        if (k === 'k') { e.preventDefault(); window.BlahajUFO.openSharedVault(); return; }
+        if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
+        if (k === 'f') { e.preventDefault(); window.BlahajUFO.playJetsonsHorn(); return; }
+        if (k === 'e') { e.preventDefault(); window.BlahajUFO.exitUFO(); return; }
+        if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
+      }
+
       if (k === 't') {
         e.preventDefault();
         if (isUsingBinoculars) {
@@ -4076,20 +4090,6 @@
           }
         }
         return;
-      }
-
-      // S.S. Shonk-Saucer Mk. VII Flight Controls (when aboard as Pilot or Passenger)
-      if (!isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
-        if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
-        if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
-        if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
-        if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
-        if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
-        if (k === 'k') { e.preventDefault(); window.BlahajUFO.openSharedVault(); return; }
-        if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
-        if (k === 'f') { e.preventDefault(); window.BlahajUFO.playJetsonsHorn(); return; }
-        if (k === 'e') { e.preventDefault(); window.BlahajUFO.exitUFO(); return; }
-        if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
       }
 
       // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer ([Shift+U] Resets to Tracy Isle!)
@@ -10871,7 +10871,7 @@
 
   function enterBinocularMode() {
     if (isUsingBinoculars) return;
-    if (player.isLounging || player.isSeatedInBooth || player.inCart) return;
+    if (player.inUFO || player.isLounging || player.isSeatedInBooth || player.inCart) return;
 
     isUsingBinoculars = true;
     binocularSavedDistance = camState.distance;
@@ -10887,6 +10887,7 @@
     camState.distance = 0.0;
     camState.shoulderRight = 0.0;
     camState.heightOffset = 1.15;
+    camState.pitch = 0.04; // Level horizon view instead of snapping into the sky
     camera.fov = 16.0; // 4.5x zoom
     camera.updateProjectionMatrix();
 
