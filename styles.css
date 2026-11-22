@@ -7612,3 +7612,178 @@ body.minimal-hud .mmo-vitals-bar {
 .sb-pick-key-btn:hover {
   background: #0284c7;
 }
+
+
+/* ==========================================================================
+   S.S. SHONK-SAUCER MK. VII — GLASS-COCKPIT FLIGHT AVIONICS HUD
+   ========================================================================== */
+.ufo-avionics-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 62;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18px 22px 22px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.ufo-avionics-hud.hidden {
+  display: none !important;
+}
+.ufo-top-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ufo-pill {
+  background: rgba(6, 16, 34, 0.86);
+  border: 1.5px solid rgba(56, 189, 248, 0.72);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28), inset 0 0 10px rgba(56, 189, 248, 0.14);
+  backdrop-filter: blur(10px);
+  color: #e0f2fe;
+  padding: 6px 15px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ufo-pill.phase {
+  border-color: #5eead4;
+  color: #5eead4;
+}
+.ufo-pill.heading {
+  font-variant-numeric: tabular-nums;
+  border-color: #fbbf24;
+  color: #fde68a;
+}
+.ufo-center-instrument-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: auto;
+  margin-bottom: 14px;
+}
+.ufo-telemetry-card {
+  min-width: 122px;
+  background: rgba(6, 16, 34, 0.82);
+  border: 1.5px solid rgba(56, 189, 248, 0.55);
+  border-radius: 14px;
+  padding: 10px 14px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+.ufo-tele-lbl {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #7dd3fc;
+  text-transform: uppercase;
+}
+.ufo-tele-val {
+  font-size: 1.2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+}
+.ufo-tele-sub {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #5eead4;
+  margin-top: 2px;
+}
+.ufo-horizon-wrap {
+  position: relative;
+  width: 156px;
+  height: 156px;
+  border-radius: 50%;
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.35), inset 0 0 16px rgba(0, 0, 0, 0.7);
+  background: rgba(4, 12, 24, 0.85);
+}
+#ufo-horizon-canvas {
+  display: block;
+  width: 156px;
+  height: 156px;
+}
+.ufo-orbital-banner {
+  margin: 0 auto 10px;
+  padding: 10px 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(49, 16, 104, 0.92), rgba(15, 23, 42, 0.92));
+  border: 1.5px solid #c084fc;
+  box-shadow: 0 0 26px rgba(192, 132, 252, 0.55);
+  color: #f3e8ff;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  max-width: 560px;
+}
+.ufo-orbital-banner.hidden {
+  display: none !important;
+}
+.ufo-bottom-deck {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.ufo-status-line {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #a5f3fc;
+  background: rgba(6, 16, 34, 0.78);
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.ufo-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: auto;
+  background: rgba(6, 16, 34, 0.88);
+  border: 1.5px solid rgba(56, 189, 248, 0.62);
+  border-radius: 16px;
+  padding: 8px 12px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
+.ufo-ctrl-btn {
+  background: rgba(15, 35, 66, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #e0f2fe;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.ufo-ctrl-btn:hover {
+  background: rgba(14, 165, 233, 0.35);
+  border-color: #7dd3fc;
+  transform: translateY(-1px);
+}
+.ufo-ctrl-btn.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.88), rgba(6, 182, 212, 0.88));
+  border-color: #fde047;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.55);
+}
+.ufo-ctrl-btn.exit-btn {
+  border-color: rgba(244, 63, 94, 0.7);
+  color: #fecdd3;
+}
+.ufo-ctrl-btn.exit-btn:hover {
+  background: rgba(225, 29, 72, 0.75);
+  color: #ffffff;
+}

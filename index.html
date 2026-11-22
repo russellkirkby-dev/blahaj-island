@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=7.4" />
+  <link rel="stylesheet" href="styles.css?v=7.5" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2370,23 +2370,64 @@
     </div>
   </div>
 
+  <!-- S.S. Shonk-Saucer Mk. VII Glass-Cockpit Avionics HUD -->
+  <div id="ufo-avionics-hud" class="ufo-avionics-hud hidden">
+    <div class="ufo-top-strip">
+      <div id="ufo-hud-phase" class="ufo-pill phase">🛸 FLIGHT CRUISE</div>
+      <div id="ufo-hud-hdg" class="ufo-pill heading">HDG 000°</div>
+      <div id="ufo-hud-role" class="ufo-pill">🧑‍✈️ PILOT · S.S. SHONK-SAUCER MK. VII</div>
+    </div>
+
+    <div class="ufo-bottom-deck">
+      <div id="ufo-orbital-banner" class="ufo-orbital-banner hidden">
+        🌌 KARMAN ORBITAL CEILING REACHED (122m) · Deep-Space &amp; Alien Planets Jump Gate Staged Above! Cruise in Orbit or Press [C] to Descend.
+      </div>
+      <div class="ufo-center-instrument-row">
+        <div class="ufo-telemetry-card">
+          <div class="ufo-tele-lbl">AIRSPEED</div>
+          <div id="ufo-hud-speed" class="ufo-tele-val">0 KTS</div>
+          <div class="ufo-tele-sub">WASD · Shift Turbo</div>
+        </div>
+        <div class="ufo-horizon-wrap">
+          <canvas id="ufo-horizon-canvas" width="156" height="156"></canvas>
+        </div>
+        <div class="ufo-telemetry-card">
+          <div class="ufo-tele-lbl">RADAR ALT</div>
+          <div id="ufo-hud-alt" class="ufo-tele-val">0m AGL</div>
+          <div id="ufo-hud-vsi" class="ufo-tele-sub">+0.0 m/s</div>
+        </div>
+      </div>
+      <div id="ufo-hud-status" class="ufo-status-line">☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL</div>
+      <div class="ufo-controls-bar">
+        <button type="button" id="ufo-btn-view" class="ufo-ctrl-btn">🛸 View: OUTSIDE [V]</button>
+        <button type="button" id="ufo-btn-land" class="ufo-ctrl-btn">🛬 Auto-Land [L]</button>
+        <button type="button" id="ufo-btn-hatch" class="ufo-ctrl-btn">🪜 Hatch &amp; Stairs [H]</button>
+        <button type="button" id="ufo-btn-beam" class="ufo-ctrl-btn">🟢 Tractor Beam [T]</button>
+        <button type="button" id="ufo-btn-disco" class="ufo-ctrl-btn">🪩 Disco Dome [B]</button>
+        <button type="button" id="ufo-btn-horn" class="ufo-ctrl-btn">🔊 Jetsons Horn [F]</button>
+        <button type="button" id="ufo-btn-exit" class="ufo-ctrl-btn exit-btn">🚪 Exit Ship [E]</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=7.4"></script>
-  <script src="js/sharks3d.js?v=7.4"></script>
-  <script src="js/world3d.js?v=7.4"></script>
-  <script src="js/volcano.js?v=7.4"></script>
-  <script src="js/laundromat.js?v=7.4"></script>
-  <script src="js/sphericalFoods.js?v=7.4"></script>
-  <script src="js/volleyball.js?v=7.4"></script>
-  <script src="js/spawningPits.js?v=7.4"></script>
-  <script src="js/homestead.js?v=7.4"></script>
-  <script src="js/network.js?v=7.4"></script>
-  <script src="js/inventory.js?v=7.4"></script>
-  <script src="js/enemies.js?v=7.4"></script>
-  <script src="js/seam.js?v=7.4"></script>
-  <script src="js/mmoControls.js?v=7.4"></script>
+  <script src="js/lore.js?v=7.5"></script>
+  <script src="js/sharks3d.js?v=7.5"></script>
+  <script src="js/ufo.js?v=7.5"></script>
+  <script src="js/world3d.js?v=7.5"></script>
+  <script src="js/volcano.js?v=7.5"></script>
+  <script src="js/laundromat.js?v=7.5"></script>
+  <script src="js/sphericalFoods.js?v=7.5"></script>
+  <script src="js/volleyball.js?v=7.5"></script>
+  <script src="js/spawningPits.js?v=7.5"></script>
+  <script src="js/homestead.js?v=7.5"></script>
+  <script src="js/network.js?v=7.5"></script>
+  <script src="js/inventory.js?v=7.5"></script>
+  <script src="js/enemies.js?v=7.5"></script>
+  <script src="js/seam.js?v=7.5"></script>
+  <script src="js/mmoControls.js?v=7.5"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=7.4"></script>
-  <script src="js/main.js?v=7.4"></script>
+  <script src="js/saveSystem.js?v=7.5"></script>
+  <script src="js/main.js?v=7.5"></script>
 </body>
 </html>

@@ -42,6 +42,9 @@
   // --- Audio Synthesizer (Cozy WebAudio Chimes, Ambient Waves, Wind, Splashes & Footsteps) ---
   const CozyAudio = {
     ctx: null,
+    getContext() {
+      return this.ctx;
+    },
     masterGain: null,
     musicGain: null,
     sfxGain: null,
@@ -4060,6 +4063,25 @@
         return;
       }
 
+      // S.S. Shonk-Saucer Mk. VII Flight Controls (when aboard as Pilot or Passenger)
+      if (!isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
+        if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
+        if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
+        if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
+        if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
+        if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
+        if (k === 'f') { e.preventDefault(); window.BlahajUFO.playJetsonsHorn(); return; }
+        if (k === 'e') { e.preventDefault(); window.BlahajUFO.exitUFO(); return; }
+        if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
+      }
+
+      // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer / Open Tracy Isle Hangar!
+      if (!isAnyModalOpen() && k === 'u' && (currentZone === 'island' || currentZone === 'overworld') && window.BlahajUFO) {
+        e.preventDefault();
+        window.BlahajUFO.summonToPosition(player.pos);
+        return;
+      }
+
       // C: Opens Character Info / Equipment screen (or Shift+C / active builder toggles Builder Mode)
       if (k === 'c') {
         e.preventDefault();
@@ -6908,6 +6930,20 @@
 
     if (!nearestInteractable) return;
     const item = nearestInteractable;
+
+    // S.S. Shonk-Saucer Mk. VII & Thunderbirds Launch Isle Interactables
+    if (item.kind === 'ufo_hangar_console' && window.BlahajUFO) {
+      window.BlahajUFO.toggleHangarDoors();
+      return;
+    }
+    if (item.kind === 'ufo_summon_pier' && window.BlahajUFO) {
+      window.BlahajUFO.summonToPosition(player.pos);
+      return;
+    }
+    if (item.kind === 'ufo_board' && window.BlahajUFO) {
+      window.BlahajUFO.boardUFO();
+      return;
+    }
 
     // Volcano Instance specific interactables
     if (item.kind === 'v_seam_diviner') {
@@ -12761,6 +12797,10 @@
               completeQuest('q-sw-seam');
             }
           }
+        } else if (data.type === 'ufo_state') {
+          if (window.BlahajUFO && typeof window.BlahajUFO.handleNetworkPacket === 'function') {
+            window.BlahajUFO.handleNetworkPacket(data);
+          }
         } else if ((data.type === 'seam_rift_mended' || data.type === 'rift_mend') && (data.riftId || data.locId)) {
           const idToMend = data.riftId || data.locId;
           let mendedSuccess = false;
@@ -13224,6 +13264,9 @@
         window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
+        if (window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+          window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
+        }
         if (window.BlahajHomestead) {
           window.BlahajHomestead.update(dt, elapsed);
         }
@@ -13296,6 +13339,28 @@
   }
 
   function updatePlayerMovement(dt, elapsed) {
+    if (window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
+      netSyncTimer += dt;
+      if (netSyncTimer > 0.08) {
+        netSyncTimer = 0;
+        window.BlahajNetwork.send({
+          type: 'move',
+          sharkId: player.sharkId,
+          x: player.pos.x,
+          y: player.pos.y,
+          z: player.pos.z,
+          rotY: player.rotY,
+          isMoving: false,
+          inBoat: false,
+          inCart: false,
+          zone: currentZone,
+          mange: window.__BLAHAJ_MANGE__,
+          heldItemId: playerHeldItem ? playerHeldItem.id : null
+        });
+      }
+      return;
+    }
+
     if (isUsingBinoculars) {
       nearestInteractable = {
         kind: 'binoculars_active',
@@ -15077,6 +15142,17 @@
     }
 
     // (Signposts are non-interactive 3D wooden carved road markers; exploration is unhindered)
+
+    // S.S. Shonk-Saucer Mk. VII & Thunderbirds Launch Isle Interactables
+    if (window.BlahajUFO && (currentZone === 'island' || currentZone === 'overworld')) {
+      const ufoItems = window.BlahajUFO.getInteractables(player.pos);
+      ufoItems.forEach((ui) => {
+        if (ui.dist < bestDist) {
+          bestDist = ui.dist;
+          nearestInteractable = ui;
+        }
+      });
+    }
 
     // Pass 77: Personal Pocket Atoll, BÅT-BYGGE Shipyard, BYGGBÄNK Sawmill, Baby Sharks & Commissions Boards
     if (window.BlahajHomestead && (currentZone === 'island' || currentZone === 'overworld')) {

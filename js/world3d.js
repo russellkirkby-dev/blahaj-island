@@ -862,7 +862,10 @@ window.BlahajWorld = (function () {
     const tY = getTerrainHeight(x, z);
     const sY = getStructureSurfaceHeight(x, z, refY, forCamera);
     const lmY = getLandmarkSurfaceHeight(x, z, refY, forCamera);
-    return Math.max(tY, sY, lmY);
+    const ufoY = (window.BlahajUFO && typeof window.BlahajUFO.getSurfaceHeight === 'function')
+      ? window.BlahajUFO.getSurfaceHeight(x, z, refY)
+      : -999;
+    return Math.max(tY, sY, lmY, ufoY);
   }
 
   // Terrain surface height purely for the outer mountain mesh (so the volcano mountain arches cleanly over the interior dungeon!)
@@ -1039,6 +1042,9 @@ window.BlahajWorld = (function () {
     buildTeaDocksAndRegattaBoat(scene);
     buildEndlessPierToErf(scene);
     buildOuterSanctuaryIslands(scene);
+    if (window.BlahajUFO && typeof window.BlahajUFO.build === 'function') {
+      window.BlahajUFO.build(scene);
+    }
     buildLushPalmsBouldersAndLanterns(scene);
     buildGreatSeamRifts(scene);
     buildTouristBinocularPedestals(scene);
