@@ -133,6 +133,14 @@ window.BlahajUFO = (function () {
     return null;
   }
 
+  function getUfoAudioDest(ctx) {
+    if (window.CozyAudio && typeof window.CozyAudio.getUfoGain === 'function') {
+      const g = window.CozyAudio.getUfoGain();
+      if (g) return g;
+    }
+    return ctx ? ctx.destination : null;
+  }
+
   function playJetsonsHorn() {
     const ctx = getAudioCtx();
     if (!ctx) return;
@@ -160,7 +168,7 @@ window.BlahajUFO = (function () {
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(getUfoAudioDest(ctx));
       osc.start(now);
       lfo.start(now);
       osc.stop(now + 0.6);
@@ -183,7 +191,7 @@ window.BlahajUFO = (function () {
         gain.gain.linearRampToValueAtTime(0.1, now + offset + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.2);
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(getUfoAudioDest(ctx));
         osc.start(now + offset);
         osc.stop(now + offset + 0.22);
       });
@@ -220,7 +228,7 @@ window.BlahajUFO = (function () {
         lfoGain.connect(osc.frequency);
         gain.gain.value = 0.0001;
         osc.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(getUfoAudioDest(ctx));
 
         osc.start();
         lfo.start();
@@ -892,6 +900,16 @@ window.BlahajUFO = (function () {
 
   function summonToPosition(worldPos) {
     if (!worldPos) return;
+    const myId = getMyClientId();
+    if (state.pilotClientId && state.pilotClientId !== myId && Date.now() - state.lastRemotePacketAt < 10000) {
+      if (window.showToast) {
+        window.showToast(
+          `🛸 ${state.pilotName || 'A PARTNER'} IS FLYING THE SAUCER!`,
+          'Only one S.S. Shonk-Saucer Mk. VII exists in the realm—ask your pilot to land so you can hop in the Co-Pilot seat!'
+        );
+      }
+      return;
+    }
     // Offset landing zone 6.5m in front of the player so the glowing stairs point right toward them!
     const pYaw = (window.player && typeof window.player.rotY === 'number') ? window.player.rotY : 0;
     const landX = worldPos.x + Math.sin(pYaw) * 6.5;

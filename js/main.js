@@ -17,6 +17,8 @@
     sfxMute: false,
     ambientVol: 65,
     ambientMute: false,
+    ufoVol: 80,
+    ufoMute: false,
     footsteps: true,
     birbCalls: true,
     fov: 60,
@@ -51,6 +53,10 @@
     musicGain: null,
     sfxGain: null,
     ambientGain: null,
+    ufoGain: null,
+    getUfoGain() {
+      return this.ufoGain || this.sfxGain || null;
+    },
     noiseBuffer: null,
     surfNode: null,
     surfGain: null,
@@ -141,10 +147,12 @@
           this.musicGain = this.ctx.createGain();
           this.sfxGain = this.ctx.createGain();
           this.ambientGain = this.ctx.createGain();
+          this.ufoGain = this.ctx.createGain();
 
           this.musicGain.connect(this.masterGain);
           this.sfxGain.connect(this.masterGain);
           this.ambientGain.connect(this.masterGain);
+          this.ufoGain.connect(this.masterGain);
           this.masterGain.connect(this.ctx.destination);
           this.syncVolumes();
         } catch (e) {
@@ -167,11 +175,13 @@
       const mscVol = cfg.musicMute ? 0.0001 : Math.max(0.0001, (cfg.musicVol ?? 80) / 100);
       const sVol = cfg.sfxMute ? 0.0001 : Math.max(0.0001, (cfg.sfxVol ?? 85) / 100);
       const aVol = cfg.ambientMute ? 0.0001 : Math.max(0.0001, (cfg.ambientVol ?? 65) / 100);
+      const uVol = cfg.ufoMute ? 0.0001 : Math.max(0.0001, (cfg.ufoVol ?? 80) / 100);
 
       this.masterGain.gain.setTargetAtTime(mVol, now, 0.05);
       if (this.musicGain) this.musicGain.gain.setTargetAtTime(mscVol, now, 0.05);
       this.sfxGain.gain.setTargetAtTime(sVol, now, 0.05);
       this.ambientGain.gain.setTargetAtTime(aVol, now, 0.05);
+      if (this.ufoGain) this.ufoGain.gain.setTargetAtTime(uVol, now, 0.05);
     },
 
     getNoiseBuffer() {
@@ -8248,6 +8258,13 @@
     const aMute = document.getElementById('set-ambient-mute');
     if (aMute) aMute.checked = !!gameSettings.ambientMute;
 
+    const uVol = document.getElementById('set-ufo-vol');
+    if (uVol) uVol.value = gameSettings.ufoVol ?? 80;
+    const uVolVal = document.getElementById('set-ufo-vol-val');
+    if (uVolVal) uVolVal.textContent = `${gameSettings.ufoVol ?? 80}%`;
+    const uMute = document.getElementById('set-ufo-mute');
+    if (uMute) uMute.checked = !!gameSettings.ufoMute;
+
     const foot = document.getElementById('set-footsteps');
     if (foot) foot.checked = !!gameSettings.footsteps;
     const birbs = document.getElementById('set-birbs');
@@ -8669,6 +8686,15 @@
     });
     document.getElementById('set-ambient-mute')?.addEventListener('change', (e) => {
       applySetting('ambientMute', e.target.checked);
+    });
+
+    document.getElementById('set-ufo-vol')?.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      document.getElementById('set-ufo-vol-val').textContent = `${val}%`;
+      applySetting('ufoVol', val);
+    });
+    document.getElementById('set-ufo-mute')?.addEventListener('change', (e) => {
+      applySetting('ufoMute', e.target.checked);
     });
 
     document.getElementById('set-footsteps')?.addEventListener('change', (e) => {

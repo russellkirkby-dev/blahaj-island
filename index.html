@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=7.7" />
+  <link rel="stylesheet" href="styles.css?v=7.8" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1647,6 +1647,21 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">🛸 UFO Engine &amp; Saucer Effects</span>
+            <span class="setting-desc">Jetsons warble-oscillator engine hum, saucer horn &amp; Thunderbirds launch klaxon</span>
+          </div>
+          <div class="setting-control-group">
+            <input type="range" class="setting-slider" id="set-ufo-vol" min="0" max="100" step="1" value="80" />
+            <span class="setting-val-badge" id="set-ufo-vol-val">80%</span>
+            <label class="setting-toggle-label">
+              <input type="checkbox" id="set-ufo-mute" />
+              <span>Mute UFO</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">Plush Footsteps &amp; Water Splashes</span>
             <span class="setting-desc">Soft rhythmic paw steps on grass, stone pavements, and shallows</span>
           </div>
@@ -2426,23 +2441,23 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=7.7"></script>
-  <script src="js/sharks3d.js?v=7.7"></script>
-  <script src="js/ufo.js?v=7.7"></script>
-  <script src="js/world3d.js?v=7.7"></script>
-  <script src="js/volcano.js?v=7.7"></script>
-  <script src="js/laundromat.js?v=7.7"></script>
-  <script src="js/sphericalFoods.js?v=7.7"></script>
-  <script src="js/volleyball.js?v=7.7"></script>
-  <script src="js/spawningPits.js?v=7.7"></script>
-  <script src="js/homestead.js?v=7.7"></script>
-  <script src="js/network.js?v=7.7"></script>
-  <script src="js/inventory.js?v=7.7"></script>
-  <script src="js/enemies.js?v=7.7"></script>
-  <script src="js/seam.js?v=7.7"></script>
-  <script src="js/mmoControls.js?v=7.7"></script>
+  <script src="js/lore.js?v=7.8"></script>
+  <script src="js/sharks3d.js?v=7.8"></script>
+  <script src="js/ufo.js?v=7.8"></script>
+  <script src="js/world3d.js?v=7.8"></script>
+  <script src="js/volcano.js?v=7.8"></script>
+  <script src="js/laundromat.js?v=7.8"></script>
+  <script src="js/sphericalFoods.js?v=7.8"></script>
+  <script src="js/volleyball.js?v=7.8"></script>
+  <script src="js/spawningPits.js?v=7.8"></script>
+  <script src="js/homestead.js?v=7.8"></script>
+  <script src="js/network.js?v=7.8"></script>
+  <script src="js/inventory.js?v=7.8"></script>
+  <script src="js/enemies.js?v=7.8"></script>
+  <script src="js/seam.js?v=7.8"></script>
+  <script src="js/mmoControls.js?v=7.8"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=7.7"></script>
-  <script src="js/main.js?v=7.7"></script>
+  <script src="js/saveSystem.js?v=7.8"></script>
+  <script src="js/main.js?v=7.8"></script>
 </body>
 </html>
