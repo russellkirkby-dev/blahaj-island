@@ -4052,7 +4052,14 @@
         if (k === 'k') { e.preventDefault(); window.BlahajUFO.openSharedVault(); return; }
         if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
         if (k === 'f') { e.preventDefault(); window.BlahajUFO.playJetsonsHorn(); return; }
-        if (k === 'e') { e.preventDefault(); window.BlahajUFO.exitUFO(); return; }
+        if (k === 'e') {
+          e.preventDefault();
+          if (window.BlahajUFO.canExitNow && window.BlahajUFO.canExitNow()) {
+            window.BlahajUFO.exitUFO();
+          }
+          return;
+        }
+        if (k === 'q') { e.preventDefault(); return; }
         if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
       }
 

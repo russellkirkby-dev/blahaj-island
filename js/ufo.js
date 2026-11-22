@@ -1000,16 +1000,24 @@ window.BlahajUFO = (function () {
     broadcastState(true);
   }
 
+  function canExitNow() {
+    if (!state.localRole) return false;
+    if (state.phase !== 'parked') return false;
+    return !!(state.hatchTargetOpen && state.hatchOpenProg >= 0.7);
+  }
+
   function exitUFO() {
     if (!state.localRole) return;
     const myId = getMyClientId();
 
-    // If piloting mid-air high up, initiate gentle Auto-Land first unless already low/parked!
-    const groundBelow = getSafeGroundHeight(state.pos.x, state.pos.z);
-    if (state.localRole === 'pilot' && state.pos.y - groundBelow > 5.5 && state.phase !== 'parked') {
-      initiateAutoLand();
+    // Only allow exiting when landed (parked) and the glowing boarding stairs are down!
+    if (!canExitNow()) {
       if (window.showToast) {
-        window.showToast('🛬 AUTO-LAND ENGAGED BEFORE EXIT', 'Touching down gently first—press [E] again once landed!');
+        if (state.phase !== 'parked') {
+          window.showToast('🛸 LAND FIRST TO EXIT!', 'Press [L] to Auto-Land and deploy the glowing stairs before exiting!');
+        } else {
+          window.showToast('🪜 LOWER THE STAIRS FIRST!', 'Press [H] to lower the bottom hatch & stairs before stepping out!');
+        }
       }
       return;
     }
@@ -1706,6 +1714,7 @@ window.BlahajUFO = (function () {
       const k = keys || {};
       const fwdInput = (k['w'] || k['arrowup'] ? 1 : 0) - (k['s'] || k['arrowdown'] ? 1 : 0);
       const turnInput = (k['a'] || k['arrowleft'] ? 1 : 0) - (k['d'] || k['arrowright'] ? 1 : 0);
+      const strafeInput = (k['e'] ? 1 : 0) - (k['q'] ? 1 : 0);
       const upInput = (k[' '] || k['space'] ? 1 : 0) - (k['c'] || k['control'] ? 1 : 0);
       const turbo = !!(k['shift'] && fwdInput > 0);
       state.turboActive = turbo;
@@ -1796,10 +1805,13 @@ window.BlahajUFO = (function () {
         state.yaw += state.yawRate * dt;
 
         const maxHorizSpeed = turbo ? 52.0 : 28.0;
+        const maxStrafeSpeed = turbo ? 34.0 : 22.0;
         const fwdX = Math.sin(state.yaw);
         const fwdZ = Math.cos(state.yaw);
-        const targetVx = fwdX * fwdInput * maxHorizSpeed;
-        const targetVz = fwdZ * fwdInput * maxHorizSpeed;
+        const rightX = -Math.cos(state.yaw);
+        const rightZ = Math.sin(state.yaw);
+        const targetVx = fwdX * fwdInput * maxHorizSpeed + rightX * strafeInput * maxStrafeSpeed;
+        const targetVz = fwdZ * fwdInput * maxHorizSpeed + rightZ * strafeInput * maxStrafeSpeed;
 
         state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 3.2);
         state.vel.z += (targetVz - state.vel.z) * Math.min(1.0, dt * 3.2);
@@ -1841,9 +1853,9 @@ window.BlahajUFO = (function () {
           state.orbitalNoticeShown = false;
         }
 
-        // Auto-leveling flight-sim pitch & bank
+        // Auto-leveling flight-sim pitch & bank (combines A/D turn bank + Q/E strafe bank)
         const desiredPitch = fwdInput * (turbo ? 0.22 : 0.14);
-        const desiredRoll = -turnInput * 0.34;
+        const desiredRoll = Math.max(-0.46, Math.min(0.46, -turnInput * 0.34 + strafeInput * 0.32));
         state.pitch += (desiredPitch - state.pitch) * Math.min(1.0, dt * 5.0);
         state.roll += (desiredRoll - state.roll) * Math.min(1.0, dt * 5.5);
       }
@@ -2027,6 +2039,7 @@ window.BlahajUFO = (function () {
     summonToPosition,
     resetToTracyIsle,
     boardUFO,
+    canExitNow,
     exitUFO,
     initiateAutoLand,
     toggleViewMode,
