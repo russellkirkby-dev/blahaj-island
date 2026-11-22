@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=7.6" />
+  <link rel="stylesheet" href="styles.css?v=7.7" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1721,6 +1721,19 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">🛸 UFO Exterior Auto-Chase Camera</span>
+            <span class="setting-desc">Camera turns with A / D and smoothly drifts back behind the saucer after free-look</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-ufo-chase-cam" checked />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">Invert Vertical Pitch (Y-Axis)</span>
             <span class="setting-desc">Invert vertical mouse look angle (flight-simulator controls)</span>
           </div>
@@ -2406,29 +2419,30 @@
         <button type="button" id="ufo-btn-beam" class="ufo-ctrl-btn">🟢 Tractor Beam [T]</button>
         <button type="button" id="ufo-btn-disco" class="ufo-ctrl-btn">🪩 Disco Dome [B]</button>
         <button type="button" id="ufo-btn-horn" class="ufo-ctrl-btn">🔊 Jetsons Horn [F]</button>
+        <button type="button" id="ufo-btn-chasecam" class="ufo-ctrl-btn active">🎥 Chase Cam: ON</button>
         <button type="button" id="ufo-btn-exit" class="ufo-ctrl-btn exit-btn">🚪 Exit Ship [E]</button>
       </div>
     </div>
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=7.6"></script>
-  <script src="js/sharks3d.js?v=7.6"></script>
-  <script src="js/ufo.js?v=7.6"></script>
-  <script src="js/world3d.js?v=7.6"></script>
-  <script src="js/volcano.js?v=7.6"></script>
-  <script src="js/laundromat.js?v=7.6"></script>
-  <script src="js/sphericalFoods.js?v=7.6"></script>
-  <script src="js/volleyball.js?v=7.6"></script>
-  <script src="js/spawningPits.js?v=7.6"></script>
-  <script src="js/homestead.js?v=7.6"></script>
-  <script src="js/network.js?v=7.6"></script>
-  <script src="js/inventory.js?v=7.6"></script>
-  <script src="js/enemies.js?v=7.6"></script>
-  <script src="js/seam.js?v=7.6"></script>
-  <script src="js/mmoControls.js?v=7.6"></script>
+  <script src="js/lore.js?v=7.7"></script>
+  <script src="js/sharks3d.js?v=7.7"></script>
+  <script src="js/ufo.js?v=7.7"></script>
+  <script src="js/world3d.js?v=7.7"></script>
+  <script src="js/volcano.js?v=7.7"></script>
+  <script src="js/laundromat.js?v=7.7"></script>
+  <script src="js/sphericalFoods.js?v=7.7"></script>
+  <script src="js/volleyball.js?v=7.7"></script>
+  <script src="js/spawningPits.js?v=7.7"></script>
+  <script src="js/homestead.js?v=7.7"></script>
+  <script src="js/network.js?v=7.7"></script>
+  <script src="js/inventory.js?v=7.7"></script>
+  <script src="js/enemies.js?v=7.7"></script>
+  <script src="js/seam.js?v=7.7"></script>
+  <script src="js/mmoControls.js?v=7.7"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=7.6"></script>
-  <script src="js/main.js?v=7.6"></script>
+  <script src="js/saveSystem.js?v=7.7"></script>
+  <script src="js/main.js?v=7.7"></script>
 </body>
 </html>

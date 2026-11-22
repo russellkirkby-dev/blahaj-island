@@ -23,6 +23,7 @@
     camDist: 6.5,
     shoulder: 'right',
     adTurnMode: 'strafe',
+    ufoAutoChaseCam: true,
     invertY: false,
     binocularInvertY: false,
     binocularInvertX: false,
@@ -37,6 +38,7 @@
     chatVis: true
   };
   let gameSettings = Object.assign({}, DEFAULT_SETTINGS);
+  window.gameSettings = gameSettings;
   let bloomPassInstance = null;
 
   // --- Audio Synthesizer (Cozy WebAudio Chimes, Ambient Waves, Wind, Splashes & Footsteps) ---
@@ -3764,6 +3766,9 @@
           const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
           camState.yaw -= dx * 0.0032 * sens;
           camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+            camState.lastManualOrbitAt = Date.now();
+          }
         }
 
         // Keep yaw cleanly wrapped within [-PI, PI] to prevent floating point drift
@@ -8267,6 +8272,13 @@
       btn.classList.toggle('active', btn.dataset.admode === (gameSettings.adTurnMode || 'strafe'));
     });
 
+    const ufoChaseEl = document.getElementById('set-ufo-chase-cam');
+    if (ufoChaseEl) ufoChaseEl.checked = gameSettings.ufoAutoChaseCam !== false;
+    window.gameSettings = gameSettings;
+    if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
+      window.BlahajUFO.updateAvionicsButtonsUI();
+    }
+
     const invY = document.getElementById('set-invert-y');
     if (invY) invY.checked = !!gameSettings.invertY;
     const bInY = document.getElementById('set-binoc-invert-y');
@@ -8698,6 +8710,14 @@
             : 'A and D now Strafe Left and Right while facing your target!'
         );
       });
+    });
+
+    window.applyGameSetting = applySetting;
+    document.getElementById('set-ufo-chase-cam')?.addEventListener('change', (e) => {
+      applySetting('ufoAutoChaseCam', e.target.checked);
+      if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
+        window.BlahajUFO.updateAvionicsButtonsUI();
+      }
     });
 
     document.getElementById('set-invert-y')?.addEventListener('change', (e) => {

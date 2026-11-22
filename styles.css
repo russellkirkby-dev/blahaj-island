@@ -7787,3 +7787,25 @@ body.minimal-hud .mmo-vitals-bar {
   background: rgba(225, 29, 72, 0.75);
   color: #ffffff;
 }
+
+
+/* ==========================================================================
+   CLEAN ON-FOOT <-> UFO FLIGHT-DECK HUD HANDOVER
+   ========================================================================== */
+body.ufo-flight-mode .hud-top-left,
+body.ufo-flight-mode .hud-top-center,
+body.ufo-flight-mode .hud-top-right,
+body.ufo-flight-mode .hud-bottom-center,
+body.ufo-flight-mode #interaction-prompt,
+body.ufo-flight-mode #seam-detector-panel,
+body.ufo-flight-mode #mmo-fct-layer {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+body.ufo-flight-mode .hud-bottom-left {
+  bottom: 112px;
+  transition: bottom 0.25s ease;
+}

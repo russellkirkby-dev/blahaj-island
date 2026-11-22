@@ -1154,9 +1154,35 @@ window.BlahajUFO = (function () {
   // ==========================================================================
   // 6. SUPER-MODERN GLASS-COCKPIT AVIONICS HUD + ARTIFICIAL HORIZON CANVAS
   // ==========================================================================
+  function isAutoChaseCamEnabled() {
+    if (window.gameSettings && typeof window.gameSettings.ufoAutoChaseCam === 'boolean') {
+      return window.gameSettings.ufoAutoChaseCam;
+    }
+    return true;
+  }
+
+  function toggleAutoChaseCam() {
+    const next = !isAutoChaseCamEnabled();
+    if (typeof window.applyGameSetting === 'function') {
+      window.applyGameSetting('ufoAutoChaseCam', next);
+    } else if (window.gameSettings) {
+      window.gameSettings.ufoAutoChaseCam = next;
+    }
+    if (window.showToast) {
+      window.showToast(
+        next ? '🎥 UFO AUTO-CHASE CAM: ON' : '🎥 UFO FREE ORBIT CAM: ON',
+        next
+          ? 'Camera turns with A/D and smoothly drifts back behind the saucer!'
+          : 'Camera stays in manual free-orbit until you move it.'
+      );
+    }
+    updateAvionicsButtonsUI();
+  }
+
   function showAvionicsHUD(visible) {
     const hud = document.getElementById('ufo-avionics-hud');
     if (hud) hud.classList.toggle('hidden', !visible);
+    if (document.body) document.body.classList.toggle('ufo-flight-mode', !!visible);
     if (visible) updateAvionicsButtonsUI();
   }
 
@@ -1166,12 +1192,18 @@ window.BlahajUFO = (function () {
     const btnBeam = document.getElementById('ufo-btn-beam');
     const btnDisco = document.getElementById('ufo-btn-disco');
     const btnLand = document.getElementById('ufo-btn-land');
+    const btnChase = document.getElementById('ufo-btn-chasecam');
 
     if (btnView) btnView.textContent = state.viewMode === 'inside' ? '🪟 View: COCKPIT [V]' : '🛸 View: OUTSIDE [V]';
     if (btnHatch) btnHatch.classList.toggle('active', state.hatchTargetOpen);
     if (btnBeam) btnBeam.classList.toggle('active', state.tractorBeam);
     if (btnDisco) btnDisco.classList.toggle('active', state.discoMode);
     if (btnLand) btnLand.classList.toggle('active', state.phase === 'landing');
+    if (btnChase) {
+      const on = isAutoChaseCamEnabled();
+      btnChase.classList.toggle('active', on);
+      btnChase.textContent = on ? '🎥 Chase Cam: ON' : '🎥 Chase Cam: FREE';
+    }
   }
 
   function drawArtificialHorizon() {
@@ -1573,9 +1605,35 @@ window.BlahajUFO = (function () {
           ufoGroup.localToWorld(lookWorld);
           camState.customOverride = { pos: camWorld, lookAt: lookWorld };
         } else {
-          // Exterior Chase View: let main.js orbit camera smoothly around the saucer at 15.5m distance!
+          // Exterior Chase View: turn with A/D and smoothly drift back behind the saucer!
           camState.customOverride = null;
           if (camState.distance < 13.5) camState.distance = 15.5;
+
+          if (isAutoChaseCamEnabled()) {
+            const rearCamYaw = Math.atan2(-Math.sin(state.yaw), -Math.cos(state.yaw));
+            const manualOrbitAgo = Date.now() - (camState.lastManualOrbitAt || 0);
+            const isDraggingNow = !!(camState.isLeftDragging || camState.isRightDragging);
+
+            // 1. Immediately rotate camera along with A/D saucer turning
+            if (Math.abs(state.yawRate) > 0.01) {
+              camState.yaw += state.yawRate * dt;
+            }
+
+            // 2. Smoothly drift back to rear chase position after brief pause from manual mouse look
+            if (!isDraggingNow && (manualOrbitAgo > 1100 || Math.abs(state.yawRate) > 0.05 || state.speed > 4.0)) {
+              let diff = rearCamYaw - camState.yaw;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              const driftRate = (Math.abs(state.yawRate) > 0.05 || state.speed > 4.0) ? 4.2 : 2.2;
+              camState.yaw += diff * Math.min(1.0, dt * driftRate);
+              while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+              while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+
+              if (manualOrbitAgo > 1600) {
+                camState.pitch += (0.22 - camState.pitch) * Math.min(1.0, dt * 1.8);
+              }
+            }
+          }
         }
       }
 
@@ -1602,6 +1660,7 @@ window.BlahajUFO = (function () {
     bind('ufo-btn-beam', toggleTractorBeam);
     bind('ufo-btn-disco', toggleDiscoMode);
     bind('ufo-btn-horn', playJetsonsHorn);
+    bind('ufo-btn-chasecam', toggleAutoChaseCam);
     bind('ufo-btn-exit', exitUFO);
   }
 
@@ -1630,6 +1689,8 @@ window.BlahajUFO = (function () {
     toggleHatch,
     toggleTractorBeam,
     toggleDiscoMode,
+    toggleAutoChaseCam,
+    updateAvionicsButtonsUI,
     playJetsonsHorn,
     handleNetworkPacket,
     isLocalAboard: () => !!state.localRole,
