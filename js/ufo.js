@@ -39,6 +39,7 @@ window.BlahajUFO = (function () {
   let tiltingPalms = [];
   let warningBeacons = [];
   let runwayChevrons = [];
+  let isleColliders = []; // Solid horizontal circle colliders on Shonk-Bird Tracy Isle
 
   let ufoGroup = null;
   let ufoHullGroup = null;
@@ -331,13 +332,17 @@ window.BlahajUFO = (function () {
 
     // 6 Tilting Thunderbirds Palm Trees around the rim!
     tiltingPalms = [];
+    isleColliders = [];
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
     const frondMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.7, side: THREE.DoubleSide });
     for (let i = 0; i < 6; i++) {
       const ang = (i / 6) * Math.PI * 2 + 0.3;
+      const px = Math.cos(ang) * 16.8;
+      const pz = Math.sin(ang) * 16.8;
       const pivot = new THREE.Group();
-      pivot.position.set(Math.cos(ang) * 16.8, ISLE_DECK_Y, Math.sin(ang) * 16.8);
+      pivot.position.set(px, ISLE_DECK_Y, pz);
       pivot.rotation.y = -ang;
+      isleColliders.push({ x: ISLE_X + px, z: ISLE_Z + pz, radius: 0.72, topY: ISLE_DECK_Y + 7.5 });
 
       const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.52, 7.2, 8), trunkMat);
       trunk.position.y = 3.6;
@@ -362,6 +367,7 @@ window.BlahajUFO = (function () {
       const ang = (i / 4) * Math.PI * 2 + Math.PI * 0.25;
       const post = new THREE.Group();
       post.position.set(Math.cos(ang) * 14.5, ISLE_DECK_Y + 0.4, Math.sin(ang) * 14.5);
+      isleColliders.push({ x: ISLE_X + Math.cos(ang) * 14.5, z: ISLE_Z + Math.sin(ang) * 14.5, radius: 0.65, topY: ISLE_DECK_Y + 2.2 });
       const base = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.3, 10), chromeMat);
       base.position.y = 0.65;
       const dome = new THREE.Mesh(
@@ -377,6 +383,7 @@ window.BlahajUFO = (function () {
     // Retro-Modern Launch Control Console & Dock Pier on the Northwest side facing Blåhaj Island!
     const consoleGroup = new THREE.Group();
     consoleGroup.position.set(-16.5, ISLE_DECK_Y, -11.5);
+    isleColliders.push({ x: ISLE_X - 16.5, z: ISLE_Z - 11.5, radius: 1.45, topY: ISLE_DECK_Y + 2.0 });
     consoleGroup.rotation.y = Math.PI * 0.25;
     const ped = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.6, 1.2), chromeMat);
     ped.position.y = 0.8;
@@ -405,10 +412,14 @@ window.BlahajUFO = (function () {
     // Scenic rocky crags on the back (SE) side for Thunderbird cliff silhouette
     for (let r = 0; r < 5; r++) {
       const ang = -0.4 + r * 0.45;
-      const crag = new THREE.Mesh(new THREE.DodecahedronGeometry(4.2 + (r % 2) * 2.2, 0), rockMat);
-      crag.position.set(Math.cos(ang) * 22.5, ISLE_DECK_Y + 2.5 + (r % 3) * 1.4, Math.sin(ang) * 22.5);
+      const cragRad = 4.2 + (r % 2) * 2.2;
+      const crag = new THREE.Mesh(new THREE.DodecahedronGeometry(cragRad, 0), rockMat);
+      const cx = Math.cos(ang) * 22.5;
+      const cz = Math.sin(ang) * 22.5;
+      crag.position.set(cx, ISLE_DECK_Y + 2.5 + (r % 3) * 1.4, cz);
       crag.scale.set(1.2, 1.6, 1.1);
       islandGroup.add(crag);
+      isleColliders.push({ x: ISLE_X + cx, z: ISLE_Z + cz, radius: cragRad * 1.05, topY: ISLE_DECK_Y + 9.5 });
     }
 
     // Glowing holographic beacon pylon visible from Blåhaj Island
@@ -693,6 +704,14 @@ window.BlahajUFO = (function () {
       stairsGroup.add(step);
       stairSteps.push(step);
     }
+    // Glowing cyan Boarding Pad Ring at the foot of the stairs so entry point is crystal clear!
+    const boardingRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.15, 1.55, 28),
+      new THREE.MeshBasicMaterial({ color: 0x5eead4, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+    );
+    boardingRing.rotation.x = -Math.PI / 2;
+    boardingRing.position.set(0, -1.58, 2.85);
+    stairsGroup.add(boardingRing);
     ufoHullGroup.add(stairsGroup);
 
     // Emerald / Cyan Tractor Beam Cone underneath
@@ -768,12 +787,15 @@ window.BlahajUFO = (function () {
     const consoleZ = ISLE_Z - 11.5;
     const dConsole = Math.hypot(playerPos.x - consoleX, playerPos.z - consoleZ);
     if (dConsole < 5.5) {
+      const ufoAwayFromIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z) > 22.0;
       items.push({
-        kind: 'ufo_hangar_console',
+        kind: ufoAwayFromIsle ? 'ufo_reset_isle' : 'ufo_hangar_console',
         dist: dConsole,
-        prompt: state.hangarTargetOpen
-          ? '🌴 Close Secret Thunderbirds Hangar Doors [E]'
-          : '🚨 OPEN SECRET THUNDERBIRDS LAUNCH BAY [E] 🛸🌴'
+        prompt: ufoAwayFromIsle
+          ? '🛸 Recall S.S. Shonk-Saucer Back to Tracy Isle Launch Pad [E]'
+          : (state.hangarTargetOpen
+            ? '🌴 Close Secret Thunderbirds Hangar Doors [E]'
+            : '🚨 OPEN SECRET THUNDERBIRDS LAUNCH BAY [E] 🛸🌴')
       });
     }
 
@@ -783,25 +805,73 @@ window.BlahajUFO = (function () {
       items.push({
         kind: 'ufo_summon_pier',
         dist: dPierBeacon + 1.5,
-        prompt: '🛸 Call S.S. Shonk-Saucer to Endless Pier (or Visit Tracy Isle) [E]'
+        prompt: '🛸 Call S.S. Shonk-Saucer to Endless Pier [E]'
       });
     }
 
     // 3. Board UFO via Bottom Hatch & Glowing Stairs (when nearby!)
+    const stairX = state.pos.x + Math.sin(state.yaw) * 3.7;
+    const stairZ = state.pos.z + Math.cos(state.yaw) * 3.7;
     const dUfo = Math.hypot(playerPos.x - state.pos.x, playerPos.z - state.pos.z);
+    const dStairs = Math.hypot(playerPos.x - stairX, playerPos.z - stairZ);
+    const bestBoardD = Math.min(dUfo, dStairs);
     const dyUfo = Math.abs(playerPos.y - state.pos.y);
-    if (dUfo < 8.5 && dyUfo < 9.5) {
+    if (bestBoardD < 10.5 && dyUfo < 10.5) {
       const hasRemotePilot = !!(state.pilotClientId && state.pilotClientId !== getMyClientId());
       items.push({
         kind: 'ufo_board',
-        dist: Math.max(0.5, dUfo - 2.0),
+        dist: Math.max(0.2, bestBoardD - 3.5),
         prompt: hasRemotePilot
-          ? `🛸 Climb Stairs & Board as Co-Pilot Passenger (Pilot: ${state.pilotName || 'Partner'}) [E]`
+          ? `🛸 Climb Glowing Stairs & Board as Co-Pilot Passenger (Pilot: ${state.pilotName || 'Partner'}) [E]`
           : '🛸 Climb Glowing Stairs & Pilot S.S. Shonk-Saucer Mk. VII [E]'
       });
     }
 
     return items;
+  }
+
+  /** Solid horizontal circle collision resolver for Shonk-Bird Tracy Isle & landed UFO hull. */
+  function resolveCollision(x, z, y, playerRadius = 0.75) {
+    let outX = x;
+    let outZ = z;
+    if (!isBuilt || state.localRole) return { x: outX, z: outZ };
+
+    // 1. Solid props on Tracy Isle (crags, palm trunks, beacons, launch console)
+    for (let i = 0; i < isleColliders.length; i++) {
+      const c = isleColliders[i];
+      if (y > c.topY) continue;
+      const dx = outX - c.x;
+      const dz = outZ - c.z;
+      const d = Math.hypot(dx, dz);
+      const minD = c.radius + playerRadius;
+      if (d < minD && d > 0.0001) {
+        const push = (minD - d);
+        outX += (dx / d) * push;
+        outZ += (dz / d) * push;
+      }
+    }
+
+    // 2. Solid parked UFO hull (leaving a walkable front boarding-stairs opening!)
+    if (state.phase === 'parked' && Math.abs(y - state.pos.y) < 3.2) {
+      const dx = outX - state.pos.x;
+      const dz = outZ - state.pos.z;
+      const d = Math.hypot(dx, dz);
+      const hullRadius = 4.25;
+      const minD = hullRadius + playerRadius;
+      if (d < minD && d > 0.0001) {
+        // Check if approaching from the front glowing stairs side (+local Z)
+        const fwdX = Math.sin(state.yaw);
+        const fwdZ = Math.cos(state.yaw);
+        const dot = (dx / d) * fwdX + (dz / d) * fwdZ;
+        if (!(state.hatchOpenProg > 0.35 && dot > 0.62 && d > 2.2)) {
+          const push = minD - d;
+          outX += (dx / d) * push;
+          outZ += (dz / d) * push;
+        }
+      }
+    }
+
+    return { x: outX, z: outZ };
   }
 
   function toggleHangarDoors(forceVal = null, silent = false) {
@@ -822,15 +892,42 @@ window.BlahajUFO = (function () {
 
   function summonToPosition(worldPos) {
     if (!worldPos) return;
+    // Offset landing zone 6.5m in front of the player so the glowing stairs point right toward them!
+    const pYaw = (window.player && typeof window.player.rotY === 'number') ? window.player.rotY : 0;
+    const landX = worldPos.x + Math.sin(pYaw) * 6.5;
+    const landZ = worldPos.z + Math.cos(pYaw) * 6.5;
+    const groundY = getSafeGroundHeight(landX, landZ);
     state.hangarTargetOpen = true;
+    state.pilotClientId = null;
+    state.pilotName = null;
     state.phase = 'landing';
     state.phaseTimer = 0;
-    state.pos.set(worldPos.x, Math.max(worldPos.y + 18.0, 22.0), worldPos.z);
+    state.pos.set(landX, Math.max(groundY + 15.0, 18.0), landZ);
+    state.yaw = pYaw + Math.PI; // Face the player so the front stairs face them directly!
     state.vel.set(0, 0, 0);
     state.hatchTargetOpen = true;
     playJetsonsHorn();
     if (window.showToast) {
-      window.showToast('🛸 S.S. SHONK-SAUCER INBOUND!', 'Autopilot landing right beside you with glowing stairs!');
+      window.showToast('🛸 S.S. SHONK-SAUCER DESCENDING!', 'Touching down right in front of you—walk to the glowing cyan stairs & press [E]!');
+    }
+    broadcastState(true);
+  }
+
+  function resetToTracyIsle() {
+    state.hangarTargetOpen = true;
+    state.hangarOpenProg = Math.max(state.hangarOpenProg, 0.85);
+    state.phase = 'parked';
+    state.phaseTimer = 0;
+    state.vel.set(0, 0, 0);
+    state.pitch = 0;
+    state.roll = 0;
+    state.yaw = -Math.PI * 0.72;
+    state.pos.set(ISLE_X, HANGAR_RAISED_Y + 1.5, ISLE_Z);
+    state.hatchTargetOpen = true;
+    state.orbitalCeilingReached = false;
+    playHangarKlaxon();
+    if (window.showToast) {
+      window.showToast('🏝️ RETURNED TO SHONK-BIRD TRACY ISLE!', 'S.S. Shonk-Saucer docked safely on the Thunderbirds Launch Pad!');
     }
     broadcastState(true);
   }
@@ -1412,10 +1509,30 @@ window.BlahajUFO = (function () {
       state.orbitalCeilingReached = state.pos.y >= KARMAN_CEILING_Y - 4.0;
       updateJetsonsEngineHum(state.localRole === 'passenger' && state.phase !== 'parked', Math.min(1, state.speed / 35), Math.min(1, state.pos.y / KARMAN_CEILING_Y), state.turboActive);
     } else {
-      // Unoccupied UFO parked gently on Tracy Isle elevator or wherever it landed
-      const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
-      if (dIsle < 11.5 && state.phase === 'parked') {
-        state.pos.y = HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y) + 1.5;
+      // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Tracy Isle elevator!
+      if (state.phase === 'landing') {
+        const groundY = getSafeGroundHeight(state.pos.x, state.pos.z);
+        const targetY = groundY + 1.45;
+        const descentSpeed = Math.max(3.2, Math.min(11.0, (state.pos.y - targetY) * 1.65));
+        state.pos.y = Math.max(targetY, state.pos.y - descentSpeed * dt);
+        state.pitch *= Math.max(0, 1 - dt * 5.0);
+        state.roll *= Math.max(0, 1 - dt * 5.0);
+        state.hatchTargetOpen = true;
+        if (state.pos.y <= targetY + 0.12) {
+          state.pos.y = targetY;
+          state.phase = 'parked';
+          state.vel.set(0, 0, 0);
+          if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
+          if (window.showToast) {
+            window.showToast('🛸 SAUCER LANDED! BOARDING STAIRS OPEN', 'Walk to the glowing cyan ring at the stairs and press [E] to board!');
+          }
+          broadcastState(true);
+        }
+      } else {
+        const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
+        if (dIsle < 11.5 && state.phase === 'parked') {
+          state.pos.y = HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y) + 1.5;
+        }
       }
       state.speed = 0;
       state.verticalSpeed = 0;
@@ -1480,6 +1597,7 @@ window.BlahajUFO = (function () {
     };
     bind('ufo-btn-view', toggleViewMode);
     bind('ufo-btn-land', initiateAutoLand);
+    bind('ufo-btn-tracy', resetToTracyIsle);
     bind('ufo-btn-hatch', toggleHatch);
     bind('ufo-btn-beam', toggleTractorBeam);
     bind('ufo-btn-disco', toggleDiscoMode);
@@ -1500,9 +1618,11 @@ window.BlahajUFO = (function () {
     build,
     update,
     getSurfaceHeight,
+    resolveCollision,
     getInteractables,
     toggleHangarDoors,
     summonToPosition,
+    resetToTracyIsle,
     boardUFO,
     exitUFO,
     initiateAutoLand,

@@ -1061,6 +1061,7 @@ window.BlahajWorld = (function () {
       getGroundAndStructureHeight,
       getStructureSurfaceHeight,
       getLandmarkSurfaceHeight,
+      resolveWorldCollisions,
       getDistanceToNearestCoast,
       getOceanSeabedDepth,
       isInCleanBeachSandBand: (x, z) => isInCleanBeachSandBand(x, z),
@@ -4748,7 +4749,29 @@ window.BlahajWorld = (function () {
     return tree;
   }
 
+  const worldColliders = [];
+
+  function resolveWorldCollisions(x, z, y, playerRadius = 0.72) {
+    let outX = x;
+    let outZ = z;
+    for (let i = 0; i < worldColliders.length; i++) {
+      const c = worldColliders[i];
+      if (y > c.topY) continue;
+      const dx = outX - c.x;
+      const dz = outZ - c.z;
+      const d = Math.hypot(dx, dz);
+      const minD = c.radius + playerRadius;
+      if (d < minD && d > 0.0001) {
+        const push = minD - d;
+        outX += (dx / d) * push;
+        outZ += (dz / d) * push;
+      }
+    }
+    return { x: outX, z: outZ };
+  }
+
   function buildLushPalmsBouldersAndLanterns(scene) {
+    worldColliders.length = 0;
     const palmLocations = [
       [-18, 22], [20, 18], [-28, -4], [28, -8],
       [-16, 44], [18, 42], [-38, 18], [40, 15],
@@ -4760,10 +4783,12 @@ window.BlahajWorld = (function () {
     palmLocations.forEach(([px, pz], idx) => {
       const py = getTerrainHeight(px, pz);
       if (py > 0.6) {
-        const palm = createPalmTree(6.8 + (idx % 3) * 1.2);
+        const h = 6.8 + (idx % 3) * 1.2;
+        const palm = createPalmTree(h);
         palm.position.set(px, py - 0.2, pz);
         palm.rotation.y = idx * 1.1;
         scene.add(palm);
+        worldColliders.push({ x: px, z: pz, radius: 0.65, topY: py + h });
       }
     });
   }

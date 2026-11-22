@@ -4067,6 +4067,7 @@
       if (!isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
         if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
         if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
+        if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
         if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
         if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
         if (k === 'b') { e.preventDefault(); window.BlahajUFO.toggleDiscoMode(); return; }
@@ -4075,10 +4076,14 @@
         if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
       }
 
-      // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer / Open Tracy Isle Hangar!
+      // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer ([Shift+U] Resets to Tracy Isle!)
       if (!isAnyModalOpen() && k === 'u' && (currentZone === 'island' || currentZone === 'overworld') && window.BlahajUFO) {
         e.preventDefault();
-        window.BlahajUFO.summonToPosition(player.pos);
+        if (e.shiftKey) {
+          window.BlahajUFO.resetToTracyIsle();
+        } else {
+          window.BlahajUFO.summonToPosition(player.pos);
+        }
         return;
       }
 
@@ -6934,6 +6939,10 @@
     // S.S. Shonk-Saucer Mk. VII & Thunderbirds Launch Isle Interactables
     if (item.kind === 'ufo_hangar_console' && window.BlahajUFO) {
       window.BlahajUFO.toggleHangarDoors();
+      return;
+    }
+    if (item.kind === 'ufo_reset_isle' && window.BlahajUFO) {
+      window.BlahajUFO.resetToTracyIsle();
       return;
     }
     if (item.kind === 'ufo_summon_pier' && window.BlahajUFO) {
@@ -14013,6 +14022,36 @@
                 player.pos.z = nz;
               }
             } else {
+              // Solid prop & shark collision resolution (prevents clipping through trees, Tracy Isle crags/console, parked UFO, & sharks!)
+              if (worldApi && typeof worldApi.resolveWorldCollisions === 'function') {
+                const wRes = worldApi.resolveWorldCollisions(nx, nz, player.pos.y, 0.72);
+                nx = wRes.x;
+                nz = wRes.z;
+              }
+              if (window.BlahajUFO && typeof window.BlahajUFO.resolveCollision === 'function') {
+                const uRes = window.BlahajUFO.resolveCollision(nx, nz, player.pos.y, 0.75);
+                nx = uRes.x;
+                nz = uRes.z;
+              }
+              // Soft plush separation against NPC & Co-op sharks on the same level
+              const sharkSep = (otherPos) => {
+                if (!otherPos || Math.abs(otherPos.y - player.pos.y) > 1.8) return;
+                const sdx = nx - otherPos.x;
+                const sdz = nz - otherPos.z;
+                const sd = Math.hypot(sdx, sdz);
+                const minSep = 1.18;
+                if (sd < minSep && sd > 0.001) {
+                  nx += (sdx / sd) * (minSep - sd);
+                  nz += (sdz / sd) * (minSep - sd);
+                }
+              };
+              for (let ai = 0; ai < worldActors.length; ai++) {
+                const act = worldActors[ai];
+                if (act && act.mesh && act.mesh.visible) sharkSep(act.mesh.position);
+              }
+              if (coopPartner && coopPartner.active && coopPartner.mesh && coopPartner.mesh.visible && !coopPartner.inBoat) {
+                sharkSep(coopPartner.mesh.position);
+              }
               player.pos.x = nx;
               player.pos.z = nz;
             }
