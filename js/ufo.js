@@ -2443,11 +2443,11 @@ window.BlahajUFO = (function () {
         state.pos.x = Math.max(-355, Math.min(355, state.pos.x));
         state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
 
-        // ANTI-CRASH TERRAIN & OCEAN CUSHION (Impossible to crash!)
+        // ANTI-CRASH TERRAIN & OCEAN CUSHION (Smooth, zero-bounce glide!)
         const minSafeY = getSafeGroundHeight(state.pos.x, state.pos.z) + 2.6;
         if (state.pos.y < minSafeY) {
           state.pos.y = minSafeY;
-          if (state.vel.y < 0) state.vel.y = 0.5;
+          if (state.vel.y < 0) state.vel.y = 0;
           state.antiGravCushionActive = true;
         }
 

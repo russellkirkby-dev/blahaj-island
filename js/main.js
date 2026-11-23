@@ -14719,6 +14719,14 @@
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
+    // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
+    if ((currentZone === 'island' || currentZone === 'overworld') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+      try {
+        window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
+      } catch (err) {
+        console.error('[Blahaj] UFO update error:', err);
+      }
+    }
     try {
       updateCamera(elapsed, dt);
       updateInteractionsAndHUD();
@@ -14766,9 +14774,6 @@
         window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
-        if (window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
-          window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
-        }
         if (window.BlahajHomestead) {
           window.BlahajHomestead.update(dt, elapsed);
         }
