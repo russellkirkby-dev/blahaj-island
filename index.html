@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10.7" />
+  <link rel="stylesheet" href="styles.css?v=10.8" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2412,20 +2412,18 @@
           <div id="ufo-vault-sub" class="ufo-tele-sub">Beam [T] · Trunk [K]</div>
         </div>
       </div>
-      <div id="ufo-hud-status" class="ufo-status-line">☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL</div>
+      <div id="ufo-hud-status" class="ufo-status-line hidden"></div>
       <div id="ufo-module-belt" class="ufo-module-belt" title="Hold Right-Click + Scroll (or 1–5) to deploy saucer appendages · Left-Click to fire/activate"></div>
       <div class="ufo-controls-bar">
-        <button type="button" id="ufo-btn-view" class="ufo-ctrl-btn">🛸 View: OUTSIDE [V]</button>
+        <button type="button" id="ufo-btn-view" class="ufo-ctrl-btn">🛸 View [V]</button>
         <button type="button" id="ufo-btn-floorcam" class="ufo-ctrl-btn">🪟 Floor Cam [G]</button>
-        <button type="button" id="ufo-btn-land" class="ufo-ctrl-btn">🛬 Auto-Land [L]</button>
-        <button type="button" id="ufo-btn-tracy" class="ufo-ctrl-btn">🏝️ Shonkbird Atoll [R]</button>
-        <button type="button" id="ufo-btn-hatch" class="ufo-ctrl-btn">🪜 Hatch &amp; Stairs [H]</button>
-        <button type="button" id="ufo-btn-beam" class="ufo-ctrl-btn">🟢 Tractor Beam [T]</button>
-        <button type="button" id="ufo-btn-trunk" class="ufo-ctrl-btn">📦 Community Trunk [K]</button>
-        <button type="button" id="ufo-btn-disco" class="ufo-ctrl-btn">🪩 Disco Dome [B]</button>
-        <button type="button" id="ufo-btn-horn" class="ufo-ctrl-btn">🔊 Jetsons Horn [F]</button>
-        <button type="button" id="ufo-btn-chasecam" class="ufo-ctrl-btn active">🎥 Chase Cam: ON</button>
-        <button type="button" id="ufo-btn-exit" class="ufo-ctrl-btn exit-btn">🚪 Exit Ship [E]</button>
+        <button type="button" id="ufo-btn-land" class="ufo-ctrl-btn">🛬 Land [L]</button>
+        <button type="button" id="ufo-btn-tracy" class="ufo-ctrl-btn">🏝️ Atoll [R]</button>
+        <button type="button" id="ufo-btn-hatch" class="ufo-ctrl-btn">🪜 Stairs [H]</button>
+        <button type="button" id="ufo-btn-trunk" class="ufo-ctrl-btn">📦 Trunk [K]</button>
+        <button type="button" id="ufo-btn-horn" class="ufo-ctrl-btn">🔊 Horn [F]</button>
+        <button type="button" id="ufo-btn-chasecam" class="ufo-ctrl-btn active">🎥 Chase: ON</button>
+        <button type="button" id="ufo-btn-exit" class="ufo-ctrl-btn exit-btn">🚪 Exit [E]</button>
       </div>
     </div>
   </div>
@@ -2471,9 +2469,10 @@
         <button type="button" id="btn-pause-leave-volleyball" class="pause-btn hidden" style="background: rgba(220, 38, 38, 0.28); border-color: rgba(248, 113, 113, 0.55); color: #fecaca;">🏐 Leave Volleyball Match</button>
         <div class="pause-quick-grid">
           <button type="button" id="btn-pause-settings" class="pause-btn">⚙ Settings</button>
+          <button type="button" id="btn-pause-help" class="pause-btn">❓ Help &amp; Controls</button>
           <button type="button" id="btn-pause-map" class="pause-btn">🗺 Island Map</button>
-          <button type="button" id="btn-pause-character" class="pause-btn">🎒 Character &amp; Bags</button>
-          <button type="button" id="btn-pause-spellbook" class="pause-btn">📖 Spellbook</button>
+          <button type="button" id="btn-pause-character" class="pause-btn">🎒 Profile &amp; Bags</button>
+          <button type="button" id="btn-pause-spellbook" class="pause-btn" style="grid-column: span 2;">📖 Martial Arts Spellbook</button>
         </div>
       </div>
       <div class="pause-shark-section">
@@ -2536,24 +2535,56 @@
     </div>
   </div>
 
+  <!-- Help & Controls Modal (Opened from Pause Menu [Esc]) -->
+  <div id="help-controls-modal" class="game-pause-overlay hidden" role="dialog" aria-label="Help and Controls">
+    <div class="game-pause-card" style="width: min(560px, 94vw); text-align: left;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 1.3rem;">❓ Blåhaj Island · Help &amp; Controls</h2>
+        <button type="button" id="close-help-controls-modal" class="pause-btn" style="padding: 6px 12px;">✕ Close</button>
+      </div>
+      <div style="display: grid; gap: 10px; font-size: 0.83rem; line-height: 1.48; color: #cbd5e1; max-height: 68vh; overflow-y: auto;">
+        <div style="padding: 10px 12px; border-radius: 10px; background: rgba(30, 41, 59, 0.72); border: 1px solid rgba(125, 211, 252, 0.25);">
+          <strong style="color: #7dd3fc;">🖱️ Mouse &amp; Shark Fin Cursor</strong><br>
+          • <strong>Double-Click</strong> the 3D world to enter Play Capture · <strong>[Esc]</strong> opens Pause Menu &amp; frees your OS mouse.<br>
+          • <strong>Hold Right-Click</strong> to bring out the <strong>Shark Fin Cursor</strong> + automatic <strong>FinSense</strong> hover.<br>
+          • <strong>Right-Click + Scroll Wheel</strong> cycles your <strong>1–9 Fin Belt</strong> items.<br>
+          • <strong>Left-Click</strong> uses what’s in your fin (Throw Breb/Drinks to ground or friends, Click Yourself to drink/heal, Hold Left-Click with Binoculars to zoom &amp; pan, Open nearby doors/trunks).
+        </div>
+        <div style="padding: 10px 12px; border-radius: 10px; background: rgba(30, 41, 59, 0.72); border: 1px solid rgba(125, 211, 252, 0.25);">
+          <strong style="color: #7dd3fc;">🦈 On-Foot, Combat &amp; Exploring</strong><br>
+          • <strong>WASD</strong> Move · <strong>Space</strong> Jump / Double Jump · <strong>Shift</strong> Sprint / Dive · <strong>[E]</strong> Simple Interact (Doors, Boats, Portals).<br>
+          • <strong>1–6</strong> Action Bar Abilities · <strong>[F]</strong> Instant Fin Action (Hold to throw forward) · <strong>[G]</strong> Groom · <strong>[Q]</strong> Sky Leap.<br>
+          • <strong>[C]</strong> Character Profile, Trial Points &amp; Stats · <strong>[B]</strong> Satchel Bags · <strong>[M]</strong> Map · <strong>[V]</strong> Clean / Minimal HUD.
+        </div>
+        <div style="padding: 10px 12px; border-radius: 10px; background: rgba(30, 41, 59, 0.72); border: 1px solid rgba(125, 211, 252, 0.25);">
+          <strong style="color: #7dd3fc;">🛸 S.S. Shonk-Saucer Mk. VII (UFO)</strong><br>
+          • <strong>[U]</strong> Summon Saucer · <strong>WASD</strong> Fly · <strong>Space / C</strong> Ascend / Dive (works underwater!) · <strong>Hold Shift</strong> Turbo.<br>
+          • <strong>1–5</strong> or <strong>Right-Click + Scroll</strong> deploys Exterior Appendages (Tractor Beam, Ray Turrets, Radar, Hyperdrive, Disco) · <strong>Left-Click</strong> fires/activates.<br>
+          • <strong>[V]</strong> Inside Cockpit / Exterior · <strong>[G]</strong> LCD Glass-Bottom Floor Cam · <strong>Hold Right-Click</strong> in Cockpit to pan around.<br>
+          • <strong>[L]</strong> Auto-Land (surface over sea) · <strong>[R]</strong> Recall to Shonkbird Atoll · <strong>[E]</strong> Exit when landed with stairs down.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=10.7"></script>
-  <script src="js/sharks3d.js?v=10.7"></script>
-  <script src="js/ufo.js?v=10.7"></script>
-  <script src="js/world3d.js?v=10.7"></script>
-  <script src="js/volcano.js?v=10.7"></script>
-  <script src="js/laundromat.js?v=10.7"></script>
-  <script src="js/sphericalFoods.js?v=10.7"></script>
-  <script src="js/volleyball.js?v=10.7"></script>
-  <script src="js/spawningPits.js?v=10.7"></script>
-  <script src="js/homestead.js?v=10.7"></script>
-  <script src="js/network.js?v=10.7"></script>
-  <script src="js/inventory.js?v=10.7"></script>
-  <script src="js/enemies.js?v=10.7"></script>
-  <script src="js/seam.js?v=10.7"></script>
-  <script src="js/mmoControls.js?v=10.7"></script>
+  <script src="js/lore.js?v=10.8"></script>
+  <script src="js/sharks3d.js?v=10.8"></script>
+  <script src="js/ufo.js?v=10.8"></script>
+  <script src="js/world3d.js?v=10.8"></script>
+  <script src="js/volcano.js?v=10.8"></script>
+  <script src="js/laundromat.js?v=10.8"></script>
+  <script src="js/sphericalFoods.js?v=10.8"></script>
+  <script src="js/volleyball.js?v=10.8"></script>
+  <script src="js/spawningPits.js?v=10.8"></script>
+  <script src="js/homestead.js?v=10.8"></script>
+  <script src="js/network.js?v=10.8"></script>
+  <script src="js/inventory.js?v=10.8"></script>
+  <script src="js/enemies.js?v=10.8"></script>
+  <script src="js/seam.js?v=10.8"></script>
+  <script src="js/mmoControls.js?v=10.8"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=10.7"></script>
-  <script src="js/main.js?v=10.7"></script>
+  <script src="js/saveSystem.js?v=10.8"></script>
+  <script src="js/main.js?v=10.8"></script>
 </body>
 </html>

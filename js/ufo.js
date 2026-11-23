@@ -1999,14 +1999,18 @@ window.BlahajUFO = (function () {
     if (elStatus) {
       if (state.radarStatusText && performance.now() < state.radarStatusUntil) {
         elStatus.textContent = state.radarStatusText;
+        elStatus.classList.remove('hidden');
       } else if (state.hyperdriveTimer > 0) {
         elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · WARP ACTIVE!`;
+        elStatus.classList.remove('hidden');
+      } else if (state.antiGravCushionActive) {
+        elStatus.textContent = '🛡️ ANTI-GRAV CUSHION ACTIVE';
+        elStatus.classList.remove('hidden');
+      } else if (state.orbitalCeilingReached) {
+        elStatus.textContent = '✨ KARMAN LINE REACHED · SPACE JUMP MODULE STAGED';
+        elStatus.classList.remove('hidden');
       } else {
-        elStatus.textContent = state.antiGravCushionActive
-          ? '🛡️ ANTI-GRAV CUSHION ACTIVE · CRASH-PROOF'
-          : (state.orbitalCeilingReached
-            ? '✨ KARMAN LINE REACHED · SPACE JUMP MODULE STAGED'
-            : '☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL');
+        elStatus.classList.add('hidden');
       }
     }
     if (elOrbital) {

@@ -4707,6 +4707,15 @@
       closePauseMenu();
       openSettingsModal();
     });
+    document.getElementById('btn-pause-help')?.addEventListener('click', () => {
+      closePauseMenu();
+      document.getElementById('help-controls-modal')?.classList.remove('hidden');
+      syncCaptureUI();
+    });
+    document.getElementById('close-help-controls-modal')?.addEventListener('click', () => {
+      document.getElementById('help-controls-modal')?.classList.add('hidden');
+      openPauseMenu();
+    });
     document.getElementById('btn-pause-map')?.addEventListener('click', () => {
       closePauseMenu();
       const mapBtn = document.getElementById('btn-mmo-map') || document.getElementById('btn-open-map');
@@ -5239,6 +5248,12 @@
           closeSettingsModal();
           return;
         }
+        const helpModal = document.getElementById('help-controls-modal');
+        if (helpModal && !helpModal.classList.contains('hidden')) {
+          helpModal.classList.add('hidden');
+          openPauseMenu();
+          return;
+        }
         const csModal = document.getElementById('character-sheet-modal');
         if (csModal && !csModal.classList.contains('hidden')) {
           closeCharacterSheetModal();
@@ -5706,6 +5721,7 @@
       isVisible('character-sheet-modal') ||
       isVisible('community-trunk-modal') ||
       isVisible('settings-modal') ||
+      isVisible('help-controls-modal') ||
       isVisible('modal-fast-travel') ||
       isVisible('modal-rite-of-detagging') ||
       isVisible('modal-google-connect') ||

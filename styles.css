@@ -7793,16 +7793,27 @@ body.minimal-hud .mmo-vitals-bar {
    CLEAN ON-FOOT <-> UFO FLIGHT-DECK HUD HANDOVER
    ========================================================================== */
 body.ufo-flight-mode .hud-top-left,
-body.ufo-flight-mode .hud-top-center,
 body.ufo-flight-mode .hud-top-right,
 body.ufo-flight-mode .hud-bottom-center,
 body.ufo-flight-mode #interaction-prompt,
 body.ufo-flight-mode #seam-detector-panel,
-body.ufo-flight-mode #mmo-fct-layer {
+body.ufo-flight-mode #mmo-fct-layer,
+body.ufo-flight-mode .hud-top-center .zone-banner,
+body.ufo-flight-mode .hud-top-center .celestial-clock-container,
+body.ufo-flight-mode .hud-top-center .seam-mini-watch,
+body.ufo-flight-mode .hud-top-center #btn-hud-declutter {
   opacity: 0 !important;
   pointer-events: none !important;
-  transform: translateY(8px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: none !important;
+}
+body.ufo-flight-mode .hud-top-center {
+  top: 50px !important;
+}
+
+/* Keep bulky stat-strip & duplicate left unit frame off the live HUD (live in Character Profile [C]!) */
+.island-meters,
+.hud-top-left {
+  display: none !important;
 }
 
 body.ufo-flight-mode .hud-bottom-left {
