@@ -4606,6 +4606,7 @@
     }
 
     function isFinCursorActive() {
+      if (isUsingBinoculars || isUsingTelescope) return false;
       return !!(camState.isPointerLocked && (camState.isRightDown || isAnyModalOpen()));
     }
 
@@ -5121,17 +5122,11 @@
       const activeToast = document.getElementById('toast-banner');
       const isToastOpen = activeToast && !activeToast.classList.contains('hidden') && !activeToast.classList.contains('fading-out');
 
-      // Pass 92: While holding Right-Click (Shark Fin Cursor active), 1 / 2 / 3 switch Fin Tool without firing combat skills!
-      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && (e.key === '1' || e.key === '2' || e.key === '3')) {
+      // Pass 97: While holding Right-Click (Shark Fin Cursor active), 1-9 selects Fin Inventory Slots directly (alongside RMB + Scroll)!
+      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && /^Digit[1-9]$/.test(e.code)) {
         e.preventDefault();
-        const toolByKey = { '1': 'interact', '2': 'examine', '3': 'pet' };
-        const chosen = toolByKey[e.key];
-        if (getFinStyle() === 'persistent') {
-          finSense.armedTool = chosen;
-        } else {
-          finSense.tempOverride = chosen;
-        }
-        syncFinModeStripUI();
+        const slotIdx = parseInt(e.code.replace('Digit', ''), 10) - 1;
+        selectFinSlot(slotIdx);
         updateFinSenseHover(true);
         return;
       }
@@ -5161,17 +5156,11 @@
         hideVolcanoHUDCard();
       }
 
-      // Pass 92: While holding Right-Click (Shark Fin Cursor active), 1 / 2 / 3 switch Fin Tool without firing combat skills!
-      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && (e.key === '1' || e.key === '2' || e.key === '3')) {
+      // Pass 97: While holding Right-Click (Shark Fin Cursor active), 1-9 selects Fin Inventory Slots directly (alongside RMB + Scroll)!
+      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && /^Digit[1-9]$/.test(e.code)) {
         e.preventDefault();
-        const toolByKey = { '1': 'interact', '2': 'examine', '3': 'pet' };
-        const chosen = toolByKey[e.key];
-        if (getFinStyle() === 'persistent') {
-          finSense.armedTool = chosen;
-        } else {
-          finSense.tempOverride = chosen;
-        }
-        syncFinModeStripUI();
+        const slotIdx = parseInt(e.code.replace('Digit', ''), 10) - 1;
+        selectFinSlot(slotIdx);
         updateFinSenseHover(true);
         return;
       }
@@ -5412,15 +5401,19 @@
       if (e.key === 'F4' || (e.altKey && e.code === 'Digit4')) { e.preventDefault(); spawnPlayerShark('nimue'); return; }
       if (e.key === 'F6' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
 
-      // Pass 93: Number Row 1-9 selects Fin Slots (top 9 fin-eligible inventory items); Shift+1..6 triggers MMO combat bar!
+      // Pass 97: Clean Number-Row Split — Plain 1-6 = Action Bar skills; 7-9 (or RMB + Scroll / RMB + 1-9) = Fin Inventory Slots!
       if (!e.altKey && !isAnyModalOpen() && /^Digit[1-9]$/.test(e.code)) {
         e.preventDefault();
         const numStr = e.code.replace('Digit', '');
         const slotIdx = parseInt(numStr, 10) - 1;
-        if (e.shiftKey && window.BlahajMMO && slotIdx < 6) {
-          window.BlahajMMO.triggerSlot(`shift+${numStr}`);
-        } else if (e.ctrlKey && numStr === '1' && window.BlahajMMO) {
-          window.BlahajMMO.executeAbility('tea_infusion');
+        if (slotIdx < 6 && window.BlahajMMO) {
+          if (e.shiftKey) {
+            window.BlahajMMO.triggerSlot(`shift+${numStr}`);
+          } else if (e.ctrlKey && numStr === '1') {
+            window.BlahajMMO.executeAbility('tea_infusion');
+          } else {
+            window.BlahajMMO.triggerSlot(numStr);
+          }
         } else {
           selectFinSlot(slotIdx);
         }
