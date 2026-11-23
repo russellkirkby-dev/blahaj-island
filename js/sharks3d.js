@@ -1872,9 +1872,7 @@ window.BlahajModels = (function () {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 12), metalMat);
       ring.position.y = 0.27;
       g.add(ring);
-      const light = new THREE.PointLight(0xa855f7, 0.9, 4.5, 1.2);
-      light.position.y = 0.12;
-      g.add(light);
+      // PointLight omitted: adding/removing a PointLight on equip forces Three.js to recompile all scene PBR shaders (10s freeze!)
       g.scale.setScalar(0.9);
 
     } else if (itemId === 'party_favor') {
@@ -1959,14 +1957,10 @@ window.BlahajModels = (function () {
         g.add(tip);
       });
 
-      // Point Light Aura
-      const light = new THREE.PointLight(0xa855f7, 1.2, 5.0, 1.5);
-      light.position.set(0, 0.32, 0);
-      g.add(light);
-
+      // PointLight omitted: adding/removing a PointLight on equip forces Three.js to recompile all scene PBR shaders (10s freeze!)
       g.userData = {
         crystal,
-        light,
+        light: null,
         miniNeedle
       };
 

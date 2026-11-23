@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=8.8" />
+  <link rel="stylesheet" href="styles.css?v=8.9" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2446,24 +2446,78 @@
     </div>
   </div>
 
+  <!-- Custom In-Game Shark Fin Cursor (Active inside Pointer Lock when holding Right-Click or when a modal is open) -->
+  <div id="shark-fin-cursor" class="shark-fin-cursor hidden" aria-hidden="true">
+    <svg viewBox="0 0 36 40" width="34" height="38" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="finGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7dd3fc"/>
+          <stop offset="48%" stop-color="#38bdf8"/>
+          <stop offset="100%" stop-color="#1d4ed8"/>
+        </linearGradient>
+      </defs>
+      <path d="M 3 3 C 16 7, 27 17, 32 33 C 22 29, 14 29, 8 36 C 7 24, 5 14, 3 3 Z"
+            fill="url(#finGrad)" stroke="#e0f2fe" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M 7 10 C 13 14, 19 20, 23 27" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="3.5" cy="3.5" r="2.2" fill="#ffffff"/>
+    </svg>
+  </div>
+
+  <!-- Non-blocking Entry Pill (Shown when OS cursor is free and Pause Menu is closed) -->
+  <div id="play-capture-pill" class="play-capture-pill">
+    <span class="pill-fin">🦈</span>
+    <span><strong>Double-click</strong> anywhere in the world to play</span>
+    <span class="pill-sep">·</span>
+    <span>Hold <strong>Right-Click</strong> for Fin Cursor</span>
+    <span class="pill-sep">·</span>
+    <span><strong>[Esc]</strong> Pause &amp; Free Mouse</span>
+  </div>
+
+  <!-- Pause Menu Overlay (Opened automatically when pressing Esc from inside the game) -->
+  <div id="game-pause-overlay" class="game-pause-overlay hidden" role="dialog" aria-label="Game Paused">
+    <div class="game-pause-card">
+      <div class="pause-header">
+        <span class="pause-badge">🦈 PAUSED · OS MOUSE FREE</span>
+        <h2>Blåhaj Island</h2>
+        <p class="pause-hint">Your mouse is free for other windows &amp; screens.<br>Click <strong>Resume</strong> or <strong>double-click</strong> the world to jump back in.</p>
+      </div>
+      <div class="pause-actions">
+        <button type="button" id="btn-pause-resume" class="pause-btn pause-btn-primary">▶ Resume Playing</button>
+        <div class="pause-quick-grid">
+          <button type="button" id="btn-pause-settings" class="pause-btn">⚙ Settings</button>
+          <button type="button" id="btn-pause-map" class="pause-btn">🗺 Island Map</button>
+          <button type="button" id="btn-pause-character" class="pause-btn">🎒 Character &amp; Bags</button>
+          <button type="button" id="btn-pause-spellbook" class="pause-btn">📖 Spellbook</button>
+        </div>
+      </div>
+      <div class="pause-controls-tip">
+        <span><strong>In-Game Mouse:</strong> Move = Camera</span>
+        <span>·</span>
+        <span><strong>Hold Right-Click:</strong> Shark Fin Cursor</span>
+        <span>·</span>
+        <span><strong>Esc:</strong> Pause &amp; Release Mouse</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=8.8"></script>
-  <script src="js/sharks3d.js?v=8.8"></script>
-  <script src="js/ufo.js?v=8.8"></script>
-  <script src="js/world3d.js?v=8.8"></script>
-  <script src="js/volcano.js?v=8.8"></script>
-  <script src="js/laundromat.js?v=8.8"></script>
-  <script src="js/sphericalFoods.js?v=8.8"></script>
-  <script src="js/volleyball.js?v=8.8"></script>
-  <script src="js/spawningPits.js?v=8.8"></script>
-  <script src="js/homestead.js?v=8.8"></script>
-  <script src="js/network.js?v=8.8"></script>
-  <script src="js/inventory.js?v=8.8"></script>
-  <script src="js/enemies.js?v=8.8"></script>
-  <script src="js/seam.js?v=8.8"></script>
-  <script src="js/mmoControls.js?v=8.8"></script>
+  <script src="js/lore.js?v=8.9"></script>
+  <script src="js/sharks3d.js?v=8.9"></script>
+  <script src="js/ufo.js?v=8.9"></script>
+  <script src="js/world3d.js?v=8.9"></script>
+  <script src="js/volcano.js?v=8.9"></script>
+  <script src="js/laundromat.js?v=8.9"></script>
+  <script src="js/sphericalFoods.js?v=8.9"></script>
+  <script src="js/volleyball.js?v=8.9"></script>
+  <script src="js/spawningPits.js?v=8.9"></script>
+  <script src="js/homestead.js?v=8.9"></script>
+  <script src="js/network.js?v=8.9"></script>
+  <script src="js/inventory.js?v=8.9"></script>
+  <script src="js/enemies.js?v=8.9"></script>
+  <script src="js/seam.js?v=8.9"></script>
+  <script src="js/mmoControls.js?v=8.9"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=8.8"></script>
-  <script src="js/main.js?v=8.8"></script>
+  <script src="js/saveSystem.js?v=8.9"></script>
+  <script src="js/main.js?v=8.9"></script>
 </body>
 </html>

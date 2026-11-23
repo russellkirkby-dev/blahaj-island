@@ -3511,6 +3511,132 @@
     let prevPointerDy = 0;
     let altComboUsed = false;
 
+    // =========================================================================
+    // PASS 89: DOUBLE-CLICK TO PLAY · ESC PAUSE MENU · IN-GAME SHARK FIN CURSOR
+    // Single source of truth: Chrome Pointer Lock = IN GAME; Unlocked = OS MOUSE FREE.
+    // While IN GAME: Mouse = Camera; Hold Right-Click (or any open modal) = Shark Fin Cursor.
+    // =========================================================================
+    const finCursor = {
+      x: Math.round(window.innerWidth * 0.5),
+      y: Math.round(window.innerHeight * 0.5),
+      hoveredEl: null,
+      draggingRange: null
+    };
+    const finCursorEl = document.getElementById('shark-fin-cursor');
+    const playCapturePillEl = document.getElementById('play-capture-pill');
+    const pauseOverlayEl = document.getElementById('game-pause-overlay');
+
+    function isFinCursorActive() {
+      return !!(camState.isPointerLocked && (camState.isRightDown || isAnyModalOpen()));
+    }
+
+    function clearFinHover() {
+      if (finCursor.hoveredEl) {
+        finCursor.hoveredEl.classList.remove('fin-hover');
+        finCursor.hoveredEl = null;
+      }
+      if (finCursorEl) finCursorEl.classList.remove('fin-over-interactive');
+    }
+
+    function updateFinHover() {
+      if (!isFinCursorActive()) {
+        clearFinHover();
+        return;
+      }
+      const raw = document.elementFromPoint(finCursor.x, finCursor.y);
+      const target = raw && raw !== canvas
+        ? (raw.closest('button, a, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch') || raw)
+        : null;
+      if (target !== finCursor.hoveredEl) {
+        clearFinHover();
+        if (target && target !== document.body && target !== document.documentElement) {
+          finCursor.hoveredEl = target;
+          const isInteractive = !!(target.matches && target.matches('button, a, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch'));
+          if (isInteractive) {
+            target.classList.add('fin-hover');
+            if (finCursorEl) finCursorEl.classList.add('fin-over-interactive');
+          }
+        }
+      }
+    }
+
+    function syncCaptureUI() {
+      const finActive = isFinCursorActive();
+      if (finCursorEl) {
+        finCursorEl.classList.toggle('hidden', !finActive);
+        if (finActive) {
+          finCursorEl.style.transform = `translate3d(${finCursor.x.toFixed(1)}px, ${finCursor.y.toFixed(1)}px, 0)`;
+        }
+      }
+      if (!finActive) clearFinHover();
+      if (playCapturePillEl) {
+        const pauseOpen = !!(pauseOverlayEl && !pauseOverlayEl.classList.contains('hidden'));
+        playCapturePillEl.classList.toggle('hidden', camState.isPointerLocked || pauseOpen || isAnyModalOpen());
+      }
+    }
+    window._blahajSyncCaptureUI = syncCaptureUI;
+
+    function openPauseMenu() {
+      if (pauseOverlayEl) pauseOverlayEl.classList.remove('hidden');
+      syncCaptureUI();
+    }
+
+    function closePauseMenu() {
+      if (pauseOverlayEl) pauseOverlayEl.classList.add('hidden');
+      syncCaptureUI();
+    }
+
+    function enterGameCapture() {
+      CozyAudio.ensure();
+      closePauseMenu();
+      if (document.pointerLockElement !== canvas) {
+        try {
+          const p = canvas.requestPointerLock?.();
+          if (p && typeof p.catch === 'function') p.catch(() => {});
+        } catch (err) {}
+      }
+    }
+
+    document.getElementById('btn-pause-resume')?.addEventListener('click', () => {
+      enterGameCapture();
+    });
+    document.getElementById('btn-pause-settings')?.addEventListener('click', () => {
+      closePauseMenu();
+      openSettingsModal();
+    });
+    document.getElementById('btn-pause-map')?.addEventListener('click', () => {
+      closePauseMenu();
+      const mapBtn = document.getElementById('btn-mmo-map') || document.getElementById('btn-open-map');
+      if (mapBtn) mapBtn.click();
+    });
+    document.getElementById('btn-pause-character')?.addEventListener('click', () => {
+      closePauseMenu();
+      openCharacterSheet();
+    });
+    document.getElementById('btn-pause-spellbook')?.addEventListener('click', () => {
+      closePauseMenu();
+      const sbBtn = document.getElementById('btn-mmo-spellbook');
+      if (sbBtn) sbBtn.click();
+    });
+
+    function updateRangeWithFin(rangeEl, clientX) {
+      if (!rangeEl) return;
+      const rect = rangeEl.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const min = parseFloat(rangeEl.min || '0');
+      const max = parseFloat(rangeEl.max || '100');
+      const step = parseFloat(rangeEl.step || '1');
+      let val = min + pct * (max - min);
+      if (Number.isFinite(step) && step > 0) {
+        val = Math.round(val / step) * step;
+      }
+      val = Math.max(min, Math.min(max, val));
+      rangeEl.value = String(val);
+      rangeEl.dispatchEvent(new Event('input', { bubbles: true }));
+      rangeEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
     document.addEventListener('pointerlockchange', () => {
       const wasLocked = camState.isPointerLocked;
       camState.isPointerLocked = document.pointerLockElement === canvas;
@@ -3518,25 +3644,32 @@
       lastClientY = null;
       prevPointerDx = 0;
       prevPointerDy = 0;
-      if (!camState.isPointerLocked) {
-        if (camState.isDragPointerLock) {
-          camState.isDragPointerLock = false;
-        } else if (camState.isAltToggleUnlock) {
-          camState.isAltToggleUnlock = false;
-        } else if (camState.isModalPointerUnlock) {
-          camState.isModalPointerUnlock = false;
-        } else {
-          // Only enter freeMouse on Esc unlock; NEVER wipe movement keys mid-jump!
-          if (wasLocked && !isAnyModalOpen()) {
-            camState.freeMouse = true;
-          }
+      camState.isLeftDown = false;
+      camState.isLeftDragging = false;
+      camState.isRightDown = false;
+      camState.isRightDragging = false;
+      camState.isChordMoving = false;
+      finCursor.draggingRange = null;
+
+      if (camState.isPointerLocked) {
+        camState.freeMouse = false;
+        finCursor.x = Math.round(window.innerWidth * 0.5);
+        finCursor.y = Math.round(window.innerHeight * 0.5);
+        closePauseMenu();
+      } else {
+        camState.freeMouse = true;
+        if (wasLocked) {
+          // Pressing Esc (or losing pointer lock) frees the OS mouse and opens the Pause Menu!
+          openPauseMenu();
         }
         const vhudCard = document.getElementById('volcano-hud-card');
         if (vhudCard && !vhudCard.classList.contains('hidden') && !vhudCard.classList.contains('fading-out')) {
           hideVolcanoHUDCard();
         }
       }
+      syncCaptureUI();
     });
+    syncCaptureUI();
 
     window.addEventListener('blur', clearAllMovementKeys);
     document.addEventListener('visibilitychange', () => {
@@ -3625,12 +3758,26 @@
 
     let accumDragDist = 0;
 
+    // Double-click anywhere on the 3D canvas is the ONLY canvas gesture that enters the game!
+    canvas.addEventListener('dblclick', (e) => {
+      if (e.button !== 0) return;
+      if (!camState.isPointerLocked && !isAnyModalOpen()) {
+        enterGameCapture();
+      }
+    });
+
     canvas.addEventListener('mousedown', (e) => {
       CozyAudio.ensure();
       mouseDownPos = { x: e.clientX, y: e.clientY };
       accumDragDist = 0;
       lastClientX = e.clientX;
       lastClientY = e.clientY;
+
+      // When OUT OF GAME (OS cursor free), never hijack pointer or spin camera on single click!
+      if (!camState.isPointerLocked) {
+        return;
+      }
+
       // Middle-Mouse Click (button 1) toggles MMO Autorun!
       if (e.button === 1 && !isAnyModalOpen()) {
         e.preventDefault();
@@ -3638,51 +3785,85 @@
         if (window.BlahajMMO && window.BlahajMMO.syncAutorunUI) window.BlahajMMO.syncAutorunUI(camState.isAutoRunning);
         showToast(
           camState.isAutoRunning ? '🏃💨 AUTORUN ENGAGED [NumLock / Mid-Click]' : '🛑 AUTORUN STOPPED',
-          camState.isAutoRunning ? 'Cruising forward hands-free! Steer with Right-Click or tap W/S to stop.' : 'Manual WASD control resumed.'
+          camState.isAutoRunning ? 'Cruising forward hands-free! Tap W/S to stop.' : 'Manual WASD control resumed.'
         );
         return;
       }
+
+      if (e.button === 2) {
+        // Hold Right-Click while IN GAME brings up the Shark Fin Cursor!
+        camState.isRightDown = true;
+        camState.isRightDragging = false;
+        syncCaptureUI();
+        updateFinHover();
+        return;
+      }
+
       if (e.button === 0) {
+        if (isFinCursorActive()) {
+          // Click whatever UI button, input, slider, or 3D object is underneath the Shark Fin Cursor!
+          if (finCursorEl) finCursorEl.classList.add('fin-clicking');
+          const rawEl = document.elementFromPoint(finCursor.x, finCursor.y);
+          if (rawEl && rawEl !== canvas) {
+            const rangeEl = rawEl.closest('input[type="range"]');
+            if (rangeEl) {
+              finCursor.draggingRange = rangeEl;
+              updateRangeWithFin(rangeEl, finCursor.x);
+              return;
+            }
+            const clickTarget = rawEl.closest('button, a, label, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch') || rawEl;
+            if (clickTarget && typeof clickTarget.focus === 'function' && clickTarget.matches?.('input, textarea, select')) {
+              clickTarget.focus();
+            }
+            if (clickTarget && typeof clickTarget.click === 'function') {
+              clickTarget.click();
+            }
+            setTimeout(syncCaptureUI, 0);
+          } else if (window.BlahajMMO && !isAnyModalOpen()) {
+            // Clicked on the 3D world with the Shark Fin Cursor -> target/select at fin position
+            window.BlahajMMO.handleCanvasClick(finCursor.x, finCursor.y, camera, false, true);
+          }
+          return;
+        }
         camState.isLeftDown = true;
         camState.isLeftDragging = true;
-      } else if (e.button === 2) {
-        camState.isRightDown = true;
-        camState.isRightDragging = true;
       }
-      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
-
-      // Immediately lock pointer on mousedown when in Camera Orbit mode (clean gesture, zero race!)
-      if (!camState.freeMouse && !isAnyModalOpen() && document.pointerLockElement !== canvas) {
-        try { canvas.requestPointerLock?.(); } catch (err) {}
-      }
+      camState.isChordMoving = false;
     });
 
     canvas.addEventListener('mouseup', (e) => {
+      if (finCursorEl) finCursorEl.classList.remove('fin-clicking');
+      finCursor.draggingRange = null;
+
+      if (!camState.isPointerLocked) {
+        return;
+      }
+
       const dragDist = Math.max(accumDragDist, Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y));
       if (e.button === 0) {
+        const wasFinClick = isFinCursorActive();
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
+        if (!wasFinClick && dragDist < 6 && !isAnyModalOpen()) {
+          const clickX = window.innerWidth * 0.5;
+          const clickY = window.innerHeight * 0.5;
+          if (builderState.active) {
+            placeActiveBlueprint();
+          } else if (window.BlahajMMO) {
+            window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, true);
+          }
+        }
       } else if (e.button === 2) {
         camState.isRightDown = false;
         camState.isRightDragging = false;
+        syncCaptureUI();
       }
-      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
-
-      if (dragDist < 6 && !isAnyModalOpen()) {
-        const clickX = camState.isPointerLocked ? (window.innerWidth * 0.5) : e.clientX;
-        const clickY = camState.isPointerLocked ? (window.innerHeight * 0.5) : e.clientY;
-        if (e.button === 0 && builderState.active) {
-          placeActiveBlueprint();
-        } else if (e.button === 0 && window.BlahajMMO) {
-          // Pass skipGroundFace=true so clicking to lock camera NEVER fights or yanks the camera!
-          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, true);
-        } else if (e.button === 2 && window.BlahajMMO) {
-          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, true, true);
-        }
-      }
+      camState.isChordMoving = false;
     });
 
     window.addEventListener('mouseup', (e) => {
+      if (finCursorEl) finCursorEl.classList.remove('fin-clicking');
+      finCursor.draggingRange = null;
       if (!e || e.button === 0) {
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
@@ -3690,16 +3871,9 @@
       if (!e || e.button === 2) {
         camState.isRightDown = false;
         camState.isRightDragging = false;
+        syncCaptureUI();
       }
-      camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
-      if (!camState.isLeftDragging && !camState.isRightDragging) {
-        lastClientX = null;
-        lastClientY = null;
-        if (camState.freeMouse && document.pointerLockElement === canvas) {
-          camState.isDragPointerLock = true;
-          document.exitPointerLock?.();
-        }
-      }
+      camState.isChordMoving = false;
       prevPointerDx = 0;
       prevPointerDy = 0;
     });
@@ -3709,97 +3883,88 @@
     });
 
     window.addEventListener('mousemove', (e) => {
-      if (isAnyModalOpen()) {
-        lastClientX = null;
-        lastClientY = null;
+      // Single source of truth: ONLY capture mouse when Pointer Locked (IN GAME)!
+      // When unlocked (OS mouse free), hovering the tab NEVER spins the camera!
+      if (!camState.isPointerLocked) {
         return;
       }
 
-      const shouldOrbit = camState.isPointerLocked || !camState.freeMouse || camState.isRightDragging || camState.isLeftDragging;
-      if (shouldOrbit) {
-        let dx = 0;
-        let dy = 0;
+      const rawDx = (typeof e.movementX === 'number' && Number.isFinite(e.movementX)) ? e.movementX : 0;
+      const rawDy = (typeof e.movementY === 'number' && Number.isFinite(e.movementY)) ? e.movementY : 0;
 
-        if (camState.isPointerLocked) {
-          const rawDx = (typeof e.movementX === 'number' && Number.isFinite(e.movementX)) ? e.movementX : 0;
-          const rawDy = (typeof e.movementY === 'number' && Number.isFinite(e.movementY)) ? e.movementY : 0;
+      // REJECT SYNTHETIC OS RECENTER WARP GLITCHES:
+      const isRecenterWarpX = Math.abs(rawDx) > 280 && (Math.abs(rawDx - prevPointerDx) > 220 || Math.sign(rawDx) !== Math.sign(prevPointerDx));
+      const isRecenterWarpY = Math.abs(rawDy) > 280 && (Math.abs(rawDy - prevPointerDy) > 220 || Math.sign(rawDy) !== Math.sign(prevPointerDy));
+      if (isRecenterWarpX || isRecenterWarpY) {
+        return;
+      }
 
-          // REJECT SYNTHETIC OS RECENTER WARP GLITCHES:
-          // Chromium's Pointer Lock on Windows occasionally fires a single synthetic event (typically 300-1200px)
-          // when the Windows virtual cursor hits the desktop margin and is reset by SetCursorPos.
-          // Real human mouse turns never reach 280px in a single frame with a sudden reverse direction.
-          const isRecenterWarpX = Math.abs(rawDx) > 280 && (Math.abs(rawDx - prevPointerDx) > 220 || Math.sign(rawDx) !== Math.sign(prevPointerDx));
-          const isRecenterWarpY = Math.abs(rawDy) > 280 && (Math.abs(rawDy - prevPointerDy) > 220 || Math.sign(rawDy) !== Math.sign(prevPointerDy));
+      prevPointerDx = rawDx;
+      prevPointerDy = rawDy;
 
-          if (isRecenterWarpX || isRecenterWarpY) {
-            return; // Discard synthetic OS recenter warp glitch!
-          }
+      const dx = Math.max(-120, Math.min(120, rawDx));
+      const dy = Math.max(-90, Math.min(90, rawDy));
 
-          prevPointerDx = rawDx;
-          prevPointerDy = rawDy;
-
-          // Generous safe clamping allows fast, fluid turns (up to ~22°/event) while stopping runaway jumps
-          dx = Math.max(-120, Math.min(120, rawDx));
-          dy = Math.max(-90, Math.min(90, rawDy));
-        } else {
-          // Smooth client coordinate delta for orbit mode before pointer lock or drag fallback in free mouse mode
-          if (lastClientX !== null && lastClientY !== null) {
-            dx = e.clientX - lastClientX;
-            dy = e.clientY - lastClientY;
-          }
-          lastClientX = e.clientX;
-          lastClientY = e.clientY;
-
-          dx = Math.max(-100, Math.min(100, dx));
-          dy = Math.max(-80, Math.min(80, dy));
-          if (camState.isLeftDown || camState.isRightDown) {
-            accumDragDist += Math.hypot(dx, dy);
-          }
+      // Sub-mode 1: Shark Fin Cursor active (Holding Right-Click OR any in-game modal is open)
+      if (isFinCursorActive()) {
+        finCursor.x = Math.max(4, Math.min(window.innerWidth - 4, finCursor.x + dx));
+        finCursor.y = Math.max(4, Math.min(window.innerHeight - 4, finCursor.y + dy));
+        if (finCursorEl) {
+          finCursorEl.classList.remove('hidden');
+          finCursorEl.style.transform = `translate3d(${finCursor.x.toFixed(1)}px, ${finCursor.y.toFixed(1)}px, 0)`;
         }
-
-        const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
-
-        if (isUsingBinoculars) {
-          // Binocular first-person horizon scanning with switchable axis inversion
-          const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
-          const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
-          camState.yaw -= dx * 0.0022 * sens * bInvertX;
-          camState.pitch = Math.max(-0.65, Math.min(0.75, camState.pitch - dy * 0.0022 * sens * bInvertY));
-        } else if (isUsingTelescope) {
-          // Observatory telescope celestial cloud scanning with switchable axis inversion
-          const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
-          const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
-          camState.yaw -= dx * 0.0020 * sens * bInvertX;
-          camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch - dy * 0.0020 * sens * bInvertY));
+        if (finCursor.draggingRange) {
+          updateRangeWithFin(finCursor.draggingRange, finCursor.x);
         } else {
-          // Standard third-person orbit camera
-          const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
-          camState.yaw -= dx * 0.0032 * sens;
-          camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
-          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
-            camState.lastManualOrbitAt = Date.now();
-          }
+          updateFinHover();
         }
+        return;
+      }
 
-        // Keep yaw cleanly wrapped within [-PI, PI] to prevent floating point drift
-        while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
-        while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+      // Sub-mode 2: Camera Orbit Mode (default IN GAME)
+      const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
 
-        // Orbit around character while standing still; Right-Click+Drag or walking aligns character to camera
-        if ((camState.isRightDown || camState.isRightDragging || camState.isChordMoving) && !isUsingBinoculars && !isUsingTelescope && !player.isLounging && !player.isSeatedInBooth) {
-          player.rotY = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
-          player.clickTurnTimer = 0;
-          camState.hasFreeLookOffset = false;
-        } else {
-          camState.hasFreeLookOffset = true;
+      if (isUsingBinoculars) {
+        const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
+        const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
+        camState.yaw -= dx * 0.0022 * sens * bInvertX;
+        camState.pitch = Math.max(-0.65, Math.min(0.75, camState.pitch - dy * 0.0022 * sens * bInvertY));
+      } else if (isUsingTelescope) {
+        const bInvertY = (gameSettings && gameSettings.binocularInvertY) ? -1 : 1;
+        const bInvertX = (gameSettings && gameSettings.binocularInvertX) ? -1 : 1;
+        camState.yaw -= dx * 0.0020 * sens * bInvertX;
+        camState.pitch = Math.max(0.08, Math.min(1.35, camState.pitch - dy * 0.0020 * sens * bInvertY));
+      } else {
+        const invert = (gameSettings && gameSettings.invertY) ? -1 : 1;
+        camState.yaw -= dx * 0.0032 * sens;
+        camState.pitch = Math.max(-0.25, Math.min(1.15, camState.pitch + dy * 0.0026 * sens * invert));
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          camState.lastManualOrbitAt = Date.now();
         }
       }
+
+      while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+      while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
+      camState.hasFreeLookOffset = true;
     });
 
     window.addEventListener('wheel', (e) => {
-      if (isAnyModalOpen()) return;
+      if (camState.isPointerLocked && isFinCursorActive()) {
+        // Scroll any scrollable modal/panel under the Shark Fin Cursor
+        let el = document.elementFromPoint(finCursor.x, finCursor.y);
+        while (el && el !== document.body) {
+          if (el.scrollHeight > el.clientHeight + 2) {
+            el.scrollTop += e.deltaY;
+            e.preventDefault();
+            return;
+          }
+          el = el.parentElement;
+        }
+        return;
+      }
+      if (!camState.isPointerLocked || isAnyModalOpen()) return;
       camState.distance = Math.max(4.0, Math.min(22.0, camState.distance + e.deltaY * 0.005));
-    });
+    }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
       // Pass 85B: Never hijack native browser refresh, fullscreen, devtools, or Ctrl/Cmd system shortcuts
@@ -3857,6 +4022,10 @@
 
       if (e.key === 'Escape') {
         clearAllMovementKeys();
+        if (pauseOverlayEl && !pauseOverlayEl.classList.contains('hidden')) {
+          closePauseMenu();
+          return;
+        }
         if (isUsingTelescope) {
           exitTelescopeMode();
           return;
@@ -4309,24 +4478,6 @@
     window.addEventListener('keyup', (e) => {
       if (e.key === 'Alt' || e.code === 'AltLeft' || e.code === 'AltRight') {
         e.preventDefault();
-        if (!altComboUsed && !isAnyModalOpen()) {
-          camState.freeMouse = !camState.freeMouse;
-          lastClientX = null;
-          lastClientY = null;
-          camState.isLeftDown = false;
-          camState.isLeftDragging = false;
-          camState.isRightDown = false;
-          camState.isRightDragging = false;
-          if (camState.freeMouse) {
-            if (document.pointerLockElement === canvas) {
-              camState.isAltToggleUnlock = true;
-              document.exitPointerLock?.();
-            }
-            showToast('🖱️ FREE MOUSE: ON [Alt]', 'Cursor unlocked to click HUD & menus (drag to orbit). Press [Alt] again for Camera Orbit.');
-          } else {
-            showToast('🎥 CAMERA ORBIT: ON [Alt]', 'Move mouse to orbit (click once to lock pointer). Walk (WASD) follows camera!');
-          }
-        }
         altComboUsed = false;
         return;
       }
@@ -4365,9 +4516,10 @@
   }
 
   function releasePointerLock() {
-    if (document.pointerLockElement) {
-      camState.isModalPointerUnlock = true;
-      document.exitPointerLock?.();
+    // Pass 89: Opening an in-game modal keeps Pointer Lock active and switches to the Shark Fin Cursor!
+    // Only pressing Esc releases Pointer Lock out of the game.
+    if (typeof window._blahajSyncCaptureUI === 'function') {
+      window._blahajSyncCaptureUI();
     }
   }
 
@@ -13298,6 +13450,7 @@
     if (curQuarter !== lastMeterUpdateSecond) {
       lastMeterUpdateSecond = curQuarter;
       updateMetersUI();
+      if (typeof window._blahajSyncCaptureUI === 'function') window._blahajSyncCaptureUI();
     }
 
     try {
