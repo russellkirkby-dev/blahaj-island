@@ -2833,7 +2833,16 @@
 
   function yieldFrame() {
     return new Promise((resolve) => {
-      requestAnimationFrame(() => setTimeout(resolve, 24));
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      };
+      // Fallback timeout ensures boot never stalls if requestAnimationFrame is throttled
+      setTimeout(finish, 120);
+      requestAnimationFrame(() => setTimeout(finish, 24));
     });
   }
 
@@ -3072,27 +3081,38 @@
     }
 
     // 3. Setup Controls, UI, Builder Toolbar, Gallery, Upgrades & Co-op Networking
-    loadSettings();
-    setupInputs();
-    setupUI();
-    setupSettingsUI();
-    applyAllSettings();
-    setupBuilderUI();
-    if (window.BlahajQuests && typeof window.BlahajQuests.init === 'function') {
-      window.BlahajQuests.init();
-    }
-    setupNetwork();
-    renderQuestList();
-    updateMetersUI();
-    renderUpgradesGrid();
+    const runBootStep = (label, fn) => {
+      try {
+        fn();
+      } catch (err) {
+        console.error(`Boot step failed (${label}):`, err);
+      }
+    };
+    runBootStep('loadSettings', loadSettings);
+    runBootStep('setupInputs', setupInputs);
+    runBootStep('setupUI', setupUI);
+    runBootStep('setupSettingsUI', setupSettingsUI);
+    runBootStep('applyAllSettings', applyAllSettings);
+    runBootStep('setupBuilderUI', setupBuilderUI);
+    runBootStep('BlahajQuests.init', () => {
+      if (window.BlahajQuests && typeof window.BlahajQuests.init === 'function') {
+        window.BlahajQuests.init();
+      }
+    });
+    runBootStep('setupNetwork', setupNetwork);
+    runBootStep('renderQuestList', renderQuestList);
+    runBootStep('updateMetersUI', updateMetersUI);
+    runBootStep('renderUpgradesGrid', renderUpgradesGrid);
 
     // Restore saved game state from active Island Passport slot BEFORE shader pre-compilation & 360° warmup!
-    if (window.BlahajSaveSystem) {
-      const save = window.BlahajSaveSystem.getSaveState();
-      if (save) {
-        window.BlahajSaveSystem.restoreGameFromSave(save);
+    runBootStep('restoreGameFromSave', () => {
+      if (window.BlahajSaveSystem) {
+        const save = window.BlahajSaveSystem.getSaveState();
+        if (save) {
+          window.BlahajSaveSystem.restoreGameFromSave(save);
+        }
       }
-    }
+    });
 
     // Statically cap PointLights ONCE at boot ( ranked by reach/importance ) so NUM_POINT_LIGHTS never changes at runtime!
     // Never toggle PointLight.visible dynamically during gameplay, as changing NUM_POINT_LIGHTS forces Three.js/D3D11
