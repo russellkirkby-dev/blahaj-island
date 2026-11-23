@@ -15893,6 +15893,21 @@
     if (camState.customOverride) {
       camera.position.copy(camState.customOverride.pos);
       camera.lookAt(camState.customOverride.lookAt);
+      if (scene && scene.fog && currentZone === 'island') {
+        const waterAtCam = (worldApi && typeof worldApi.getWaveHeight === 'function')
+          ? worldApi.getWaveHeight(camera.position.x, camera.position.z, elapsed)
+          : 0.22;
+        if (camera.position.y < waterAtCam) {
+          scene.fog.color.setHex(0x0a3d54);
+          scene.fog.density = 0.024;
+        } else {
+          const skyState = (worldApi && typeof worldApi.getDayNightState === 'function')
+            ? worldApi.getDayNightState()
+            : null;
+          if (skyState && skyState.fog) scene.fog.color.copy(skyState.fog);
+          scene.fog.density = 0.0015;
+        }
+      }
       return;
     }
     const rightVec = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));

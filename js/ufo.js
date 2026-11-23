@@ -1239,9 +1239,9 @@ window.BlahajUFO = (function () {
   }
 
   function getSafeGroundHeight(x, z) {
-    let gy = 0.2;
+    let gy = -28.0;
     if (window.BlahajWorld && typeof window.BlahajWorld.getGroundAndStructureHeight === 'function') {
-      gy = Math.max(gy, window.BlahajWorld.getGroundAndStructureHeight(x, z));
+      gy = window.BlahajWorld.getGroundAndStructureHeight(x, z);
     }
     const isleY = getSurfaceHeight(x, z);
     if (isleY > gy) gy = isleY;
@@ -1477,9 +1477,11 @@ window.BlahajUFO = (function () {
     if (elPhase) {
       const phaseLabel = state.orbitalCeilingReached
         ? '🌌 ORBITAL CEILING'
-        : (state.phase === 'launching' ? '🚀 LAUNCH SEQUENCE'
-          : (state.phase === 'landing' ? '🛬 AUTO-LANDING'
-            : (state.phase === 'parked' ? '🅿️ LANDED · STAIRS DOWN' : (state.turboActive ? '⚡ HYPER-JETSONS TURBO' : '🛸 FLIGHT CRUISE'))));
+        : (state.isSubmerged
+          ? '🌊 HYDRO-SUBMERGED'
+          : (state.phase === 'launching' ? '🚀 LAUNCH SEQUENCE'
+            : (state.phase === 'landing' ? '🛬 AUTO-LANDING'
+            : (state.phase === 'parked' ? '🅿️ LANDED · STAIRS DOWN' : (state.turboActive ? '⚡ HYPER-JETSONS TURBO' : '🛸 FLIGHT CRUISE')))));
       elPhase.textContent = phaseLabel;
     }
     if (elRole) {
@@ -1824,8 +1826,26 @@ window.BlahajUFO = (function () {
         state.yawRate += (turnInput * 1.65 - state.yawRate) * Math.min(1.0, dt * 6.5);
         state.yaw += state.yawRate * dt;
 
-        const maxHorizSpeed = turbo ? 52.0 : 28.0;
-        const maxStrafeSpeed = turbo ? 34.0 : 22.0;
+        const waterY = (window.BlahajWorld && typeof window.BlahajWorld.getWaveHeight === 'function')
+          ? window.BlahajWorld.getWaveHeight(state.pos.x, state.pos.z, elapsed)
+          : 0.22;
+        const wasSubmerged = !!state.isSubmerged;
+        state.isSubmerged = state.pos.y < waterY;
+        if (state.isSubmerged !== wasSubmerged) {
+          if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.28, 0.45);
+          if (window.showToast) {
+            window.showToast(
+              state.isSubmerged ? '🌊 HYDRO-SUBMERGED!' : '🚀 BREACHED OCEAN SURFACE!',
+              state.isSubmerged
+                ? 'Cruising beneath the waves! Press [Space] to ascend or [L] to land on the seabed.'
+                : 'Back in open sky!'
+            );
+          }
+        }
+
+        const hydroScale = state.isSubmerged ? 0.72 : 1.0;
+        const maxHorizSpeed = (turbo ? 52.0 : 28.0) * hydroScale;
+        const maxStrafeSpeed = (turbo ? 34.0 : 22.0) * hydroScale;
         const fwdX = Math.sin(state.yaw);
         const fwdZ = Math.cos(state.yaw);
         const rightX = -Math.cos(state.yaw);
