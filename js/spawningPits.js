@@ -577,6 +577,8 @@
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(10, 32);
+    tex.anisotropy = 8;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
     return tex;
   }
 
@@ -612,6 +614,8 @@
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.repeat.set(8, 44);
+    tex.anisotropy = 8;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
     return tex;
   }
 
@@ -785,11 +789,11 @@
     mesh.position.set(cx, yBase + height / 2, cz);
     spScene.add(mesh);
 
-    // Baseboard & Crown Trim
+    // Baseboard & Crown Trim (offset cleanly off floor/top planes to prevent z-fighting)
     const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, 0.18, d + 0.05), MAT.ikeaBlue);
-    trim.position.set(cx, yBase + 0.09, cz);
+    trim.position.set(cx, yBase + 0.095, cz);
     const crown = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.14, d + 0.06), MAT.birch);
-    crown.position.set(cx, yBase + height - 0.07, cz);
+    crown.position.set(cx, yBase + height - 0.045, cz);
     spScene.add(trim, crown);
 
     addCollider(minX, maxX, minZ, maxZ, yBase + height, true, yBase, true);
@@ -1518,12 +1522,12 @@
       trussGroup.position.set(esc.cx, midY, midZ);
       trussGroup.rotation.x = -slopeAngle;
 
-      // Steel under-truss
+      // Steel under-truss (lowered cleanly below step undersides so steps never z-fight with truss)
       const truss = new THREE.Mesh(
-        new THREE.BoxGeometry(3.4, 0.65, diagLen + 1.0),
+        new THREE.BoxGeometry(3.4, 0.55, diagLen + 1.0),
         MAT.chrome
       );
-      truss.position.y = -0.35;
+      truss.position.y = -0.52;
       trussGroup.add(truss);
 
       // Left & Right Glass Balustrades + Glowing Yellow/Cyan Handrails
@@ -2485,7 +2489,7 @@
     });
 
     [STORE_MIN_Z, STORE_MAX_Z].forEach((wz) => {
-      const wMesh = new THREE.Mesh(new THREE.BoxGeometry(STORE_HALF_W * 2, wallHeight, 0.8), MAT.wallBlue);
+      const wMesh = new THREE.Mesh(new THREE.BoxGeometry(STORE_HALF_W * 2 - 0.84, wallHeight - 0.04, 0.8), MAT.wallBlue);
       wMesh.position.set(0, wallHeight / 2 - 0.5, wz);
       spScene.add(wMesh);
     });
