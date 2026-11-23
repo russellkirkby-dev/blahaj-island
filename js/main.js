@@ -4438,6 +4438,11 @@
 
     function openPauseMenu() {
       if (pauseOverlayEl) pauseOverlayEl.classList.remove('hidden');
+      const leaveVbBtn = document.getElementById('btn-pause-leave-volleyball');
+      const resumeBtn = document.getElementById('btn-pause-resume');
+      const inVbMatch = !!(window.BlahajVolleyball && (window.BlahajVolleyball.isMatchActive() || window.BlahajVolleyball.isSpectating()));
+      if (leaveVbBtn) leaveVbBtn.classList.toggle('hidden', !inVbMatch);
+      if (resumeBtn) resumeBtn.textContent = inVbMatch ? '▶ Resume Match' : '▶ Resume Playing';
       syncCaptureUI();
     }
 
@@ -4458,6 +4463,14 @@
     }
 
     document.getElementById('btn-pause-resume')?.addEventListener('click', () => {
+      enterGameCapture();
+    });
+    document.getElementById('btn-pause-leave-volleyball')?.addEventListener('click', () => {
+      if (window.BlahajVolleyball) {
+        if (window.BlahajVolleyball.isMatchActive()) window.BlahajVolleyball.endMatch();
+        if (window.BlahajVolleyball.isSpectating()) window.BlahajVolleyball.endSpectating();
+      }
+      if (currentZone === 'volleyball') currentZone = 'island';
       enterGameCapture();
     });
     document.getElementById('btn-pause-settings')?.addEventListener('click', () => {
@@ -4520,6 +4533,7 @@
         camState.freeMouse = true;
         if (wasLocked) {
           // Pressing Esc (or losing pointer lock) frees the OS mouse and opens the Pause Menu!
+          finSense.lastEscUnlockAt = performance.now();
           openPauseMenu();
         }
         const vhudCard = document.getElementById('volcano-hud-card');
@@ -4926,6 +4940,10 @@
       if (e.key === 'Escape') {
         clearAllMovementKeys();
         if (pauseOverlayEl && !pauseOverlayEl.classList.contains('hidden')) {
+          // Ignore the same Escape keystroke that just unlocked Pointer Lock!
+          if (performance.now() - (finSense.lastEscUnlockAt || 0) < 120) {
+            return;
+          }
           closePauseMenu();
           return;
         }

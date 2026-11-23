@@ -3308,7 +3308,7 @@ window.BlahajWorld = (function () {
 
     createTouristBinocularPedestal(54.0, -8.0, -Math.PI * 0.5, 'East Cape Ocean Viewpoint');
     createTouristBinocularPedestal(7.0, 27.0, -Math.PI * 0.4, 'Heartland Pier Observation Point');
-    createTouristBinocularPedestal(27.0, 47.0, 0.3, 'Crescent Beach Dunes Overlook');
+    createTouristBinocularPedestal(19.0, 44.0, 0.35, 'Crescent Beach Dunes Overlook');
     createTouristBinocularPedestal(-22.0, 14.0, 0.85, 'Heartland Meadow Ridge Overlook');
   }
 
