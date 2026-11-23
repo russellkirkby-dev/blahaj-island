@@ -5157,17 +5157,7 @@
         return;
       }
 
-      // Middle-Mouse Click (button 1) toggles MMO Autorun!
-      if (e.button === 1 && !isAnyModalOpen()) {
-        e.preventDefault();
-        camState.isAutoRunning = !camState.isAutoRunning;
-        if (window.BlahajMMO && window.BlahajMMO.syncAutorunUI) window.BlahajMMO.syncAutorunUI(camState.isAutoRunning);
-        showToast(
-          camState.isAutoRunning ? '🏃💨 AUTORUN ENGAGED [NumLock / Mid-Click]' : '🛑 AUTORUN STOPPED',
-          camState.isAutoRunning ? 'Cruising forward hands-free! Tap W/S to stop.' : 'Manual WASD control resumed.'
-        );
-        return;
-      }
+      // Middle-Mouse Click (button 1) autorun disabled to prevent accidental scroll-wheel walk-offs
 
       if (e.button === 2) {
         // Hold Right-Click while IN GAME brings up the Shark Fin Cursor!
