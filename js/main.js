@@ -5737,8 +5737,12 @@
           if (window.BlahajVolcano && typeof window.BlahajVolcano.isBuilt === 'function' && !window.BlahajVolcano.isBuilt()) {
             try {
               await window.BlahajVolcano.build();
-              if (renderer && window.BlahajVolcano.getScene && camera) {
-                renderer.compile(window.BlahajVolcano.getScene(), camera);
+              if (renderer && camera) {
+                if (typeof window.BlahajVolcano.precompile === 'function') {
+                  window.BlahajVolcano.precompile(renderer, camera);
+                } else if (window.BlahajVolcano.getScene) {
+                  renderer.compile(window.BlahajVolcano.getScene(), camera);
+                }
               }
             } catch (e) {
               console.warn('Volcano lazy build warning:', e);
@@ -14710,12 +14714,15 @@
     }
 
     const deg = ((-camState.yaw * 180) / Math.PI % 360 + 360) % 360;
-    const track = document.getElementById('compass-track');
-    if (track) {
-      // 50px per 45 deg step (8 steps = 400px per full revolution).
-      // Base offset at 0 deg aligns Set 2's North item (center at 425px) with the 150px strip center (75px): 75 - 425 = -350px.
-      const offset = -350 - deg * (50 / 45);
-      track.style.transform = `translateX(${offset.toFixed(1)}px)`;
+    if (Math.abs(deg - (updateCamera._lastCompassDeg ?? -999)) >= 0.1) {
+      updateCamera._lastCompassDeg = deg;
+      if (!updateCamera._compassTrack) updateCamera._compassTrack = document.getElementById('compass-track');
+      if (updateCamera._compassTrack) {
+        // 50px per 45 deg step (8 steps = 400px per full revolution).
+        // Base offset at 0 deg aligns Set 2's North item (center at 425px) with the 150px strip center (75px): 75 - 425 = -350px.
+        const offset = -350 - deg * (50 / 45);
+        updateCamera._compassTrack.style.transform = `translate3d(${offset.toFixed(1)}px, 0, 0)`;
+      }
     }
   }
 
@@ -15078,7 +15085,11 @@
     // Inside the Volcano Instance: Dedicated room zones, puzzles, tea and return portal
     if (currentZone === 'volcano' && window.BlahajVolcano) {
       const roomTitle = window.BlahajVolcano.getRoomTitle(player.pos.z) || 'The Sacred Volcano Trial';
-      document.getElementById('hud-zone-name').textContent = roomTitle;
+      if (roomTitle !== lastReportedZoneTitle) {
+        lastReportedZoneTitle = roomTitle;
+        if (!hudZoneNameEl) hudZoneNameEl = document.getElementById('hud-zone-name');
+        if (hudZoneNameEl) hudZoneNameEl.textContent = roomTitle;
+      }
 
       // Chamber HUD guide popups as player traverses each zone
       const noticeKey = getVolcanoNoticeKeyForPos(player.pos);

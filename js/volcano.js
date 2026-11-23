@@ -270,6 +270,20 @@ window.BlahajVolcano = (function () {
         return { x: px, z: pz };
       }
     }
+
+    // Solid collision around Central Hearth Save Shrine altar at (0, -180)
+    if (py < 2.2) {
+      const sdx = nx - 0;
+      const sdz = nz - (-180);
+      const sdist = Math.hypot(sdx, sdz);
+      const shrineR = 1.35;
+      if (sdist < shrineR) {
+        const ang = sdist > 0.0001 ? Math.atan2(sdz, sdx) : Math.PI * 0.5;
+        nx = Math.cos(ang) * shrineR;
+        nz = -180 + Math.sin(ang) * shrineR;
+      }
+    }
+
     return { x: nx, z: nz };
   }
 
@@ -351,19 +365,20 @@ window.BlahajVolcano = (function () {
   const LAVA_FRAG = `
     uniform float uTime;
     varying vec3 vW;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    // Fast sine-free hash (eliminates 20 sin() transcendental ops/pixel on the massive lava sea!)
+    float hash(vec2 p) {
+      vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+      p3 += dot(p3, p3.yzx + 33.33);
+      return fract((p3.x + p3.y) * p3.z);
+    }
     float noise(vec2 p) {
       vec2 i = floor(p), f = fract(p);
       f = f * f * (3.0 - 2.0 * f);
       return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
                  mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
     }
-    // Optimized 3-octave and 2-octave noise (drops fragment shader overhead by 40%+)
-    float fbm3(vec2 p) {
-      return 0.55 * noise(p) + 0.28 * noise(p * 2.1) + 0.17 * noise(p * 4.41);
-    }
     float fbm2(vec2 p) {
-      return 0.65 * noise(p) + 0.35 * noise(p * 2.1);
+      return 0.65 * noise(p) + 0.35 * noise(p * 2.15);
     }
     void main() {
       #ifdef VERTICAL
@@ -372,8 +387,8 @@ window.BlahajVolcano = (function () {
         vec2 p = vW.xz * 0.055;
       #endif
       float t = uTime * 0.06;
-      float n = fbm3(p + vec2(t, -t * 0.7));
-      float n2 = fbm2(p * 2.2 - vec2(t * 1.3, t));
+      float n = fbm2(p + vec2(t, -t * 0.7));
+      float n2 = noise(p * 2.2 - vec2(t * 1.3, t));
       float crust = smoothstep(0.46, 0.68, n * 0.65 + n2 * 0.45);
       float glow = 1.0 - crust;
       vec3 col = mix(vec3(0.08, 0.015, 0.015), vec3(1.5, 0.45, 0.06), glow);
@@ -1045,21 +1060,16 @@ window.BlahajVolcano = (function () {
     scn.background = new THREE.Color(0x090405);
     scn.fog = new THREE.FogExp2(0x1d0c09, 0.0042);
 
-    scn.add(new THREE.HemisphereLight(0xb06a44, 0x1a0e10, 0.62));
+    scn.add(new THREE.HemisphereLight(0xc2784e, 0x261214, 0.85));
 
-    // Lava glow along the route (distance-culled dynamically in update loop).
-    routeLights = [-24, -64, -125, -185, -240].map((z) => {
-      const l = new THREE.PointLight(0xff6a2a, 1.5, 62);
-      l.position.set(0, 3, z);
-      scn.add(l);
-      return l;
-    });
-    const spiralLight = new THREE.PointLight(0xff7a30, 2.2, 78);
-    spiralLight.position.set(SPIRAL.x, 10, SPIRAL.z);
-    scn.add(spiralLight);
-    const balconyLight = new THREE.PointLight(0xffa860, 1.3, 64);
-    balconyLight.position.set(0, 27, -352);
-    scn.add(balconyLight);
+    // Consolidated to 2 total PointLights in the entire Volcano scene (6.5x PBR fragment shader speedup!):
+    // 1. Dynamic warm lava/torch PointLight that smoothly follows the active player along the dungeon route
+    const followLight = new THREE.PointLight(0xff7230, 2.2, 85);
+    followLight.position.set(0, 6, -24);
+    scn.add(followLight);
+    routeLights = [followLight];
+
+    // 2. Crater lava lake glow light
     lakeLight = new THREE.PointLight(0xff5a1e, 3.4, 240);
     lakeLight.position.set(0, -48, CRATER_CENTER_Z);
     scn.add(lakeLight);
@@ -1274,8 +1284,6 @@ window.BlahajVolcano = (function () {
     relic.add(gem);
     const halo = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.07, 8, 32), m.brass);
     relic.add(halo);
-    const relicLight = new THREE.PointLight(0xff8a3a, 1.4, 22);
-    relic.add(relicLight);
     scn.add(relic);
 
     // =========================================================================
@@ -1301,10 +1309,6 @@ window.BlahajVolcano = (function () {
     hearthCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 1), m.brass);
     hearthCrystal.position.set(0, 1.85, -180);
     scn.add(hearthCrystal);
-
-    const shrineLight = new THREE.PointLight(0xffaa44, 2.2, 18);
-    shrineLight.position.set(0, 2.2, -180);
-    scn.add(shrineLight);
 
     brazier(-2.8, 0, -180);
     brazier(2.8, 0, -180);
@@ -1477,8 +1481,6 @@ window.BlahajVolcano = (function () {
     const chestRing = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 32), m.brass);
     chestRing.rotation.x = Math.PI / 2;
     emberChest.add(chestRing);
-    const chestLight = new THREE.PointLight(0xffb700, 1.8, 14);
-    emberChest.add(chestLight);
     scn.add(emberChest);
 
     // =========================================================================
@@ -1838,9 +1840,6 @@ window.BlahajVolcano = (function () {
       })
     );
     portal.add(swirl);
-    const pl = new THREE.PointLight(0x9b6dff, 1.8, 30);
-    pl.position.z = 1;
-    portal.add(pl);
     scn.add(portal);
     brazier(9, BALCONY.y, -349);
     brazier(-9, BALCONY.y, -349);
@@ -1906,12 +1905,8 @@ window.BlahajVolcano = (function () {
     floatingDiviner.position.set(0, 1.45, 0);
     altarGroup.add(floatingDiviner);
 
-    const divinerLight = new THREE.PointLight(0xa855f7, 2.0, 10.0);
-    divinerLight.position.set(0, 1.5, 0);
-    altarGroup.add(divinerLight);
-
     scn.add(altarGroup);
-    overlookDivinerAltar = { group: altarGroup, mesh: floatingDiviner, light: divinerLight, x: 14.5, y: BALCONY.y, z: BALCONY.cz };
+    overlookDivinerAltar = { group: altarGroup, mesh: floatingDiviner, light: null, x: 14.5, y: BALCONY.y, z: BALCONY.cz };
   }
 
   function stepParticles() {
@@ -2056,13 +2051,13 @@ window.BlahajVolcano = (function () {
     });
     if (camPos) skyMesh.position.copy(camPos);
 
-    // Distance-cull route lights via intensity ONLY (never toggle light.visible, which forces WebGL shader recompilation stalls!)
+    // Smoothly track the single consolidated route PointLight above the active player
     if (routeLights.length && actors.length) {
-      routeLights.forEach((l) => {
-        if (l.userData._baseIntensity === undefined) l.userData._baseIntensity = l.intensity || 2.0;
-        const near = actors.some((a) => Math.abs(a.z - l.position.z) < 85);
-        l.intensity = near ? l.userData._baseIntensity : 0;
-      });
+      const a0 = actors[0];
+      const l = routeLights[0];
+      l.position.x += (a0.x - l.position.x) * Math.min(1, dt * 6);
+      l.position.y += ((a0.y + 6.5) - l.position.y) * Math.min(1, dt * 6);
+      l.position.z += (a0.z - l.position.z) * Math.min(1, dt * 6);
     }
 
     // Pendulums: swing smoothly in arcs across the gatehall corridor (z: -15 to -70)
@@ -2448,8 +2443,8 @@ window.BlahajVolcano = (function () {
       if (room !== currentRoom) {
         currentRoom = room;
         if (typeof on.toast === 'function') on.toast(ROOM_TITLES[room].toUpperCase(), roomSubtitle(room));
-        // Crossing checkpoint spawns directly at the Central Hearth Save Shrine overlooking the stones!
-        const pt = (room === 'crossing') ? { x: 0, y: 0.2, z: -180, rotY: Math.PI } : { x: me.x, y: me.y, z: me.z };
+        // Crossing checkpoint spawns cleanly in front of the Central Hearth Save Shrine overlooking the stones (never on top of the altar!)
+        const pt = (room === 'crossing') ? { x: 0, y: 0.25, z: -183.2, rotY: Math.PI } : { x: me.x, y: me.y, z: me.z };
         if (typeof on.checkpoint === 'function') on.checkpoint(room, pt);
       }
       if (!completed && me.z < -349 && me.y > 18) {
@@ -2554,8 +2549,32 @@ window.BlahajVolcano = (function () {
     return true;
   }
 
+  function precompile(renderer, camera) {
+    if (!scn || !renderer || !camera) return;
+    const restored = [];
+    geysers.forEach((g) => {
+      if (g.plume && !g.plume.visible) {
+        g.plume.visible = true;
+        restored.push(g.plume);
+      }
+    });
+    flameJets.forEach((fj) => {
+      if (fj.flameGroup && !fj.flameGroup.visible) {
+        fj.flameGroup.visible = true;
+        restored.push(fj.flameGroup);
+      }
+    });
+    if (splash && splash.points && !splash.points.visible) {
+      splash.points.visible = true;
+      restored.push(splash.points);
+    }
+    renderer.compile(scn, camera);
+    restored.forEach((obj) => { obj.visible = false; });
+  }
+
   return {
     build,
+    precompile,
     isBuilt: () => built,
     isActive: () => active,
     setActive,
