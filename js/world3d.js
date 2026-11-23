@@ -5613,15 +5613,43 @@ window.BlahajWorld = (function () {
     return group;
   }
 
+  function getStructureTerrainFloorY(x, z, type) {
+    let maxY = getTerrainHeight(x, z);
+    const wideTypes = (
+      type === 'birch_cabin' ||
+      type === 'tea_gazebo' ||
+      type === 'skarhaj_plinth' ||
+      type === 'skarhaj_golv' ||
+      type === 'breb_oven' ||
+      type === 'pocket_portal'
+    );
+    if (wideTypes) {
+      const r = 2.0;
+      maxY = Math.max(
+        maxY,
+        getTerrainHeight(x + r, z),
+        getTerrainHeight(x - r, z),
+        getTerrainHeight(x, z + r),
+        getTerrainHeight(x, z - r)
+      );
+    }
+    return maxY;
+  }
+
   function placeBuiltStructure(scene, itemData) {
     // Avoid duplicate IDs when syncing across Co-op
     if (builtStructures.some((s) => s.id === itemData.id)) {
       return null;
     }
 
+    const rawY = Number(itemData.y);
+    const baseY = Number.isFinite(rawY) ? rawY : 0;
+    const terrainFloorY = getStructureTerrainFloorY(itemData.x, itemData.z, itemData.type);
+    const safeY = Math.max(baseY, terrainFloorY);
+
     // Special case: 'spawn_carrot' spawns a live knockable Dare-Carrot into balconyCarrots AND records the structure!
     const mesh = createStructureMesh(itemData.type, false);
-    mesh.position.set(itemData.x, itemData.y, itemData.z);
+    mesh.position.set(itemData.x, safeY, itemData.z);
     mesh.rotation.y = itemData.rotY || 0;
 
     // Attach Hiram's spinning Golden Sacred Allen Key self-assembly animation!
@@ -5636,12 +5664,12 @@ window.BlahajWorld = (function () {
       const carrotMesh = window.BlahajModels.createBeachCarrot(
         shortsColors[balconyCarrots.length % shortsColors.length]
       );
-      carrotMesh.position.set(itemData.x, itemData.y, itemData.z);
+      carrotMesh.position.set(itemData.x, safeY, itemData.z);
       carrotMesh.rotation.y = itemData.rotY || 0;
       scene.add(carrotMesh);
       balconyCarrots.push({
         mesh: carrotMesh,
-        homePos: new THREE.Vector3(itemData.x, itemData.y, itemData.z),
+        homePos: new THREE.Vector3(itemData.x, safeY, itemData.z),
         vel: new THREE.Vector3(0, 0, 0),
         knockedOff: false,
         respawnTimer: 0,
@@ -5654,7 +5682,7 @@ window.BlahajWorld = (function () {
       id: itemData.id,
       type: itemData.type,
       x: itemData.x,
-      y: itemData.y,
+      y: safeY,
       z: itemData.z,
       rotY: itemData.rotY || 0,
       builder: itemData.builder || 'Hiram',

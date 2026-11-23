@@ -6404,9 +6404,28 @@
     }
     builderState.isSnappedToSocket = snappedSocket;
 
+    const refY = player.pos.y + 4.0;
+    let groundY = worldApi.getGroundAndStructureHeight(tx, tz, refY);
+    if (
+      builderState.selectedId === 'birch_cabin' ||
+      builderState.selectedId === 'tea_gazebo' ||
+      builderState.selectedId === 'skarhaj_plinth' ||
+      builderState.selectedId === 'skarhaj_golv' ||
+      builderState.selectedId === 'breb_oven' ||
+      builderState.selectedId === 'pocket_portal'
+    ) {
+      const r = 2.0;
+      groundY = Math.max(
+        groundY,
+        worldApi.getGroundAndStructureHeight(tx + r, tz, refY),
+        worldApi.getGroundAndStructureHeight(tx - r, tz, refY),
+        worldApi.getGroundAndStructureHeight(tx, tz + r, refY),
+        worldApi.getGroundAndStructureHeight(tx, tz - r, refY)
+      );
+    }
     let ty = (snappedSocket && socketBaseY !== null)
-      ? socketBaseY
-      : worldApi.getGroundAndStructureHeight(tx, tz, player.pos.y + 4.0);
+      ? Math.max(socketBaseY, groundY)
+      : groundY;
     // Keep bridges, wharves, foundations, and floating platforms above water level
     if (
       builderState.selectedId === 'lagoon_bridge' ||
