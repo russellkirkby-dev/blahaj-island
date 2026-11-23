@@ -8244,3 +8244,61 @@ body.ufo-flight-mode .fin-belt-bar {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
   line-height: 1;
 }
+
+/* ==========================================================================
+   PASS 104: UFO SAUCER MODULE BELT (EXTERIOR HARDPOINT APPENDAGES)
+   ========================================================================== */
+.ufo-module-belt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px auto 4px;
+  padding: 5px 10px;
+  border-radius: 14px;
+  background: rgba(8, 18, 34, 0.84);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  width: fit-content;
+}
+.ufo-module-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px 6px 20px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(20, 34, 56, 0.8);
+  color: #e2e8f0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+}
+.ufo-module-slot:hover {
+  border-color: rgba(125, 211, 252, 0.7);
+  background: rgba(30, 52, 84, 0.92);
+  transform: translateY(-1px);
+}
+.ufo-module-slot.active {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.32);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55);
+  transform: translateY(-1px);
+}
+.ufo-mod-key {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+.ufo-mod-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}

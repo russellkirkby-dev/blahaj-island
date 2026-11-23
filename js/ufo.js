@@ -61,6 +61,19 @@ window.BlahajUFO = (function () {
   let floorSolidMeshes = [];
   let floorLcdGroup = null;
   let mojoCoreMesh = null;
+
+  // Hardpoint Sockets on UFO Hull (decouples appendages from hull geometry for future UFO upgrades!)
+  const sockets = {
+    belly: null,
+    portWing: null,
+    starboardWing: null,
+    dorsalRack: null,
+    rearNacelles: null
+  };
+  let saucerModules = [];
+  let activeModuleIdx = 0;
+  const ufoPlasmaBolts = [];
+  const ufoRadarWaves = [];
   let ufoPointLight = null;
 
   // Flight & Island State
@@ -88,6 +101,9 @@ window.BlahajUFO = (function () {
     floorCam: false,
     cockpitLookYaw: 0,
     cockpitLookPitch: 0,
+    hyperdriveTimer: 0,
+    radarStatusText: null,
+    radarStatusUntil: 0,
     tractorBeam: false,
     subspaceVault: null, // { kind: 'enemy' | 'beach_ball' | 'carrot', title, icon, ref }
     remoteVaultSummary: null, // { icon, title } synced to passengers
@@ -643,6 +659,31 @@ window.BlahajUFO = (function () {
     );
     antOrb.position.set(0, 4.72, -1.55);
     ufoHullGroup.add(antenna, antOrb);
+
+    // ========================================================================
+    // HARDPOINT SOCKETS & DEPLOYABLE EXTERIOR APPENDAGES (Future-Proofed!)
+    // ========================================================================
+    sockets.belly = new THREE.Object3D();
+    sockets.belly.position.set(0, -0.62, 0);
+    ufoHullGroup.add(sockets.belly);
+
+    sockets.portWing = new THREE.Object3D();
+    sockets.portWing.position.set(-4.95, 0.48, 0.65);
+    ufoHullGroup.add(sockets.portWing);
+
+    sockets.starboardWing = new THREE.Object3D();
+    sockets.starboardWing.position.set(4.95, 0.48, 0.65);
+    ufoHullGroup.add(sockets.starboardWing);
+
+    sockets.dorsalRack = new THREE.Object3D();
+    sockets.dorsalRack.position.set(0, 2.55, -1.35);
+    ufoHullGroup.add(sockets.dorsalRack);
+
+    sockets.rearNacelles = new THREE.Object3D();
+    sockets.rearNacelles.position.set(0, 0.72, -2.55);
+    ufoHullGroup.add(sockets.rearNacelles);
+
+    buildSaucerModules(chromeMat, hullMintMat, darkConsoleMat);
 
     // ========================================================================
     // DETAILED COCKPIT INTERIOR (VISIBLE THROUGH CLEAR GLASS & INSIDE VIEW!)
@@ -1450,6 +1491,278 @@ window.BlahajUFO = (function () {
     updateAvionicsButtonsUI();
   }
 
+  // ==========================================================================
+  // 2B. DEPLOYABLE EXTERIOR SAUCER MODULES (HARDPOINT SOCKET REGISTRY)
+  // ==========================================================================
+  function buildSaucerModules(chromeMat, hullMintMat, darkConsoleMat) {
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.85, roughness: 0.24 });
+    const glowGreen = new THREE.MeshBasicMaterial({ color: 0x34d399 });
+    const glowCyan = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const glowViolet = new THREE.MeshBasicMaterial({ color: 0xc084fc, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
+    const glowPink = new THREE.MeshBasicMaterial({ color: 0xf472b6 });
+
+    // 1. Ventral Tractor Beam Emitter (sockets.belly)
+    const tractorRoot = new THREE.Group();
+    const tRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.12, 10, 24), chromeMat);
+    tRing.rotation.x = Math.PI / 2;
+    const tCore = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 0.45, 16), glowGreen);
+    tCore.position.y = -0.18;
+    tractorRoot.add(tRing, tCore);
+    if (sockets.belly) sockets.belly.add(tractorRoot);
+
+    // 2. Twin Retro Ray-Gun Plasma Turrets (sockets.portWing + sockets.starboardWing)
+    const turretL = new THREE.Group();
+    const turretR = new THREE.Group();
+    const buildRayGun = (root) => {
+      const housing = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), chromeMat);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.35, 12), brassMat);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.z = 0.7;
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), glowCyan);
+      tip.position.z = 1.42;
+      const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 8, 16), glowPink);
+      ring1.position.z = 0.92;
+      root.add(housing, barrel, tip, ring1);
+    };
+    buildRayGun(turretL);
+    buildRayGun(turretR);
+    if (sockets.portWing) sockets.portWing.add(turretL);
+    if (sockets.starboardWing) sockets.starboardWing.add(turretR);
+
+    // 3. Aetheric Quest Radar Dish (sockets.dorsalRack)
+    const radarRoot = new THREE.Group();
+    const rMast = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.14, 0.9, 10), chromeMat);
+    rMast.position.y = 0.45;
+    const rDish = new THREE.Mesh(new THREE.SphereGeometry(0.75, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), brassMat);
+    rDish.rotation.x = -Math.PI * 0.35;
+    rDish.position.set(0, 1.05, 0.15);
+    const rNeedle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.6, 8), glowCyan);
+    rNeedle.rotation.x = Math.PI * 0.15;
+    rNeedle.position.set(0, 1.12, 0.45);
+    radarRoot.add(rMast, rDish, rNeedle);
+    if (sockets.dorsalRack) sockets.dorsalRack.add(radarRoot);
+
+    // 4. Mojo Hyperdrive Warp Fins (sockets.rearNacelles)
+    const hyperRoot = new THREE.Group();
+    [-1, 1].forEach((side) => {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 1.4), glowViolet);
+      wing.position.set(side * 2.1, 0.35, -0.35);
+      wing.rotation.z = side * 0.28;
+      wing.rotation.y = side * -0.22;
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.15, 0.18), chromeMat);
+      trim.position.set(side * 2.1, 0.35, 0.32);
+      trim.rotation.z = side * 0.28;
+      trim.rotation.y = side * -0.22;
+      hyperRoot.add(wing, trim);
+    });
+    if (sockets.rearNacelles) sockets.rearNacelles.add(hyperRoot);
+
+    // 5. Disco Mirrorball & Sonic Megaphone Dome (sockets.dorsalRack)
+    const discoRoot = new THREE.Group();
+    const dMast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.95, 10), chromeMat);
+    dMast.position.y = 0.48;
+    const dBall = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.46, 1),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.95, roughness: 0.08, emissive: 0x38bdf8, emissiveIntensity: 0.35 })
+    );
+    dBall.position.y = 1.18;
+    const dHorn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.65, 12, 1, true), brassMat);
+    dHorn.rotation.x = -Math.PI / 2;
+    dHorn.position.set(0, 0.72, 0.42);
+    discoRoot.add(dMast, dBall, dHorn);
+    if (sockets.dorsalRack) sockets.dorsalRack.add(discoRoot);
+
+    saucerModules = [
+      {
+        id: 'tractor',
+        icon: '🟢',
+        name: 'Tractor Beam',
+        prog: 1,
+        meshes: [tractorRoot],
+        animate: (p, t) => {
+          tractorRoot.visible = p > 0.02;
+          tractorRoot.position.y = -0.35 * p;
+          tractorRoot.scale.setScalar(Math.max(0.01, p));
+          tRing.rotation.z = t * 2.2;
+        },
+        activate: () => toggleTractorBeam()
+      },
+      {
+        id: 'turrets',
+        icon: '🔫',
+        name: 'Ray Turrets',
+        prog: 0,
+        meshes: [turretL, turretR],
+        animate: (p) => {
+          const vis = p > 0.02;
+          turretL.visible = vis;
+          turretR.visible = vis;
+          turretL.position.x = -0.75 * p;
+          turretR.position.x = 0.75 * p;
+          turretL.scale.setScalar(Math.max(0.01, p));
+          turretR.scale.setScalar(Math.max(0.01, p));
+        },
+        activate: () => firePlasmaTurrets()
+      },
+      {
+        id: 'radar',
+        icon: '📡',
+        name: 'Aetheric Radar',
+        prog: 0,
+        meshes: [radarRoot],
+        animate: (p, t) => {
+          radarRoot.visible = p > 0.02;
+          radarRoot.position.y = -0.5 + 0.95 * p;
+          radarRoot.scale.setScalar(Math.max(0.01, p));
+          radarRoot.rotation.y = t * 1.8;
+        },
+        activate: () => pulseAethericRadar()
+      },
+      {
+        id: 'hyperdrive',
+        icon: '⚡',
+        name: 'Mojo Hyperdrive',
+        prog: 0,
+        meshes: [hyperRoot],
+        animate: (p) => {
+          hyperRoot.visible = p > 0.02;
+          hyperRoot.scale.set(Math.max(0.01, p), Math.max(0.01, p), Math.max(0.01, p));
+        },
+        activate: () => triggerMojoHyperdrive()
+      },
+      {
+        id: 'disco',
+        icon: '🪩',
+        name: 'Disco & Sonic',
+        prog: 0,
+        meshes: [discoRoot],
+        animate: (p, t) => {
+          discoRoot.visible = p > 0.02;
+          discoRoot.position.y = -0.45 + 0.92 * p;
+          discoRoot.scale.setScalar(Math.max(0.01, p));
+          dBall.rotation.y = t * 2.6;
+        },
+        activate: () => {
+          toggleDiscoMode();
+          spawnRadarWave(0xf472b6, 48);
+        }
+      }
+    ];
+
+    saucerModules.forEach((m, idx) => m.animate(idx === 0 ? 1 : 0, 0));
+    renderModuleBelt();
+  }
+
+  function renderModuleBelt() {
+    const belt = document.getElementById('ufo-module-belt');
+    if (!belt || !saucerModules.length) return;
+    belt.innerHTML = saucerModules.map((m, i) => (
+      `<button type="button" class="ufo-module-slot${i === activeModuleIdx ? ' active' : ''}" data-ufomod="${i}" title="[${i + 1}] ${m.name} (Left-Click to fire/activate)">` +
+        `<span class="ufo-mod-key">${i + 1}</span>` +
+        `<span class="ufo-mod-icon">${m.icon}</span>` +
+        `<span>${m.name}</span>` +
+      `</button>`
+    )).join('');
+    belt.querySelectorAll('.ufo-module-slot').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectModule(parseInt(btn.dataset.ufomod, 10));
+      });
+    });
+  }
+
+  function selectModule(idx) {
+    if (!saucerModules.length) return;
+    const clamped = ((idx % saucerModules.length) + saucerModules.length) % saucerModules.length;
+    if (clamped === activeModuleIdx) return;
+    activeModuleIdx = clamped;
+    renderModuleBelt();
+    if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
+    const mod = saucerModules[activeModuleIdx];
+    if (window.showToast && mod) {
+      window.showToast(`${mod.icon} ${mod.name.toUpperCase()} DEPLOYED`, 'Left-Click anywhere to activate · Hold Right-Click + Scroll to swap appendages!');
+    }
+  }
+
+  function cycleModule(delta) {
+    selectModule(activeModuleIdx + (delta > 0 ? 1 : -1));
+  }
+
+  function activateActiveModule() {
+    if (!state.localRole || !saucerModules.length) return;
+    const mod = saucerModules[activeModuleIdx];
+    if (mod && typeof mod.activate === 'function') {
+      mod.activate();
+    }
+  }
+
+  function firePlasmaTurrets() {
+    const sceneRef = ufoGroup ? ufoGroup.parent : null;
+    if (!sceneRef || !sockets.portWing || !sockets.starboardWing) return;
+    ufoGroup.updateMatrixWorld(true);
+    const fwd = new THREE.Vector3(Math.sin(state.yaw), -Math.sin(state.pitch) * 0.65, Math.cos(state.yaw)).normalize();
+    [sockets.portWing, sockets.starboardWing].forEach((sock, idx) => {
+      const origin = new THREE.Vector3(0, 0, 1.45);
+      sock.localToWorld(origin);
+      const bolt = new THREE.Mesh(
+        new THREE.SphereGeometry(0.28, 8, 8),
+        new THREE.MeshBasicMaterial({ color: idx === 0 ? 0x38bdf8 : 0xf472b6 })
+      );
+      bolt.scale.set(0.85, 0.85, 2.2);
+      bolt.position.copy(origin);
+      bolt.lookAt(origin.clone().add(fwd));
+      sceneRef.add(bolt);
+      ufoPlasmaBolts.push({
+        mesh: bolt,
+        vel: fwd.clone().multiplyScalar(92.0),
+        life: 1.6
+      });
+    });
+    playBeamCaptureChime(false);
+  }
+
+  function spawnRadarWave(hexColor = 0x38bdf8, maxScale = 65) {
+    const sceneRef = ufoGroup ? ufoGroup.parent : null;
+    if (!sceneRef) return;
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.85, 1.15, 36),
+      new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(state.pos.x, state.pos.y + 0.5, state.pos.z);
+    sceneRef.add(ring);
+    ufoRadarWaves.push({ mesh: ring, age: 0, maxAge: 1.35, maxScale });
+  }
+
+  function pulseAethericRadar() {
+    spawnRadarWave(0x38bdf8, 72);
+    if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+    let pingSummary = 'All sectors calm';
+    if (window.BlahajSeam && typeof window.BlahajSeam.getNearestRift === 'function') {
+      const r = window.BlahajSeam.getNearestRift(state.pos, 'island');
+      if (r && r.nearest) {
+        const dx = r.nearest.pos.x - state.pos.x;
+        const dz = r.nearest.pos.z - state.pos.z;
+        const deg = Math.round((Math.atan2(-dx, -dz) * 180 / Math.PI + 360) % 360);
+        pingSummary = `Nearest Rift: ${r.nearest.name} (${Math.round(r.nearest.dist)}m · HDG ${deg}°)`;
+      }
+    }
+    state.radarStatusText = `📡 RADAR PING: ${pingSummary}`;
+    state.radarStatusUntil = performance.now() + 5000;
+    if (window.showToast) {
+      window.showToast('📡 AETHERIC RADAR PULSE', pingSummary);
+    }
+  }
+
+  function triggerMojoHyperdrive() {
+    state.hyperdriveTimer = 4.0;
+    playJetsonsHorn();
+    spawnRadarWave(0xc084fc, 28);
+    if (window.showToast) {
+      window.showToast('⚡ MOJO HYPERDRIVE ENGAGED!', '4s supersonic surge active! Cross Y ≥ 122m to reach the Karman Orbital Ceiling!');
+    }
+  }
+
   function showAvionicsHUD(visible) {
     const hud = document.getElementById('ufo-avionics-hud');
     if (hud) hud.classList.toggle('hidden', !visible);
@@ -1607,11 +1920,17 @@ window.BlahajUFO = (function () {
     if (elVsi) elVsi.textContent = `${state.verticalSpeed >= 0 ? '+' : ''}${state.verticalSpeed.toFixed(1)} m/s`;
     if (elHdg) elHdg.textContent = `HDG ${String(heading).padStart(3, '0')}°`;
     if (elStatus) {
-      elStatus.textContent = state.antiGravCushionActive
-        ? '🛡️ ANTI-GRAV CUSHION ACTIVE · CRASH-PROOF'
-        : (state.orbitalCeilingReached
-          ? '✨ KARMAN LINE REACHED · SPACE JUMP MODULE STAGED'
-          : '☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL');
+      if (state.radarStatusText && performance.now() < state.radarStatusUntil) {
+        elStatus.textContent = state.radarStatusText;
+      } else if (state.hyperdriveTimer > 0) {
+        elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · WARP ACTIVE!`;
+      } else {
+        elStatus.textContent = state.antiGravCushionActive
+          ? '🛡️ ANTI-GRAV CUSHION ACTIVE · CRASH-PROOF'
+          : (state.orbitalCeilingReached
+            ? '✨ KARMAN LINE REACHED · SPACE JUMP MODULE STAGED'
+            : '☕ TEA: 82°C · 🦈 BOBBLE-SHONK: GROOVY · GYRO: AUTO-LEVEL');
+      }
     }
     if (elOrbital) {
       elOrbital.classList.toggle('hidden', !state.orbitalCeilingReached);
@@ -1683,6 +2002,53 @@ window.BlahajUFO = (function () {
       mojoCoreMesh.rotation.x = Math.sin(elapsed * 2.1) * 0.25;
       const pulse = 0.92 + 0.14 * Math.sin(elapsed * 4.5);
       mojoCoreMesh.scale.setScalar(pulse);
+    }
+
+    // 3B. Animate Deployable Exterior Saucer Appendages, Plasma Bolts & Radar Waves
+    saucerModules.forEach((mod, idx) => {
+      const target = idx === activeModuleIdx ? 1.0 : 0.0;
+      mod.prog += (target - mod.prog) * Math.min(1.0, dt * 7.5);
+      mod.animate(mod.prog, elapsed);
+    });
+    for (let i = ufoPlasmaBolts.length - 1; i >= 0; i--) {
+      const b = ufoPlasmaBolts[i];
+      b.life -= dt;
+      b.mesh.position.addScaledVector(b.vel, dt);
+      let hit = b.life <= 0;
+      if (!hit && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+        const enemies = window.BlahajEnemies.getEnemies() || [];
+        for (let ei = 0; ei < enemies.length; ei++) {
+          const en = enemies[ei];
+          if (!en || en.defeated || !en.mesh || !en.mesh.visible) continue;
+          if (en.mesh.position.distanceTo(b.mesh.position) < 2.2) {
+            if (window.BlahajEnemies.boopEnemy) window.BlahajEnemies.boopEnemy(en, state.pos);
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (!hit && b.mesh.position.y < getSafeGroundHeight(b.mesh.position.x, b.mesh.position.z)) {
+        hit = true;
+      }
+      if (hit) {
+        if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
+        if (b.mesh.geometry) b.mesh.geometry.dispose();
+        if (b.mesh.material) b.mesh.material.dispose();
+        ufoPlasmaBolts.splice(i, 1);
+      }
+    }
+    for (let i = ufoRadarWaves.length - 1; i >= 0; i--) {
+      const w = ufoRadarWaves[i];
+      w.age += dt;
+      const u = Math.min(1, w.age / w.maxAge);
+      w.mesh.scale.setScalar(1 + u * w.maxScale);
+      w.mesh.material.opacity = (1 - u) * 0.85;
+      if (u >= 1) {
+        if (w.mesh.parent) w.mesh.parent.remove(w.mesh);
+        if (w.mesh.geometry) w.mesh.geometry.dispose();
+        if (w.mesh.material) w.mesh.material.dispose();
+        ufoRadarWaves.splice(i, 1);
+      }
     }
     if (lavaLampBlob) {
       lavaLampBlob.position.y = 1.74 + Math.sin(elapsed * 1.6) * 0.09;
@@ -1836,7 +2202,8 @@ window.BlahajUFO = (function () {
       const turnInput = (k['a'] || k['arrowleft'] ? 1 : 0) - (k['d'] || k['arrowright'] ? 1 : 0);
       const strafeInput = (k['e'] ? 1 : 0) - (k['q'] ? 1 : 0);
       const upInput = (k[' '] || k['space'] ? 1 : 0) - (k['c'] || k['control'] ? 1 : 0);
-      const turbo = !!k['shift'];
+      if (state.hyperdriveTimer > 0) state.hyperdriveTimer = Math.max(0, state.hyperdriveTimer - dt);
+      const turbo = !!(k['shift'] || state.hyperdriveTimer > 0);
       state.turboActive = turbo;
 
       if (state.phase === 'launching') {
@@ -1961,9 +2328,10 @@ window.BlahajUFO = (function () {
           }
         }
 
+        const hyperMult = state.hyperdriveTimer > 0 ? 1.48 : 1.0;
         const hydroScale = state.isSubmerged ? 0.72 : 1.0;
-        const maxHorizSpeed = (turbo ? 64.0 : 28.0) * hydroScale;
-        const maxStrafeSpeed = (turbo ? 40.0 : 22.0) * hydroScale;
+        const maxHorizSpeed = (turbo ? 64.0 : 28.0) * hydroScale * hyperMult;
+        const maxStrafeSpeed = (turbo ? 40.0 : 22.0) * hydroScale * hyperMult;
         const fwdX = Math.sin(state.yaw);
         const fwdZ = Math.cos(state.yaw);
         const rightX = -Math.cos(state.yaw);
@@ -2232,6 +2600,9 @@ window.BlahajUFO = (function () {
     initiateAutoLand,
     toggleViewMode,
     toggleFloorCam,
+    selectModule,
+    cycleModule,
+    activateActiveModule,
     toggleHatch,
     toggleTractorBeam,
     openSharedVault,

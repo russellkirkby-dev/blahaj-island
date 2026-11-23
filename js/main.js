@@ -4954,7 +4954,9 @@
         if (!wasFinClick && dragDist < 6 && !isAnyModalOpen()) {
           const clickX = window.innerWidth * 0.5;
           const clickY = window.innerHeight * 0.5;
-          if (builderState.active) {
+          if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.activateActiveModule) {
+            window.BlahajUFO.activateActiveModule();
+          } else if (builderState.active) {
             placeActiveBlueprint();
           } else if (playerHeldItem && playerHeldItem.id) {
             // Plain Left-Click in Camera Mode uses whatever is in your shark's right fin!
@@ -5078,6 +5080,12 @@
     });
 
     window.addEventListener('wheel', (e) => {
+      // While aboard the UFO and holding Right-Click (outside or cockpit view): Scroll Wheel cycles Saucer Appendages!
+      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.cycleModule) {
+        e.preventDefault();
+        window.BlahajUFO.cycleModule(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
       if (camState.isPointerLocked && isFinCursorActive()) {
         // If holding Right-Click over the 3D world (no modal open): Scroll Wheel cycles 1-9 Fin Slots!
         if (camState.isRightDown && !isAnyModalOpen()) {
@@ -5389,6 +5397,11 @@
         }
         if (k === 'q') { e.preventDefault(); return; }
         if (k === 'c' || e.code === 'Space') { e.preventDefault(); return; }
+        if (/^Digit[1-5]$/.test(e.code) && window.BlahajUFO.selectModule) {
+          e.preventDefault();
+          window.BlahajUFO.selectModule(parseInt(e.code.replace('Digit', ''), 10) - 1);
+          return;
+        }
       }
 
       if (k === 't') {
