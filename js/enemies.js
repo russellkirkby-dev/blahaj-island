@@ -651,6 +651,17 @@ window.BlahajEnemies = (function () {
     // 2. Update each enemy
     enemies.forEach((enemy, enemyIdx) => {
       if (enemy.inSubspaceVault) return;
+      if (!enemy.isFlying && !enemy.isChasing && playerPos) {
+        const dxP = enemy.pos.x - playerPos.x;
+        const dzP = enemy.pos.z - playerPos.z;
+        if (dxP * dxP + dzP * dzP > 110 * 110) {
+          if (enemy.labelEl && enemy.labelEl._lastDisplay !== 'none') {
+            enemy.labelEl.style.display = 'none';
+            enemy.labelEl._lastDisplay = 'none';
+          }
+          return;
+        }
+      }
       enemy.animPhase += dt * 4.0;
       if (enemy.attackCooldown > 0) enemy.attackCooldown -= dt;
 

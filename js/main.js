@@ -314,6 +314,17 @@
       }
     },
 
+    setParamSmooth(param, targetVal, now, tc = 0.25) {
+      if (!param) return;
+      const prev = param._lastTarget;
+      if (typeof prev === 'number' && Math.abs(prev - targetVal) < 0.003) return;
+      param._lastTarget = targetVal;
+      try {
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(targetVal, now, tc);
+      } catch (e) {}
+    },
+
     updateAmbient(zone, elapsed, playerPos, inBoat, isMoving, camHeight) {
       if (!this.ctx) return;
       if (!this.ambientInitialized) {
@@ -333,35 +344,39 @@
       const targetVolcano = isVolcanoActive ? 0.85 : 0.0001;
       const targetIsland = (!isVolcanoActive && (zone === 'island' || zone === 'overworld' || zone === 'volleyball')) ? 0.80 : 0.0001;
 
-      if (this.bistroGain) this.bistroGain.gain.setTargetAtTime(targetBistro, now, 0.35);
-      if (this.laundromatMusicGain) this.laundromatMusicGain.gain.setTargetAtTime(targetLaundromat, now, 0.35);
-      if (this.volcanoMusicGain) this.volcanoMusicGain.gain.setTargetAtTime(targetVolcano, now, 0.35);
-      if (this.islandMusicGain) this.islandMusicGain.gain.setTargetAtTime(targetIsland, now, 0.35);
-
       if (targetBistro > 0.01) this.updateBistroMusic(elapsed, 0.016);
       if (targetLaundromat > 0.01) this.updateLaundromatMusic(elapsed, 0.016);
       if (targetVolcano > 0.01) this.updateVolcanoMusic(elapsed, 0.016);
       if (targetIsland > 0.01) this.updateIslandMusic(elapsed, 0.016);
 
+      // Throttle AudioParam timeline updates to ~5Hz and clear scheduled events to prevent Chromium AudioParamTimeline memory/CPU explosion!
+      if (elapsed - (this._lastAmbParamAt || 0) < 0.20) return;
+      this._lastAmbParamAt = elapsed;
+
+      if (this.bistroGain) this.setParamSmooth(this.bistroGain.gain, targetBistro, now, 0.35);
+      if (this.laundromatMusicGain) this.setParamSmooth(this.laundromatMusicGain.gain, targetLaundromat, now, 0.35);
+      if (this.volcanoMusicGain) this.setParamSmooth(this.volcanoMusicGain.gain, targetVolcano, now, 0.35);
+      if (this.islandMusicGain) this.setParamSmooth(this.islandMusicGain.gain, targetIsland, now, 0.35);
+
       if (zone === 'spherical_foods') {
-        if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.surfGain) this.setParamSmooth(this.surfGain.gain, 0.0001, now, 0.25);
+        if (this.windGain) this.setParamSmooth(this.windGain.gain, 0.0001, now, 0.25);
+        if (this.boatGain) this.setParamSmooth(this.boatGain.gain, 0.0001, now, 0.25);
+        if (this.laundromatGain) this.setParamSmooth(this.laundromatGain.gain, 0.0001, now, 0.25);
+        if (this.laundromatHumGain) this.setParamSmooth(this.laundromatHumGain.gain, 0.0001, now, 0.25);
         return;
       }
 
       if (zone === 'laundromat') {
-        if (this.surfGain) this.surfGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.windGain) this.windGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.022, now, 0.35);
-        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.016, now, 0.35);
+        if (this.surfGain) this.setParamSmooth(this.surfGain.gain, 0.0001, now, 0.25);
+        if (this.windGain) this.setParamSmooth(this.windGain.gain, 0.0001, now, 0.25);
+        if (this.boatGain) this.setParamSmooth(this.boatGain.gain, 0.0001, now, 0.25);
+        if (this.laundromatGain) this.setParamSmooth(this.laundromatGain.gain, 0.022, now, 0.35);
+        if (this.laundromatHumGain) this.setParamSmooth(this.laundromatHumGain.gain, 0.016, now, 0.35);
         return;
       } else {
-        if (this.laundromatGain) this.laundromatGain.gain.setTargetAtTime(0.0001, now, 0.25);
-        if (this.laundromatHumGain) this.laundromatHumGain.gain.setTargetAtTime(0.0001, now, 0.25);
+        if (this.laundromatGain) this.setParamSmooth(this.laundromatGain.gain, 0.0001, now, 0.25);
+        if (this.laundromatHumGain) this.setParamSmooth(this.laundromatHumGain.gain, 0.0001, now, 0.25);
       }
 
       // Distance to nearest sea level / ocean
@@ -371,26 +386,26 @@
 
       // Surf rhythmic wave swelling
       const swell = (Math.sin(elapsed * 1.6) * 0.5 + 0.5);
-      const targetCutoff = 220 + swell * 280;
-      if (this.surfGain) this.surfGain.gain.setTargetAtTime(oceanTargetVol * (0.6 + swell * 0.6), now, 0.15);
-      if (this.surfFilter) this.surfFilter.frequency.setTargetAtTime(targetCutoff, now, 0.2);
+      const targetCutoff = Math.round(220 + swell * 280);
+      if (this.surfGain) this.setParamSmooth(this.surfGain.gain, oceanTargetVol * (0.6 + swell * 0.6), now, 0.15);
+      if (this.surfFilter) this.setParamSmooth(this.surfFilter.frequency, targetCutoff, now, 0.2);
 
       // Wind intensity increases with altitude or sailing
       const altitude = Math.max(0, playerPos.y);
       const windTargetVol = 0.012 + Math.min(0.05, (altitude / 65) * 0.045) + (inBoat ? 0.02 : 0);
-      const windFrequency = 350 + Math.sin(elapsed * 0.8) * 120 + (altitude * 8);
-      if (this.windGain) this.windGain.gain.setTargetAtTime(windTargetVol, now, 0.25);
-      if (this.windFilter) this.windFilter.frequency.setTargetAtTime(windFrequency, now, 0.3);
+      const windFrequency = Math.round(350 + Math.sin(elapsed * 0.8) * 120 + (altitude * 8));
+      if (this.windGain) this.setParamSmooth(this.windGain.gain, windTargetVol, now, 0.25);
+      if (this.windFilter) this.setParamSmooth(this.windFilter.frequency, windFrequency, now, 0.3);
 
       // Boat sailing wake sound
       if (inBoat && isMoving) {
-        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.045, now, 0.2);
-        if (this.boatFilter) this.boatFilter.frequency.setTargetAtTime(550 + Math.sin(elapsed * 4.0) * 180, now, 0.1);
-        if (Math.random() < 0.012) {
+        if (this.boatGain) this.setParamSmooth(this.boatGain.gain, 0.045, now, 0.2);
+        if (this.boatFilter) this.setParamSmooth(this.boatFilter.frequency, Math.round(550 + Math.sin(elapsed * 4.0) * 180), now, 0.1);
+        if (Math.random() < 0.04) {
           this.woodCreak();
         }
       } else {
-        if (this.boatGain) this.boatGain.gain.setTargetAtTime(0.0001, now, 0.35);
+        if (this.boatGain) this.setParamSmooth(this.boatGain.gain, 0.0001, now, 0.35);
       }
     },
 
@@ -2907,9 +2922,9 @@
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
     container.appendChild(renderer.domElement);

@@ -237,6 +237,7 @@ window.BlahajUFO = (function () {
     if (!active) {
       if (state.humActive && state.humGain) {
         try {
+          state.humGain.gain.cancelScheduledValues(ctx.currentTime);
           state.humGain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.15);
         } catch (e) {}
         state.humActive = false;
@@ -275,12 +276,17 @@ window.BlahajUFO = (function () {
 
     state.humActive = true;
     const now = ctx.currentTime;
-    const targetFreq = 175 + speedNorm * 160 + altNorm * 55 + (turbo ? 110 : 0);
+    if (now - (state._lastHumParamAt || 0) < 0.18) return;
+    state._lastHumParamAt = now;
+    const targetFreq = Math.round(175 + speedNorm * 160 + altNorm * 55 + (turbo ? 110 : 0));
     const targetLfoRate = 8.5 + speedNorm * 9.0 + (turbo ? 6.0 : 0);
     const targetVol = 0.035 + speedNorm * 0.03 + (turbo ? 0.025 : 0);
     try {
+      state.humOsc.frequency.cancelScheduledValues(now);
       state.humOsc.frequency.setTargetAtTime(targetFreq, now, 0.1);
+      state.humLfo.frequency.cancelScheduledValues(now);
       state.humLfo.frequency.setTargetAtTime(targetLfoRate, now, 0.1);
+      state.humGain.gain.cancelScheduledValues(now);
       state.humGain.gain.setTargetAtTime(targetVol, now, 0.12);
     } catch (e) {}
   }
@@ -1396,6 +1402,9 @@ window.BlahajUFO = (function () {
 
   function toggleTractorBeam() {
     if (state.beamingTarget) return; // Wait for current capture animation (~0.75s) to finish
+    if (activeModuleIdx !== 0) {
+      selectModule(0);
+    }
     if (state.subspaceVault) {
       disgorgeFromSubspaceVault();
       return;
@@ -1777,6 +1786,13 @@ window.BlahajUFO = (function () {
     const clamped = ((idx % saucerModules.length) + saucerModules.length) % saucerModules.length;
     if (clamped === activeModuleIdx) return;
     activeModuleIdx = clamped;
+    // Enforce strict single-system exclusivity: switching away from Tractor Beam (0) immediately shuts off the beam!
+    if (activeModuleIdx !== 0 && state.tractorBeam) {
+      state.tractorBeam = false;
+      if (tractorBeamMesh) tractorBeamMesh.visible = false;
+      updateAvionicsButtonsUI();
+      broadcastState(true);
+    }
     renderModuleBelt();
     if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
     const mod = saucerModules[activeModuleIdx];
@@ -2212,6 +2228,9 @@ window.BlahajUFO = (function () {
     }
     if (lavaLampBlob) {
       lavaLampBlob.position.y = 1.74 + Math.sin(elapsed * 1.6) * 0.09;
+    }
+    if (activeModuleIdx !== 0 && state.tractorBeam) {
+      state.tractorBeam = false;
     }
     if (tractorBeamMesh) {
       if (state.disgorgeFlashTimer > 0) {

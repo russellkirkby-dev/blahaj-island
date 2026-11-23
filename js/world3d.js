@@ -924,7 +924,7 @@ window.BlahajWorld = (function () {
     updateDayNight(scene, true);
 
     // Sculpted Exterior Terrain Mesh (860x860 units covering Main Island, 4 Outer Islands, Shelves & Drop-Off!)
-    const terrainGeo = new THREE.PlaneGeometry(860, 860, 360, 360);
+    const terrainGeo = new THREE.PlaneGeometry(860, 860, 200, 200);
     terrainGeo.rotateX(-Math.PI / 2);
     const posAttr = terrainGeo.attributes.position;
     const colors = [];
@@ -1215,7 +1215,7 @@ window.BlahajWorld = (function () {
   // Covers Main Island Meadows, Volcano Base Foothills, Isthmus, and Outer Sanctuaries!
   // ==========================================================================
   function buildInstancedMeadowGrass(scene) {
-    const tuftCount = 7500;
+    const tuftCount = 3600;
     const tuftGeo = createPlushTuftGeometry();
 
     grassUniforms = {
@@ -1403,7 +1403,7 @@ window.BlahajWorld = (function () {
   // ROLLING 3D OCEAN WAVES, SURF FOAM, VOLUMETRIC CLOUDS, ROADS & SIGNPOSTS
   // ==========================================================================
   function buildShaderWater(scene) {
-    const waterGeo = new THREE.PlaneGeometry(1600, 1600, 240, 240);
+    const waterGeo = new THREE.PlaneGeometry(1600, 1600, 136, 136);
     waterGeo.rotateX(-Math.PI / 2);
 
     const pos = waterGeo.attributes.position;
@@ -5756,7 +5756,14 @@ window.BlahajWorld = (function () {
         calderaBurstParticles.splice(i, 1);
       }
     }
-    updateDayNight(scene);
+    // Throttle day/night celestial & shadow matrix updates to ~4Hz (0.25s) while keeping sky dome centered on camera
+    if (!updateWorld._lastDayNightAt || time - updateWorld._lastDayNightAt >= 0.25) {
+      updateWorld._lastDayNightAt = time;
+      updateDayNight(scene);
+    } else if (lastCamera) {
+      if (skyMesh) skyMesh.position.set(lastCamera.position.x, 0, lastCamera.position.z);
+      if (starPoints) starPoints.position.set(lastCamera.position.x, 0, lastCamera.position.z);
+    }
 
     if (emberSystem) {
       const camX = lastCamera ? lastCamera.position.x : 0;
@@ -5911,7 +5918,15 @@ window.BlahajWorld = (function () {
       }
     }
 
+    const camRefX = lastCamera ? lastCamera.position.x : 0;
+    const camRefZ = lastCamera ? lastCamera.position.z : 0;
+
     birbFlock.forEach((b) => {
+      if (lastCamera && !b.isEating && activeBrebLoaves.length === 0) {
+        const dbx = b.mesh.position.x - camRefX;
+        const dbz = b.mesh.position.z - camRefZ;
+        if (dbx * dbx + dbz * dbz > 85 * 85) return;
+      }
       // Birb Satiation & Breb Coma handling
       const wasSleeping = b.isSleeping;
       if (b.satiationTimer > 0) {
@@ -6090,8 +6105,13 @@ window.BlahajWorld = (function () {
       }
     });
 
-    // 4. Update Swimming & Leaping Tropical Fishes across the 3D Water Column
+    // 4. Update Swimming & Leaping Tropical Fishes across the 3D Water Column (culled beyond 95m)
     fishSchool.forEach((f) => {
+      if (lastCamera) {
+        const dfx = f.centerX - camRefX;
+        const dfz = f.centerZ - camRefZ;
+        if (dfx * dfx + dfz * dfz > 95 * 95) return;
+      }
       const prevWave = Math.sin((time - dt) * 2.4 + f.jumpPhase);
       f.angle += f.speed * dt;
       const nx = f.centerX + Math.cos(f.angle) * f.radius;
@@ -6194,16 +6214,26 @@ window.BlahajWorld = (function () {
       cl.mesh.rotation.y = -cl.angle + Math.PI * 0.5;
     });
 
-    // 7. Sway 3D Kelp Forest Fronds with Oceanic Currents
+    // 7. Sway 3D Kelp Forest Fronds with Oceanic Currents (culled beyond 90m)
     kelpPlants.forEach((k) => {
+      if (lastCamera) {
+        const dkx = k.group.position.x - camRefX;
+        const dkz = k.group.position.z - camRefZ;
+        if (dkx * dkx + dkz * dkz > 90 * 90) return;
+      }
       const swayZ = Math.sin(time * 1.5 + k.swayPhase) * 0.16;
       const swayX = Math.cos(time * 1.2 + k.swayPhase * 0.8) * 0.11;
       k.group.rotation.z = swayZ;
       k.group.rotation.x = swayX;
     });
 
-    // 8. Drift & Pulsate Bioluminescent Deep Jellyfish along the Grand Drop-Off & Deep Shelf
+    // 8. Drift & Pulsate Bioluminescent Deep Jellyfish along the Grand Drop-Off & Deep Shelf (culled beyond 95m)
     deepJellyfish.forEach((j) => {
+      if (lastCamera) {
+        const djx = j.baseX - camRefX;
+        const djz = j.baseZ - camRefZ;
+        if (djx * djx + djz * djz > 95 * 95) return;
+      }
       j.driftAngle += j.driftSpeed * dt;
       j.mesh.position.x = j.baseX + Math.cos(j.driftAngle) * j.driftRadius;
       j.mesh.position.z = j.baseZ + Math.sin(j.driftAngle) * j.driftRadius;
