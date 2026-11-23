@@ -1758,9 +1758,14 @@
     return SHARK_DEFAULTS[sharkId] ? SHARK_DEFAULTS[sharkId].mange : 0.70;
   }
 
+  let lastMangeStorageWriteAt = 0;
   function setSharkMange(sharkId, val) {
     val = Math.max(0.0, Math.min(1.0, val));
-    localStorage.setItem('blahaj_mange_' + sharkId, val.toString());
+    const nowMs = Date.now();
+    if (nowMs - lastMangeStorageWriteAt > 5000) {
+      lastMangeStorageWriteAt = nowMs;
+      try { localStorage.setItem('blahaj_mange_' + sharkId, val.toString()); } catch (e) {}
+    }
     if (player.sharkId === sharkId) {
       window.__BLAHAJ_MANGE__ = val;
       const cfg = LORE.sharks[sharkId];
@@ -2536,7 +2541,7 @@
       hasMovedInSession = true;
     }
     savePointTimer += dt;
-    if (savePointTimer >= 3.0) {
+    if (savePointTimer >= 10.0) {
       savePointTimer = 0;
       captureSavePoint(false);
     }
@@ -3331,18 +3336,29 @@
     }, duration);
   }
 
+  const SHARED_BURST_GEO = new THREE.OctahedronGeometry(0.18, 0);
+  const SHARED_BUBBLE_GEO = new THREE.SphereGeometry(0.15, 6, 6);
+  const SHARED_BUBBLE_MAT = new THREE.MeshBasicMaterial({ color: 0xa5f3fc, transparent: true, opacity: 0.72 });
+  const sharedBurstMatCache = new Map();
+  function getSharedBurstMat(colorHex) {
+    let m = sharedBurstMatCache.get(colorHex);
+    if (!m) {
+      m = new THREE.MeshBasicMaterial({ color: colorHex });
+      sharedBurstMatCache.set(colorHex, m);
+    }
+    return m;
+  }
+
   function spawnFloatingBurst(originPos, colorHex = 0xff7eb6, count = 7) {
     const activeScene = getActiveScene();
+    const mat = getSharedBurstMat(colorHex);
     for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.18, 0),
-        new THREE.MeshBasicMaterial({ color: colorHex })
+      const mesh = new THREE.Mesh(SHARED_BURST_GEO, mat);
+      mesh.position.set(
+        originPos.x + (Math.random() - 0.5) * 1.4,
+        originPos.y + 1.8 + Math.random() * 0.7,
+        originPos.z + (Math.random() - 0.5) * 1.4
       );
-      mesh.position.copy(originPos).add(new THREE.Vector3(
-        (Math.random() - 0.5) * 1.4,
-        1.8 + Math.random() * 0.7,
-        (Math.random() - 0.5) * 1.4
-      ));
       activeScene.add(mesh);
       floatingBursts.push({
         mesh,
@@ -3355,19 +3371,14 @@
   function spawnUnderwaterBubbles(originPos, count = 4) {
     const activeScene = getActiveScene();
     for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12 + Math.random() * 0.08, 6, 6),
-        new THREE.MeshBasicMaterial({
-          color: 0xa5f3fc,
-          transparent: true,
-          opacity: 0.72
-        })
+      const mesh = new THREE.Mesh(SHARED_BUBBLE_GEO, SHARED_BUBBLE_MAT);
+      const sc = 0.8 + Math.random() * 0.5;
+      mesh.scale.setScalar(sc);
+      mesh.position.set(
+        originPos.x + (Math.random() - 0.5) * 0.9,
+        originPos.y + (Math.random() - 0.5) * 0.4,
+        originPos.z + (Math.random() - 0.5) * 0.9
       );
-      mesh.position.copy(originPos).add(new THREE.Vector3(
-        (Math.random() - 0.5) * 0.9,
-        (Math.random() - 0.5) * 0.4,
-        (Math.random() - 0.5) * 0.9
-      ));
       activeScene.add(mesh);
       floatingBursts.push({
         mesh,
@@ -12290,7 +12301,7 @@
     }
 
     peerObj.lastSeen = Date.now();
-    if (!peerObj.mesh || peerObj.sharkId !== cfg.id || Math.abs((peerObj.mangeFactor || 0) - mVal) > 0.02) {
+    if (!peerObj.mesh || peerObj.sharkId !== cfg.id) {
       peerObj.sharkId = cfg.id;
       peerObj.mangeFactor = mVal;
       if (peerObj.mesh && peerObj.mesh.parent) peerObj.mesh.parent.remove(peerObj.mesh);
@@ -12299,6 +12310,11 @@
       getActiveScene().add(peerObj.mesh);
       if (peerObj.heldItemId && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
         window.BlahajSharks3D.attachHeldItem(peerObj.mesh, peerObj.heldItemId);
+      }
+    } else if (Math.abs((peerObj.mangeFactor || 0) - mVal) > 0.005) {
+      peerObj.mangeFactor = mVal;
+      if (window.BlahajModels && typeof window.BlahajModels.updateSharkMange === 'function') {
+        window.BlahajModels.updateSharkMange(peerObj.mesh, mVal);
       }
     }
 
@@ -12708,8 +12724,11 @@
           coopPartner.lastPacketAt = Date.now();
           if (!coopPartner.active || (data.sharkId && data.sharkId !== coopPartner.sharkId)) {
             spawnCoopPartnerShark(data.sharkId || 'solomon', typeof data.mange === 'number' ? data.mange : undefined);
-          } else if (typeof data.mange === 'number' && data.mange !== coopPartner.mangeFactor) {
-            spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
+          } else if (typeof data.mange === 'number' && Math.abs(data.mange - (coopPartner.mangeFactor || 0)) > 0.005) {
+            coopPartner.mangeFactor = data.mange;
+            if (coopPartner.mesh && window.BlahajModels && typeof window.BlahajModels.updateSharkMange === 'function') {
+              window.BlahajModels.updateSharkMange(coopPartner.mesh, data.mange);
+            }
           }
           const prevZone = coopPartner.zone || 'island';
           const nextZone = (!data.zone || data.zone === 'overworld') ? 'island' : data.zone;
@@ -12757,7 +12776,10 @@
           updateCoopPartnerVisibility();
         } else if (data.type === 'mange_sync') {
           if (typeof data.mange === 'number') {
-            spawnCoopPartnerShark(coopPartner.sharkId || 'solomon', data.mange);
+            coopPartner.mangeFactor = data.mange;
+            if (coopPartner.mesh && window.BlahajModels && typeof window.BlahajModels.updateSharkMange === 'function') {
+              window.BlahajModels.updateSharkMange(coopPartner.mesh, data.mange);
+            }
           }
         } else if (data.type === 'zone_change') {
           if (!shouldRouteToPrimaryPartner(data)) {

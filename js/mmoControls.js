@@ -2903,6 +2903,8 @@
       }
       if (v.life <= 0) {
         if (v.mesh.parent) v.mesh.parent.remove(v.mesh);
+        if (v.mesh.geometry && typeof v.mesh.geometry.dispose === 'function') v.mesh.geometry.dispose();
+        if (v.mesh.material && typeof v.mesh.material.dispose === 'function') v.mesh.material.dispose();
         state.vfxMeshes.splice(i, 1);
       }
     }

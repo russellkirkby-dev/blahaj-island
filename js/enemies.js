@@ -567,17 +567,22 @@ window.BlahajEnemies = (function () {
     });
   }
 
+  const SHARED_STAR_GEO = new THREE.OctahedronGeometry(0.22, 0);
+  const sharedStarMatCache = new Map();
   function spawnComicStars(pos, colorHex = 0xfbbf24, count = 10) {
     if (!scene) return;
+    let mat = sharedStarMatCache.get(colorHex);
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial({ color: colorHex });
+      sharedStarMatCache.set(colorHex, mat);
+    }
     for (let i = 0; i < count; i++) {
-      const geo = new THREE.OctahedronGeometry(0.22, 0);
-      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(pos).add(new THREE.Vector3(
-        (Math.random() - 0.5) * 1.5,
-        0.8 + Math.random() * 1.2,
-        (Math.random() - 0.5) * 1.5
-      ));
+      const mesh = new THREE.Mesh(SHARED_STAR_GEO, mat);
+      mesh.position.set(
+        pos.x + (Math.random() - 0.5) * 1.5,
+        pos.y + 0.8 + Math.random() * 1.2,
+        pos.z + (Math.random() - 0.5) * 1.5
+      );
       scene.add(mesh);
       activeBursts.push({
         mesh,
