@@ -8479,6 +8479,81 @@ body.ufo-flight-mode .hud-bottom-left {
 .play-capture-pill {
   top: 156px !important;
 }
+
+/* Integrated Builder Fin Mode: Hide legacy separate panels & style Builder Fin Belt inside #fin-belt-bar */
+#builder-panel,
+#builder-active-bar {
+  display: none !important;
+}
+.fin-belt-bar.builder-fin-belt {
+  border-color: rgba(245, 205, 121, 0.85) !important;
+  background: linear-gradient(160deg, rgba(16, 26, 44, 0.94), rgba(28, 40, 64, 0.94)) !important;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.65), 0 0 14px rgba(245, 205, 121, 0.28) !important;
+  gap: 4px !important;
+  padding: 5px 10px !important;
+  flex-wrap: wrap !important;
+  max-width: 96vw !important;
+}
+.fin-belt-pill-btn {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(245, 205, 121, 0.45);
+  background: rgba(24, 36, 58, 0.9);
+  color: #fde68a;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+.fin-belt-pill-btn:hover {
+  border-color: #f5cd79;
+  background: rgba(245, 205, 121, 0.22);
+  color: #fff;
+}
+.fin-belt-pill-btn.active {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.32), rgba(16, 185, 129, 0.35));
+  border-color: #6ee7b7;
+  color: #ecfdf5;
+}
+.fin-belt-pill-btn.cat-btn {
+  background: linear-gradient(135deg, rgba(245, 205, 121, 0.25), rgba(217, 119, 6, 0.25));
+  border-color: #f5cd79;
+  color: #fef3c7;
+}
+.fin-belt-pill-btn.exit-btn {
+  border-color: rgba(248, 113, 113, 0.65);
+  color: #fecaca;
+}
+.fin-belt-pill-btn.exit-btn:hover {
+  background: rgba(220, 38, 38, 0.4);
+  color: #fff;
+}
+.fin-belt-bar.builder-fin-belt .fin-belt-slot {
+  width: auto !important;
+  min-width: 44px !important;
+  height: 36px !important;
+  padding: 0 7px !important;
+  gap: 3px !important;
+}
+.fin-belt-bar.builder-fin-belt .fin-belt-slot.active {
+  border-color: #f5cd79 !important;
+  background: rgba(245, 205, 121, 0.28) !important;
+  box-shadow: 0 0 12px rgba(245, 205, 121, 0.55) !important;
+}
+.fin-belt-bp-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  color: #e2e8f0;
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .builder-cycle-btn {
   width: 24px;
   height: 24px;

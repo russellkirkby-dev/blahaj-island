@@ -3143,8 +3143,8 @@
     finishLoadingScreen();
   }
 
-  function canUseBuilderMode(sId = player.sharkId) {
-    return sId === 'hiram' || sId === 'custom' || !!(window.BlahajSaveSystem && window.BlahajSaveSystem.isFounderArchodect());
+  function canUseBuilderMode() {
+    return true;
   }
 
   function spawnPlayerShark(sharkId, forceBypass = false) {
@@ -3583,6 +3583,12 @@
 
     function syncFinCursorBadge() {
       if (!finBadgeEl) return;
+      if (builderState.active) {
+        const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
+        finBadgeEl.textContent = spec ? `🔧${spec.icon}` : '🔧';
+        finBadgeEl.classList.remove('hidden');
+        return;
+      }
       if (playerHeldItem && playerHeldItem.id) {
         const meta = (window.BlahajInventory && window.BlahajInventory.ITEMS && window.BlahajInventory.ITEMS[playerHeldItem.id]) || getHeldItemMeta(playerHeldItem.id);
         finBadgeEl.textContent = (meta && meta.icon) || playerHeldItem.icon || '✨';
@@ -3593,8 +3599,70 @@
       }
     }
 
+    function cycleBuilderCategory() {
+      const cats = LORE.buildCategories || [];
+      if (!cats.length) return;
+      const idx = cats.findIndex((c) => c.id === builderState.category);
+      const nextCat = cats[(idx + 1) % cats.length];
+      builderState.category = nextCat.id;
+      const firstInCat = (LORE.buildCatalog || []).find((x) => x.category === nextCat.id);
+      if (firstInCat) {
+        builderState.selectedId = firstInCat.id;
+        refreshPreviewMesh();
+      }
+      CozyAudio.shonk();
+      renderFinBelt();
+      renderBuilderToolbar();
+    }
+    window._blahajCycleBuilderCategory = cycleBuilderCategory;
+
     function renderFinBelt() {
       if (!finBeltBarEl || !player.inventory) return;
+      if (builderState.active) {
+        finBeltBarEl.classList.add('builder-fin-belt');
+        const cats = LORE.buildCategories || [];
+        const curCat = cats.find((c) => c.id === builderState.category) || cats[0] || { id: 'skarhaj_kits', name: '📦 SKÄRHAJ' };
+        const shortCatName = curCat.name.split(' ')[0] + ' ' + (curCat.name.split(' ')[1] || '');
+        const catItems = (LORE.buildCatalog || []).filter((x) => x.category === builderState.category);
+        const f = builderState.storyFloor || 0;
+        const floorLbl = f === 0 ? '1F' : f === 1 ? '2F' : '3F';
+
+        let html = `<button type="button" class="fin-belt-pill-btn cat-btn" id="fb-build-cat" title="Click with Fin Cursor (or press [Tab]) to switch Blueprint Category">${shortCatName} ▾</button>`;
+        catItems.forEach((item, i) => {
+          const isAct = builderState.selectedId === item.id;
+          const shortName = item.name.replace(/^SKÄRHAJ\s+|Snap\s+/i, '').split(' (')[0];
+          html += `<button type="button" class="fin-belt-slot${isAct ? ' active' : ''}" data-finslot="${i}" title="[${i + 1}] ${item.name} — ${item.costLabel}"><span class="fin-belt-key">${i + 1}</span><span class="fin-belt-icon">${item.icon}</span><span class="fin-belt-bp-lbl">${shortName}</span></button>`;
+        });
+        html += `<button type="button" class="fin-belt-pill-btn" id="fb-build-rot" title="Rotate Blueprint [R or Scroll Wheel]">🔄 <kbd>R</kbd></button>`;
+        html += `<button type="button" class="fin-belt-pill-btn${builderState.snapGrid ? ' active' : ''}" id="fb-build-snap" title="Toggle 4m Grid &amp; Edge Snapping [G]">🧲 ${builderState.snapGrid ? 'Snap' : 'Free'} <kbd>G</kbd></button>`;
+        html += `<button type="button" class="fin-belt-pill-btn${f > 0 ? ' active' : ''}" id="fb-build-elev" title="Cycle Floor Story Elevation [Z]">📐 ${floorLbl} <kbd>Z</kbd></button>`;
+        html += `<button type="button" class="fin-belt-pill-btn${builderState.freeBuild ? ' active' : ''}" id="fb-build-free" title="Toggle Free-Build Mode [V]">✨ ${builderState.freeBuild ? 'Free ON' : 'Cost'} <kbd>V</kbd></button>`;
+        html += `<button type="button" class="fin-belt-pill-btn" id="fb-build-del" title="Demolish Nearest Built Structure [X]">🗑️ <kbd>X</kbd></button>`;
+        html += `<button type="button" class="fin-belt-pill-btn exit-btn" id="fb-build-exit" title="Return to Normal Shark Fin [C / Esc]">✖ Done <kbd>C</kbd></button>`;
+
+        finBeltBarEl.innerHTML = html;
+        finBeltBarEl.querySelectorAll('.fin-belt-slot').forEach((btn) => {
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            selectFinSlot(parseInt(btn.dataset.finslot, 10));
+          });
+        });
+        document.getElementById('fb-build-cat')?.addEventListener('click', (ev) => { ev.stopPropagation(); cycleBuilderCategory(); });
+        document.getElementById('fb-build-rot')?.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          builderState.rotOffset += builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
+          CozyAudio.shonk();
+        });
+        document.getElementById('fb-build-snap')?.addEventListener('click', (ev) => { ev.stopPropagation(); toggleSnapGrid(); renderFinBelt(); });
+        document.getElementById('fb-build-elev')?.addEventListener('click', (ev) => { ev.stopPropagation(); cycleBuilderStoryElevation(); renderFinBelt(); });
+        document.getElementById('fb-build-free')?.addEventListener('click', (ev) => { ev.stopPropagation(); toggleFreeBuild(); renderFinBelt(); });
+        document.getElementById('fb-build-del')?.addEventListener('click', (ev) => { ev.stopPropagation(); removeNearestBuiltStructure(); });
+        document.getElementById('fb-build-exit')?.addEventListener('click', (ev) => { ev.stopPropagation(); setBuilderMode(false); });
+        syncFinCursorBadge();
+        return;
+      }
+
+      finBeltBarEl.classList.remove('builder-fin-belt');
       const slots = player.inventory.getSlots();
       const heldId = playerHeldItem ? playerHeldItem.id : null;
       let html = '';
@@ -3620,6 +3688,26 @@
     window._blahajRenderFinBelt = renderFinBelt;
 
     function selectFinSlot(idx) {
+      if (builderState.active) {
+        const catItems = (LORE.buildCatalog || []).filter((x) => x.category === builderState.category);
+        if (idx >= 0 && idx < catItems.length) {
+          const item = catItems[idx];
+          builderState.selectedId = item.id;
+          CozyAudio.shonk();
+          refreshPreviewMesh();
+          renderFinBelt();
+          renderBuilderToolbar();
+          showFinSenseCard(
+            item.icon || '🏗️',
+            `🔧 ${item.name}`,
+            'Left-Click World to Build · RMB+Scroll Cycles · [R] Rotate · [X] Demolish',
+            builderState.freeBuild ? '✨ FREE' : item.costLabel,
+            item.desc || '',
+            2400
+          );
+        }
+        return;
+      }
       if (!player.inventory || idx < 0 || idx > 8) return;
       const slot = player.inventory.getSlot(idx);
       if (!slot) {
@@ -3645,6 +3733,28 @@
     }
 
     function cycleFinSlot(delta) {
+      if (builderState.active) {
+        const allItems = LORE.buildCatalog || [];
+        if (!allItems.length) return;
+        const curIdx = allItems.findIndex((x) => x.id === builderState.selectedId);
+        const nextIdx = ((curIdx === -1 ? 0 : curIdx) + (delta > 0 ? 1 : -1) + allItems.length) % allItems.length;
+        const nextItem = allItems[nextIdx];
+        builderState.category = nextItem.category;
+        builderState.selectedId = nextItem.id;
+        CozyAudio.shonk();
+        refreshPreviewMesh();
+        renderFinBelt();
+        renderBuilderToolbar();
+        showFinSenseCard(
+          nextItem.icon || '🏗️',
+          `🔧 ${nextItem.name}`,
+          'Left-Click World to Build · RMB+Scroll Cycles · [R] Rotate · [X] Demolish',
+          builderState.freeBuild ? '✨ FREE' : nextItem.costLabel,
+          nextItem.desc || '',
+          2200
+        );
+        return;
+      }
       if (!player.inventory) return;
       // Cycle through [-1 (Bare Fin), ...occupied 0..8 fin slots]
       const cycle = [-1];
@@ -3715,6 +3825,7 @@
       }
       return clampToRange(player.pos.x + dir.x * 18, player.pos.z + dir.z * 18);
     }
+    window._blahajGetFinGroundPoint = computeGroundPointUnderScreen;
 
     function createThrownMesh(itemId) {
       if (itemId === 'breb') {
@@ -4076,7 +4187,7 @@
 
     function syncFinModeStripUI() {
       const style = getFinStyle();
-      const activeTool = (style === 'persistent') ? finSense.armedTool : finSense.tempOverride;
+      const activeTool = builderState.active ? 'build' : ((style === 'persistent') ? finSense.armedTool : finSense.tempOverride);
       document.querySelectorAll('#fin-mode-strip .fin-mode-btn').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.fintool === activeTool);
       });
@@ -4093,6 +4204,14 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const tool = btn.dataset.fintool || 'interact';
+        if (tool === 'build') {
+          toggleBuilderMode();
+          syncFinModeStripUI();
+          return;
+        }
+        if (builderState.active) {
+          setBuilderMode(false);
+        }
         if (getFinStyle() === 'persistent') {
           finSense.armedTool = tool;
         } else {
@@ -4342,6 +4461,24 @@
         return;
       }
 
+      if (builderState.active) {
+        setFinCursorKind('pickup');
+        const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId) || { icon: '🏗️', name: 'Blueprint', costLabel: 'Free' };
+        const f = builderState.storyFloor || 0;
+        const floorStr = f === 0 ? '1F (+0.0m)' : f === 1 ? '2F (+3.2m)' : '3F (+6.4m)';
+        if (now >= finSense.examineUntil) {
+          showFinSenseCard(
+            spec.icon || '🏗️',
+            `🔧 ${spec.name}`,
+            `Left-Click World to Build · RMB+Scroll Cycles · [R] Rotate · [X] Demolish`,
+            builderState.freeBuild ? '✨ FREE' : spec.costLabel,
+            `${floorStr} · ${builderState.snapGrid ? 'Snap ON (4m)' : 'Free Placement'} · ${spec.desc || ''}`,
+            0
+          );
+        }
+        return;
+      }
+
       const heldId = playerHeldItem ? playerHeldItem.id : null;
       const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
       const isHoldingDrink = (heldId === 'tea' || heldId === 'margarita' || heldId === 'tropical_cocktail' || heldId === 'celestial_boba');
@@ -4422,6 +4559,10 @@
     }
 
     function handleFinWorldClick(sx, sy) {
+      if (builderState.active) {
+        placeActiveBlueprint();
+        return;
+      }
       const heldId = playerHeldItem ? playerHeldItem.id : null;
       const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
       const isHoldingDrink = (heldId === 'tea' || heldId === 'margarita' || heldId === 'tropical_cocktail' || heldId === 'celestial_boba');
@@ -4689,6 +4830,7 @@
       syncFinModeStripUI();
     }
     window._blahajSyncCaptureUI = syncCaptureUI;
+    window._blahajGetFinCursorPos = () => ({ x: finCursor.x, y: finCursor.y });
 
     function openPauseMenu() {
       if (pauseOverlayEl) pauseOverlayEl.classList.remove('hidden');
@@ -4971,6 +5113,10 @@
           }
           return;
         }
+        if (!isAnyModalOpen() && builderState.active) {
+          placeActiveBlueprint();
+          return;
+        }
         if (!isAnyModalOpen() && playerHeldItem && playerHeldItem.id === 'binoculars' && !(window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard())) {
           finSense.binocHeldByMouse = true;
           if (!isUsingBinoculars) enterBinocularMode();
@@ -5009,7 +5155,7 @@
           if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.activateActiveModule) {
             window.BlahajUFO.activateActiveModule();
           } else if (builderState.active) {
-            placeActiveBlueprint();
+            // Already handled on mousedown
           } else if (playerHeldItem && playerHeldItem.id) {
             // Plain Left-Click in Camera Mode uses whatever is in your shark's right fin!
             const heldId = playerHeldItem.id;
@@ -5164,6 +5310,13 @@
         return;
       }
       if (!camState.isPointerLocked || isAnyModalOpen()) return;
+      if (builderState.active) {
+        e.preventDefault();
+        const step = builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
+        builderState.rotOffset += (e.deltaY > 0 ? 1 : -1) * step;
+        CozyAudio.shonk();
+        return;
+      }
       camState.distance = Math.max(4.0, Math.min(22.0, camState.distance + e.deltaY * 0.005));
     }, { passive: false });
 
@@ -5517,20 +5670,20 @@
         return;
       }
 
-      // C: In Build Mode, toggles the Blueprint Catalog drawer while keeping your hologram active!
-      // Shift+C toggles Build Mode on/off; plain C outside Build Mode opens Character Info.
+      // C: Directly toggles Master Builder Fin Mode on/off! (Shift+C opens Character Info; K/I/B also open Character & Bags)
       if (k === 'c') {
         e.preventDefault();
-        if (builderState.active) {
-          if (e.shiftKey) {
-            setBuilderMode(false);
-          } else {
-            setBuilderCatalogOpen(!builderState.catalogOpen);
-          }
-        } else if (e.shiftKey) {
-          toggleBuilderMode();
-        } else {
+        if (e.shiftKey) {
           toggleCharacterSheetModal(player.sharkId, 'stats');
+        } else {
+          toggleBuilderMode();
+        }
+        return;
+      }
+      if (builderState.active && k === 'tab' && !isAnyModalOpen()) {
+        e.preventDefault();
+        if (typeof window._blahajCycleBuilderCategory === 'function') {
+          window._blahajCycleBuilderCategory();
         }
         return;
       }
@@ -6329,23 +6482,23 @@
   function setBuilderMode(active) {
     if (active && !canUseBuilderMode(player.sharkId)) return;
     builderState.active = active;
-    builderState.catalogOpen = !!active;
-    const panel = document.getElementById('builder-panel');
+    builderState.catalogOpen = false;
     const slotC = document.getElementById('slot-c');
-    if (panel) panel.classList.toggle('hidden', !builderState.catalogOpen);
     if (slotC) slotC.classList.toggle('active', active);
 
     if (active) {
       CozyAudio.allenBuild();
       refreshPreviewMesh();
       renderBuilderToolbar();
-      updateBuilderActiveBar();
+      if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+      if (typeof window._blahajSyncCaptureUI === 'function') window._blahajSyncCaptureUI();
       showToast(
-        'HIRAM MASTER BUILDER MODE',
-        'Pick a blueprint on the right (the menu auto-hides so you can see!). [C] toggles Catalog · [[]/[]] cycles · [E]/Click builds · [Esc] exits.'
+        '🔧 MASTER BUILDER FIN ACTIVE [C]',
+        'Your 1–9 Fin Belt now holds Blueprints! Hold Right-Click to aim & Left-Click to Build · RMB+Scroll cycles Blueprints · [R] Rotate · [C] Exit.'
       );
     } else {
-      updateBuilderActiveBar();
+      if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+      if (typeof window._blahajSyncCaptureUI === 'function') window._blahajSyncCaptureUI();
       if (builderState.previewMesh) {
         scene.remove(builderState.previewMesh);
         builderState.previewMesh = null;
@@ -6462,11 +6615,19 @@
     }
     if (!builderState.previewMesh) return;
 
-    // Place hologram in front of shark's facing direction
+    // Place hologram at Shark Fin Cursor ground point (when holding Right-Click) or in front of shark!
     const forwardDist =
       builderState.selectedId === 'lagoon_bridge' || builderState.selectedId === 'sky_stairs' ? 8.2 : 5.8;
     let tx = player.pos.x + Math.sin(player.rotY) * forwardDist;
     let tz = player.pos.z + Math.cos(player.rotY) * forwardDist;
+    if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && typeof window._blahajGetFinGroundPoint === 'function' && typeof window._blahajGetFinCursorPos === 'function') {
+      const fc = window._blahajGetFinCursorPos();
+      const finPt = window._blahajGetFinGroundPoint(fc.x, fc.y, 18.0);
+      if (finPt) {
+        tx = finPt.x;
+        tz = finPt.z;
+      }
+    }
     let rotY = player.rotY + builderState.rotOffset;
     let snappedSocket = false;
     let socketBaseY = null;
