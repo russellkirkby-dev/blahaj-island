@@ -79,6 +79,8 @@ window.BlahajUFO = (function () {
     hatchTargetOpen: true,
     hatchOpenProg: 1.0,
     viewMode: 'outside', // 'outside' | 'inside'
+    cockpitLookYaw: 0,
+    cockpitLookPitch: 0,
     tractorBeam: false,
     subspaceVault: null, // { kind: 'enemy' | 'beach_ball' | 'carrot', title, icon, ref }
     remoteVaultSummary: null, // { icon, title } synced to passengers
@@ -921,7 +923,7 @@ window.BlahajUFO = (function () {
     const pYaw = (window.player && typeof window.player.rotY === 'number') ? window.player.rotY : 0;
     const landX = worldPos.x + Math.sin(pYaw) * 6.5;
     const landZ = worldPos.z + Math.cos(pYaw) * 6.5;
-    const groundY = getSafeGroundHeight(landX, landZ);
+    const groundY = getSafeLandingHeight(landX, landZ);
     state.hangarTargetOpen = true;
     state.pilotClientId = null;
     state.pilotName = null;
@@ -1247,6 +1249,11 @@ window.BlahajUFO = (function () {
     const isleY = getSurfaceHeight(x, z);
     if (isleY > gy) gy = isleY;
     return gy;
+  }
+
+  // Autopilot & Summoning NEVER land below the ocean surface (pilot must intentionally dive!)
+  function getSafeLandingHeight(x, z) {
+    return Math.max(0.22, getSafeGroundHeight(x, z));
   }
 
   // ==========================================================================
@@ -1719,7 +1726,7 @@ window.BlahajUFO = (function () {
       const turnInput = (k['a'] || k['arrowleft'] ? 1 : 0) - (k['d'] || k['arrowright'] ? 1 : 0);
       const strafeInput = (k['e'] ? 1 : 0) - (k['q'] ? 1 : 0);
       const upInput = (k[' '] || k['space'] ? 1 : 0) - (k['c'] || k['control'] ? 1 : 0);
-      const turbo = !!(k['shift'] && fwdInput > 0);
+      const turbo = !!k['shift'];
       state.turboActive = turbo;
 
       if (state.phase === 'launching') {
@@ -1754,7 +1761,7 @@ window.BlahajUFO = (function () {
           state.vel.z *= Math.max(0, 1 - dt * 3.5);
           state.pos.x += state.vel.x * dt;
           state.pos.z += state.vel.z * dt;
-          targetY = getSafeGroundHeight(state.pos.x, state.pos.z) + 1.45;
+          targetY = getSafeLandingHeight(state.pos.x, state.pos.z) + 1.45;
         }
         const descentSpeed = Math.max(2.0, Math.min(9.5, Math.abs(state.pos.y - targetY) * 1.5));
         if (state.pos.y > targetY) {
@@ -1845,8 +1852,8 @@ window.BlahajUFO = (function () {
         }
 
         const hydroScale = state.isSubmerged ? 0.72 : 1.0;
-        const maxHorizSpeed = (turbo ? 52.0 : 28.0) * hydroScale;
-        const maxStrafeSpeed = (turbo ? 34.0 : 22.0) * hydroScale;
+        const maxHorizSpeed = (turbo ? 64.0 : 28.0) * hydroScale;
+        const maxStrafeSpeed = (turbo ? 40.0 : 22.0) * hydroScale;
         const fwdX = Math.sin(state.yaw);
         const fwdZ = Math.cos(state.yaw);
         const rightX = -Math.cos(state.yaw);
@@ -1854,11 +1861,12 @@ window.BlahajUFO = (function () {
         const targetVx = fwdX * fwdInput * maxHorizSpeed + rightX * strafeInput * maxStrafeSpeed;
         const targetVz = fwdZ * fwdInput * maxHorizSpeed + rightZ * strafeInput * maxStrafeSpeed;
 
-        state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 3.2);
-        state.vel.z += (targetVz - state.vel.z) * Math.min(1.0, dt * 3.2);
+        const accelRate = turbo ? 5.2 : 3.2;
+        state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * accelRate);
+        state.vel.z += (targetVz - state.vel.z) * Math.min(1.0, dt * accelRate);
 
         const targetVy = upInput !== 0
-          ? upInput * (turbo ? 20.0 : 14.0)
+          ? upInput * (turbo ? 26.0 : 14.0)
           : Math.sin(camClimbElev) * maxHorizSpeed * 0.72;
         state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 4.5);
 
@@ -1928,7 +1936,7 @@ window.BlahajUFO = (function () {
     } else {
       // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Tracy Isle elevator!
       if (state.phase === 'landing') {
-        const groundY = getSafeGroundHeight(state.pos.x, state.pos.z);
+        const groundY = getSafeLandingHeight(state.pos.x, state.pos.z);
         const targetY = groundY + 1.45;
         const descentSpeed = Math.max(3.2, Math.min(11.0, (state.pos.y - targetY) * 1.65));
         state.pos.y = Math.max(targetY, state.pos.y - descentSpeed * dt);
@@ -1998,10 +2006,18 @@ window.BlahajUFO = (function () {
       // Drive Camera for Inside Cockpit View vs Outside Chase View!
       if (camera && camState) {
         if (state.viewMode === 'inside') {
+          if (!camState.isRightDown) {
+            state.cockpitLookYaw += (0 - state.cockpitLookYaw) * Math.min(1.0, dt * 7.5);
+            state.cockpitLookPitch += (0 - state.cockpitLookPitch) * Math.min(1.0, dt * 7.5);
+          }
           ufoGroup.updateMatrixWorld(true);
           const camWorld = new THREE.Vector3();
           cockpitCamAnchor.getWorldPosition(camWorld);
-          const lookWorld = new THREE.Vector3(0, 1.88, 12.0);
+          const lookDist = 11.4;
+          const lx = Math.sin(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
+          const ly = 2.08 + Math.sin(state.cockpitLookPitch) * lookDist - 0.2;
+          const lz = 0.68 + Math.cos(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
+          const lookWorld = new THREE.Vector3(lx, ly, lz);
           ufoGroup.localToWorld(lookWorld);
           camState.customOverride = { pos: camWorld, lookAt: lookWorld };
         } else {
@@ -2094,6 +2110,11 @@ window.BlahajUFO = (function () {
     toggleTractorBeam,
     openSharedVault,
     toggleDiscoMode,
+    getViewMode: () => state.viewMode,
+    panCockpit: (dx, dy) => {
+      state.cockpitLookYaw = Math.max(-2.0, Math.min(2.0, state.cockpitLookYaw - dx * 0.0042));
+      state.cockpitLookPitch = Math.max(-0.75, Math.min(0.85, state.cockpitLookPitch - dy * 0.0036));
+    },
     toggleAutoChaseCam,
     updateAvionicsButtonsUI,
     playJetsonsHorn,

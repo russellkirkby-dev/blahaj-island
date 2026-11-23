@@ -4607,6 +4607,9 @@
 
     function isFinCursorActive() {
       if (isUsingBinoculars || isUsingTelescope) return false;
+      if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && !isAnyModalOpen()) {
+        return false;
+      }
       return !!(camState.isPointerLocked && (camState.isRightDown || isAnyModalOpen()));
     }
 
@@ -5038,6 +5041,12 @@
           updateFinHover();
           updateFinSenseHover(false);
         }
+        return;
+      }
+
+      // Sub-mode 1.5: UFO Cockpit Pan (Hold Right-Click in Inside View to look around, auto-recenters on release!)
+      if (camState.isRightDown && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && window.BlahajUFO.panCockpit) {
+        window.BlahajUFO.panCockpit(dx, dy);
         return;
       }
 
