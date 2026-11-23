@@ -7969,3 +7969,157 @@ body.ufo-flight-mode .hud-bottom-left {
 .pause-controls-tip strong {
   color: #bae6fd;
 }
+
+/* ==========================================================================
+   PASS 92: BOTTOM-RIGHT FINSENSE INSPECTOR & SHARK FIN CURSOR TINTS
+   ========================================================================== */
+.shark-fin-cursor.fin-kind-pickup {
+  filter: drop-shadow(0 0 11px rgba(250, 204, 21, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+.shark-fin-cursor.fin-kind-pickup svg {
+  transform: rotate(-8deg) scale(1.06);
+}
+.shark-fin-cursor.fin-kind-examine {
+  filter: drop-shadow(0 0 11px rgba(56, 189, 248, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+.shark-fin-cursor.fin-kind-npc {
+  filter: drop-shadow(0 0 11px rgba(244, 114, 182, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+.shark-fin-cursor.fin-kind-npc svg {
+  transform: rotate(6deg) scale(1.06);
+}
+.shark-fin-cursor.fin-kind-enemy {
+  filter: drop-shadow(0 0 11px rgba(249, 115, 22, 0.95)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+.shark-fin-cursor.fin-kind-rift {
+  filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.98)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.85));
+}
+
+.fin-sense-box {
+  position: fixed;
+  right: 20px;
+  bottom: 18px;
+  width: 288px;
+  z-index: 1150;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  user-select: none;
+}
+.fin-sense-box.hidden {
+  display: none !important;
+}
+
+.fin-mode-strip {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.84);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+.fin-mode-strip.hidden {
+  display: none !important;
+}
+.fin-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.fin-mode-btn span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.22);
+  font-size: 0.66rem;
+  color: #e2e8f0;
+}
+.fin-mode-btn:hover {
+  background: rgba(51, 65, 85, 0.75);
+  color: #ffffff;
+}
+.fin-mode-btn.active {
+  background: rgba(14, 165, 233, 0.28);
+  border-color: rgba(125, 211, 252, 0.65);
+  color: #f0f9ff;
+}
+.fin-mode-btn.active span {
+  background: rgba(56, 189, 248, 0.5);
+  color: #ffffff;
+}
+
+.fin-sense-card {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(125, 211, 252, 0.34);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  color: #f1f5f9;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+.fin-sense-card.hidden {
+  display: none !important;
+}
+.fin-sense-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.fin-sense-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.fin-sense-titles {
+  flex: 1;
+  min-width: 0;
+}
+.fin-sense-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fin-sense-sub {
+  font-size: 0.73rem;
+  color: #7dd3fc;
+  margin-top: 1px;
+}
+.fin-sense-dist {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.fin-sense-body {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 0.77rem;
+  line-height: 1.42;
+  color: #cbd5e1;
+}
+.fin-sense-body.hidden {
+  display: none !important;
+}

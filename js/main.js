@@ -25,6 +25,7 @@
     camDist: 6.5,
     shoulder: 'right',
     adTurnMode: 'strafe',
+    finModeStyle: 'smart',
     ufoAutoChaseCam: true,
     invertY: false,
     binocularInvertY: false,
@@ -3525,6 +3526,401 @@
     const finCursorEl = document.getElementById('shark-fin-cursor');
     const playCapturePillEl = document.getElementById('play-capture-pill');
     const pauseOverlayEl = document.getElementById('game-pause-overlay');
+    const finSenseBoxEl = document.getElementById('fin-sense-box');
+    const finModeStripEl = document.getElementById('fin-mode-strip');
+    const finSenseCardEl = document.getElementById('fin-sense-card');
+    const finSenseIconEl = document.getElementById('fin-sense-icon');
+    const finSenseNameEl = document.getElementById('fin-sense-name');
+    const finSenseSubEl = document.getElementById('fin-sense-sub');
+    const finSenseDistEl = document.getElementById('fin-sense-dist');
+    const finSenseBodyEl = document.getElementById('fin-sense-body');
+
+    const finSense = {
+      armedTool: 'interact',     // 'interact' | 'examine' | 'pet' (used in Persistent mode)
+      tempOverride: null,        // null (Smart Auto) | 'interact' | 'examine' | 'pet' (1-3 while RMB in Smart mode)
+      hoveredTarget: null,
+      lastPickAt: 0,
+      examineUntil: 0,
+      projVec: new THREE.Vector3()
+    };
+
+    const FIN_KIND_CLASSES = ['fin-kind-pickup', 'fin-kind-examine', 'fin-kind-npc', 'fin-kind-enemy', 'fin-kind-rift'];
+
+    function setFinCursorKind(kind) {
+      if (!finCursorEl) return;
+      FIN_KIND_CLASSES.forEach((cls) => finCursorEl.classList.remove(cls));
+      if (kind) finCursorEl.classList.add(`fin-kind-${kind}`);
+    }
+
+    function getFinStyle() {
+      return (gameSettings && gameSettings.finModeStyle === 'persistent') ? 'persistent' : 'smart';
+    }
+
+    function getEffectiveFinTool(target) {
+      if (getFinStyle() === 'persistent') return finSense.armedTool || 'interact';
+      if (finSense.tempOverride) return finSense.tempOverride;
+      if (!target) return 'interact';
+      if (target.kind === 'pickup' || target.kind === 'rift') return 'interact';
+      if (target.kind === 'landmark') return target.dist <= (target.reach || 8.0) ? 'interact' : 'examine';
+      if (target.kind === 'npc') return target.dist <= 6.5 ? 'pet' : 'examine';
+      if (target.kind === 'enemy') return 'interact';
+      return 'examine';
+    }
+
+    function syncFinModeStripUI() {
+      const style = getFinStyle();
+      const activeTool = (style === 'persistent') ? finSense.armedTool : finSense.tempOverride;
+      document.querySelectorAll('#fin-mode-strip .fin-mode-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.fintool === activeTool);
+      });
+      const showStrip = !isAnyModalOpen() && (
+        (style === 'persistent' && camState.isPointerLocked) ||
+        (camState.isPointerLocked && camState.isRightDown)
+      );
+      if (finModeStripEl) finModeStripEl.classList.toggle('hidden', !showStrip);
+      const cardVisible = !!(finSenseCardEl && !finSenseCardEl.classList.contains('hidden'));
+      if (finSenseBoxEl) finSenseBoxEl.classList.toggle('hidden', !showStrip && !cardVisible);
+    }
+
+    document.querySelectorAll('#fin-mode-strip .fin-mode-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tool = btn.dataset.fintool || 'interact';
+        if (getFinStyle() === 'persistent') {
+          finSense.armedTool = tool;
+        } else {
+          finSense.tempOverride = (finSense.tempOverride === tool) ? null : tool;
+        }
+        syncFinModeStripUI();
+      });
+    });
+
+    function showFinSenseCard(icon, name, sub, distText, bodyText, durationMs = 0) {
+      if (!finSenseCardEl) return;
+      if (finSenseIconEl) finSenseIconEl.textContent = icon || '🦈';
+      if (finSenseNameEl) finSenseNameEl.textContent = name || '';
+      if (finSenseSubEl) finSenseSubEl.textContent = sub || '';
+      if (finSenseDistEl) finSenseDistEl.textContent = distText || '';
+      if (finSenseBodyEl) {
+        if (bodyText) {
+          finSenseBodyEl.textContent = bodyText;
+          finSenseBodyEl.classList.remove('hidden');
+        } else {
+          finSenseBodyEl.textContent = '';
+          finSenseBodyEl.classList.add('hidden');
+        }
+      }
+      finSenseCardEl.classList.remove('hidden');
+      if (finSenseBoxEl) finSenseBoxEl.classList.remove('hidden');
+      if (durationMs > 0) {
+        finSense.examineUntil = performance.now() + durationMs;
+      }
+    }
+
+    function hideFinSenseCard(force = false) {
+      if (!force && performance.now() < finSense.examineUntil) return;
+      if (finSenseCardEl) finSenseCardEl.classList.add('hidden');
+      syncFinModeStripUI();
+    }
+
+    const ISLAND_FIN_LANDMARKS = [
+      { id: 'spherical', name: 'Spherical Foods Bistro', icon: '🧆', x: -47.7, y: 2.2, z: 41.0, reach: 7.5, lore: 'Monsieur Betterave’s famous terracotta rotunda. Strictly spherical delicacies only — no flat food allowed!' },
+      { id: 'laundromat', name: 'The Sacred Laundromat', icon: '🧺', x: -62.0, y: 2.6, z: -12.0, reach: 7.5, lore: 'Humming brass washers and warm eucalyptus steam. Step inside to spin away accumulated Mange and fluff up your stuffing.' },
+      { id: 'volcano', name: 'Sacred Volcano Trial Gate', icon: '🌋', x: 0.0, y: 3.0, z: -56.0, reach: 9.0, lore: 'An ancient obsidian portal leading into the Molten Causeway, Ember Spiral, and Crater Overlook.' },
+      { id: 'great_portal', name: 'The Great Cross-Ocean Portal', icon: '🌀', x: 0.0, y: 4.5, z: -32.0, reach: 10.0, lore: 'A humming shimmering gateway linking New Zealand and Los Angeles so sharks can visit across the Pacific. Guarded by Tatiana & Ivanka.' },
+      { id: 'trunk', name: 'Community Vault Trunk', icon: '📦', x: 5.2, y: 1.5, z: 12.2, reach: 6.5, lore: 'A shared archipelago storage chest synced between friends (and linked directly to the UFO’s subspace beam!).' },
+      { id: 'oven', name: 'Solomon’s Sourdough Oven', icon: '🥖', x: -11.5, y: 1.8, z: 14.5, reach: 6.5, lore: 'Warm brick hearth perpetually baking crusty golden loaves. Local birbs hover suspiciously nearby.' },
+      { id: 'telescope', name: 'Starlight Observatory Telescope', icon: '🔭', x: 52.0, y: 9.5, z: -43.0, reach: 9.0, lore: 'Brass refractor perched atop Crust Cliffs. Peer through to spot drifting celestial cloud sharks.' }
+    ];
+
+    function pickWorldTargetUnderFin(sx, sy) {
+      if (!camera) return null;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const v = finSense.projVec;
+      let best = null;
+      let bestScore = Infinity;
+
+      const consider = (wx, wy, wz, hitRadiusPx, meta) => {
+        v.set(wx, wy, wz).project(camera);
+        if (v.z < -1 || v.z > 1) return; // behind camera
+        const px = (v.x * 0.5 + 0.5) * w;
+        const py = (-v.y * 0.5 + 0.5) * h;
+        const pxDist = Math.hypot(px - sx, py - sy);
+        if (pxDist > hitRadiusPx) return;
+        const worldDist = Math.hypot(wx - player.pos.x, wz - player.pos.z);
+        if (worldDist > (meta.maxDist || 75)) return;
+        const score = pxDist + worldDist * 0.15;
+        if (score < bestScore) {
+          bestScore = score;
+          best = Object.assign({ dist: worldDist, wx, wy, wz }, meta);
+        }
+      };
+
+      // 1. World Pickups (island/overworld)
+      if ((currentZone === 'island' || currentZone === 'overworld') && worldPickups && typeof worldPickups.getPickups === 'function') {
+        const list = worldPickups.getPickups();
+        for (let i = 0; i < list.length; i++) {
+          const p = list[i];
+          if (!p || p.collected || !p.mesh || !p.mesh.visible) continue;
+          const def = (window.BlahajInventory && window.BlahajInventory.ITEMS && window.BlahajInventory.ITEMS[p.type]) || { name: p.type, icon: '📦', desc: 'A handy archipelago item.' };
+          consider(p.mesh.position.x, p.mesh.position.y + 0.35, p.mesh.position.z, 46, {
+            kind: 'pickup',
+            icon: def.icon || '📦',
+            name: def.name || p.type,
+            lore: def.desc || `A freshly spotted ${def.name || p.type} resting on the island.`,
+            reach: 6.0,
+            maxDist: 45,
+            ref: p
+          });
+        }
+      }
+
+      // 2. Friendly NPCs & Co-op Partner
+      if (currentZone === 'island' || currentZone === 'overworld') {
+        for (let i = 0; i < worldActors.length; i++) {
+          const act = worldActors[i];
+          if (!act || !act.mesh || !act.mesh.visible) continue;
+          const pos = act.mesh.position;
+          consider(pos.x, pos.y + 1.1, pos.z, 54, {
+            kind: 'npc',
+            icon: '🦈',
+            name: act.name || act.id || 'Island Friend',
+            lore: act.bio || act.role || `${act.name || 'A friendly shark'} enjoying the coastal breeze on Blåhaj Island.`,
+            reach: 6.5,
+            maxDist: 65,
+            ref: act
+          });
+        }
+      }
+      if (coopPartner && coopPartner.active && coopPartner.mesh && coopPartner.mesh.visible) {
+        const cp = coopPartner.mesh.position;
+        consider(cp.x, cp.y + 1.1, cp.z, 54, {
+          kind: 'npc',
+          icon: '💙',
+          name: coopPartner.name || 'Co-op Shark Friend',
+          lore: 'Your cross-ocean co-op companion! Give them a friendly fin-boop.',
+          reach: 7.5,
+          maxDist: 80,
+          isCoopPartner: true,
+          ref: coopPartner
+        });
+      }
+
+      // 3. Enemies (island/overworld)
+      if ((currentZone === 'island' || currentZone === 'overworld') && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+        const enemies = window.BlahajEnemies.getEnemies() || [];
+        for (let i = 0; i < enemies.length; i++) {
+          const en = enemies[i];
+          if (!en || en.defeated || !en.mesh || !en.mesh.visible) continue;
+          const ep = en.mesh.position;
+          const isSentinel = en.name === 'Tatiana' || en.name === 'Ivanka';
+          consider(ep.x, ep.y + 1.0, ep.z, 52, {
+            kind: 'enemy',
+            icon: isSentinel ? '🎀' : '⚠️',
+            name: en.name || (en.type === 'urchin' ? 'Spiky Sea Urchin' : 'Mean Shark'),
+            lore: isSentinel
+              ? `${en.name} — Pink Sentinel Shark guarding the Great Portal with fierce side-eye.`
+              : (en.type === 'urchin' ? 'A prickly lavender sea urchin wobbling along the shore.' : 'A grumpy roaming shark looking for trouble.'),
+            reach: 12.0,
+            maxDist: 65,
+            ref: en
+          });
+        }
+      }
+
+      // 4. Great Seam Rifts in current zone
+      if (window.BlahajSeam && typeof window.BlahajSeam.getActiveRiftsForZone === 'function') {
+        const rifts = window.BlahajSeam.getActiveRiftsForZone(currentZone) || [];
+        for (let i = 0; i < rifts.length; i++) {
+          const r = rifts[i];
+          if (!r || !r.pos) continue;
+          consider(r.pos.x, r.pos.y + 0.9, r.pos.z, 56, {
+            kind: 'rift',
+            icon: r.mended ? '✨' : '🪡',
+            name: r.mended ? `Seam #${r.num} (Sealed)` : `Great Seam Rift #${r.num}`,
+            lore: r.desc || `${r.name || 'A shimmering tear in the Great Seam.'}`,
+            reach: 7.5,
+            maxDist: 75,
+            ref: r
+          });
+        }
+      }
+
+      // 5. Key Island Landmarks, Doors & UFO
+      if (currentZone === 'island' || currentZone === 'overworld') {
+        for (let i = 0; i < ISLAND_FIN_LANDMARKS.length; i++) {
+          const lm = ISLAND_FIN_LANDMARKS[i];
+          consider(lm.x, lm.y, lm.z, 58, {
+            kind: 'landmark',
+            icon: lm.icon,
+            name: lm.name,
+            lore: lm.lore,
+            reach: lm.reach,
+            maxDist: 90,
+            ref: lm
+          });
+        }
+        if (window.BlahajUFO && typeof window.BlahajUFO.getPosition === 'function') {
+          const up = window.BlahajUFO.getPosition();
+          if (up) {
+            consider(up.x, up.y + 1.5, up.z, 64, {
+              kind: 'landmark',
+              icon: '🛸',
+              name: 'Secret Archipelago Saucer',
+              lore: 'A gleaming retro-futuristic flying saucer with a tractor beam linked to the Community Vault Trunk.',
+              reach: 10.0,
+              maxDist: 110,
+              ref: { id: 'ufo' }
+            });
+          }
+        }
+      }
+
+      return best;
+    }
+
+    function updateFinSenseHover(force = false) {
+      if (!camState.isPointerLocked || !camState.isRightDown || isAnyModalOpen()) {
+        finSense.hoveredTarget = null;
+        setFinCursorKind(null);
+        hideFinSenseCard(false);
+        return;
+      }
+      const now = performance.now();
+      if (!force && now - finSense.lastPickAt < 65) return;
+      finSense.lastPickAt = now;
+
+      const raw = document.elementFromPoint(finCursor.x, finCursor.y);
+      if (raw && raw !== canvas) {
+        finSense.hoveredTarget = null;
+        setFinCursorKind(null);
+        hideFinSenseCard(false);
+        return;
+      }
+
+      const target = pickWorldTargetUnderFin(finCursor.x, finCursor.y);
+      finSense.hoveredTarget = target;
+      if (!target) {
+        setFinCursorKind(null);
+        hideFinSenseCard(false);
+        return;
+      }
+
+      const tool = getEffectiveFinTool(target);
+      const kindMap = { pickup: 'pickup', npc: 'npc', enemy: 'enemy', rift: 'rift', landmark: tool === 'interact' ? 'pickup' : 'examine' };
+      setFinCursorKind(kindMap[target.kind] || 'examine');
+
+      let actionHint = 'Click to Examine';
+      if (tool === 'examine') {
+        actionHint = '🔍 Click to Examine';
+      } else if (tool === 'pet') {
+        actionHint = '💙 Click to Pet / Boop';
+      } else if (target.kind === 'pickup') {
+        actionHint = target.dist <= target.reach ? '✋ Click to Pick Up' : '✋ Move closer to Pick Up';
+      } else if (target.kind === 'rift') {
+        actionHint = target.ref.mended ? '✨ Sealed Rift' : (target.dist <= target.reach ? '🪡 Click to Mend Rift' : '🪡 Move closer to Mend');
+      } else if (target.kind === 'enemy') {
+        actionHint = '🎯 Click to Target';
+      } else if (target.kind === 'landmark') {
+        actionHint = target.dist <= target.reach ? '✋ Click to Interact' : '🔍 Click to Examine';
+      }
+
+      // Don't overwrite an active Examine snippet unless hovering a different target
+      if (now >= finSense.examineUntil) {
+        showFinSenseCard(target.icon, target.name, actionHint, `${Math.round(target.dist)}m`, '', 0);
+      }
+    }
+
+    function handleFinWorldClick(sx, sy) {
+      const target = pickWorldTargetUnderFin(sx, sy);
+      if (!target) {
+        if (window.BlahajMMO && !isAnyModalOpen()) {
+          window.BlahajMMO.handleCanvasClick(sx, sy, camera, false, true);
+        }
+        return;
+      }
+
+      const tool = getEffectiveFinTool(target);
+
+      // 1. EXAMINE (works from any visible distance — displays cleanly in bottom-right box!)
+      if (tool === 'examine') {
+        if (CozyAudio.pocketWatchClick) CozyAudio.pocketWatchClick();
+        showFinSenseCard(target.icon, target.name, '🔍 FinSense Examine', `${Math.round(target.dist)}m`, target.lore, 6500);
+        return;
+      }
+
+      // 2. PET / PAT / BOOP
+      if (tool === 'pet') {
+        if (target.dist > 8.5) {
+          showFinSenseCard(target.icon, target.name, '💙 Too far to boop!', `${Math.round(target.dist)}m`, 'Swim a little closer to give them a fin-pat.', 3000);
+          return;
+        }
+        if (CozyAudio.shonk) CozyAudio.shonk();
+        spawnFloatingBurst(new THREE.Vector3(target.wx, target.wy + 0.4, target.wz), 0xf472b6, 16);
+        const reactions = [
+          `${target.name} wiggles happily at your fin-boop! 💙`,
+          `Boop! ${target.name} lets out a cozy plushie squeak. ✨`,
+          `${target.name} appreciates the gentle pat on the snoot! 🦈`
+        ];
+        const msg = target.kind === 'enemy'
+          ? `${target.name} looks momentarily bewildered by your audacious snoot-boop!`
+          : reactions[Math.floor(Math.random() * reactions.length)];
+        showFinSenseCard('💙', `Booped ${target.name}!`, 'Friendly Fin-Pat', `${Math.round(target.dist)}m`, msg, 4500);
+        if (target.isCoopPartner && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+          window.BlahajNetwork.send({ type: 'emote', kind: 'boop', zone: currentZone });
+        }
+        return;
+      }
+
+      // 3. INTERACT / PICK UP / TARGET
+      if (target.kind === 'pickup') {
+        if (target.dist <= target.reach) {
+          collectWorldPickup(target.ref);
+          showFinSenseCard(target.icon, `Picked up ${target.name}`, 'Added to Satchel', '', '', 2200);
+        } else {
+          showFinSenseCard(target.icon, target.name, '✋ A bit too far to reach', `${Math.round(target.dist)}m`, 'Swim closer to pick this up with your fin.', 2800);
+        }
+        return;
+      }
+
+      if (target.kind === 'rift') {
+        if (target.ref.mended) {
+          showFinSenseCard('✨', target.name, 'Already Sealed', `${Math.round(target.dist)}m`, target.lore, 4500);
+        } else if (target.dist <= target.reach && window.BlahajSeam && typeof window.BlahajSeam.mendRift === 'function') {
+          window.BlahajSeam.mendRift(target.ref.id);
+          showFinSenseCard('✨', `Mended ${target.name}!`, 'Great Seam Stabilized', '', 'Your fin stitched the shimmering tear shut!', 4000);
+        } else {
+          showFinSenseCard('🪡', target.name, 'Move closer to Mend', `${Math.round(target.dist)}m`, target.lore, 4000);
+        }
+        return;
+      }
+
+      if (target.kind === 'enemy') {
+        if (window.BlahajMMO) {
+          window.BlahajMMO.handleCanvasClick(sx, sy, camera, false, true);
+        }
+        showFinSenseCard(target.icon, target.name, '🎯 Targeted', `${Math.round(target.dist)}m`, target.lore, 3500);
+        return;
+      }
+
+      if (target.kind === 'npc') {
+        if (target.dist <= target.reach && !target.isCoopPartner) {
+          triggerInteract();
+        } else {
+          showFinSenseCard(target.icon, target.name, '🔍 FinSense', `${Math.round(target.dist)}m`, target.lore, 5000);
+        }
+        return;
+      }
+
+      if (target.kind === 'landmark') {
+        if (target.dist <= target.reach) {
+          triggerInteract();
+        } else {
+          showFinSenseCard(target.icon, target.name, '🔍 FinSense Examine', `${Math.round(target.dist)}m`, target.lore, 5500);
+        }
+      }
+    }
 
     function isFinCursorActive() {
       return !!(camState.isPointerLocked && (camState.isRightDown || isAnyModalOpen()));
@@ -3568,11 +3964,18 @@
           finCursorEl.style.transform = `translate3d(${finCursor.x.toFixed(1)}px, ${finCursor.y.toFixed(1)}px, 0)`;
         }
       }
-      if (!finActive) clearFinHover();
+      if (!finActive) {
+        clearFinHover();
+        setFinCursorKind(null);
+      }
       if (playCapturePillEl) {
         const pauseOpen = !!(pauseOverlayEl && !pauseOverlayEl.classList.contains('hidden'));
         playCapturePillEl.classList.toggle('hidden', camState.isPointerLocked || pauseOpen || isAnyModalOpen());
       }
+      if (!finSense.hoveredTarget && performance.now() >= finSense.examineUntil && finSenseCardEl && !finSenseCardEl.classList.contains('hidden')) {
+        finSenseCardEl.classList.add('hidden');
+      }
+      syncFinModeStripUI();
     }
     window._blahajSyncCaptureUI = syncCaptureUI;
 
@@ -3819,9 +4222,9 @@
               clickTarget.click();
             }
             setTimeout(syncCaptureUI, 0);
-          } else if (window.BlahajMMO && !isAnyModalOpen()) {
-            // Clicked on the 3D world with the Shark Fin Cursor -> target/select at fin position
-            window.BlahajMMO.handleCanvasClick(finCursor.x, finCursor.y, camera, false, true);
+          } else if (!isAnyModalOpen()) {
+            // Clicked on the 3D world with the Shark Fin Cursor -> FinSense Interact / Examine / Pet!
+            handleFinWorldClick(finCursor.x, finCursor.y);
           }
           return;
         }
@@ -3871,6 +4274,10 @@
       if (!e || e.button === 2) {
         camState.isRightDown = false;
         camState.isRightDragging = false;
+        if (getFinStyle() !== 'persistent') finSense.tempOverride = null;
+        finSense.hoveredTarget = null;
+        setFinCursorKind(null);
+        hideFinSenseCard(false);
         syncCaptureUI();
       }
       camState.isChordMoving = false;
@@ -3917,6 +4324,7 @@
           updateRangeWithFin(finCursor.draggingRange, finCursor.x);
         } else {
           updateFinHover();
+          updateFinSenseHover(false);
         }
         return;
       }
@@ -3995,6 +4403,21 @@
       const activeToast = document.getElementById('toast-banner');
       const isToastOpen = activeToast && !activeToast.classList.contains('hidden') && !activeToast.classList.contains('fading-out');
 
+      // Pass 92: While holding Right-Click (Shark Fin Cursor active), 1 / 2 / 3 switch Fin Tool without firing combat skills!
+      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        e.preventDefault();
+        const toolByKey = { '1': 'interact', '2': 'examine', '3': 'pet' };
+        const chosen = toolByKey[e.key];
+        if (getFinStyle() === 'persistent') {
+          finSense.armedTool = chosen;
+        } else {
+          finSense.tempOverride = chosen;
+        }
+        syncFinModeStripUI();
+        updateFinSenseHover(true);
+        return;
+      }
+
       if (e.key === 'Escape') {
         if (isUsingTelescope) {
           exitTelescopeMode();
@@ -4018,6 +4441,21 @@
       // Volcano HUD card also dismissable on Space, Enter, or E
       if (isVhudOpen && (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'e')) {
         hideVolcanoHUDCard();
+      }
+
+      // Pass 92: While holding Right-Click (Shark Fin Cursor active), 1 / 2 / 3 switch Fin Tool without firing combat skills!
+      if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && (e.key === '1' || e.key === '2' || e.key === '3')) {
+        e.preventDefault();
+        const toolByKey = { '1': 'interact', '2': 'examine', '3': 'pet' };
+        const chosen = toolByKey[e.key];
+        if (getFinStyle() === 'persistent') {
+          finSense.armedTool = chosen;
+        } else {
+          finSense.tempOverride = chosen;
+        }
+        syncFinModeStripUI();
+        updateFinSenseHover(true);
+        return;
       }
 
       if (e.key === 'Escape') {
@@ -8466,6 +8904,10 @@
       btn.classList.toggle('active', btn.dataset.admode === (gameSettings.adTurnMode || 'strafe'));
     });
 
+    document.querySelectorAll('#group-fin-mode .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.finmode === (gameSettings.finModeStyle || 'smart'));
+    });
+
     const ufoChaseEl = document.getElementById('set-ufo-chase-cam');
     if (ufoChaseEl) ufoChaseEl.checked = gameSettings.ufoAutoChaseCam !== false;
     window.gameSettings = gameSettings;
@@ -8911,6 +9353,21 @@
           btn.dataset.admode === 'turn'
             ? 'A and D now turn your shark Left and Right (Right-Click + A/D still strafes).'
             : 'A and D now Strafe Left and Right while facing your target!'
+        );
+      });
+    });
+
+    document.querySelectorAll('#group-fin-mode .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-fin-mode .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('finModeStyle', btn.dataset.finmode);
+        if (typeof window._blahajSyncCaptureUI === 'function') window._blahajSyncCaptureUI();
+        showToast(
+          btn.dataset.finmode === 'persistent' ? '🦈 FIN CURSOR: PERSISTENT MODE STRIP' : '🦈 FIN CURSOR: SMART AUTO',
+          btn.dataset.finmode === 'persistent'
+            ? 'Bottom-right Fin Mode Strip stays visible & remembers your chosen tool (1 Use · 2 Sense · 3 Pet).'
+            : 'Left-click picks the natural action automatically (tap 1–3 while holding Right-Click to override).'
         );
       });
     });

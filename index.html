@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9.1" />
+  <link rel="stylesheet" href="styles.css?v=9.2" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1736,6 +1736,17 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">🦈 Shark Fin Cursor Action Mode</span>
+            <span class="setting-desc">Smart Auto picks the natural action (tap 1–3 while holding Right-Click to override), or keep a Persistent Mode Strip armed</span>
+          </div>
+          <div class="setting-btn-group" id="group-fin-mode">
+            <button class="btn-group-item active" data-finmode="smart">Smart Auto (1–3 w/ RMB)</button>
+            <button class="btn-group-item" data-finmode="persistent">Persistent Mode Strip</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">🛸 UFO Exterior Auto-Chase Camera</span>
             <span class="setting-desc">Camera turns with A / D and smoothly drifts back behind the saucer after free-look</span>
           </div>
@@ -2500,24 +2511,44 @@
     </div>
   </div>
 
+  <!-- Bottom-Right FinSense Inspector & Mode Strip (Quiet, out of center screen) -->
+  <div id="fin-sense-box" class="fin-sense-box hidden" aria-live="polite">
+    <div id="fin-mode-strip" class="fin-mode-strip hidden">
+      <button type="button" class="fin-mode-btn active" data-fintool="interact" title="Interact / Pick Up [1 while RMB]"><span>1</span> ✋ Use</button>
+      <button type="button" class="fin-mode-btn" data-fintool="examine" title="FinSense / Examine [2 while RMB]"><span>2</span> 🔍 Sense</button>
+      <button type="button" class="fin-mode-btn" data-fintool="pet" title="Pet / Pat / Boop [3 while RMB]"><span>3</span> 💙 Pet</button>
+    </div>
+    <div id="fin-sense-card" class="fin-sense-card hidden">
+      <div class="fin-sense-header">
+        <span id="fin-sense-icon" class="fin-sense-icon">🦈</span>
+        <div class="fin-sense-titles">
+          <div id="fin-sense-name" class="fin-sense-name">Blåhaj Island</div>
+          <div id="fin-sense-sub" class="fin-sense-sub">Click to interact</div>
+        </div>
+        <span id="fin-sense-dist" class="fin-sense-dist"></span>
+      </div>
+      <div id="fin-sense-body" class="fin-sense-body hidden"></div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=9.1"></script>
-  <script src="js/sharks3d.js?v=9.1"></script>
-  <script src="js/ufo.js?v=9.1"></script>
-  <script src="js/world3d.js?v=9.1"></script>
-  <script src="js/volcano.js?v=9.1"></script>
-  <script src="js/laundromat.js?v=9.1"></script>
-  <script src="js/sphericalFoods.js?v=9.1"></script>
-  <script src="js/volleyball.js?v=9.1"></script>
-  <script src="js/spawningPits.js?v=9.1"></script>
-  <script src="js/homestead.js?v=9.1"></script>
-  <script src="js/network.js?v=9.1"></script>
-  <script src="js/inventory.js?v=9.1"></script>
-  <script src="js/enemies.js?v=9.1"></script>
-  <script src="js/seam.js?v=9.1"></script>
-  <script src="js/mmoControls.js?v=9.1"></script>
+  <script src="js/lore.js?v=9.2"></script>
+  <script src="js/sharks3d.js?v=9.2"></script>
+  <script src="js/ufo.js?v=9.2"></script>
+  <script src="js/world3d.js?v=9.2"></script>
+  <script src="js/volcano.js?v=9.2"></script>
+  <script src="js/laundromat.js?v=9.2"></script>
+  <script src="js/sphericalFoods.js?v=9.2"></script>
+  <script src="js/volleyball.js?v=9.2"></script>
+  <script src="js/spawningPits.js?v=9.2"></script>
+  <script src="js/homestead.js?v=9.2"></script>
+  <script src="js/network.js?v=9.2"></script>
+  <script src="js/inventory.js?v=9.2"></script>
+  <script src="js/enemies.js?v=9.2"></script>
+  <script src="js/seam.js?v=9.2"></script>
+  <script src="js/mmoControls.js?v=9.2"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=9.1"></script>
-  <script src="js/main.js?v=9.1"></script>
+  <script src="js/saveSystem.js?v=9.2"></script>
+  <script src="js/main.js?v=9.2"></script>
 </body>
 </html>
