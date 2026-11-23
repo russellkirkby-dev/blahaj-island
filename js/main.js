@@ -2896,7 +2896,7 @@
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -3039,9 +3039,7 @@
             }
           });
         }
-        await window.BlahajVolcano.build().catch((err) => {
-          console.warn('Volcano background build warning:', err);
-        });
+        // Lazy-build Volcano Dungeon on first entry (avoids heavy boot-time geometry & shader stall!)
       } catch (err) {
         console.error('Failed to init BlahajVolcano:', err);
       }
@@ -5730,7 +5728,17 @@
       barEl.style.width = `${p}%`;
       if (p >= 100) {
         clearInterval(interval);
-        setTimeout(() => {
+        setTimeout(async () => {
+          if (window.BlahajVolcano && typeof window.BlahajVolcano.isBuilt === 'function' && !window.BlahajVolcano.isBuilt()) {
+            try {
+              await window.BlahajVolcano.build();
+              if (renderer && window.BlahajVolcano.getScene && camera) {
+                renderer.compile(window.BlahajVolcano.getScene(), camera);
+              }
+            } catch (e) {
+              console.warn('Volcano lazy build warning:', e);
+            }
+          }
           currentZone = 'volcano'; if (window.BlahajSeam) window.BlahajSeam.onZoneChanged(currentZone);
           if (window.BlahajVolcano) {
             window.BlahajVolcano.setActive(true);
@@ -13246,7 +13254,7 @@
   let lastMeterUpdateSecond = -1;
   function animate() {
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.1);
+    const dt = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.getElapsedTime();
 
     if (player.teaBuffTimer > 0) {

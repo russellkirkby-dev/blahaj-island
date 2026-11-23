@@ -99,7 +99,7 @@ window.BlahajNetwork = (function () {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' }
       ],
-      iceCandidatePoolSize: 8
+      iceCandidatePoolSize: 2
     }
   };
 
@@ -711,7 +711,12 @@ window.BlahajNetwork = (function () {
     }
 
     peer.on('open', () => {
-      probeOtherRealmSlots();
+      // Delay WebRTC slot probing so it never chokes initial 3D scene startup, and skip if WSS mesh is already live!
+      setTimeout(() => {
+        if (!isCleaningUp && !isAnyWssBrokerConnected()) {
+          probeOtherRealmSlots();
+        }
+      }, 6000);
     });
 
     peer.on('connection', (incomingConn) => {
