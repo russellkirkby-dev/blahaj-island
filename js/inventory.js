@@ -1025,11 +1025,6 @@ window.BlahajInventory = (function () {
         g.add(spike);
       });
 
-      // Faint thermal glow point light
-      const glow = new THREE.PointLight(0xfef08a, 0.75, 2.5, 1.5);
-      glow.position.y = 0.45;
-      g.add(glow);
-
       return g;
     }
 
@@ -1072,10 +1067,6 @@ window.BlahajInventory = (function () {
       core.position.y = 0.32;
       g.add(core);
 
-      const light = new THREE.PointLight(0xf43f5e, 1.4, 4.0, 1.8);
-      light.position.y = 0.35;
-      g.add(light);
-
       return g;
     }
 
@@ -1093,10 +1084,6 @@ window.BlahajInventory = (function () {
       shard.position.y = 0.32;
       shard.rotation.z = 0.15;
       g.add(shard);
-
-      const light = new THREE.PointLight(0x38bdf8, 0.8, 3.0, 1.5);
-      light.position.y = 0.45;
-      g.add(light);
 
       return g;
     }
@@ -1151,9 +1138,6 @@ window.BlahajInventory = (function () {
       c3.position.set(-0.09, 0.13, -0.07);
       g.add(c3);
 
-      const pLight = new THREE.PointLight(0xbfdbfe, 1.2, 3.5);
-      pLight.position.set(0, 0.25, 0);
-      g.add(pLight);
       return g;
     }
 

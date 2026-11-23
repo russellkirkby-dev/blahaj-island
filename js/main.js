@@ -3344,6 +3344,10 @@
   const SHARED_BURST_GEO = new THREE.OctahedronGeometry(0.18, 0);
   const SHARED_BUBBLE_GEO = new THREE.SphereGeometry(0.15, 6, 6);
   const SHARED_BUBBLE_MAT = new THREE.MeshBasicMaterial({ color: 0xa5f3fc, transparent: true, opacity: 0.72 });
+  const SHARED_SNOOZE_GEO = new THREE.OctahedronGeometry(0.12, 0);
+  const SHARED_SNOOZE_MAT = new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.85 });
+  const SHARED_CRUMB_GEO = new THREE.DodecahedronGeometry(0.045, 0);
+  const SHARED_CRUMB_MAT = new THREE.MeshStandardMaterial({ color: 0xd99b4e, roughness: 0.8 });
   const sharedBurstMatCache = new Map();
   function getSharedBurstMat(colorHex) {
     let m = sharedBurstMatCache.get(colorHex);
@@ -3395,15 +3399,12 @@
 
   function spawnSnoozeZzz(originPos) {
     if (currentZone !== 'island') return;
-    const mesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.12, 0),
-      new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.85 })
+    const mesh = new THREE.Mesh(SHARED_SNOOZE_GEO, SHARED_SNOOZE_MAT);
+    mesh.position.set(
+      originPos.x + (Math.random() - 0.5) * 0.4,
+      originPos.y + 0.55 + Math.random() * 0.2,
+      originPos.z + (Math.random() - 0.5) * 0.4
     );
-    mesh.position.copy(originPos).add(new THREE.Vector3(
-      (Math.random() - 0.5) * 0.4,
-      0.55 + Math.random() * 0.2,
-      (Math.random() - 0.5) * 0.4
-    ));
     scene.add(mesh);
     floatingBursts.push({
       mesh,
@@ -3414,15 +3415,12 @@
   function spawnBreadCrumbs(originPos) {
     if (currentZone !== 'island') return;
     for (let i = 0; i < 3; i++) {
-      const mesh = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(0.045, 0),
-        new THREE.MeshStandardMaterial({ color: 0xd99b4e, roughness: 0.8 })
+      const mesh = new THREE.Mesh(SHARED_CRUMB_GEO, SHARED_CRUMB_MAT);
+      mesh.position.set(
+        originPos.x + (Math.random() - 0.5) * 0.35,
+        originPos.y + 0.08 + Math.random() * 0.15,
+        originPos.z + (Math.random() - 0.5) * 0.35
       );
-      mesh.position.copy(originPos).add(new THREE.Vector3(
-        (Math.random() - 0.5) * 0.35,
-        0.08 + Math.random() * 0.15,
-        (Math.random() - 0.5) * 0.35
-      ));
       scene.add(mesh);
       floatingBursts.push({
         mesh,
@@ -14677,6 +14675,38 @@
     }
   }
 
+  const _lightCullPos = new THREE.Vector3();
+  const _lightCandidates = [];
+  let _lastLightCullTime = -1;
+  function cullMainScenePointLights(targetScene, refPos, elapsed) {
+    if (!targetScene || elapsed - _lastLightCullTime < 0.25) return;
+    _lastLightCullTime = elapsed;
+    _lightCandidates.length = 0;
+    const maxDistSq = 85 * 85;
+    targetScene.traverse((obj) => {
+      if (!obj.isPointLight) return;
+      if (!obj.visible && !obj.userData._culledByDistance) return;
+      obj.getWorldPosition(_lightCullPos);
+      const dSq = _lightCullPos.distanceToSquared(refPos);
+      _lightCandidates.push({ light: obj, dSq });
+    });
+    _lightCandidates.sort((a, b) => a.dSq - b.dSq);
+    const MAX_ACTIVE_POINT_LIGHTS = 6;
+    for (let i = 0; i < _lightCandidates.length; i++) {
+      const item = _lightCandidates[i];
+      const keep = i < MAX_ACTIVE_POINT_LIGHTS && item.dSq <= maxDistSq;
+      if (keep) {
+        if (item.light.userData._culledByDistance) {
+          item.light.visible = true;
+          item.light.userData._culledByDistance = false;
+        }
+      } else if (item.light.visible) {
+        item.light.visible = false;
+        item.light.userData._culledByDistance = true;
+      }
+    }
+  }
+
   let lastMeterUpdateSecond = -1;
   function animate() {
     requestAnimationFrame(animate);
@@ -14823,6 +14853,10 @@
       }
     } catch (err) {
       console.error('[Blahaj] Zone update error:', err);
+    }
+
+    if (activeScene === scene) {
+      cullMainScenePointLights(scene, camera.position, elapsed);
     }
 
     const useBloom = !!(gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled);
@@ -16960,25 +16994,38 @@
       lastReportedZoneTitle = currentZoneTitle;
     }
 
-    const promptEl = document.getElementById('interaction-prompt');
+    if (!window._hudCache) window._hudCache = {};
+    const hc = window._hudCache;
+    if (!hc.promptEl) hc.promptEl = document.getElementById('interaction-prompt');
+    if (!hc.promptTextEl) hc.promptTextEl = document.getElementById('interaction-text');
+    const promptEl = hc.promptEl;
     const isSailingNow = player.inBoat || player.ridingWithPartner;
 
+    let nextPromptText = null;
     if (builderState.active && canUseBuilderMode(player.sharkId) && (!nearestInteractable || nearestInteractable.dist > 4.2)) {
       const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
-      document.getElementById('interaction-text').textContent =
-        `Build ${spec ? spec.name : 'Structure'} [E / Click] · Rotate [R] · Remove [X]`;
-      promptEl.classList.remove('hidden');
+      nextPromptText = `Build ${spec ? spec.name : 'Structure'} [E / Click] · Rotate [R] · Remove [X]`;
     } else if (isSailingNow && !isAnyModalOpen()) {
       const canTalkToDock = nearestInteractable && nearestInteractable.kind === 'landmark' && nearestInteractable.ref.type !== 'boat';
-      document.getElementById('interaction-text').textContent = canTalkToDock
+      nextPromptText = canTalkToDock
         ? `${nearestInteractable.prompt} · or Hop Off [Space]`
         : '⛵ Sailing — Hop Off Here [E / Space]';
-      promptEl.classList.remove('hidden');
     } else if (nearestInteractable && !isAnyModalOpen()) {
-      document.getElementById('interaction-text').textContent = nearestInteractable.prompt;
-      promptEl.classList.remove('hidden');
-    } else {
+      nextPromptText = nearestInteractable.prompt;
+    }
+
+    if (nextPromptText !== null) {
+      if (hc.promptTextEl && hc.lastPromptText !== nextPromptText) {
+        hc.promptTextEl.textContent = nextPromptText;
+        hc.lastPromptText = nextPromptText;
+      }
+      if (promptEl && hc.promptVisible !== true) {
+        promptEl.classList.remove('hidden');
+        hc.promptVisible = true;
+      }
+    } else if (promptEl && hc.promptVisible !== false) {
       promptEl.classList.add('hidden');
+      hc.promptVisible = false;
     }
 
     // Check avatar grooming proximity for HUD button and prompt pill
@@ -17000,17 +17047,28 @@
       }
     });
 
-    const slotG = document.getElementById('slot-g');
-    if (slotG) {
-      slotG.classList.toggle('groom-ready', !!nearbyGroomAvatar);
+    if (!hc.slotG) hc.slotG = document.getElementById('slot-g');
+    const groomReady = !!nearbyGroomAvatar;
+    if (hc.slotG && hc.lastGroomReady !== groomReady) {
+      hc.slotG.classList.toggle('groom-ready', groomReady);
+      hc.lastGroomReady = groomReady;
     }
-    const btnGroomPrompt = document.getElementById('btn-groom-prompt');
+    if (!hc.btnGroomPrompt) hc.btnGroomPrompt = document.getElementById('btn-groom-prompt');
+    const btnGroomPrompt = hc.btnGroomPrompt;
     if (btnGroomPrompt) {
       if (nearbyGroomAvatar && !isAnyModalOpen()) {
-        btnGroomPrompt.classList.remove('hidden');
-        btnGroomPrompt.textContent = `🪮 Groom ${nearbyGroomAvatar.name} [G]`;
-      } else {
+        const groomTxt = `🪮 Groom ${nearbyGroomAvatar.name} [G]`;
+        if (hc.lastGroomText !== groomTxt) {
+          btnGroomPrompt.textContent = groomTxt;
+          hc.lastGroomText = groomTxt;
+        }
+        if (hc.groomBtnVisible !== true) {
+          btnGroomPrompt.classList.remove('hidden');
+          hc.groomBtnVisible = true;
+        }
+      } else if (hc.groomBtnVisible !== false) {
         btnGroomPrompt.classList.add('hidden');
+        hc.groomBtnVisible = false;
       }
     }
 
