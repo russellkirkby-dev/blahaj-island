@@ -187,7 +187,11 @@ window.BlahajQuests = (function () {
     } catch (e) {}
   }
 
-  function checkDailyReset() {
+  let lastDailyCheckAt = 0;
+  function checkDailyReset(force = false) {
+    const nowMs = performance.now();
+    if (!force && nowMs - lastDailyCheckAt < 10000) return;
+    lastDailyCheckAt = nowMs;
     const today = new Date().toDateString();
     if (state.dayKey !== today) {
       state.dayKey = today;
@@ -233,8 +237,11 @@ window.BlahajQuests = (function () {
 
   function syncActorMarker(npcId, labelEl) {
     if (!labelEl) return;
-    let badge = labelEl.querySelector('.quest-marker-badge');
     const status = getGiverStatus(npcId);
+    if (labelEl._lastQuestStatus === status) return;
+    labelEl._lastQuestStatus = status;
+
+    let badge = labelEl.querySelector('.quest-marker-badge');
     if (!status) {
       if (badge) badge.style.display = 'none';
       return;

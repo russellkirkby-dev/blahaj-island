@@ -16551,10 +16551,11 @@
     if (!window.BlahajSeam) return;
     const seamState = window.BlahajSeam.getState();
 
-    // 1. UPDATE FLOATING MINI-WATCH WIDGET (Throttled to only mutate DOM when second or state changes!)
+    // 1. UPDATE FLOATING MINI-WATCH WIDGET (Throttled to only mutate DOM when second or state changes; 10Hz during incursion!)
     const remaining = Math.max(0, Math.floor(seamState.timer));
-    const watchKey = `${seamState.state}|${remaining}|${seamState.mendedCount}`;
-    if (watchKey !== lastSeamWatchKey || seamState.state === 'incursion') {
+    const incTick = seamState.state === 'incursion' ? Math.floor(elapsed * 10) : 0;
+    const watchKey = `${seamState.state}|${remaining}|${seamState.mendedCount}|${incTick}`;
+    if (watchKey !== lastSeamWatchKey) {
       lastSeamWatchKey = watchKey;
       const watchEl = document.getElementById('seam-mini-watch');
       const timerEl = document.getElementById('seam-watch-timer');

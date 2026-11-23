@@ -324,7 +324,7 @@ window.BlahajNetwork = (function () {
     return mqttConcat([header, body]);
   }
 
-  function connectWssBroker(url) {
+  function connectWssBroker(url, failCount = 0) {
     if (typeof WebSocket === 'undefined' || isCleaningUp) return;
 
     const existing = wssClients.get(url);
@@ -342,7 +342,8 @@ window.BlahajNetwork = (function () {
       connected: false,
       subscribedTopic: null,
       pingTimer: null,
-      reconnectTimer: null
+      reconnectTimer: null,
+      failCount
     };
     wssClients.set(url, state);
 
@@ -352,7 +353,8 @@ window.BlahajNetwork = (function () {
       ws.binaryType = 'arraybuffer';
       state.ws = ws;
     } catch (e) {
-      state.reconnectTimer = setTimeout(() => connectWssBroker(url), 3500);
+      const nextFails = Math.min(5, failCount + 1);
+      state.reconnectTimer = setTimeout(() => connectWssBroker(url, nextFails), Math.min(30000, 3500 * Math.pow(2, nextFails - 1)));
       return;
     }
 
@@ -389,6 +391,7 @@ window.BlahajNetwork = (function () {
         if (pktType === 0x20) {
           // CONNACK -> Subscribe to active realm topic
           state.connected = true;
+          state.failCount = 0;
           const topic = getRealmTopic(currentRoom);
           state.subscribedTopic = topic;
           try {
@@ -449,7 +452,9 @@ window.BlahajNetwork = (function () {
         state.pingTimer = null;
       }
       if (!isCleaningUp) {
-        state.reconnectTimer = setTimeout(() => connectWssBroker(url), 2500);
+        const nextFails = Math.min(5, (state.failCount || 0) + 1);
+        const backoffMs = Math.min(30000, 3000 * Math.pow(2, nextFails - 1));
+        state.reconnectTimer = setTimeout(() => connectWssBroker(url, nextFails), backoffMs);
       }
     };
 
