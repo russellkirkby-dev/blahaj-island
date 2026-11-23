@@ -8404,12 +8404,12 @@ body.ufo-flight-mode .hud-bottom-left {
 .builder-panel.builder-side-drawer {
   position: fixed !important;
   right: 16px !important;
-  top: 86px !important;
-  bottom: 126px !important;
+  top: 84px !important;
+  bottom: 74px !important;
   width: 348px !important;
   max-width: 90vw !important;
   z-index: 45 !important;
-  background: linear-gradient(160deg, rgba(16, 26, 44, 0.90), rgba(26, 38, 62, 0.92)) !important;
+  background: linear-gradient(160deg, rgba(16, 26, 44, 0.92), rgba(26, 38, 62, 0.94)) !important;
   padding: 10px 12px !important;
   pointer-events: auto !important;
 }
@@ -8458,18 +8458,26 @@ body.ufo-flight-mode .hud-bottom-left {
 .builder-active-bar {
   position: fixed;
   right: 16px;
-  bottom: 72px;
+  bottom: 18px;
   z-index: 46;
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
   border-radius: 999px;
-  background: linear-gradient(160deg, rgba(14, 24, 42, 0.92), rgba(24, 36, 58, 0.94));
+  background: linear-gradient(160deg, rgba(14, 24, 42, 0.94), rgba(24, 36, 58, 0.96));
   border: 1.5px solid #f5cd79;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 205, 121, 0.2);
   backdrop-filter: blur(8px);
   pointer-events: auto;
+}
+
+/* Fix HUD vertical clearances: never overlap Great Seam watch or Vitals/Action Bar! */
+#interaction-prompt {
+  bottom: 186px !important;
+}
+.play-capture-pill {
+  top: 156px !important;
 }
 .builder-cycle-btn {
   width: 24px;

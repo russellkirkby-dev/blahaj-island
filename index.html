@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=11.6" />
+  <link rel="stylesheet" href="styles.css?v=11.7" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -577,60 +577,61 @@
     </div>
 
     <!-- BOTTOM CENTER: HIRAM'S CATEGORIZED MASTER BUILDER TOOLBAR + MMO ACTION BAR -->
+    <!-- HIRAM THE BUILDER: RIGHT-DOCKED BLUEPRINT CATALOG DRAWER (Direct child of #hud so position:fixed is viewport-relative!) -->
+    <div id="builder-panel" class="builder-panel builder-side-drawer hidden">
+      <div class="builder-header">
+        <div class="builder-title-wrap">
+          <span class="builder-badge">🔧 MASTER BUILDER CATALOG</span>
+          <div class="builder-drawer-actions">
+            <button type="button" class="freebuild-toggle-btn" id="btn-builder-hide-catalog" title="Collapse Catalog &amp; Keep Blueprint Active [C]">
+              👁️ Hide
+            </button>
+            <button type="button" class="freebuild-toggle-btn builder-exit-btn" id="btn-builder-exit-drawer" title="Exit Build Mode [Esc]">
+              ✖ Exit
+            </button>
+          </div>
+        </div>
+        <div class="builder-currencies" id="builder-currency-summary">
+          📦 <strong id="b-cur-flatpacks">0</strong> Flat-Pack · 🐦 <strong id="b-cur-birbs">0</strong> Birb · 🥕 <strong id="b-cur-carrots">0</strong> Carrot · ⚔️ <strong id="b-cur-trials">1</strong> Trial
+        </div>
+        <div class="builder-controls-row">
+          <button type="button" class="freebuild-toggle-btn active" id="btn-toggle-snapgrid" title="Toggle 4m×4m Magnetic Edge &amp; Grid Snapping [G]">
+            🧲 Snap: <strong id="snapgrid-state-txt">ON</strong> <kbd>G</kbd>
+          </button>
+          <button type="button" class="freebuild-toggle-btn" id="btn-builder-elev" title="Cycle Multi-Story Floor Elevation (+0.0m / +3.2m / +6.4m) [Z]">
+            📐 <strong id="builder-elev-txt">1F</strong> <kbd>Z</kbd>
+          </button>
+          <button type="button" class="freebuild-toggle-btn" id="btn-toggle-freebuild" title="Toggle Sacred Allen Key Free-Build Mode [V]">
+            ✨ Free: <strong id="freebuild-state-txt">OFF</strong> <kbd>V</kbd>
+          </button>
+          <button type="button" class="freebuild-toggle-btn raid-shortcut-btn" id="btn-builder-raid" title="Raid the IKEA Spawning Pits on Erf for Flat-Pack Kits!">
+            🛒 Raid Pits
+          </button>
+        </div>
+      </div>
+
+      <div class="builder-cat-tabs" id="builder-cat-tabs"></div>
+      <div class="builder-items-row" id="builder-items-row"></div>
+    </div>
+
+    <!-- COMPACT ACTIVE-PLACEMENT PILL (Viewport-fixed bottom-right, never overlaps action bar or 3D center!) -->
+    <div id="builder-active-bar" class="builder-active-bar hidden">
+      <button type="button" class="builder-cycle-btn" id="btn-builder-prev" title="Previous Blueprint [[]">◀</button>
+      <div class="builder-selected-pill" id="builder-selected-pill">
+        <span id="builder-active-icon">🏡</span>
+        <strong id="builder-active-name">Plinth</strong>
+        <span class="builder-active-meta" id="builder-active-meta">1F · Snap ON</span>
+      </div>
+      <button type="button" class="builder-cycle-btn" id="btn-builder-next" title="Next Blueprint []]">▶</button>
+      <button type="button" class="freebuild-toggle-btn" id="btn-builder-toggle-catalog" title="Open/Hide Blueprint Catalog [C]">
+        📋 Catalog <kbd>C</kbd>
+      </button>
+      <button type="button" class="freebuild-toggle-btn builder-exit-btn" id="btn-builder-exit-bar" title="Exit Build Mode [Esc]">
+        ✖ Exit
+      </button>
+    </div>
+
     <div class="hud-bottom-center">
-      <!-- HIRAM THE BUILDER: RIGHT-DOCKED BLUEPRINT CATALOG DRAWER (Unobstructed 3D Center View!) -->
-      <div id="builder-panel" class="builder-panel builder-side-drawer hidden">
-        <div class="builder-header">
-          <div class="builder-title-wrap">
-            <span class="builder-badge">🔧 MASTER BUILDER CATALOG</span>
-            <div class="builder-drawer-actions">
-              <button type="button" class="freebuild-toggle-btn" id="btn-builder-hide-catalog" title="Collapse Catalog &amp; Keep Blueprint Active [C]">
-                👁️ Hide Menu
-              </button>
-              <button type="button" class="freebuild-toggle-btn builder-exit-btn" id="btn-builder-exit-drawer" title="Exit Build Mode [Esc]">
-                ✖ Exit
-              </button>
-            </div>
-          </div>
-          <div class="builder-currencies" id="builder-currency-summary">
-            📦 <strong id="b-cur-flatpacks">0</strong> Flat-Pack · 🐦 <strong id="b-cur-birbs">0</strong> Birb · 🥕 <strong id="b-cur-carrots">0</strong> Carrot · ⚔️ <strong id="b-cur-trials">1</strong> Trial
-          </div>
-          <div class="builder-controls-row">
-            <button type="button" class="freebuild-toggle-btn active" id="btn-toggle-snapgrid" title="Toggle 4m×4m Magnetic Edge &amp; Grid Snapping [G]">
-              🧲 Snap: <strong id="snapgrid-state-txt">ON</strong> <kbd>G</kbd>
-            </button>
-            <button type="button" class="freebuild-toggle-btn" id="btn-builder-elev" title="Cycle Multi-Story Floor Elevation (+0.0m / +3.2m / +6.4m) [Z]">
-              📐 <strong id="builder-elev-txt">1F</strong> <kbd>Z</kbd>
-            </button>
-            <button type="button" class="freebuild-toggle-btn" id="btn-toggle-freebuild" title="Toggle Sacred Allen Key Free-Build Mode [V]">
-              ✨ Free: <strong id="freebuild-state-txt">OFF</strong> <kbd>V</kbd>
-            </button>
-            <button type="button" class="freebuild-toggle-btn raid-shortcut-btn" id="btn-builder-raid" title="Raid the IKEA Spawning Pits on Erf for Flat-Pack Kits!">
-              🛒 Raid Pits
-            </button>
-          </div>
-        </div>
-
-        <div class="builder-cat-tabs" id="builder-cat-tabs"></div>
-        <div class="builder-items-row" id="builder-items-row"></div>
-      </div>
-
-      <!-- COMPACT ACTIVE-PLACEMENT STRIP (Stays unobtrusive while placing holograms!) -->
-      <div id="builder-active-bar" class="builder-active-bar hidden">
-        <button type="button" class="builder-cycle-btn" id="btn-builder-prev" title="Previous Blueprint [[]">◀</button>
-        <div class="builder-selected-pill" id="builder-selected-pill">
-          <span id="builder-active-icon">🏡</span>
-          <strong id="builder-active-name">Plinth</strong>
-          <span class="builder-active-meta" id="builder-active-meta">1F · Snap ON</span>
-        </div>
-        <button type="button" class="builder-cycle-btn" id="btn-builder-next" title="Next Blueprint []]">▶</button>
-        <button type="button" class="freebuild-toggle-btn" id="btn-builder-toggle-catalog" title="Open/Hide Blueprint Catalog [C]">
-          📋 Catalog <kbd>C</kbd>
-        </button>
-        <button type="button" class="freebuild-toggle-btn builder-exit-btn" id="btn-builder-exit-bar" title="Exit Build Mode [Esc]">
-          ✖ Exit
-        </button>
-      </div>
 
       <!-- PASS 83: COMPACT VITALS HUD (Stuffing Coherence & Inverse Mange/Fray Pool) -->
       <div class="mmo-vitals-bar" id="mmo-vitals-bar" title="Stuffing Coherence (Hit Points) &amp; Mange (Inverse Mana / Fray Capacity)">
@@ -2579,23 +2580,23 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=11.6"></script>
-  <script src="js/sharks3d.js?v=11.6"></script>
-  <script src="js/ufo.js?v=11.6"></script>
-  <script src="js/world3d.js?v=11.6"></script>
-  <script src="js/volcano.js?v=11.6"></script>
-  <script src="js/laundromat.js?v=11.6"></script>
-  <script src="js/sphericalFoods.js?v=11.6"></script>
-  <script src="js/volleyball.js?v=11.6"></script>
-  <script src="js/spawningPits.js?v=11.6"></script>
-  <script src="js/homestead.js?v=11.6"></script>
-  <script src="js/network.js?v=11.6"></script>
-  <script src="js/inventory.js?v=11.6"></script>
-  <script src="js/enemies.js?v=11.6"></script>
-  <script src="js/seam.js?v=11.6"></script>
-  <script src="js/mmoControls.js?v=11.6"></script>
+  <script src="js/lore.js?v=11.7"></script>
+  <script src="js/sharks3d.js?v=11.7"></script>
+  <script src="js/ufo.js?v=11.7"></script>
+  <script src="js/world3d.js?v=11.7"></script>
+  <script src="js/volcano.js?v=11.7"></script>
+  <script src="js/laundromat.js?v=11.7"></script>
+  <script src="js/sphericalFoods.js?v=11.7"></script>
+  <script src="js/volleyball.js?v=11.7"></script>
+  <script src="js/spawningPits.js?v=11.7"></script>
+  <script src="js/homestead.js?v=11.7"></script>
+  <script src="js/network.js?v=11.7"></script>
+  <script src="js/inventory.js?v=11.7"></script>
+  <script src="js/enemies.js?v=11.7"></script>
+  <script src="js/seam.js?v=11.7"></script>
+  <script src="js/mmoControls.js?v=11.7"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=11.6"></script>
-  <script src="js/main.js?v=11.6"></script>
+  <script src="js/saveSystem.js?v=11.7"></script>
+  <script src="js/main.js?v=11.7"></script>
 </body>
 </html>
