@@ -860,7 +860,15 @@ window.BlahajUFO = (function () {
     // Glowing cyan Boarding Pad Ring at the foot of the stairs so entry point is crystal clear!
     const boardingRing = new THREE.Mesh(
       new THREE.RingGeometry(1.15, 1.55, 28),
-      new THREE.MeshBasicMaterial({ color: 0x5eead4, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+      new THREE.MeshBasicMaterial({
+        color: 0x5eead4,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.92,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2
+      })
     );
     boardingRing.rotation.x = -Math.PI / 2;
     boardingRing.position.set(0, -1.58, 2.85);
@@ -1437,6 +1445,19 @@ window.BlahajUFO = (function () {
   // Autopilot & Summoning NEVER land below the ocean surface (pilot must intentionally dive!)
   function getSafeLandingHeight(x, z) {
     return Math.max(0.22, getSafeGroundHeight(x, z));
+  }
+
+  // Compute UFO hull center Y so the boarding ring at the bottom of the stairs (-2.10m)
+  // sits cleanly on top of the highest terrain/water surface beneath the saucer & stair foot.
+  function getSaucerTouchdownY(x, z, yaw = state.yaw) {
+    const centerY = getSafeLandingHeight(x, z);
+    const stairX = x + Math.sin(yaw) * 3.7;
+    const stairZ = z + Math.cos(yaw) * 3.7;
+    const stairY = getSafeLandingHeight(stairX, stairZ);
+    const rearX = x - Math.sin(yaw) * 2.5;
+    const rearZ = z - Math.cos(yaw) * 2.5;
+    const rearY = getSafeLandingHeight(rearX, rearZ);
+    return Math.max(centerY, stairY, rearY) + 2.16;
   }
 
   // ==========================================================================
@@ -2421,7 +2442,7 @@ window.BlahajUFO = (function () {
           state.vel.z *= Math.max(0, 1 - dt * 3.5);
           state.pos.x += state.vel.x * dt;
           state.pos.z += state.vel.z * dt;
-          targetY = getSafeLandingHeight(state.pos.x, state.pos.z) + 1.45;
+          targetY = getSaucerTouchdownY(state.pos.x, state.pos.z, state.yaw);
         }
         const descentSpeed = Math.max(2.0, Math.min(9.5, Math.abs(state.pos.y - targetY) * 1.5));
         if (state.pos.y > targetY) {
@@ -2597,8 +2618,7 @@ window.BlahajUFO = (function () {
     } else {
       // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Shonkbird Atoll elevator!
       if (state.phase === 'landing') {
-        const groundY = getSafeLandingHeight(state.pos.x, state.pos.z);
-        const targetY = groundY + 1.45;
+        const targetY = getSaucerTouchdownY(state.pos.x, state.pos.z, state.yaw);
         const descentSpeed = Math.max(3.2, Math.min(11.0, (state.pos.y - targetY) * 1.65));
         state.pos.y = Math.max(targetY, state.pos.y - descentSpeed * dt);
         state.pitch *= Math.max(0, 1 - dt * 5.0);

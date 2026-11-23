@@ -885,7 +885,7 @@ window.BlahajWorld = (function () {
 
   // Terrain surface height purely for the outer mountain mesh (so the volcano mountain arches cleanly over the interior dungeon!)
   function getExteriorMountainHeight(x, z) {
-    if (Math.abs(x - -28) < 6.2 && z <= -172 && z >= -218) {
+    if (Math.abs(x - -28) < 6.2 && z <= -172 + VOLCANO_CFG.wharfZShift && z >= -218 + VOLCANO_CFG.wharfZShift) {
       return 1.4;
     }
     if (Math.abs(x - -28) < 12.5 && z < -184 + VOLCANO_CFG.wharfZShift && z >= -222 + VOLCANO_CFG.wharfZShift) {
