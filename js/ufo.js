@@ -57,6 +57,8 @@ window.BlahajUFO = (function () {
   let passengerEyeAnchor = null;
   let cockpitCamAnchor = null;
   let canopyDomeMesh = null;
+  let canopyDropsMesh = null;
+  let canopyDropsMat = null;
   let canopyRibs = [];
   let floorSolidMeshes = [];
   let floorLcdGroup = null;
@@ -824,6 +826,94 @@ window.BlahajUFO = (function () {
     canopyDomeMesh.position.y = 0.85;
     ufoHullGroup.add(canopyDomeMesh);
 
+    // 3D Wiggly Water Droplets & 3-Second Streaks clinging directly to the glass capsule bubble
+    canopyDropsMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      uniforms: {
+        uTime: { value: 0 },
+        uWetness: { value: 0 },
+        uProgress: { value: 0 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uWetness;
+        uniform float uProgress;
+        varying vec2 vUv;
+
+        float hash21(vec2 p) {
+          p = fract(p * vec2(127.1, 311.7));
+          p += dot(p, p + 34.23);
+          return fract(p.x * p.y);
+        }
+
+        void main() {
+          if (uWetness <= 0.01) discard;
+
+          // Tile across the curved dome: u = azimuth around bubble, v = 1 at apex -> 0 at rim
+          vec2 gridScale = vec2(26.0, 7.0);
+          vec2 uv = vec2(vUv.x * gridScale.x, (1.0 - vUv.y) * gridScale.y);
+          vec2 id = floor(uv);
+          vec2 f = fract(uv) - 0.5;
+
+          float rnd = hash21(id);
+          float rnd2 = hash21(id + vec2(17.3, 9.1));
+
+          // Only ~62% of cells spawn a droplet, staggered in descent speed
+          if (rnd < 0.38) discard;
+
+          float slideSpeed = 0.55 + rnd2 * 0.85;
+          float dropY = -0.32 + uProgress * slideSpeed * 1.45;
+          // Slight wiggly horizontal meander as the bead slides down the curved glass
+          float wiggleX = sin(uTime * 5.0 + rnd * 18.0 + f.y * 8.0) * 0.08;
+          vec2 dropCenter = vec2((rnd2 - 0.5) * 0.45 + wiggleX, dropY);
+
+          vec2 d = f - dropCenter;
+          float ang = atan(d.y, d.x);
+          // Wiggly organic droplet outline + elongated teardrop focus
+          float outlineWiggle = 1.0
+            + 0.16 * sin(ang * 3.0 + uTime * 3.5 + rnd * 12.0)
+            + 0.11 * cos(ang * 5.0 - uTime * 2.8 + rnd2 * 9.0);
+          vec2 scaledD = vec2(d.x * 1.35, d.y * (d.y < 0.0 ? 0.72 : 1.15));
+          float dist = length(scaledD) / outlineWiggle;
+
+          float radius = 0.14 + rnd * 0.09;
+          float dropMask = 1.0 - smoothstep(radius - 0.025, radius + 0.015, dist);
+          // Meniscus boundary rim where the light/field bends at the droplet edge
+          float rimMask = smoothstep(radius - 0.045, radius - 0.01, dist) * (1.0 - smoothstep(radius - 0.005, radius + 0.02, dist));
+
+          // Wet streak trail left behind above the sliding droplet
+          float inTrailX = smoothstep(radius * 0.62, 0.0, abs(d.x - sin(d.y * 10.0 + rnd * 6.0) * 0.03));
+          float inTrailY = step(d.y, 0.0) * smoothstep(-0.78, -0.02, d.y);
+          float trailMask = inTrailX * inTrailY * 0.45;
+
+          float totalAlpha = max(dropMask * 0.82, max(rimMask * 0.95, trailMask)) * uWetness;
+          if (totalAlpha <= 0.02) discard;
+
+          // Refracted interior field shift + bright specular focus dot inside each droplet
+          float focusDist = length(d - vec2(-radius * 0.28, radius * 0.25));
+          float specularFocus = smoothstep(radius * 0.42, 0.0, focusDist);
+          vec3 innerField = mix(vec3(0.58, 0.88, 0.98), vec3(0.88, 0.97, 1.0), smoothstep(radius, 0.0, dist));
+          vec3 rimCol = vec3(0.18, 0.58, 0.78);
+          vec3 col = mix(innerField, rimCol, rimMask * 0.65);
+          col = mix(col, vec3(1.0), specularFocus * 0.92 * dropMask);
+
+          gl_FragColor = vec4(col, totalAlpha);
+        }`
+    });
+    const dropsGeo = new THREE.SphereGeometry(3.47, 36, 22, 0, Math.PI * 2, 0, Math.PI * 0.56);
+    canopyDropsMesh = new THREE.Mesh(dropsGeo, canopyDropsMat);
+    canopyDropsMesh.position.y = 0.85;
+    canopyDropsMesh.visible = false;
+    ufoHullGroup.add(canopyDropsMesh);
+
     // Sleek curved chrome canopy ribs (hidden automatically when Floor Cam is active!)
     [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((ry) => {
       const rib = new THREE.Mesh(new THREE.TorusGeometry(3.46, 0.065, 8, 28, Math.PI * 0.56), chromeMat);
@@ -1159,108 +1249,46 @@ window.BlahajUFO = (function () {
   }
 
   function seedWindscreenDroplets() {
-    state.windscreenDrops = [];
-    const count = 38;
-    for (let i = 0; i < count; i++) {
-      state.windscreenDrops.push({
-        xNorm: 0.04 + Math.random() * 0.92,
-        yNorm: Math.random() * 0.72,
-        r: 2.5 + Math.random() * 4.5,
-        speedY: 0.11 + Math.random() * 0.22,
-        streakLen: 18 + Math.random() * 46,
-        wobblePhase: Math.random() * Math.PI * 2,
-        alpha: 0.55 + Math.random() * 0.35
-      });
-    }
+    // 3D canopy shader handles droplet tiling directly on the glass capsule bubble
   }
 
-  function updateWindscreenWaterEffects(dt) {
+  function updateWindscreenWaterEffects(dt, elapsed = 0) {
     const canvas = document.getElementById('ufo-windscreen-rain');
+    if (canvas && !canvas.classList.contains('hidden')) {
+      canvas.classList.add('hidden');
+    }
+
     if (state.windscreenWetTimer > 0) {
       state.windscreenWetTimer = Math.max(0, state.windscreenWetTimer - dt);
     }
 
-    const showCockpitDrops = !!(
-      state.localRole &&
-      state.viewMode === 'inside' &&
-      !state.isSubmerged &&
-      state.windscreenWetTimer > 0
-    );
-
-    if (!showCockpitDrops) {
-      if (canvas && !canvas.classList.contains('hidden')) {
-        canvas.classList.add('hidden');
+    const wetActive = !state.isSubmerged && state.windscreenWetTimer > 0;
+    if (canopyDropsMesh && canopyDropsMat) {
+      canopyDropsMesh.visible = wetActive;
+      if (wetActive) {
+        const progress = Math.min(1.0, Math.max(0.0, (3.0 - state.windscreenWetTimer) / 3.0));
+        const wetness = Math.min(1.0, state.windscreenWetTimer / 0.85);
+        canopyDropsMat.uniforms.uTime.value = elapsed;
+        canopyDropsMat.uniforms.uProgress.value = progress;
+        canopyDropsMat.uniforms.uWetness.value = wetness;
+      } else {
+        canopyDropsMat.uniforms.uWetness.value = 0;
       }
-      // External orbit camera: shed 3D water droplets off the saucer rim while drying!
-      if (state.localRole && state.viewMode === 'outside' && !state.isSubmerged && state.windscreenWetTimer > 0) {
-        state.rimDripCooldown = (state.rimDripCooldown || 0) - dt;
-        if (state.rimDripCooldown <= 0 && window.BlahajGame && typeof window.BlahajGame.spawnFloatingBurst === 'function') {
-          state.rimDripCooldown = 0.22;
-          const ang = Math.random() * Math.PI * 2;
-          const dripPos = new THREE.Vector3(
-            state.pos.x + Math.cos(ang) * 3.6,
-            state.pos.y - 0.35,
-            state.pos.z + Math.sin(ang) * 3.6
-          );
-          window.BlahajGame.spawnFloatingBurst(dripPos, 0xbae6fd, 4);
-        }
-      }
-      return;
     }
 
-    if (!canvas) return;
-    if (canvas.classList.contains('hidden')) canvas.classList.remove('hidden');
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.clearRect(0, 0, w, h);
-
-    const fade = Math.min(1.0, state.windscreenWetTimer / 1.4);
-    for (let i = 0; i < state.windscreenDrops.length; i++) {
-      const d = state.windscreenDrops[i];
-      d.yNorm += d.speedY * dt;
-      d.wobblePhase += dt * 4.5;
-      if (d.yNorm > 1.08) {
-        if (state.windscreenWetTimer > 1.8) {
-          d.yNorm = -0.05;
-          d.xNorm = 0.04 + Math.random() * 0.92;
-        } else {
-          continue;
-        }
+    // External orbit camera: also shed a few 3D trailing water droplets off the saucer rim while drying
+    if (wetActive && state.localRole && state.viewMode === 'outside') {
+      state.rimDripCooldown = (state.rimDripCooldown || 0) - dt;
+      if (state.rimDripCooldown <= 0 && window.BlahajGame && typeof window.BlahajGame.spawnFloatingBurst === 'function') {
+        state.rimDripCooldown = 0.22;
+        const ang = Math.random() * Math.PI * 2;
+        const dripPos = new THREE.Vector3(
+          state.pos.x + Math.cos(ang) * 3.6,
+          state.pos.y - 0.35,
+          state.pos.z + Math.sin(ang) * 3.6
+        );
+        window.BlahajGame.spawnFloatingBurst(dripPos, 0xbae6fd, 4);
       }
-
-      const cx = d.xNorm * w + Math.sin(d.wobblePhase) * 2.2;
-      const cy = d.yNorm * h;
-      const a = d.alpha * fade;
-
-      // Running water streak behind the droplet
-      const grad = ctx.createLinearGradient(cx, cy - d.streakLen, cx, cy);
-      grad.addColorStop(0, 'rgba(186, 230, 253, 0)');
-      grad.addColorStop(0.7, `rgba(186, 230, 253, ${(a * 0.32).toFixed(3)})`);
-      grad.addColorStop(1, `rgba(224, 242, 254, ${(a * 0.72).toFixed(3)})`);
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = Math.max(1.5, d.r * 0.75);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - d.streakLen);
-      ctx.lineTo(cx, cy);
-      ctx.stroke();
-
-      // Glistening droplet bead + specular highlight
-      ctx.fillStyle = `rgba(186, 230, 253, ${(a * 0.55).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(cx, cy, d.r, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = `rgba(255, 255, 255, ${(a * 0.9).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(cx - d.r * 0.3, cy - d.r * 0.3, Math.max(1, d.r * 0.34), 0, Math.PI * 2);
-      ctx.fill();
     }
   }
 
@@ -2638,8 +2666,8 @@ window.BlahajUFO = (function () {
             window.BlahajGame.spawnWaterBreachSplash(state.pos, state.isSubmerged ? 2.0 : 2.5, waterY);
           }
           if (!state.isSubmerged) {
-            // Breached out of water: coat the glass canopy with droplets & running streaks!
-            state.windscreenWetTimer = 4.2;
+            // Breached out of water: coat the 3D glass capsule bubble with wiggly droplets for 3 seconds!
+            state.windscreenWetTimer = 3.0;
             seedWindscreenDroplets();
           } else {
             state.windscreenWetTimer = 0;
@@ -2784,7 +2812,7 @@ window.BlahajUFO = (function () {
     ufoGroup.position.set(state.pos.x, state.pos.y + hoverBob, state.pos.z);
     ufoGroup.rotation.order = 'YXZ';
     ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
-    updateWindscreenWaterEffects(dt);
+    updateWindscreenWaterEffects(dt, elapsed);
 
     // Thruster flame scaling
     const thrustScale = state.phase === 'parked' ? 0.18 : (0.7 + Math.min(1.2, state.speed / 24) + (state.turboActive ? 0.9 : 0));
