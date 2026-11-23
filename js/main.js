@@ -3067,11 +3067,38 @@
     updateMetersUI();
     renderUpgradesGrid();
 
+    // Restore saved game state from active Island Passport slot BEFORE shader pre-compilation & 360° warmup!
+    if (window.BlahajSaveSystem) {
+      const save = window.BlahajSaveSystem.getSaveState();
+      if (save) {
+        window.BlahajSaveSystem.restoreGameFromSave(save);
+      }
+    }
+
+    // Statically cap PointLights ONCE at boot ( ranked by reach/importance ) so NUM_POINT_LIGHTS never changes at runtime!
+    // Never toggle PointLight.visible dynamically during gameplay, as changing NUM_POINT_LIGHTS forces Three.js/D3D11
+    // to synchronously recompile every MeshStandardMaterial shader in the scene!
+    try {
+      const staticLights = [];
+      scene.traverse((obj) => {
+        if (obj.isPointLight && obj.visible) {
+          const score = (obj.distance || 25) * (obj.intensity || 1);
+          staticLights.push({ light: obj, score });
+        }
+      });
+      staticLights.sort((a, b) => b.score - a.score);
+      const MAX_STATIC_POINT_LIGHTS = 8;
+      for (let i = MAX_STATIC_POINT_LIGHTS; i < staticLights.length; i++) {
+        staticLights[i].light.visible = false;
+      }
+    } catch (e) {}
+
     setLoadingProgress(88, 'Pre-compiling WebGL shaders & GPU materials…');
     await yieldFrame();
 
     // 4. Pre-compile all WebGL shaders on GPU upfront (eliminates 10-20s runtime stutter!)
     try {
+      updateCamera(0, 0.016);
       if (renderer && scene && camera) {
         renderer.compile(scene, camera);
       }
@@ -3086,18 +3113,24 @@
       console.warn('Shader pre-compilation warning:', e);
     }
 
-    setLoadingProgress(96, 'Pre-warming render passes & shadow buffers…');
+    setLoadingProgress(96, 'Pre-warming 360° horizon textures & shadow buffers…');
     await yieldFrame();
 
-    // 5. Pre-warm 2 silent render passes to allocate render targets & shadow maps
+    // 5. Sweep camera 360° across 8 compass angles during warmup so every frustum sector's
+    // CanvasTextures and D3D11 draw pipelines upload/link upfront before gameplay starts!
     try {
-      if (composer) {
-        composer.render();
-        composer.render();
-      } else if (renderer && scene && camera) {
-        renderer.render(scene, camera);
-        renderer.render(scene, camera);
+      const savedYaw = camState.yaw;
+      for (let step = 0; step < 8; step++) {
+        camState.yaw = savedYaw + (step * Math.PI) / 4;
+        updateCamera(0, 0.016);
+        if (composer && gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled) {
+          composer.render();
+        } else if (renderer && scene && camera) {
+          renderer.render(scene, camera);
+        }
       }
+      camState.yaw = savedYaw;
+      updateCamera(0, 0.016);
     } catch (e) {
       console.warn('Warmup render warning:', e);
     }
@@ -3107,14 +3140,6 @@
 
     setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
     finishLoadingScreen();
-
-    // Restore saved game state from active Island Passport slot!
-    if (window.BlahajSaveSystem) {
-      const save = window.BlahajSaveSystem.getSaveState();
-      if (save) {
-        window.BlahajSaveSystem.restoreGameFromSave(save);
-      }
-    }
   }
 
   function canUseBuilderMode(sId = player.sharkId) {
@@ -14675,38 +14700,6 @@
     }
   }
 
-  const _lightCullPos = new THREE.Vector3();
-  const _lightCandidates = [];
-  let _lastLightCullTime = -1;
-  function cullMainScenePointLights(targetScene, refPos, elapsed) {
-    if (!targetScene || elapsed - _lastLightCullTime < 0.25) return;
-    _lastLightCullTime = elapsed;
-    _lightCandidates.length = 0;
-    const maxDistSq = 85 * 85;
-    targetScene.traverse((obj) => {
-      if (!obj.isPointLight) return;
-      if (!obj.visible && !obj.userData._culledByDistance) return;
-      obj.getWorldPosition(_lightCullPos);
-      const dSq = _lightCullPos.distanceToSquared(refPos);
-      _lightCandidates.push({ light: obj, dSq });
-    });
-    _lightCandidates.sort((a, b) => a.dSq - b.dSq);
-    const MAX_ACTIVE_POINT_LIGHTS = 6;
-    for (let i = 0; i < _lightCandidates.length; i++) {
-      const item = _lightCandidates[i];
-      const keep = i < MAX_ACTIVE_POINT_LIGHTS && item.dSq <= maxDistSq;
-      if (keep) {
-        if (item.light.userData._culledByDistance) {
-          item.light.visible = true;
-          item.light.userData._culledByDistance = false;
-        }
-      } else if (item.light.visible) {
-        item.light.visible = false;
-        item.light.userData._culledByDistance = true;
-      }
-    }
-  }
-
   let lastMeterUpdateSecond = -1;
   function animate() {
     requestAnimationFrame(animate);
@@ -14853,10 +14846,6 @@
       }
     } catch (err) {
       console.error('[Blahaj] Zone update error:', err);
-    }
-
-    if (activeScene === scene) {
-      cullMainScenePointLights(scene, camera.position, elapsed);
     }
 
     const useBloom = !!(gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled);
