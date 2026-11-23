@@ -4927,9 +4927,20 @@
             }
             setTimeout(syncCaptureUI, 0);
           } else if (!isAnyModalOpen()) {
+            // Holding Binoculars: Hold Left-Click to raise & pan smoothly, release Left-Click to lower!
+            if (playerHeldItem && playerHeldItem.id === 'binoculars' && !(window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard())) {
+              finSense.binocHeldByMouse = true;
+              raiseBinocularsTowardScreen(finCursor.x, finCursor.y);
+              return;
+            }
             // Clicked on the 3D world with the Shark Fin Cursor -> Direct Smart Fin Action / Throw!
             handleFinWorldClick(finCursor.x, finCursor.y);
           }
+          return;
+        }
+        if (!isAnyModalOpen() && playerHeldItem && playerHeldItem.id === 'binoculars' && !(window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard())) {
+          finSense.binocHeldByMouse = true;
+          if (!isUsingBinoculars) enterBinocularMode();
           return;
         }
         camState.isLeftDown = true;
@@ -4948,6 +4959,14 @@
 
       const dragDist = Math.max(accumDragDist, Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y));
       if (e.button === 0) {
+        if (finSense.binocHeldByMouse) {
+          finSense.binocHeldByMouse = false;
+          if (isUsingBinoculars) exitBinocularMode();
+          camState.isLeftDown = false;
+          camState.isLeftDragging = false;
+          syncCaptureUI();
+          return;
+        }
         const wasFinClick = isFinCursorActive();
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
@@ -4985,6 +5004,11 @@
       if (finCursorEl) finCursorEl.classList.remove('fin-clicking');
       finCursor.draggingRange = null;
       if (!e || e.button === 0) {
+        if (finSense.binocHeldByMouse) {
+          finSense.binocHeldByMouse = false;
+          if (isUsingBinoculars) exitBinocularMode();
+          syncCaptureUI();
+        }
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
       }
