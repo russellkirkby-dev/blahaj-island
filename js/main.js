@@ -3642,39 +3642,54 @@
       }
     }
 
-    function computeGroundPointUnderScreen(sx, sy) {
+    function computeGroundPointUnderScreen(sx, sy, maxThrowDist = 24.0) {
       if (!camera) return null;
       finSense.rayNdc.set((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1);
       finSense.raycaster.setFromCamera(finSense.rayNdc, camera);
       const orig = finSense.raycaster.ray.origin;
       const dir = finSense.raycaster.ray.direction;
+
+      const clampToRange = (tx, tz) => {
+        const dx = tx - player.pos.x;
+        const dz = tz - player.pos.z;
+        const d = Math.hypot(dx, dz);
+        let cx = tx;
+        let cz = tz;
+        if (d > maxThrowDist && d > 0.001) {
+          cx = player.pos.x + (dx / d) * maxThrowDist;
+          cz = player.pos.z + (dz / d) * maxThrowDist;
+        }
+        let cy = player.pos.y;
+        if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
+          cy = worldApi.getGroundAndStructureHeight(cx, cz, player.pos.y + 6.0);
+        } else if (currentZone === 'volcano' && window.BlahajVolcano) {
+          cy = window.BlahajVolcano.getFloorHeight(cx, cz, player.pos.y + 6.0);
+          if (cy < -100) cy = window.BlahajVolcano.constants.LAVA_Y || -6;
+        }
+        return new THREE.Vector3(cx, cy, cz);
+      };
+
       if (dir.y >= -0.02) {
-        // Aiming near/above horizon: throw ~15m forward along ray
-        const tx = player.pos.x + dir.x * 15;
-        const tz = player.pos.z + dir.z * 15;
-        const ty = (worldApi && worldApi.getTerrainHeight) ? Math.max(0.2, worldApi.getTerrainHeight(tx, tz)) : player.pos.y;
-        return new THREE.Vector3(tx, ty, tz);
+        return clampToRange(player.pos.x + dir.x * 16, player.pos.z + dir.z * 16);
       }
-      // Step along ray to intersect terrain/floor cleanly (fast, ~24 steps max, up to 36m)
-      for (let d = 2.0; d <= 36.0; d += 1.2) {
+
+      // Step along ray to intersect terrain/floor cleanly
+      for (let d = 1.5; d <= 48.0; d += 1.0) {
         const rx = orig.x + dir.x * d;
         const ry = orig.y + dir.y * d;
         const rz = orig.z + dir.z * d;
         let gy = player.pos.y;
         if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
-          gy = worldApi.getGroundAndStructureHeight(rx, rz, ry + 1.0);
+          gy = worldApi.getGroundAndStructureHeight(rx, rz, ry + 1.5);
         } else if (currentZone === 'volcano' && window.BlahajVolcano) {
-          gy = window.BlahajVolcano.getFloorHeight(rx, rz, ry + 1.0);
+          gy = window.BlahajVolcano.getFloorHeight(rx, rz, ry + 1.5);
           if (gy < -100) gy = window.BlahajVolcano.constants.LAVA_Y || -6;
         }
-        if (ry <= gy + 0.15) {
-          return new THREE.Vector3(rx, gy, rz);
+        if (ry <= gy + 0.25) {
+          return clampToRange(rx, rz);
         }
       }
-      const tx = player.pos.x + dir.x * 18;
-      const tz = player.pos.z + dir.z * 18;
-      const ty = (worldApi && worldApi.getTerrainHeight) ? worldApi.getTerrainHeight(tx, tz) : player.pos.y;
-      return new THREE.Vector3(tx, ty, tz);
+      return clampToRange(player.pos.x + dir.x * 18, player.pos.z + dir.z * 18);
     }
 
     function createThrownMesh(itemId) {
@@ -3887,12 +3902,21 @@
       if (itemId === 'tea' || itemId === 'margarita' || itemId === 'tropical_cocktail' || itemId === 'celestial_boba') {
         if (player.inventory && player.inventory.hasItem(itemId, 1)) {
           player.inventory.removeItem(itemId, 1);
+          const beforeStuff = Math.round(player.stuffing || 0);
+          player.stuffing = Math.min(100, (player.stuffing || 0) + 30);
+          const healed = Math.max(0, Math.round(player.stuffing) - beforeStuff);
           player.warmth = 100;
-          player.stuffing = Math.min(100, (player.stuffing || 100) + 20);
           player.teaBuffTimer = Math.max(player.teaBuffTimer || 0, 120);
           CozyAudio.bistroChime();
-          spawnFloatingBurst(player.pos, 0x38bdf8, 14);
-          showFinSenseCard(playerHeldItem.icon || '🍵', `Sipped ${playerHeldItem.name}!`, '+100% Warmth & Cozy Spirit', '', '', 3000);
+          spawnFloatingBurst(player.pos, 0x34d399, 16);
+          showFinSenseCard(
+            playerHeldItem.icon || '🍹',
+            `Drank ${playerHeldItem.name}!`,
+            healed > 0 ? `+${healed}% Stuffing Repaired · +100% Warmth` : 'Stuffing Full · +100% Warmth & Cozy Spirit',
+            '',
+            '',
+            3200
+          );
           if (!player.inventory.hasItem(itemId, 1)) {
             finSense.activeSlotIdx = -1;
             stowHeldItem(true);
@@ -4192,7 +4216,8 @@
       finSense.lastPickAt = now;
 
       const raw = document.elementFromPoint(finCursor.x, finCursor.y);
-      if (raw && raw !== canvas) {
+      const isOverUI = !!(raw && raw !== canvas && raw.closest('button, a, label, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch, .fin-belt-slot, .fin-mode-btn, .modal-card, .settings-modal-card'));
+      if (isOverUI) {
         finSense.hoveredTarget = null;
         setFinCursorKind(null);
         hideFinSenseCard(false);
@@ -4201,15 +4226,31 @@
 
       const heldId = playerHeldItem ? playerHeldItem.id : null;
       const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
+      const isHoldingDrink = (heldId === 'tea' || heldId === 'margarita' || heldId === 'tropical_cocktail' || heldId === 'celestial_boba');
 
       const target = pickWorldTargetUnderFin(finCursor.x, finCursor.y);
       finSense.hoveredTarget = target;
       if (!target) {
-        if (isHoldingThrowable && getEffectiveFinTool(null) === 'interact') {
+        if (heldId === 'binoculars') {
+          setFinCursorKind('examine');
+          if (now >= finSense.examineUntil) {
+            showFinSenseCard('🔭', 'Brass Marine Binoculars', 'Left-Click to Raise Binoculars', '', '', 0);
+          }
+          return;
+        }
+        if (isHoldingDrink) {
+          setFinCursorKind('pickup');
+          if (now >= finSense.examineUntil) {
+            const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '🍹', name: heldId };
+            showFinSenseCard(def.icon || '🍹', def.name, 'Left-Click to Drink (+30% Stuffing)', '', '', 0);
+          }
+          return;
+        }
+        if (isHoldingThrowable) {
           setFinCursorKind('pickup');
           if (now >= finSense.examineUntil) {
             const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '🥖', name: heldId };
-            showFinSenseCard(def.icon || '🥖', `Throw ${def.name}`, '🎯 Click ground to toss in a 3D arc!', '', '', 0);
+            showFinSenseCard(def.icon || '🥖', `Throw ${def.name}`, '🎯 Left-Click ground to toss (up to 24m)', '', '', 0);
           }
           return;
         }
@@ -4219,45 +4260,75 @@
       }
 
       const tool = getEffectiveFinTool(target);
-      const kindMap = { pickup: 'pickup', npc: 'npc', birb: isHoldingThrowable ? 'pickup' : 'npc', enemy: 'enemy', rift: 'rift', landmark: tool === 'interact' ? 'pickup' : 'examine' };
+      const kindMap = { pickup: 'pickup', npc: 'npc', birb: isHoldingThrowable ? 'pickup' : 'npc', enemy: 'enemy', rift: 'rift', landmark: target.dist <= (target.reach || 8) ? 'pickup' : 'examine' };
       setFinCursorKind(kindMap[target.kind] || 'examine');
 
-      let actionHint = 'Click to Examine';
-      if (tool === 'examine') {
-        actionHint = '🔍 Click to Examine';
-      } else if (tool === 'pet') {
-        actionHint = '💙 Click to Pet / Boop';
+      let actionHint = 'Left-Click to Interact';
+      if (tool === 'pet') {
+        actionHint = '💙 Left-Click to Pet / Boop';
       } else if (target.kind === 'birb') {
         if (heldId === 'breb') {
-          actionHint = target.dist <= 4.5 ? '🥖 Click to Hand-Feed Breb' : '🥖 Click to Throw Breb to Birb!';
+          actionHint = target.dist <= 4.5 ? '🥖 Left-Click to Hand-Feed Breb' : '🥖 Left-Click to Throw Breb to Birb!';
         } else {
-          actionHint = '💙 Click to Pet Birb';
+          actionHint = '💙 Left-Click to Pet Birb';
         }
       } else if (target.kind === 'pickup') {
-        actionHint = target.dist <= target.reach ? '✋ Click to Pick Up' : '✋ Move closer to Pick Up';
+        actionHint = target.dist <= target.reach ? '✋ Left-Click to Pick Up' : '✋ Move closer to Pick Up';
       } else if (target.kind === 'rift') {
-        actionHint = target.ref.mended ? '✨ Sealed Rift' : (target.dist <= target.reach ? '🪡 Click to Mend Rift' : '🪡 Move closer to Mend');
+        actionHint = target.ref.mended ? '✨ Sealed Rift' : (target.dist <= target.reach ? '🪡 Left-Click to Mend Rift' : '🪡 Move closer to Mend');
       } else if (target.kind === 'enemy') {
-        actionHint = (heldId === 'tea' && target.dist > 4.5) ? '🫖 Click to Throw Tea Splash!' : '🎯 Click to Target';
+        actionHint = (heldId === 'tea' && target.dist > 4.5) ? '🫖 Left-Click to Throw Tea Splash!' : '🎯 Left-Click to Target';
       } else if (target.kind === 'landmark') {
-        actionHint = target.dist <= target.reach ? '✋ Click to Interact' : '🔍 Click to Examine';
+        actionHint = target.dist <= target.reach ? '✋ Left-Click to Open / Use' : (isHoldingThrowable ? `🎯 Left-Click to Throw ${playerHeldItem.name}` : '🔍 Automatic FinSense');
+      } else if (target.kind === 'npc') {
+        actionHint = target.dist <= target.reach ? '💙 Left-Click to Talk / Pet' : '🔍 Automatic FinSense';
       }
 
-      // Don't overwrite an active Examine snippet unless hovering a different target
+      // Automatic Mouseover FinSense: immediately show both the action hint AND the subtle lore snippet!
       if (now >= finSense.examineUntil) {
-        showFinSenseCard(target.icon, target.name, actionHint, `${Math.round(target.dist)}m`, '', 0);
+        showFinSenseCard(target.icon, target.name, actionHint, `${Math.round(target.dist)}m`, target.lore || '', 0);
       }
     }
 
     function handleFinWorldClick(sx, sy) {
       const heldId = playerHeldItem ? playerHeldItem.id : null;
       const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
+      const isHoldingDrink = (heldId === 'tea' || heldId === 'margarita' || heldId === 'tropical_cocktail' || heldId === 'celestial_boba');
       const target = pickWorldTargetUnderFin(sx, sy);
 
-      // Clicked empty ground/world while holding a throwable item (Breb, Party Cracker, Tea, Beach Ball) -> Throw in a 3D arc!
+      // 0. UNOBSTRUCTED CONTEXT INTERACTIONS FIRST (doors, pickups, rifts never blocked by held items!)
+      if (target && target.kind === 'pickup' && target.dist <= target.reach) {
+        collectWorldPickup(target.ref);
+        showFinSenseCard(target.icon, `Picked up ${target.name}`, 'Added to Satchel', '', '', 2200);
+        return;
+      }
+      if (target && target.kind === 'landmark' && target.dist <= target.reach) {
+        triggerInteract();
+        return;
+      }
+      if (target && target.kind === 'rift' && !target.ref.mended && target.dist <= target.reach && window.BlahajSeam && typeof window.BlahajSeam.mendRift === 'function') {
+        window.BlahajSeam.mendRift(target.ref.id);
+        showFinSenseCard('✨', `Mended ${target.name}!`, 'Great Seam Stabilized', '', 'Your fin stitched the shimmering tear shut!', 4000);
+        return;
+      }
+
+      // 1. CLICKED EMPTY GROUND / OPEN SPACE -> Held item dictates Left-Click!
       if (!target) {
-        if (isHoldingThrowable && getEffectiveFinTool(null) === 'interact') {
-          const groundPt = computeGroundPointUnderScreen(sx, sy);
+        if (heldId === 'binoculars') {
+          if (isUsingBinoculars) exitBinocularMode();
+          else enterBinocularMode();
+          return;
+        }
+        if (isHoldingDrink) {
+          triggerActiveFinKeyAction(false);
+          return;
+        }
+        if (heldId === 'seam_detector') {
+          triggerActiveFinKeyAction(false);
+          return;
+        }
+        if (isHoldingThrowable) {
+          const groundPt = computeGroundPointUnderScreen(sx, sy, 24.0);
           if (groundPt) {
             throwActiveFinItemTo(groundPt);
             return;
@@ -4271,13 +4342,6 @@
 
       const tool = getEffectiveFinTool(target);
 
-      // 1. EXAMINE (works from any visible distance — displays cleanly in bottom-right box!)
-      if (tool === 'examine') {
-        if (CozyAudio.pocketWatchClick) CozyAudio.pocketWatchClick();
-        showFinSenseCard(target.icon, target.name, '🔍 FinSense Examine', `${Math.round(target.dist)}m`, target.lore, 6500);
-        return;
-      }
-
       // 1.5 BIRB + BREB (or any throwable): close = hand-feed right at fin; far = throw in a 3D arc!
       if (target.kind === 'birb') {
         if (heldId === 'breb' && tool !== 'pet') {
@@ -4286,7 +4350,13 @@
             renderFinBelt();
             showFinSenseCard('🥖', 'Hand-fed Warm Breb!', '🐦 The Birb chirps happily!', `${Math.round(target.dist)}m`, '', 2800);
           } else {
-            throwActiveFinItemTo(new THREE.Vector3(target.wx, target.wy, target.wz));
+            const clamped = new THREE.Vector3(target.wx, target.wy, target.wz);
+            const d = Math.hypot(clamped.x - player.pos.x, clamped.z - player.pos.z);
+            if (d > 24.0) {
+              clamped.x = player.pos.x + ((clamped.x - player.pos.x) / d) * 24.0;
+              clamped.z = player.pos.z + ((clamped.z - player.pos.z) / d) * 24.0;
+            }
+            throwActiveFinItemTo(clamped);
           }
           return;
         }
@@ -4302,8 +4372,19 @@
       }
 
       // 1.6 THROWABLE AT FAR ENEMY (e.g. Steaming Tea Splash or Party Cracker!)
-      if (target.kind === 'enemy' && isHoldingThrowable && target.dist > 4.5 && tool === 'interact') {
+      if (target.kind === 'enemy' && isHoldingThrowable && target.dist > 4.5 && tool !== 'pet') {
         throwActiveFinItemTo(new THREE.Vector3(target.wx, target.wy, target.wz));
+        return;
+      }
+
+      // 1.7 HELD TOOL/DRINK ON NON-MATCHING DISTANT TARGET
+      if (heldId === 'binoculars') {
+        if (isUsingBinoculars) exitBinocularMode();
+        else enterBinocularMode();
+        return;
+      }
+      if (isHoldingDrink && target.kind !== 'npc') {
+        triggerActiveFinKeyAction(false);
         return;
       }
 
@@ -4679,23 +4760,25 @@
           // Click whatever UI button, input, slider, or 3D object is underneath the Shark Fin Cursor!
           if (finCursorEl) finCursorEl.classList.add('fin-clicking');
           const rawEl = document.elementFromPoint(finCursor.x, finCursor.y);
-          if (rawEl && rawEl !== canvas) {
+          const uiTarget = (rawEl && rawEl !== canvas)
+            ? rawEl.closest('button, a, label, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch, .fin-belt-slot, .fin-mode-btn, .modal-card, .settings-modal-card')
+            : null;
+          if (uiTarget) {
             const rangeEl = rawEl.closest('input[type="range"]');
             if (rangeEl) {
               finCursor.draggingRange = rangeEl;
               updateRangeWithFin(rangeEl, finCursor.x);
               return;
             }
-            const clickTarget = rawEl.closest('button, a, label, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch') || rawEl;
-            if (clickTarget && typeof clickTarget.focus === 'function' && clickTarget.matches?.('input, textarea, select')) {
-              clickTarget.focus();
+            if (typeof uiTarget.focus === 'function' && uiTarget.matches?.('input, textarea, select')) {
+              uiTarget.focus();
             }
-            if (clickTarget && typeof clickTarget.click === 'function') {
-              clickTarget.click();
+            if (typeof uiTarget.click === 'function') {
+              uiTarget.click();
             }
             setTimeout(syncCaptureUI, 0);
           } else if (!isAnyModalOpen()) {
-            // Clicked on the 3D world with the Shark Fin Cursor -> FinSense Interact / Examine / Pet!
+            // Clicked on the 3D world with the Shark Fin Cursor -> Direct Smart Fin Action / Throw!
             handleFinWorldClick(finCursor.x, finCursor.y);
           }
           return;
@@ -4724,6 +4807,17 @@
           const clickY = window.innerHeight * 0.5;
           if (builderState.active) {
             placeActiveBlueprint();
+          } else if (playerHeldItem && playerHeldItem.id) {
+            // Plain Left-Click in Camera Mode uses whatever is in your shark's right fin!
+            const heldId = playerHeldItem.id;
+            const isThrowable = !!(player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
+            if (heldId === 'breb' || heldId === 'beach_ball') {
+              // Lob forward in a 3D arc along look direction!
+              triggerActiveFinKeyAction(true);
+            } else {
+              // Drinks (margarita/tea/cocktail/boba), binoculars, seam_detector, party_favor -> instant use!
+              triggerActiveFinKeyAction(false);
+            }
           } else if (window.BlahajMMO) {
             window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, true);
           }
