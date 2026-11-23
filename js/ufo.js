@@ -1801,6 +1801,26 @@ window.BlahajUFO = (function () {
         }
       } else {
         // FLYING / ORBITAL CRUISE (Smooth Flight-Sim feel, impossible to crash!)
+        // When W is pressed in exterior view (and not manually holding A/D), smoothly steer toward the camera's 3D vector!
+        let camTurnBank = 0;
+        let camClimbElev = 0;
+        if (fwdInput > 0 && state.viewMode === 'outside' && camState && turnInput === 0) {
+          const camDesiredYaw = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
+          let yDiff = camDesiredYaw - state.yaw;
+          while (yDiff > Math.PI) yDiff -= Math.PI * 2;
+          while (yDiff < -Math.PI) yDiff += Math.PI * 2;
+          if (Math.abs(yDiff) > 0.01) {
+            const steerStep = yDiff * Math.min(1.0, dt * 3.6);
+            state.yaw += steerStep;
+            camTurnBank = Math.max(-0.35, Math.min(0.35, -yDiff * 0.45));
+          }
+          // Vertical climb/dive from camera pitch relative to neutral chase pitch (0.22 rad)
+          const rawElev = 0.22 - camState.pitch;
+          if (Math.abs(rawElev) > 0.06) {
+            camClimbElev = Math.max(-0.65, Math.min(0.65, rawElev));
+          }
+        }
+
         state.yawRate += (turnInput * 1.65 - state.yawRate) * Math.min(1.0, dt * 6.5);
         state.yaw += state.yawRate * dt;
 
@@ -1816,7 +1836,9 @@ window.BlahajUFO = (function () {
         state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 3.2);
         state.vel.z += (targetVz - state.vel.z) * Math.min(1.0, dt * 3.2);
 
-        const targetVy = upInput * (turbo ? 20.0 : 14.0);
+        const targetVy = upInput !== 0
+          ? upInput * (turbo ? 20.0 : 14.0)
+          : Math.sin(camClimbElev) * maxHorizSpeed * 0.72;
         state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 4.5);
 
         state.pos.addScaledVector(state.vel, dt);
@@ -1853,9 +1875,9 @@ window.BlahajUFO = (function () {
           state.orbitalNoticeShown = false;
         }
 
-        // Auto-leveling flight-sim pitch & bank (combines A/D turn bank + Q/E strafe bank)
-        const desiredPitch = fwdInput * (turbo ? 0.22 : 0.14);
-        const desiredRoll = Math.max(-0.46, Math.min(0.46, -turnInput * 0.34 + strafeInput * 0.32));
+        // Auto-leveling flight-sim pitch & bank (combines A/D turn bank + Q/E strafe bank + camera-vector steering)
+        const desiredPitch = camClimbElev !== 0 ? -camClimbElev * 0.42 : fwdInput * (turbo ? 0.22 : 0.14);
+        const desiredRoll = Math.max(-0.46, Math.min(0.46, -turnInput * 0.34 + strafeInput * 0.32 + camTurnBank));
         state.pitch += (desiredPitch - state.pitch) * Math.min(1.0, dt * 5.0);
         state.roll += (desiredRoll - state.roll) * Math.min(1.0, dt * 5.5);
       }
@@ -1974,18 +1996,20 @@ window.BlahajUFO = (function () {
               camState.yaw += state.yawRate * dt;
             }
 
-            // 2. Smoothly drift back to rear chase position after brief pause from manual mouse look
-            if (!isDraggingNow && (manualOrbitAgo > 1100 || Math.abs(state.yawRate) > 0.05 || state.speed > 4.0)) {
+            // 2. Smoothly drift back to rear chase position ONLY when actively turning/propelling or after a longer idle pause
+            const kNow = keys || {};
+            const isPropelling = !!(kNow['w'] || kNow['arrowup'] || kNow['s'] || kNow['arrowdown']);
+            if (!isDraggingNow && (isPropelling || Math.abs(state.yawRate) > 0.05 || manualOrbitAgo > 4500)) {
               let diff = rearCamYaw - camState.yaw;
               while (diff > Math.PI) diff -= Math.PI * 2;
               while (diff < -Math.PI) diff += Math.PI * 2;
-              const driftRate = (Math.abs(state.yawRate) > 0.05 || state.speed > 4.0) ? 4.2 : 2.2;
+              const driftRate = (Math.abs(state.yawRate) > 0.05) ? 4.2 : (isPropelling ? 1.8 : 1.4);
               camState.yaw += diff * Math.min(1.0, dt * driftRate);
               while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
               while (camState.yaw < -Math.PI) camState.yaw += Math.PI * 2;
 
-              if (manualOrbitAgo > 1600) {
-                camState.pitch += (0.22 - camState.pitch) * Math.min(1.0, dt * 1.8);
+              if (manualOrbitAgo > 4500) {
+                camState.pitch += (0.22 - camState.pitch) * Math.min(1.0, dt * 1.4);
               }
             }
           }
