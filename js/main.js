@@ -8550,15 +8550,80 @@
   function handleVolcanoTrapHit(trapName) {
     if (isRebirthing || player.trapCooldown > 0) return;
 
-    // Falling into the Molten Lava Sea destroys all stuffing and sends the shark to IKEA Spawning Pits
+    // Falling into the Molten Lava Sea triggers a comically dramatic slapstick meltdown,
+    // destroys all stuffing, and sends the shark to IKEA Spawning Pits for rebirth!
     if (trapName === 'Molten Lava Sea') {
-      player.trapCooldown = 2.5;
-      CozyAudio.trapHit();
-      spawnFloatingBurst(player.pos, 0xff4500, 24);
+      isRebirthing = true;
+      player.trapCooldown = 4.0;
+      playerInvulnTimer = 4.5;
       player.warmth = 0;
       updateMetersUI();
       if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
-      triggerUnstuffedRecovery('Fell into the Molten Lava Sea');
+
+      const sillyEpitaphs = [
+        ['🔥🦈 YEEEEEOW!! CRISPY MARSHMALLOW!', 'Your 100% polyester stuffing just achieved toasted s’more status! Shipping back to IKEA...'],
+        ['🌋🧸 *SQUEAK-POOF!* WARRANTY VOIDED!', 'Even the volcano winced at that bellyflop! Returning to Wire Bin #303.735.88...'],
+        ['💥🦈 DRAMATIC SLOW-MO DEFLATION!', 'All 303.735.88 grams of fluff have ascended as cozy steam! Report to IKEA QA!'],
+        ['🚨🏷️ EMERGENCY PLUSH RECALL!', 'Tag status: EXTRA CRISPY. Please stand by while Hermes vacuums up your stuffing!']
+      ];
+      const [toastTitle, toastSub] = sillyEpitaphs[Math.floor(Math.random() * sillyEpitaphs.length)];
+
+      CozyAudio.trapHit();
+      if (CozyAudio.shonk) CozyAudio.shonk();
+      spawnFloatingBurst(player.pos, 0xff4500, 28);
+      spawnFloatingBurst(player.pos, 0xffffff, 26); // giant cloud of escaping cotton stuffing!
+      showToast(toastTitle, toastSub);
+      addChatLog(`🌋🦈 <strong>${toastTitle}</strong> — ${toastSub}`, 'danger');
+
+      const startPos = player.pos.clone();
+      const startRotY = player.rotY || 0;
+      const startTime = performance.now();
+      const DURATION_MS = 1650;
+      let midBurstDone = false;
+
+      const animateSillyLavaDeath = (now) => {
+        const t = Math.min(1, (now - startTime) / DURATION_MS);
+
+        if (player.mesh) {
+          // Cartoon parabolic "YEEEEOW!" skyrocket pop out of the lava, then pancake flop
+          const arcY = Math.sin(Math.min(1, t * 1.15) * Math.PI) * 10.5;
+          player.pos.set(startPos.x, startPos.y + arcY, startPos.z);
+          player.mesh.position.copy(player.pos);
+
+          if (t < 0.65) {
+            // Wild ceiling-fan spin + stretchy cartoon panic
+            player.mesh.rotation.y = startRotY + t * 28.0;
+            player.mesh.rotation.z = Math.sin(t * 36.0) * 0.65;
+            const stretch = 1.0 + Math.sin(t * Math.PI * 3) * 0.32;
+            player.mesh.scale.set(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch));
+          } else {
+            // Dramatic squeaky-toy pancake deflation
+            const p = (t - 0.65) / 0.35;
+            player.mesh.rotation.y = startRotY + 18.2 + p * 2.0;
+            player.mesh.rotation.z = Math.sin(p * 18.0) * 0.18 * (1 - p);
+            player.mesh.scale.set(1.0 + p * 0.55, Math.max(0.22, 1.0 - p * 0.78), 1.0 + p * 0.45);
+          }
+        }
+
+        if (!midBurstDone && t >= 0.38) {
+          midBurstDone = true;
+          if (CozyAudio.bounceBoing) CozyAudio.bounceBoing();
+          spawnFloatingBurst(player.pos, 0xffffff, 30);
+          spawnFloatingBurst(player.pos, 0xffcc44, 18);
+        }
+
+        if (t < 1 && currentZone === 'volcano') {
+          requestAnimationFrame(animateSillyLavaDeath);
+        } else {
+          if (player.mesh) {
+            player.mesh.scale.set(1, 1, 1);
+            player.mesh.rotation.z = 0;
+          }
+          triggerUnstuffedRecovery('Bellyflopped into the Molten Lava Sea');
+        }
+      };
+
+      requestAnimationFrame(animateSillyLavaDeath);
       return;
     }
 
