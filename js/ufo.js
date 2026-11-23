@@ -57,8 +57,9 @@ window.BlahajUFO = (function () {
   let passengerEyeAnchor = null;
   let cockpitCamAnchor = null;
   let canopyDomeMesh = null;
-  let canopyDropsMesh = null;
-  let canopyDropsMat = null;
+  let canopyBeadGroup = null;
+  let canopyBeads = [];
+  let canopyBeadMat = null;
   let canopyRibs = [];
   let floorSolidMeshes = [];
   let floorLcdGroup = null;
@@ -826,93 +827,91 @@ window.BlahajUFO = (function () {
     canopyDomeMesh.position.y = 0.85;
     ufoHullGroup.add(canopyDomeMesh);
 
-    // 3D Wiggly Water Droplets & 3-Second Streaks clinging directly to the glass capsule bubble
-    canopyDropsMat = new THREE.ShaderMaterial({
+    // True 3D Convex Water-Bead Meshes that bead on the glass capsule, refract light in 3D,
+    // roll down the curved meridian, and drip off the rim over ~3 seconds!
+    canopyBeadMat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       uniforms: {
         uTime: { value: 0 },
-        uWetness: { value: 0 },
-        uProgress: { value: 0 }
+        uGlobalAlpha: { value: 1.0 }
       },
       vertexShader: `
-        varying vec2 vUv;
+        uniform float uTime;
+        varying vec3 vNormalView;
+        varying vec3 vViewDir;
+        varying vec3 vLocalPos;
         void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vLocalPos = position;
+          // Subtle 3D surface-tension wobble on the physical 3D bead geometry
+          vec3 p = position;
+          float wob = sin(uTime * 7.0 + p.y * 5.0 + p.x * 4.0) * 0.07;
+          p.x += wob * (1.0 - smoothstep(0.0, 1.2, abs(p.y)));
+          // Flatten backside (+Z faces outward from glass, -Z rests flush against glass)
+          if (p.z < 0.0) p.z *= 0.22;
+          vec4 mvPos = modelViewMatrix * vec4(p, 1.0);
+          vNormalView = normalize(normalMatrix * normalize(vec3(position.x, position.y * 0.7, max(0.15, position.z))));
+          vViewDir = normalize(-mvPos.xyz);
+          gl_Position = projectionMatrix * mvPos;
         }`,
       fragmentShader: `
-        uniform float uTime;
-        uniform float uWetness;
-        uniform float uProgress;
-        varying vec2 vUv;
-
-        float hash21(vec2 p) {
-          p = fract(p * vec2(127.1, 311.7));
-          p += dot(p, p + 34.23);
-          return fract(p.x * p.y);
-        }
-
+        uniform float uGlobalAlpha;
+        varying vec3 vNormalView;
+        varying vec3 vViewDir;
+        varying vec3 vLocalPos;
         void main() {
-          if (uWetness <= 0.01) discard;
+          vec3 N = normalize(vNormalView);
+          vec3 V = normalize(vViewDir);
+          float ndotv = clamp(dot(N, V), 0.0, 1.0);
 
-          // Tile across the curved dome: u = azimuth around bubble, v = 1 at apex -> 0 at rim
-          vec2 gridScale = vec2(26.0, 7.0);
-          vec2 uv = vec2(vUv.x * gridScale.x, (1.0 - vUv.y) * gridScale.y);
-          vec2 id = floor(uv);
-          vec2 f = fract(uv) - 0.5;
+          // 3D Fresnel glass-water meniscus: crystal-clear transparent interior, crisp 3D rim
+          float fresnel = pow(1.0 - ndotv, 2.6);
 
-          float rnd = hash21(id);
-          float rnd2 = hash21(id + vec2(17.3, 9.1));
+          // Convex-lens inverted refraction inside the 3D bead (bends sky & sea light across the curved normal)
+          vec3 refractedSky = vec3(0.78, 0.93, 1.0);
+          vec3 refractedSea = vec3(0.08, 0.36, 0.56);
+          float lensBend = clamp(-N.y * 0.85 + 0.5, 0.0, 1.0);
+          vec3 lensColor = mix(refractedSea, refractedSky, lensBend);
 
-          // Only ~62% of cells spawn a droplet, staggered in descent speed
-          if (rnd < 0.38) discard;
+          // Primary sun specular pin-light + secondary bottom internal caustic reflection
+          vec3 L1 = normalize(vec3(0.45, 0.78, 0.42));
+          vec3 H1 = normalize(L1 + V);
+          float spec1 = pow(max(0.0, dot(N, H1)), 48.0);
 
-          float slideSpeed = 0.55 + rnd2 * 0.85;
-          float dropY = -0.32 + uProgress * slideSpeed * 1.45;
-          // Slight wiggly horizontal meander as the bead slides down the curved glass
-          float wiggleX = sin(uTime * 5.0 + rnd * 18.0 + f.y * 8.0) * 0.08;
-          vec2 dropCenter = vec2((rnd2 - 0.5) * 0.45 + wiggleX, dropY);
+          vec3 L2 = normalize(vec3(-0.3, -0.75, 0.58));
+          vec3 H2 = normalize(L2 + V);
+          float caustic2 = pow(max(0.0, dot(N, H2)), 18.0) * 0.55;
 
-          vec2 d = f - dropCenter;
-          float ang = atan(d.y, d.x);
-          // Wiggly organic droplet outline + elongated teardrop focus
-          float outlineWiggle = 1.0
-            + 0.16 * sin(ang * 3.0 + uTime * 3.5 + rnd * 12.0)
-            + 0.11 * cos(ang * 5.0 - uTime * 2.8 + rnd2 * 9.0);
-          vec2 scaledD = vec2(d.x * 1.35, d.y * (d.y < 0.0 ? 0.72 : 1.15));
-          float dist = length(scaledD) / outlineWiggle;
-
-          float radius = 0.14 + rnd * 0.09;
-          float dropMask = 1.0 - smoothstep(radius - 0.025, radius + 0.015, dist);
-          // Meniscus boundary rim where the light/field bends at the droplet edge
-          float rimMask = smoothstep(radius - 0.045, radius - 0.01, dist) * (1.0 - smoothstep(radius - 0.005, radius + 0.02, dist));
-
-          // Wet streak trail left behind above the sliding droplet
-          float inTrailX = smoothstep(radius * 0.62, 0.0, abs(d.x - sin(d.y * 10.0 + rnd * 6.0) * 0.03));
-          float inTrailY = step(d.y, 0.0) * smoothstep(-0.78, -0.02, d.y);
-          float trailMask = inTrailX * inTrailY * 0.45;
-
-          float totalAlpha = max(dropMask * 0.82, max(rimMask * 0.95, trailMask)) * uWetness;
-          if (totalAlpha <= 0.02) discard;
-
-          // Refracted interior field shift + bright specular focus dot inside each droplet
-          float focusDist = length(d - vec2(-radius * 0.28, radius * 0.25));
-          float specularFocus = smoothstep(radius * 0.42, 0.0, focusDist);
-          vec3 innerField = mix(vec3(0.58, 0.88, 0.98), vec3(0.88, 0.97, 1.0), smoothstep(radius, 0.0, dist));
-          vec3 rimCol = vec3(0.18, 0.58, 0.78);
-          vec3 col = mix(innerField, rimCol, rimMask * 0.65);
-          col = mix(col, vec3(1.0), specularFocus * 0.92 * dropMask);
-
-          gl_FragColor = vec4(col, totalAlpha);
+          vec3 col = lensColor + vec3(1.0) * (spec1 * 1.35 + caustic2 * 0.65);
+          // Interior stays see-through (~0.10 alpha); rim & specular highlights pop cleanly in 3D
+          float alpha = clamp((0.09 + fresnel * 0.62 + spec1 * 0.88 + caustic2 * 0.32) * uGlobalAlpha, 0.0, 0.95);
+          gl_FragColor = vec4(col, alpha);
         }`
     });
-    const dropsGeo = new THREE.SphereGeometry(3.47, 36, 22, 0, Math.PI * 2, 0, Math.PI * 0.56);
-    canopyDropsMesh = new THREE.Mesh(dropsGeo, canopyDropsMat);
-    canopyDropsMesh.position.y = 0.85;
-    canopyDropsMesh.visible = false;
-    ufoHullGroup.add(canopyDropsMesh);
+
+    canopyBeadGroup = new THREE.Group();
+    canopyBeadGroup.position.y = 0.85;
+    canopyBeadGroup.visible = false;
+    ufoHullGroup.add(canopyBeadGroup);
+
+    const sharedBeadGeo = new THREE.SphereGeometry(1.0, 14, 12);
+    canopyBeads = [];
+    for (let i = 0; i < 36; i++) {
+      const m = new THREE.Mesh(sharedBeadGeo, canopyBeadMat);
+      canopyBeadGroup.add(m);
+      canopyBeads.push({
+        mesh: m,
+        phi: 0,
+        theta: 0,
+        baseRadius: 0.07,
+        speed: 0,
+        holdTime: 0,
+        detached: false,
+        fallPos: new THREE.Vector3(),
+        fallVelY: 0
+      });
+    }
 
     // Sleek curved chrome canopy ribs (hidden automatically when Floor Cam is active!)
     [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((ry) => {
@@ -1248,8 +1247,23 @@ window.BlahajUFO = (function () {
     return !!(state.hatchTargetOpen && state.hatchOpenProg >= 0.7);
   }
 
+  const _beadNorm = new THREE.Vector3();
+  const _beadTanDown = new THREE.Vector3();
+  const _beadTanSide = new THREE.Vector3();
+  const _beadMat4 = new THREE.Matrix4();
+
   function seedWindscreenDroplets() {
-    // 3D canopy shader handles droplet tiling directly on the glass capsule bubble
+    for (let i = 0; i < canopyBeads.length; i++) {
+      const b = canopyBeads[i];
+      b.phi = (i / canopyBeads.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.14;
+      b.theta = 0.14 + Math.random() * 0.68; // upper/mid dome
+      b.baseRadius = 0.055 + Math.random() * 0.055;
+      b.speed = 0.02 + Math.random() * 0.06;
+      b.holdTime = 0.12 + Math.random() * 0.45; // brief surface-tension bead pause before rolling
+      b.detached = false;
+      b.fallVelY = 0;
+      b.mesh.visible = true;
+    }
   }
 
   function updateWindscreenWaterEffects(dt, elapsed = 0) {
@@ -1263,31 +1277,69 @@ window.BlahajUFO = (function () {
     }
 
     const wetActive = !state.isSubmerged && state.windscreenWetTimer > 0;
-    if (canopyDropsMesh && canopyDropsMat) {
-      canopyDropsMesh.visible = wetActive;
-      if (wetActive) {
-        const progress = Math.min(1.0, Math.max(0.0, (3.0 - state.windscreenWetTimer) / 3.0));
-        const wetness = Math.min(1.0, state.windscreenWetTimer / 0.85);
-        canopyDropsMat.uniforms.uTime.value = elapsed;
-        canopyDropsMat.uniforms.uProgress.value = progress;
-        canopyDropsMat.uniforms.uWetness.value = wetness;
-      } else {
-        canopyDropsMat.uniforms.uWetness.value = 0;
-      }
-    }
+    if (!canopyBeadGroup || !canopyBeadMat) return;
+    canopyBeadGroup.visible = wetActive;
+    if (!wetActive) return;
 
-    // External orbit camera: also shed a few 3D trailing water droplets off the saucer rim while drying
-    if (wetActive && state.localRole && state.viewMode === 'outside') {
-      state.rimDripCooldown = (state.rimDripCooldown || 0) - dt;
-      if (state.rimDripCooldown <= 0 && window.BlahajGame && typeof window.BlahajGame.spawnFloatingBurst === 'function') {
-        state.rimDripCooldown = 0.22;
-        const ang = Math.random() * Math.PI * 2;
-        const dripPos = new THREE.Vector3(
-          state.pos.x + Math.cos(ang) * 3.6,
-          state.pos.y - 0.35,
-          state.pos.z + Math.sin(ang) * 3.6
-        );
-        window.BlahajGame.spawnFloatingBurst(dripPos, 0xbae6fd, 4);
+    canopyBeadMat.uniforms.uTime.value = elapsed;
+    canopyBeadMat.uniforms.uGlobalAlpha.value = Math.min(1.0, state.windscreenWetTimer / 0.55);
+
+    const R = 3.465;
+    const RIM_THETA = Math.PI * 0.55;
+
+    for (let i = 0; i < canopyBeads.length; i++) {
+      const b = canopyBeads[i];
+      if (!b.mesh.visible) continue;
+
+      if (b.holdTime > 0) {
+        b.holdTime -= dt;
+      } else if (!b.detached) {
+        // Accelerate with gravity component along the curved dome slope (sin(theta))
+        const gravSlope = Math.max(0.22, Math.sin(b.theta));
+        b.speed = Math.min(0.95, b.speed + gravSlope * 0.68 * dt);
+        b.theta += b.speed * dt;
+        b.phi += Math.sin(elapsed * 4.5 + i * 1.7) * 0.04 * dt;
+
+        if (b.theta >= RIM_THETA) {
+          b.detached = true;
+          b.fallPos.set(
+            R * Math.sin(RIM_THETA) * Math.sin(b.phi),
+            R * Math.cos(RIM_THETA),
+            R * Math.sin(RIM_THETA) * Math.cos(b.phi)
+          );
+          b.fallVelY = -b.speed * R * 0.85;
+        }
+      }
+
+      if (!b.detached) {
+        const sinT = Math.sin(b.theta);
+        const cosT = Math.cos(b.theta);
+        const sinP = Math.sin(b.phi);
+        const cosP = Math.cos(b.phi);
+
+        // Outward normal on sphere
+        _beadNorm.set(sinT * sinP, cosT, sinT * cosP).normalize();
+        // Downward meridian tangent (d/dTheta)
+        _beadTanDown.set(cosT * sinP, -sinT, cosT * cosP).normalize();
+        // Horizontal azimuth tangent
+        _beadTanSide.crossVectors(_beadTanDown, _beadNorm).normalize();
+
+        b.mesh.position.copy(_beadNorm).multiplyScalar(R);
+        // Align local axes: X = side tangent, Y = -downward tangent (so bead stretches along Y), Z = outward normal
+        _beadMat4.makeBasis(_beadTanSide, _beadTanDown.clone().negate(), _beadNorm);
+        b.mesh.quaternion.setFromRotationMatrix(_beadMat4);
+
+        const stretch = 1.0 + Math.min(1.65, b.speed * 1.85);
+        b.mesh.scale.set(b.baseRadius, b.baseRadius * stretch, b.baseRadius * 0.72);
+      } else {
+        // Roll off the edge of the glass dome and drop under gravity!
+        b.fallVelY -= 9.8 * dt;
+        b.fallPos.y += b.fallVelY * dt;
+        b.mesh.position.copy(b.fallPos);
+        b.mesh.scale.set(b.baseRadius * 0.85, b.baseRadius * 1.8, b.baseRadius * 0.85);
+        if (b.fallPos.y < -1.8) {
+          b.mesh.visible = false;
+        }
       }
     }
   }
