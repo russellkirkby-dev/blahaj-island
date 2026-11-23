@@ -130,11 +130,11 @@ window.BlahajSeam = (function () {
 
       zone: 'laundromat',
 
-      name: 'Laundromat · Behind Master Washer #7',
+      name: 'Laundromat · Soap & Tea Vending Alcove',
 
-      desc: 'Shimmering above the back service crown of giant washer #7.',
+      desc: 'Shimmering cleanly beside the Soap & Tea Vending Corner, well clear of Master Washer #7.',
 
-      pos: { x: 0.0, y: 2.6, z: -15.2 }
+      pos: { x: -7.2, y: 1.5, z: -6.0 }
 
     },
 
@@ -362,11 +362,11 @@ window.BlahajSeam = (function () {
 
       zone: 'laundromat',
 
-      name: 'Laundromat · Behind Master Washer #7',
+      name: 'Laundromat · Soap & Tea Vending Alcove',
 
-      desc: 'Shimmering above the back service crown of giant washer #7.',
+      desc: 'Shimmering cleanly beside the Soap & Tea Vending Corner, well clear of Master Washer #7.',
 
-      pos: { x: 0.0, y: 2.6, z: -15.2 }
+      pos: { x: -7.2, y: 1.5, z: -6.0 }
 
     },
 

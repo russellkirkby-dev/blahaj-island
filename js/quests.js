@@ -529,16 +529,31 @@ window.BlahajQuests = (function () {
               <span class="qg-badge">${q.isDaily ? 'Daily' : 'Story'} · ${q.category}</span>
             </div>
             <p class="qg-desc">${q.desc}</p>
+            <div style="font-size:11px; color:#9ec9e6; margin:4px 0 6px;">📍 ${q.where}</div>
             <div class="q-obj-list">${renderObjectivesHtml(q, true)}</div>
             <div class="qg-footer">
               <span class="qg-reward">🎁 ${q.rewardLabel}</span>
-              ${btnHtml}
+              <div style="display:flex; gap:6px; align-items:center;">
+                <button type="button" class="qg-action-btn secondary qg-details-btn" data-qdetails="${q.id}">🔍 Full Details</button>
+                ${btnHtml}
+              </div>
             </div>
           `;
+          card.title = 'Double-click or click Full Details for quest dialogue & breakdown';
+          card.addEventListener('dblclick', (ev) => {
+            if (ev.target && ev.target.closest('button')) return;
+            openQuestDetailModal(q.id);
+          });
           listEl.appendChild(card);
         });
 
-        listEl.querySelectorAll('.qg-action-btn').forEach((btn) => {
+        listEl.querySelectorAll('.qg-details-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            openQuestDetailModal(btn.dataset.qdetails);
+          });
+        });
+
+        listEl.querySelectorAll('.qg-action-btn[data-qact]').forEach((btn) => {
           btn.addEventListener('click', () => {
             const act = btn.dataset.qact;
             const qid = btn.dataset.qid;
