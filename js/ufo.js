@@ -53,8 +53,14 @@ window.BlahajUFO = (function () {
   let lavaLampBlob = null;
   let seatPilotAnchor = null;
   let seatPassengerAnchor = null;
+  let pilotEyeAnchor = null;
+  let passengerEyeAnchor = null;
   let cockpitCamAnchor = null;
   let canopyDomeMesh = null;
+  let canopyRibs = [];
+  let floorSolidMeshes = [];
+  let floorLcdGroup = null;
+  let mojoCoreMesh = null;
   let ufoPointLight = null;
 
   // Flight & Island State
@@ -79,6 +85,7 @@ window.BlahajUFO = (function () {
     hatchTargetOpen: true,
     hatchOpenProg: 1.0,
     viewMode: 'outside', // 'outside' | 'inside'
+    floorCam: false,
     cockpitLookYaw: 0,
     cockpitLookPitch: 0,
     tractorBeam: false,
@@ -480,7 +487,10 @@ window.BlahajUFO = (function () {
     });
     const velvetSeatMat = new THREE.MeshStandardMaterial({
       color: 0xf43f5e, // Nostalgic retro cherry-red diner/Jetsons upholstery!
-      roughness: 0.72
+      roughness: 0.72,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
     });
     // Lightweight glass material (avoid MeshPhysicalMaterial transmission pass, which triggers a second full-scene render!)
     const canopyGlassMat = new THREE.MeshStandardMaterial({
@@ -493,10 +503,14 @@ window.BlahajUFO = (function () {
       side: THREE.FrontSide
     });
 
+    floorSolidMeshes = [];
+    canopyRibs = [];
+
     // Main Lower Saucer Dish
     const lowerDish = new THREE.Mesh(new THREE.CylinderGeometry(5.1, 2.7, 1.15, 36), hullMintMat);
     lowerDish.position.y = 0.0;
     ufoHullGroup.add(lowerDish);
+    floorSolidMeshes.push(lowerDish);
 
     // Wide Chrome Equatorial Bumper Ring
     const equatorRing = new THREE.Mesh(new THREE.TorusGeometry(5.15, 0.34, 14, 40), chromeMat);
@@ -513,11 +527,31 @@ window.BlahajUFO = (function () {
 
     // Interior Cabin Floor (Cozy sky-blue carpet with chrome trim!)
     const cabinFloor = new THREE.Mesh(
-      new THREE.CylinderGeometry(3.35, 3.35, 0.2, 28),
+      new THREE.CylinderGeometry(3.35, 3.35, 0.18, 28),
       new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.78 })
     );
-    cabinFloor.position.y = 0.55;
+    cabinFloor.position.y = 0.54;
     ufoHullGroup.add(cabinFloor);
+    floorSolidMeshes.push(cabinFloor);
+
+    // LCD Glass-Bottom Boat Rim & Cyan Sonar Grid (shown when Floor Cam [G] is active!)
+    floorLcdGroup = new THREE.Group();
+    const lcdBezel = new THREE.Mesh(
+      new THREE.TorusGeometry(3.15, 0.09, 8, 36),
+      new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+    );
+    lcdBezel.rotation.x = Math.PI / 2;
+    lcdBezel.position.y = 0.64;
+    floorLcdGroup.add(lcdBezel);
+    const lcdGrid = new THREE.GridHelper(5.6, 10, 0x38bdf8, 0x0e7490);
+    lcdGrid.position.y = 0.63;
+    if (lcdGrid.material) {
+      lcdGrid.material.transparent = true;
+      lcdGrid.material.opacity = 0.38;
+    }
+    floorLcdGroup.add(lcdGrid);
+    floorLcdGroup.visible = false;
+    ufoHullGroup.add(floorLcdGroup);
 
     // 16 Chasing Neon Rim Lights around the equator
     rimLightMeshes = [];
@@ -562,15 +596,52 @@ window.BlahajUFO = (function () {
       ufoHullGroup.add(finGroup);
     });
 
-    // Rear Dorsal Antenna Spire (Classic 1960s Jetsons Fin Antenna!)
+    // Mojo-Powered Shark-Tech Transceiver & Flux Reactor Behind Seats (Connects Dorsal Aerial!)
+    const mojoRack = new THREE.Group();
+    mojoRack.position.set(0, 1.18, -1.35);
+
+    const reactorBase = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.95, 0.88), darkConsoleMat);
+    reactorBase.position.y = 0.28;
+    mojoRack.add(reactorBase);
+
+    const brassBand = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.14, 0.94), new THREE.MeshStandardMaterial({ color: 0xd8aa5b, metalness: 0.82, roughness: 0.24 }));
+    brassBand.position.y = 0.72;
+    mojoRack.add(brassBand);
+
+    // Glowing Mojo Crystal Core
+    mojoCoreMesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.32, 0),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    mojoCoreMesh.position.set(0, 1.15, 0.05);
+    mojoRack.add(mojoCoreMesh);
+
+    const coreCage = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 8, 20), chromeMat);
+    coreCage.position.set(0, 1.15, 0.05);
+    mojoRack.add(coreCage);
+
+    // Twin cooling fins flanking the Mojo Core
+    [-0.68, 0.68].forEach((fx) => {
+      const cFin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.65, 0.68), hullMintMat);
+      cFin.position.set(fx, 0.98, 0);
+      mojoRack.add(cFin);
+    });
+
+    // Chrome mast socket rising directly into the aerial spire
+    const mastSocket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.95, 12), chromeMat);
+    mastSocket.position.set(0, 1.45, 0);
+    mojoRack.add(mastSocket);
+    ufoHullGroup.add(mojoRack);
+
+    // Rear Dorsal Antenna Spire (Plugged directly into the Mojo-Core Transceiver Mast!)
     const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.14, 2.2, 8), chromeMat);
     antenna.position.set(0, 3.65, -1.35);
-    antenna.rotation.x = -0.32;
+    antenna.rotation.x = -0.18;
     const antOrb = new THREE.Mesh(
       new THREE.SphereGeometry(0.2, 10, 8),
       new THREE.MeshBasicMaterial({ color: 0xf43f5e })
     );
-    antOrb.position.set(0, 4.72, -1.72);
+    antOrb.position.set(0, 4.72, -1.55);
     ufoHullGroup.add(antenna, antOrb);
 
     // ========================================================================
@@ -653,31 +724,39 @@ window.BlahajUFO = (function () {
     lavaLampBlob.position.set(1.38, 1.72, 2.02);
     ufoHullGroup.add(lampBase, lampGlass, lavaLampBlob);
 
-    // Twin Plush Velvet Swivel Captain Chairs (Left: Pilot, Right: Co-Pilot/Passenger)
+    // Twin Plush Velvet Swivel Captain Chairs (Cleanly separated above floor so zero z-fighting/flicker!)
     [-1.05, 1.05].forEach((sx) => {
       const chair = new THREE.Group();
-      chair.position.set(sx, 0.65, 0.65);
-      const cushion = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.25, 1.15), velvetSeatMat);
-      cushion.position.y = 0.22;
-      const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.12, 1.2, 0.22), velvetSeatMat);
-      backrest.position.set(0, 0.82, -0.52);
-      backrest.rotation.x = -0.15;
-      chair.add(cushion, backrest);
+      chair.position.set(sx, 0.68, 0.65);
+      const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.20, 0.22, 10), chromeMat);
+      pedestal.position.y = 0.08;
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(1.14, 0.24, 1.04), velvetSeatMat);
+      cushion.position.set(0, 0.26, 0.04);
+      const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.10, 1.12, 0.20), velvetSeatMat);
+      backrest.position.set(0, 0.90, -0.58);
+      backrest.rotation.x = -0.12;
+      chair.add(pedestal, cushion, backrest);
       ufoHullGroup.add(chair);
     });
 
-    // Seat Anchors for Pilot & Passenger Shark Meshes + Cockpit Camera Anchor
+    // Seat Anchors for Pilot & Passenger Shark Meshes + Per-Seat Shark-Eye Camera Anchors
     seatPilotAnchor = new THREE.Object3D();
-    seatPilotAnchor.position.set(-1.05, 0.92, 0.78);
+    seatPilotAnchor.position.set(-1.05, 0.96, 0.78);
     ufoHullGroup.add(seatPilotAnchor);
 
     seatPassengerAnchor = new THREE.Object3D();
-    seatPassengerAnchor.position.set(1.05, 0.92, 0.78);
+    seatPassengerAnchor.position.set(1.05, 0.96, 0.78);
     ufoHullGroup.add(seatPassengerAnchor);
 
-    cockpitCamAnchor = new THREE.Object3D();
-    cockpitCamAnchor.position.set(0.0, 2.08, 0.68);
-    ufoHullGroup.add(cockpitCamAnchor);
+    pilotEyeAnchor = new THREE.Object3D();
+    pilotEyeAnchor.position.set(-1.05, 1.88, 0.98);
+    ufoHullGroup.add(pilotEyeAnchor);
+
+    passengerEyeAnchor = new THREE.Object3D();
+    passengerEyeAnchor.position.set(1.05, 1.88, 0.98);
+    ufoHullGroup.add(passengerEyeAnchor);
+
+    cockpitCamAnchor = pilotEyeAnchor;
 
     // Crystal-Clear Bubble Canopy Dome (so sharks are clearly visible from outside!)
     const domeGeo = new THREE.SphereGeometry(3.45, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.56);
@@ -685,12 +764,13 @@ window.BlahajUFO = (function () {
     canopyDomeMesh.position.y = 0.85;
     ufoHullGroup.add(canopyDomeMesh);
 
-    // Sleek curved chrome canopy ribs
+    // Sleek curved chrome canopy ribs (hidden automatically when Floor Cam is active!)
     [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((ry) => {
       const rib = new THREE.Mesh(new THREE.TorusGeometry(3.46, 0.065, 8, 28, Math.PI * 0.56), chromeMat);
       rib.position.y = 0.85;
       rib.rotation.y = ry;
       ufoHullGroup.add(rib);
+      canopyRibs.push(rib);
     });
 
     // ========================================================================
@@ -702,6 +782,7 @@ window.BlahajUFO = (function () {
     );
     hatchDoorMesh.position.set(0, -0.58, 0);
     ufoHullGroup.add(hatchDoorMesh);
+    floorSolidMeshes.push(hatchDoorMesh);
 
     stairsGroup = new THREE.Group();
     stairsGroup.position.set(0, -0.52, 0.85);
@@ -1095,6 +1176,24 @@ window.BlahajUFO = (function () {
     updateAvionicsButtonsUI();
   }
 
+  function toggleFloorCam() {
+    if (!state.localRole) return;
+    state.floorCam = !state.floorCam;
+    if (state.floorCam && state.viewMode !== 'inside') {
+      state.viewMode = 'inside';
+    }
+    if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
+    if (window.showToast) {
+      window.showToast(
+        state.floorCam ? '🪟 LCD GLASS-BOTTOM FLOOR CAM: ON [G]' : '🛸 SOLID COCKPIT FLOOR: ON [G]',
+        state.floorCam
+          ? 'Cockpit floor switched to transparent LCD glass-bottom view (canopy arches hidden)!'
+          : 'Restored solid cockpit floor & canopy arches.'
+      );
+    }
+    updateAvionicsButtonsUI();
+  }
+
   function toggleHatch() {
     state.hatchTargetOpen = !state.hatchTargetOpen;
     if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
@@ -1360,6 +1459,7 @@ window.BlahajUFO = (function () {
 
   function updateAvionicsButtonsUI() {
     const btnView = document.getElementById('ufo-btn-view');
+    const btnFloor = document.getElementById('ufo-btn-floorcam');
     const btnHatch = document.getElementById('ufo-btn-hatch');
     const btnBeam = document.getElementById('ufo-btn-beam');
     const btnDisco = document.getElementById('ufo-btn-disco');
@@ -1367,6 +1467,10 @@ window.BlahajUFO = (function () {
     const btnChase = document.getElementById('ufo-btn-chasecam');
 
     if (btnView) btnView.textContent = state.viewMode === 'inside' ? '🪟 View: COCKPIT [V]' : '🛸 View: OUTSIDE [V]';
+    if (btnFloor) {
+      btnFloor.classList.toggle('active', !!state.floorCam);
+      btnFloor.textContent = state.floorCam ? '🪟 Floor Cam: ON [G]' : '🪟 Floor Cam [G]';
+    }
     if (btnHatch) btnHatch.classList.toggle('active', state.hatchTargetOpen);
     if (btnBeam) {
       btnBeam.classList.toggle('active', state.tractorBeam || !!state.subspaceVault);
@@ -1573,6 +1677,12 @@ window.BlahajUFO = (function () {
     if (bobbleSharkMesh) {
       bobbleSharkMesh.rotation.z = Math.sin(elapsed * 7.2) * 0.14 - state.roll * 0.9;
       bobbleSharkMesh.rotation.x = Math.cos(elapsed * 5.8) * 0.1 - state.pitch * 0.8;
+    }
+    if (mojoCoreMesh) {
+      mojoCoreMesh.rotation.y += dt * 2.4;
+      mojoCoreMesh.rotation.x = Math.sin(elapsed * 2.1) * 0.25;
+      const pulse = 0.92 + 0.14 * Math.sin(elapsed * 4.5);
+      mojoCoreMesh.scale.setScalar(pulse);
     }
     if (lavaLampBlob) {
       lavaLampBlob.position.y = 1.74 + Math.sin(elapsed * 1.6) * 0.09;
@@ -2003,7 +2113,14 @@ window.BlahajUFO = (function () {
       window.player.mesh.visible = (state.viewMode !== 'inside');
       if (canopyDomeMesh) canopyDomeMesh.visible = (state.viewMode !== 'inside');
 
-      // Drive Camera for Inside Cockpit View vs Outside Chase View!
+      // Floor Cam [G] (LCD Glass-Bottom Boat Mode + Hidden Bubble Brace Arches when inside!)
+      const floorCamOn = !!(state.viewMode === 'inside' && state.floorCam);
+      floorSolidMeshes.forEach((m) => { if (m) m.visible = !floorCamOn; });
+      if (hatchDoorMesh && floorCamOn) hatchDoorMesh.visible = false;
+      canopyRibs.forEach((r) => { if (r) r.visible = !floorCamOn; });
+      if (floorLcdGroup) floorLcdGroup.visible = floorCamOn;
+
+      // Drive Camera for Inside Cockpit View (Per-Seat Shark POV!) vs Outside Chase View!
       if (camera && camState) {
         if (state.viewMode === 'inside') {
           if (!camState.isRightDown) {
@@ -2011,12 +2128,16 @@ window.BlahajUFO = (function () {
             state.cockpitLookPitch += (0 - state.cockpitLookPitch) * Math.min(1.0, dt * 7.5);
           }
           ufoGroup.updateMatrixWorld(true);
+          const eyeAnchor = (state.localRole === 'passenger' && passengerEyeAnchor)
+            ? passengerEyeAnchor
+            : (pilotEyeAnchor || cockpitCamAnchor);
           const camWorld = new THREE.Vector3();
-          cockpitCamAnchor.getWorldPosition(camWorld);
+          eyeAnchor.getWorldPosition(camWorld);
+          const eyeLocalX = state.localRole === 'passenger' ? 1.05 : -1.05;
           const lookDist = 11.4;
-          const lx = Math.sin(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
-          const ly = 2.08 + Math.sin(state.cockpitLookPitch) * lookDist - 0.2;
-          const lz = 0.68 + Math.cos(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
+          const lx = eyeLocalX + Math.sin(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
+          const ly = 1.88 + Math.sin(state.cockpitLookPitch) * lookDist - 0.18;
+          const lz = 0.98 + Math.cos(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
           const lookWorld = new THREE.Vector3(lx, ly, lz);
           ufoGroup.localToWorld(lookWorld);
           camState.customOverride = { pos: camWorld, lookAt: lookWorld };
@@ -2063,6 +2184,9 @@ window.BlahajUFO = (function () {
       }
     } else if (camState && camState.customOverride && !window.isUsingTelescope && !window.isUsingBinoculars) {
       camState.customOverride = null;
+      floorSolidMeshes.forEach((m) => { if (m) m.visible = true; });
+      canopyRibs.forEach((r) => { if (r) r.visible = true; });
+      if (floorLcdGroup) floorLcdGroup.visible = false;
     }
   }
 
@@ -2072,6 +2196,7 @@ window.BlahajUFO = (function () {
       if (el) el.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
     };
     bind('ufo-btn-view', toggleViewMode);
+    bind('ufo-btn-floorcam', toggleFloorCam);
     bind('ufo-btn-land', initiateAutoLand);
     bind('ufo-btn-tracy', resetToTracyIsle);
     bind('ufo-btn-hatch', toggleHatch);
@@ -2106,14 +2231,16 @@ window.BlahajUFO = (function () {
     exitUFO,
     initiateAutoLand,
     toggleViewMode,
+    toggleFloorCam,
     toggleHatch,
     toggleTractorBeam,
     openSharedVault,
     toggleDiscoMode,
     getViewMode: () => state.viewMode,
     panCockpit: (dx, dy) => {
-      state.cockpitLookYaw = Math.max(-2.0, Math.min(2.0, state.cockpitLookYaw - dx * 0.0042));
-      state.cockpitLookPitch = Math.max(-0.75, Math.min(0.85, state.cockpitLookPitch - dy * 0.0036));
+      state.cockpitLookYaw = Math.max(-2.1, Math.min(2.1, state.cockpitLookYaw - dx * 0.0042));
+      const minPitch = state.floorCam ? -1.48 : -0.85;
+      state.cockpitLookPitch = Math.max(minPitch, Math.min(0.85, state.cockpitLookPitch - dy * 0.0036));
     },
     toggleAutoChaseCam,
     updateAvionicsButtonsUI,

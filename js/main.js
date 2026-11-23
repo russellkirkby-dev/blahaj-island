@@ -5372,6 +5372,7 @@
       // S.S. Shonk-Saucer Mk. VII Flight Controls (checked BEFORE Binoculars [T]!)
       if (!isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
         if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
+        if (k === 'g') { e.preventDefault(); window.BlahajUFO.toggleFloorCam(); return; }
         if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
         if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
         if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
