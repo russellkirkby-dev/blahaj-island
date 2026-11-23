@@ -61,6 +61,8 @@ window.BlahajUFO = (function () {
   let floorSolidMeshes = [];
   let floorLcdGroup = null;
   let mojoCoreMesh = null;
+  let defaultAerialGroup = null;
+  let defaultAerialProg = 1.0;
 
   // Hardpoint Sockets on UFO Hull (decouples appendages from hull geometry for future UFO upgrades!)
   const sockets = {
@@ -643,45 +645,52 @@ window.BlahajUFO = (function () {
       mojoRack.add(cFin);
     });
 
-    // Chrome mast socket rising directly into the aerial spire
-    const mastSocket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 0.95, 12), chromeMat);
-    mastSocket.position.set(0, 1.45, 0);
+    // Chrome mast socket rising from Mojo-Core rack right through the rear canopy into the Dorsal Turret Collar!
+    const mastSocket = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.28, 2.75, 14), chromeMat);
+    mastSocket.position.set(0, 2.05, 0);
     mojoRack.add(mastSocket);
+    const dorsalCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.68, 0.36, 16), chromeMat);
+    dorsalCollar.position.set(0, 2.82, 0);
+    mojoRack.add(dorsalCollar);
     ufoHullGroup.add(mojoRack);
 
-    // Rear Dorsal Antenna Spire (Plugged directly into the Mojo-Core Transceiver Mast!)
-    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.14, 2.2, 8), chromeMat);
-    antenna.position.set(0, 3.65, -1.35);
-    antenna.rotation.x = -0.18;
-    const antOrb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 10, 8),
-      new THREE.MeshBasicMaterial({ color: 0xf43f5e })
-    );
-    antOrb.position.set(0, 4.72, -1.55);
-    ufoHullGroup.add(antenna, antOrb);
-
     // ========================================================================
-    // HARDPOINT SOCKETS & DEPLOYABLE EXTERIOR APPENDAGES (Future-Proofed!)
+    // HARDPOINT SOCKETS & DEPLOYABLE EXTERIOR APPENDAGES (Zero-Clipping Layout!)
     // ========================================================================
     sockets.belly = new THREE.Object3D();
     sockets.belly.position.set(0, -0.62, 0);
     ufoHullGroup.add(sockets.belly);
 
+    // Positioned cleanly outside the 5.49m equatorial bumper ring!
     sockets.portWing = new THREE.Object3D();
-    sockets.portWing.position.set(-4.95, 0.48, 0.65);
+    sockets.portWing.position.set(-5.35, 0.58, 0.78);
     ufoHullGroup.add(sockets.portWing);
 
     sockets.starboardWing = new THREE.Object3D();
-    sockets.starboardWing.position.set(4.95, 0.48, 0.65);
+    sockets.starboardWing.position.set(5.35, 0.58, 0.78);
     ufoHullGroup.add(sockets.starboardWing);
 
+    // Positioned cleanly atop the rear dorsal turret collar (above the canopy dome!)
     sockets.dorsalRack = new THREE.Object3D();
-    sockets.dorsalRack.position.set(0, 2.55, -1.35);
+    sockets.dorsalRack.position.set(0, 4.02, -1.35);
     ufoHullGroup.add(sockets.dorsalRack);
 
     sockets.rearNacelles = new THREE.Object3D();
-    sockets.rearNacelles.position.set(0, 0.72, -2.55);
+    sockets.rearNacelles.position.set(0, 0.72, -2.05);
     ufoHullGroup.add(sockets.rearNacelles);
+
+    // Default Dorsal Aerial Spire (Smoothly retracts into the Mojo-Core mast whenever Radar or Disco deploys!)
+    defaultAerialGroup = new THREE.Group();
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.14, 1.95, 10), chromeMat);
+    antenna.position.set(0, 0.95, 0);
+    antenna.rotation.x = -0.14;
+    const antOrb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 12, 10),
+      new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+    );
+    antOrb.position.set(0, 1.95, -0.14);
+    defaultAerialGroup.add(antenna, antOrb);
+    sockets.dorsalRack.add(defaultAerialGroup);
 
     buildSaucerModules(chromeMat, hullMintMat, darkConsoleMat);
 
@@ -1531,50 +1540,89 @@ window.BlahajUFO = (function () {
     if (sockets.portWing) sockets.portWing.add(turretL);
     if (sockets.starboardWing) sockets.starboardWing.add(turretR);
 
-    // 3. Aetheric Quest Radar Dish (sockets.dorsalRack) — Big Dramatic Parabolic Dish!
+    // 3. Classic Cartoony Parabolic Radar Dish (sockets.dorsalRack) — Lathe Bowl + Pointy Center Stem + 2 Floating Color-Shifting Rings!
     const radarRoot = new THREE.Group();
-    const rMast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 1.35, 10), chromeMat);
-    rMast.position.y = 0.68;
-    const rDish = new THREE.Mesh(new THREE.SphereGeometry(1.25, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.44), brassMat);
-    rDish.rotation.x = -Math.PI * 0.35;
-    rDish.position.set(0, 1.55, 0.25);
-    const rNeedle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.10, 0.95, 8), glowCyan);
-    rNeedle.rotation.x = Math.PI * 0.15;
-    rNeedle.position.set(0, 1.65, 0.72);
-    const rTipOrb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), glowCyan);
-    rTipOrb.position.set(0, 1.85, 0.95);
-    radarRoot.add(rMast, rDish, rNeedle, rTipOrb);
+    const rMast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.85, 12), chromeMat);
+    rMast.position.y = 0.42;
+    radarRoot.add(rMast);
+
+    const radarDishHead = new THREE.Group();
+    radarDishHead.position.set(0, 1.15, 0.05);
+    // Tilt dish slightly upward & forward so the classic parabolic bowl opens cleanly into the sky!
+    radarDishHead.rotation.x = Math.PI * 0.38;
+
+    const dishPts = [];
+    for (let i = 0; i <= 10; i++) {
+      const u = i / 10;
+      const rad = u * 1.48;
+      const depth = u * u * 0.62; // Classic parabolic curve (concave front face, convex back!)
+      dishPts.push(new THREE.Vector2(rad, depth));
+    }
+    const dishMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      metalness: 0.78,
+      roughness: 0.22,
+      side: THREE.DoubleSide
+    });
+    const rDish = new THREE.Mesh(new THREE.LatheGeometry(dishPts, 24), dishMat);
+    const rDishRim = new THREE.Mesh(new THREE.TorusGeometry(1.48, 0.09, 10, 28), brassMat);
+    rDishRim.rotation.x = Math.PI / 2;
+    rDishRim.position.y = 0.62;
+
+    // Pointy cartoony center stem sticking straight out from the core of the dish!
+    const rStem = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.35, 12), brassMat);
+    rStem.position.y = 0.72;
+    const rTipMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const rTipOrb = new THREE.Mesh(new THREE.SphereGeometry(0.20, 12, 10), rTipMat);
+    rTipOrb.position.y = 1.42;
+
+    // Two little floating rings orbiting around the pointy stem that change color when active!
+    const rRingMat1 = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const rRingMat2 = new THREE.MeshBasicMaterial({ color: 0x7dd3fc });
+    const rFloatRing1 = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.055, 10, 24), rRingMat1);
+    rFloatRing1.rotation.x = Math.PI / 2;
+    rFloatRing1.position.y = 0.82;
+    const rFloatRing2 = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.048, 10, 24), rRingMat2);
+    rFloatRing2.rotation.x = Math.PI / 2;
+    rFloatRing2.position.y = 1.15;
+
+    radarDishHead.add(rDish, rDishRim, rStem, rTipOrb, rFloatRing1, rFloatRing2);
+    radarRoot.add(radarDishHead);
     if (sockets.dorsalRack) sockets.dorsalRack.add(radarRoot);
 
-    // 4. Mojo Hyperdrive Warp Fins (sockets.rearNacelles) — Huge Swept Cartoony Energy Wings!
+    // 4. Mojo Hyperdrive Warp Fins (sockets.rearNacelles) — Unfurl cleanly OUTBOARD of the twin rocket nacelles (zero clipping!)
     const hyperRoot = new THREE.Group();
     [-1, 1].forEach((side) => {
-      const wing = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 2.2), glowViolet);
-      wing.position.set(side * 3.1, 0.55, -0.55);
-      wing.rotation.z = side * 0.28;
-      wing.rotation.y = side * -0.22;
-      const trim = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.28, 0.32), chromeMat);
-      trim.position.set(side * 3.1, 0.55, 0.52);
-      trim.rotation.z = side * 0.28;
-      trim.rotation.y = side * -0.22;
-      const pod = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), glowPink);
-      pod.position.set(side * 4.8, 1.05, -0.8);
-      hyperRoot.add(wing, trim, pod);
+      // Glowing warp ring encircling each nacelle pod (at x = ±4.5)
+      const nacelleRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.11, 10, 22), glowViolet);
+      nacelleRing.position.set(side * 4.5, -0.05, 0.45);
+      // Swept cartoony energy wing extending cleanly outboard (x = ±5.1..±8.7)
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.22, 2.0), glowViolet);
+      wing.position.set(side * 6.45, 0.35, -0.45);
+      wing.rotation.z = side * 0.22;
+      wing.rotation.y = side * -0.26;
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.26, 0.32), chromeMat);
+      trim.position.set(side * 6.45, 0.35, 0.52);
+      trim.rotation.z = side * 0.22;
+      trim.rotation.y = side * -0.26;
+      const pod = new THREE.Mesh(new THREE.SphereGeometry(0.46, 12, 10), glowPink);
+      pod.position.set(side * 8.15, 0.72, -0.92);
+      hyperRoot.add(nacelleRing, wing, trim, pod);
     });
     if (sockets.rearNacelles) sockets.rearNacelles.add(hyperRoot);
 
-    // 5. Disco Mirrorball & Sonic Megaphone Dome (sockets.dorsalRack) — Bold Retro Party Rig!
+    // 5. Disco Mirrorball & Sonic Megaphone Dome (sockets.dorsalRack) — Bold Retro Party Rig cleanly above canopy!
     const discoRoot = new THREE.Group();
-    const dMast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.35, 10), chromeMat);
-    dMast.position.y = 0.68;
+    const dMast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.15, 10), chromeMat);
+    dMast.position.y = 0.58;
     const dBall = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.82, 1),
+      new THREE.IcosahedronGeometry(0.84, 1),
       new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.95, roughness: 0.08, emissive: 0x38bdf8, emissiveIntensity: 0.45 })
     );
-    dBall.position.y = 1.75;
+    dBall.position.y = 1.65;
     const dHorn = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.15, 14, 1, true), brassMat);
     dHorn.rotation.x = -Math.PI / 2;
-    dHorn.position.set(0, 1.05, 0.68);
+    dHorn.position.set(0, 0.92, 0.68);
     discoRoot.add(dMast, dBall, dHorn);
     if (sockets.dorsalRack) sockets.dorsalRack.add(discoRoot);
 
@@ -1583,12 +1631,15 @@ window.BlahajUFO = (function () {
         id: 'tractor',
         icon: '🟢',
         name: 'Tractor Beam',
+        usesDorsal: false,
         prog: 1,
         meshes: [tractorRoot],
         animate: (p, t) => {
-          tractorRoot.visible = p > 0.02;
-          tractorRoot.position.y = -0.35 * p;
-          tractorRoot.scale.setScalar(Math.max(0.01, p));
+          // Tuck flush when parked with stairs down so it never clips the glowing stairs!
+          const effP = (state.phase === 'parked' && state.hatchOpenProg > 0.15) ? p * 0.25 : p;
+          tractorRoot.visible = effP > 0.02;
+          tractorRoot.position.y = -0.45 * effP;
+          tractorRoot.scale.setScalar(Math.max(0.01, effP));
           tRing.rotation.z = t * 2.2;
         },
         activate: () => toggleTractorBeam()
@@ -1597,14 +1648,15 @@ window.BlahajUFO = (function () {
         id: 'turrets',
         icon: '🔫',
         name: 'Ray Turrets',
+        usesDorsal: false,
         prog: 0,
         meshes: [turretL, turretR],
         animate: (p) => {
           const vis = p > 0.02;
           turretL.visible = vis;
           turretR.visible = vis;
-          turretL.position.x = -0.75 * p;
-          turretR.position.x = 0.75 * p;
+          turretL.position.x = -0.65 * p;
+          turretR.position.x = 0.65 * p;
           turretL.scale.setScalar(Math.max(0.01, p));
           turretR.scale.setScalar(Math.max(0.01, p));
         },
@@ -1614,13 +1666,30 @@ window.BlahajUFO = (function () {
         id: 'radar',
         icon: '📡',
         name: 'Aetheric Radar',
+        usesDorsal: true,
         prog: 0,
         meshes: [radarRoot],
         animate: (p, t) => {
           radarRoot.visible = p > 0.02;
-          radarRoot.position.y = -0.5 + 0.95 * p;
+          radarRoot.position.y = -0.6 + 0.6 * p;
           radarRoot.scale.setScalar(Math.max(0.01, p));
-          radarRoot.rotation.y = t * 1.8;
+          radarRoot.rotation.y = t * 1.4;
+          // Float the 2 rings gently around the pointy center stem & shift color when radar ping is active!
+          const pingActive = performance.now() < (state.radarStatusUntil || 0);
+          rFloatRing1.position.y = 0.80 + Math.sin(t * 4.5) * 0.08;
+          rFloatRing2.position.y = 1.15 + Math.cos(t * 5.2) * 0.08;
+          rFloatRing1.rotation.z = t * 2.4;
+          rFloatRing2.rotation.z = -t * 3.1;
+          if (pingActive) {
+            const flash = Math.sin(t * 14.0) > 0;
+            rRingMat1.color.setHex(flash ? 0x34d399 : 0xfbbf24);
+            rRingMat2.color.setHex(flash ? 0xfbbf24 : 0x34d399);
+            rTipMat.color.setHex(0xfbbf24);
+          } else {
+            rRingMat1.color.setHex(0x38bdf8);
+            rRingMat2.color.setHex(0x7dd3fc);
+            rTipMat.color.setHex(0x38bdf8);
+          }
         },
         activate: () => pulseAethericRadar()
       },
@@ -1628,6 +1697,7 @@ window.BlahajUFO = (function () {
         id: 'hyperdrive',
         icon: '⚡',
         name: 'Mojo Hyperdrive',
+        usesDorsal: false,
         prog: 0,
         meshes: [hyperRoot],
         animate: (p) => {
@@ -1640,11 +1710,12 @@ window.BlahajUFO = (function () {
         id: 'disco',
         icon: '🪩',
         name: 'Disco & Sonic',
+        usesDorsal: true,
         prog: 0,
         meshes: [discoRoot],
         animate: (p, t) => {
           discoRoot.visible = p > 0.02;
-          discoRoot.position.y = -0.45 + 0.92 * p;
+          discoRoot.position.y = -0.55 + 0.55 * p;
           discoRoot.scale.setScalar(Math.max(0.01, p));
           dBall.rotation.y = t * 2.6;
         },
@@ -2010,7 +2081,15 @@ window.BlahajUFO = (function () {
       mojoCoreMesh.scale.setScalar(pulse);
     }
 
-    // 3B. Animate Deployable Exterior Saucer Appendages, Plasma Bolts & Radar Waves
+    // 3B. Animate Deployable Exterior Saucer Appendages, Retractable Default Aerial, Plasma Bolts & Radar Waves
+    const activeMod = saucerModules[activeModuleIdx];
+    const aerialTarget = (activeMod && activeMod.usesDorsal) ? 0.0 : 1.0;
+    defaultAerialProg += (aerialTarget - defaultAerialProg) * Math.min(1.0, dt * 8.0);
+    if (defaultAerialGroup) {
+      defaultAerialGroup.visible = defaultAerialProg > 0.02;
+      defaultAerialGroup.position.y = -0.6 + 0.6 * defaultAerialProg;
+      defaultAerialGroup.scale.setScalar(Math.max(0.01, defaultAerialProg));
+    }
     saucerModules.forEach((mod, idx) => {
       const target = idx === activeModuleIdx ? 1.0 : 0.0;
       mod.prog += (target - mod.prog) * Math.min(1.0, dt * 7.5);
