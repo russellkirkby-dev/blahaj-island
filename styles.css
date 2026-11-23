@@ -8151,21 +8151,40 @@ body.ufo-flight-mode .hud-bottom-left {
 }
 
 .fin-belt-bar {
-  position: fixed;
-  left: 50%;
-  bottom: 132px;
-  transform: translateX(-50%);
+  position: relative;
   z-index: 1080;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 5px 8px;
+  margin: 2px auto 0;
   border-radius: 14px;
-  background: rgba(11, 18, 34, 0.82);
-  border: 1px solid rgba(125, 211, 252, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+  background: rgba(11, 18, 34, 0.84);
+  border: 1px solid rgba(125, 211, 252, 0.32);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
+  pointer-events: auto;
   user-select: none;
+}
+.pause-shark-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+.pause-section-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #7dd3fc;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.pause-shark-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
 }
 body.ufo-flight-mode .fin-belt-bar {
   display: none !important;

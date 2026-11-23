@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9.8" />
+  <link rel="stylesheet" href="styles.css?v=9.9" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -622,40 +622,11 @@
         </div>
       </div>
 
-      <!-- PASS 81: COMPACT SHARK PARTY SWITCHER (F1–F4, Alt+1..5) & ACTIVE FIN-SLOT MODIFIER PILL -->
-      <div class="mmo-subbar-row" id="mmo-subbar-row">
-        <div class="shark-switcher-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F4] or [Alt+1..5]">
-          <button type="button" class="shark-switcher-btn shark-slot active" data-shark="hermes" id="slot-1" title="[F1 / Alt+1] Play as Hermes (The Weary Guide)">
-            <span class="sw-key">F1</span>
-            <img src="assets/gallery/Hermes.png" alt="Hermes" />
-            <span class="sw-name">Hermes</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="solomon" id="slot-2" title="[F2 / Alt+2] Play as Solomon (The Star Shark)">
-            <span class="sw-key">F2</span>
-            <img src="assets/gallery/Solomon.png" alt="Solomon" />
-            <span class="sw-name">Solomon</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="hiram" id="slot-3" title="[F3 / Alt+3] Play as Hiram (The Builder)">
-            <span class="sw-key">F3</span>
-            <img src="assets/gallery/Hiram.png" alt="Hiram" />
-            <span class="sw-name">Hiram</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="nimue" id="slot-4" title="[F4 / Alt+4] Play as Nimue (Seam Weaver)">
-            <span class="sw-key">F4</span>
-            <img src="assets/gallery/Nimue.png" alt="Nimue" />
-            <span class="sw-name">Nimue</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[Alt+5 / F6] Play as Your Custom Named Shark (Rite of Detagging)">
-            <span class="sw-key">Alt+5</span>
-            <img src="assets/gallery/Names.png" alt="Custom Shark" />
-            <span class="sw-name slot-name">Finley</span>
-          </button>
-        </div>
+      <!-- PASS 99: 1-9 FIN SLOTS BELT (Flows cleanly between Vitals and Action Bar with zero overlap!) -->
+      <div id="fin-belt-bar" class="fin-belt-bar" aria-label="Fin Slots 1-9"></div>
 
-        <div id="mmo-fin-mod-pill" class="mmo-fin-mod-pill hidden" title="Equipping an item in your Fin [H] dynamically modifies your Fin Strikes &amp; Deflections!">
-          🔧 <strong>Fin Stance: Allen-Key Torque</strong> · <span>Allen-Key Torque Strike</span>
-        </div>
-      </div>
+      <!-- Kept hidden from active HUD to prevent clutter (Fin Stance info shown in FinSense/Spellbook) -->
+      <div id="mmo-fin-mod-pill" class="mmo-fin-mod-pill hidden" style="display: none !important;"></div>
 
       <div class="action-bar mmo-action-bar" id="mmo-action-bar">
         <!-- NUMBER ROW COMBAT, RANGED & SUPPORT SLOTS (1 through 6) -->
@@ -2503,6 +2474,36 @@
           <button type="button" id="btn-pause-spellbook" class="pause-btn">📖 Spellbook</button>
         </div>
       </div>
+      <div class="pause-shark-section">
+        <div class="pause-section-label">🦈 Switch Playable Shark (F1–F4 / F6)</div>
+        <div class="shark-switcher-bar pause-shark-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F4] or [F6]">
+          <button type="button" class="shark-switcher-btn shark-slot active" data-shark="hermes" id="slot-1" title="[F1] Play as Hermes">
+            <span class="sw-key">F1</span>
+            <img src="assets/gallery/Hermes.png" alt="Hermes" />
+            <span class="sw-name">Hermes</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="solomon" id="slot-2" title="[F2] Play as Solomon">
+            <span class="sw-key">F2</span>
+            <img src="assets/gallery/Solomon.png" alt="Solomon" />
+            <span class="sw-name">Solomon</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="hiram" id="slot-3" title="[F3] Play as Hiram">
+            <span class="sw-key">F3</span>
+            <img src="assets/gallery/Hiram.png" alt="Hiram" />
+            <span class="sw-name">Hiram</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="nimue" id="slot-4" title="[F4] Play as Nimue">
+            <span class="sw-key">F4</span>
+            <img src="assets/gallery/Nimue.png" alt="Nimue" />
+            <span class="sw-name">Nimue</span>
+          </button>
+          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[F6] Play as Your Custom Named Shark">
+            <span class="sw-key">F6</span>
+            <img src="assets/gallery/Names.png" alt="Custom Shark" />
+            <span class="sw-name slot-name">Finley</span>
+          </button>
+        </div>
+      </div>
       <div class="pause-controls-tip">
         <span><strong>In-Game Mouse:</strong> Move = Camera</span>
         <span>·</span>
@@ -2513,9 +2514,7 @@
     </div>
   </div>
 
-  <!-- Bottom-Right FinSense Inspector, 1-9 Fin Belt & Mode Strip -->
-  <div id="fin-belt-bar" class="fin-belt-bar" aria-label="Fin Slots 1-9"></div>
-
+  <!-- Bottom-Right FinSense Inspector & Mode Strip -->
   <div id="fin-sense-box" class="fin-sense-box hidden" aria-live="polite">
     <div id="fin-mode-strip" class="fin-mode-strip hidden">
       <button type="button" class="fin-mode-btn active" data-fintool="interact" title="Interact / Pick Up [1 while RMB]"><span>1</span> ✋ Use</button>
@@ -2536,23 +2535,23 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=9.8"></script>
-  <script src="js/sharks3d.js?v=9.8"></script>
-  <script src="js/ufo.js?v=9.8"></script>
-  <script src="js/world3d.js?v=9.8"></script>
-  <script src="js/volcano.js?v=9.8"></script>
-  <script src="js/laundromat.js?v=9.8"></script>
-  <script src="js/sphericalFoods.js?v=9.8"></script>
-  <script src="js/volleyball.js?v=9.8"></script>
-  <script src="js/spawningPits.js?v=9.8"></script>
-  <script src="js/homestead.js?v=9.8"></script>
-  <script src="js/network.js?v=9.8"></script>
-  <script src="js/inventory.js?v=9.8"></script>
-  <script src="js/enemies.js?v=9.8"></script>
-  <script src="js/seam.js?v=9.8"></script>
-  <script src="js/mmoControls.js?v=9.8"></script>
+  <script src="js/lore.js?v=9.9"></script>
+  <script src="js/sharks3d.js?v=9.9"></script>
+  <script src="js/ufo.js?v=9.9"></script>
+  <script src="js/world3d.js?v=9.9"></script>
+  <script src="js/volcano.js?v=9.9"></script>
+  <script src="js/laundromat.js?v=9.9"></script>
+  <script src="js/sphericalFoods.js?v=9.9"></script>
+  <script src="js/volleyball.js?v=9.9"></script>
+  <script src="js/spawningPits.js?v=9.9"></script>
+  <script src="js/homestead.js?v=9.9"></script>
+  <script src="js/network.js?v=9.9"></script>
+  <script src="js/inventory.js?v=9.9"></script>
+  <script src="js/enemies.js?v=9.9"></script>
+  <script src="js/seam.js?v=9.9"></script>
+  <script src="js/mmoControls.js?v=9.9"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=9.8"></script>
-  <script src="js/main.js?v=9.8"></script>
+  <script src="js/saveSystem.js?v=9.9"></script>
+  <script src="js/main.js?v=9.9"></script>
 </body>
 </html>
