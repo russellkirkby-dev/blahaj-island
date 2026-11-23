@@ -2226,17 +2226,17 @@ window.BlahajUFO = (function () {
             obj.isIncursionInvader = false;
             window.BlahajSeam.onInvaderExpelledToSea(obj);
           }
-          obj.mange = 0;
-          if (obj.patrolRoute && obj.patrolRoute.length > 0) {
-            const wp = obj.patrolRoute[0];
-            obj.pos.set(wp.x, obj.homePos ? obj.homePos.y : -0.65, wp.z);
-          } else if (obj.homePos) {
-            obj.pos.copy(obj.homePos);
+          if (window.BlahajEnemies && typeof window.BlahajEnemies.banishEnemy === 'function') {
+            window.BlahajEnemies.banishEnemy(obj, 3600, 'volcano');
+          } else {
+            obj.mange = 0;
+            if (obj.mesh) obj.mesh.visible = false;
           }
-          if (obj.mesh) {
-            obj.mesh.position.copy(obj.pos);
-            obj.mesh.rotation.set(0, obj.rotY || 0, 0);
-            obj.mesh.scale.set(1, 1, 1);
+          if (window.showToast) {
+            window.showToast(
+              '🌋🔥 VOLCANO RECALL! (1 HOUR)',
+              `${vd.title || 'Creature'} was toasted in the caldera & shipped to IKEA for a 1-hour re-stuffing!`
+            );
           }
         } else if (vd.kind === 'beach_ball' && obj && obj.mesh) {
           obj.vel.set(0, 12, 0);

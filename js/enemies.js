@@ -406,7 +406,7 @@ window.BlahajEnemies = (function () {
         title: 'Barnacle Brine Star 🌟',
         tag: 'EVIL STARFISH · MOODY SPIKE',
         isWaterBased: true,
-        homePos: new THREE.Vector3(74.0, -0.95, 26.0),
+        homePos: new THREE.Vector3(88.0, -0.95, 28.0),
         builder: createStarfishMesh,
         speed: 2.2,
         aggroDist: 8.0,
@@ -416,9 +416,9 @@ window.BlahajEnemies = (function () {
         id: 'urchin_1',
         type: 'urchin',
         title: 'Prickly Kelp Urchin 🦔',
-        tag: 'MISCHIEVOUS PUFFBALL · SOFT SPINES',
-        isWaterBased: false,
-        homePos: new THREE.Vector3(38.0, 1.5, -12.0),
+        tag: 'SPINY KELP REEF URCHIN',
+        isWaterBased: true,
+        homePos: new THREE.Vector3(84.0, -0.95, -24.0),
         builder: createKelpUrchinMesh,
         speed: 2.8,
         aggroDist: 7.0,
@@ -470,6 +470,9 @@ window.BlahajEnemies = (function () {
         isFlying: false,
         flyTimer: 0,
         respawnTimer: 0,
+        pacifiedTimer: 0,
+        defeated: false,
+        canPacify: def.type !== 'shark',
         animPhase: Math.random() * Math.PI * 2,
         state: 'idle',
         isChasing: false,
@@ -651,6 +654,44 @@ window.BlahajEnemies = (function () {
     // 2. Update each enemy
     enemies.forEach((enemy, enemyIdx) => {
       if (enemy.inSubspaceVault) return;
+
+      // Handle banished / defeated cooldown (15m for boop, 60m for volcano drop)
+      if (enemy.respawnTimer > 0) {
+        enemy.respawnTimer -= dt;
+        if (enemy.mesh) enemy.mesh.visible = false;
+        if (enemy.labelEl && enemy.labelEl._lastDisplay !== 'none') {
+          enemy.labelEl.style.display = 'none';
+          enemy.labelEl._lastDisplay = 'none';
+        }
+        if (enemy.respawnTimer <= 0) {
+          enemy.respawnTimer = 0;
+          enemy.defeated = false;
+          enemy.mange = 0;
+          if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
+            const wp = enemy.patrolRoute[0];
+            enemy.pos.set(wp.x, enemy.homePos ? enemy.homePos.y : -0.65, wp.z);
+            enemy.waypointIdx = 0;
+          } else if (enemy.homePos) {
+            enemy.pos.copy(enemy.homePos);
+          }
+          if (enemy.mesh) {
+            enemy.mesh.position.copy(enemy.pos);
+            enemy.mesh.rotation.set(0, enemy.rotY, 0);
+            enemy.mesh.visible = true;
+          }
+          updateEnemyLabelUI(enemy);
+        }
+        return;
+      }
+
+      if (enemy.pacifiedTimer > 0) {
+        enemy.pacifiedTimer = Math.max(0, enemy.pacifiedTimer - dt);
+        enemy.isChasing = false;
+        if (enemy.pacifiedTimer === 0) {
+          updateEnemyLabelUI(enemy);
+        }
+      }
+
       if (!enemy.isFlying && !enemy.isChasing && playerPos) {
         const dxP = enemy.pos.x - playerPos.x;
         const dzP = enemy.pos.z - playerPos.z;
@@ -734,37 +775,27 @@ window.BlahajEnemies = (function () {
             if (window.BlahajSeam && typeof window.BlahajSeam.onInvaderExpelledToSea === 'function') {
               window.BlahajSeam.onInvaderExpelledToSea(enemy);
             }
-          } else if (enemy.patrolRoute && enemy.patrolRoute.length > 0) {
-            // Pick closest waypoint to splashdown location so shark smoothly resumes route
-            let bestIdx = 0;
-            let bestD = Infinity;
-            for (let i = 0; i < enemy.patrolRoute.length; i++) {
-              const wp = enemy.patrolRoute[i];
-              const d = Math.hypot(wp.x - enemy.pos.x, wp.z - enemy.pos.z);
-              if (d < bestD) {
-                bestD = d;
-                bestIdx = i;
-              }
+            enemy.mesh.position.copy(enemy.pos);
+            enemy.mesh.rotation.set(0, enemy.rotY, 0);
+            enemy.mange = 0.0;
+            updateEnemyLabelUI(enemy);
+            spawnComicStars(enemy.pos, 0x56c2ff, 18);
+            if (window.CozyAudio && typeof window.CozyAudio.waterSplash === 'function') {
+              window.CozyAudio.waterSplash(0.3, 0.35);
             }
-            enemy.waypointIdx = bestIdx;
-            const targetWp = enemy.patrolRoute[bestIdx];
-            enemy.pos.set(targetWp.x, enemy.pos.y, targetWp.z);
+            if (window.showToast) {
+              window.showToast('🌊 INVADER BANISHED!', `${enemy.title} splashed back into the deep ocean!`);
+            }
           } else {
-            enemy.pos.copy(enemy.homePos);
-          }
-
-          enemy.mesh.position.copy(enemy.pos);
-          enemy.mesh.rotation.set(0, enemy.rotY, 0);
-          enemy.mange = 0.0; // Fully refreshed & calmed down!
-          updateEnemyLabelUI(enemy);
-
-          spawnComicStars(enemy.pos, 0x56c2ff, 18);
-          if (enemy.isWaterBased && window.CozyAudio && typeof window.CozyAudio.waterSplash === 'function') {
-            window.CozyAudio.waterSplash(0.3, 0.35);
-          }
-          if (window.showToast) {
-            const locText = enemy.isWaterBased ? 'back into the azure ocean depths' : 'back into the meadow';
-            window.showToast('🌊 SPLASH DOWN!', `${enemy.title} parachuted ${locText}, soft and calmed!`);
+            // Regular creature booped away: 15-minute (900s) respawn cooldown so the area stays peaceful!
+            banishEnemy(enemy, 900, 'booped');
+            spawnComicStars(enemy.pos, 0x56c2ff, 18);
+            if (enemy.isWaterBased && window.CozyAudio && typeof window.CozyAudio.waterSplash === 'function') {
+              window.CozyAudio.waterSplash(0.3, 0.35);
+            }
+            if (window.showToast) {
+              window.showToast('🌊 SENT PACKING! (15m)', `${enemy.title} was blasted away for a 15-minute break!`);
+            }
           }
         }
         return;
@@ -795,7 +826,7 @@ window.BlahajEnemies = (function () {
       // STATE C: AI BEHAVIOR (IDLE / PATROL ROUTE / CHASE)
       const distToPlayer = playerPos ? enemy.pos.distanceTo(playerPos) : 999;
 
-      if (distToPlayer < enemy.aggroDist) {
+      if (distToPlayer < enemy.aggroDist && !(enemy.pacifiedTimer > 0)) {
         enemy.isChasing = true;
 
         // Turn towards player
@@ -1116,6 +1147,9 @@ window.BlahajEnemies = (function () {
         isFlying: false,
         flyTimer: 0,
         respawnTimer: 0,
+        pacifiedTimer: 0,
+        defeated: false,
+        canPacify: def.type !== 'shark',
         animPhase: Math.random() * Math.PI * 2,
         state: 'chasing',
         isChasing: true,
@@ -1210,10 +1244,36 @@ function checkBoopHit(playerPos, playerRotY) {
     return hitAny;
   }
 
+  function banishEnemy(enemy, durationSec = 900, reason = 'booped') {
+    if (!enemy) return;
+    enemy.respawnTimer = Math.max(1, Number(durationSec) || 900);
+    enemy.defeated = true;
+    enemy.isFlying = false;
+    enemy.isChasing = false;
+    enemy.vel.set(0, 0, 0);
+    enemy.rotVel.set(0, 0, 0);
+    if (enemy.mesh) enemy.mesh.visible = false;
+    if (enemy.labelEl) {
+      enemy.labelEl.style.display = 'none';
+      enemy.labelEl._lastDisplay = 'none';
+    }
+  }
+
+  function pacifyEnemy(enemy, durationSec = 900) {
+    if (!enemy || !enemy.canPacify) return false;
+    enemy.pacifiedTimer = Math.max(1, Number(durationSec) || 900);
+    enemy.isChasing = false;
+    enemy.mange = 0;
+    updateEnemyLabelUI(enemy);
+    return true;
+  }
+
   return {
     init,
     update,
     checkBoopHit,
+    banishEnemy,
+    pacifyEnemy,
     getEnemies: () => enemies,
     launchEnemyIntoStratosphere,
     spawnIncursionInvaders,
