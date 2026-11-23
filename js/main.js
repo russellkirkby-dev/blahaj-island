@@ -5443,7 +5443,7 @@
         return;
       }
 
-      // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer ([Shift+U] Resets to Tracy Isle!)
+      // Quick Hotkey [U] on Main Island: Summon S.S. Shonk-Saucer ([Shift+U] Resets to Shonkbird Atoll!)
       if (!isAnyModalOpen() && k === 'u' && (currentZone === 'island' || currentZone === 'overworld') && window.BlahajUFO) {
         e.preventDefault();
         if (e.shiftKey) {
@@ -15475,7 +15475,7 @@
                 player.pos.z = nz;
               }
             } else {
-              // Solid prop & shark collision resolution (prevents clipping through trees, Tracy Isle crags/console, parked UFO, & sharks!)
+              // Solid prop & shark collision resolution (prevents clipping through trees, Shonkbird Atoll crags/console, parked UFO, & sharks!)
               if (worldApi && typeof worldApi.resolveWorldCollisions === 'function') {
                 const wRes = worldApi.resolveWorldCollisions(nx, nz, player.pos.y, 0.72);
                 nx = wRes.x;

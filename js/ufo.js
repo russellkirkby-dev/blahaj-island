@@ -2,7 +2,7 @@
 // BLÅHAJ ISLAND — S.S. SHONK-SAUCER MK. VII (JETSONS UFO + THUNDERBIRDS ISLE)
 // ============================================================================
 // Features:
-//  1. Thunderbirds-style Secret Launch Island ("Shonk-Bird Tracy Isle") at
+//  1. Thunderbirds-style Secret Launch Island ("Shonkbird Atoll") at
 //     (138, 112) with tilting palm trees, sliding turquoise pool/crater doors,
 //     rotating amber beacons, and a hydraulic launch platform.
 //  2. Jetsons-inspired Retro-Futuristic 3D UFO with crystal-clear bubble dome,
@@ -39,7 +39,7 @@ window.BlahajUFO = (function () {
   let tiltingPalms = [];
   let warningBeacons = [];
   let runwayChevrons = [];
-  let isleColliders = []; // Solid horizontal circle colliders on Shonk-Bird Tracy Isle
+  let isleColliders = []; // Solid horizontal circle colliders on Shonkbird Atoll
 
   let ufoGroup = null;
   let ufoHullGroup = null;
@@ -283,7 +283,7 @@ window.BlahajUFO = (function () {
   }
 
   // ==========================================================================
-  // 1. BUILD THUNDERBIRDS-STYLE SECRET LAUNCH ISLAND ("SHONK-BIRD TRACY ISLE")
+  // 1. BUILD THUNDERBIRDS-STYLE SECRET LAUNCH ISLAND ("SHONKBIRD ATOLL")
   // ==========================================================================
   function buildThunderbirdsIsland(scene) {
     islandGroup = new THREE.Group();
@@ -877,7 +877,7 @@ window.BlahajUFO = (function () {
   }
 
   // ==========================================================================
-  // 3. WALKABLE SURFACE HEIGHT FOR TRACY ISLE & LAUNCH PAD
+  // 3. WALKABLE SURFACE HEIGHT FOR SHONKBIRD ATOLL & LAUNCH PAD
   // ==========================================================================
   function getSurfaceHeight(x, z, refY = null) {
     if (!isBuilt) return -999;
@@ -921,7 +921,7 @@ window.BlahajUFO = (function () {
     if (!isBuilt || !playerPos || state.localRole) return [];
     const items = [];
 
-    // 1. Thunderbirds Launch Control Console on Tracy Isle
+    // 1. Thunderbirds Launch Control Console on Shonkbird Atoll
     const consoleX = ISLE_X - 16.5;
     const consoleZ = ISLE_Z - 11.5;
     const dConsole = Math.hypot(playerPos.x - consoleX, playerPos.z - consoleZ);
@@ -931,14 +931,14 @@ window.BlahajUFO = (function () {
         kind: ufoAwayFromIsle ? 'ufo_reset_isle' : 'ufo_hangar_console',
         dist: dConsole,
         prompt: ufoAwayFromIsle
-          ? '🛸 Recall S.S. Shonk-Saucer Back to Tracy Isle Launch Pad [E]'
+          ? '🛸 Recall S.S. Shonk-Saucer Back to Shonkbird Atoll Launch Pad [E]'
           : (state.hangarTargetOpen
             ? '🌴 Close Secret Thunderbirds Hangar Doors [E]'
             : '🚨 OPEN SECRET THUNDERBIRDS LAUNCH BAY [E] 🛸🌴')
       });
     }
 
-    // 2. Endless Pierhead Quick-Shuttle Beacon (48, 82) to summon/warp to Tracy Isle!
+    // 2. Endless Pierhead Quick-Shuttle Beacon (48, 82) to summon/warp to Shonkbird Atoll!
     const dPierBeacon = Math.hypot(playerPos.x - 48.0, playerPos.z - 82.0);
     if (dPierBeacon < 6.0 && state.pos.distanceTo(playerPos) > 15.0) {
       items.push({
@@ -969,13 +969,13 @@ window.BlahajUFO = (function () {
     return items;
   }
 
-  /** Solid horizontal circle collision resolver for Shonk-Bird Tracy Isle & landed UFO hull. */
+  /** Solid horizontal circle collision resolver for Shonkbird Atoll & landed UFO hull. */
   function resolveCollision(x, z, y, playerRadius = 0.75) {
     let outX = x;
     let outZ = z;
     if (!isBuilt || state.localRole) return { x: outX, z: outZ };
 
-    // 1. Solid props on Tracy Isle (crags, palm trunks, beacons, launch console)
+    // 1. Solid props on Shonkbird Atoll (crags, palm trunks, beacons, launch console)
     for (let i = 0; i < isleColliders.length; i++) {
       const c = isleColliders[i];
       if (y > c.topY) continue;
@@ -1076,7 +1076,7 @@ window.BlahajUFO = (function () {
     state.orbitalCeilingReached = false;
     playHangarKlaxon();
     if (window.showToast) {
-      window.showToast('🏝️ RETURNED TO SHONK-BIRD TRACY ISLE!', 'S.S. Shonk-Saucer docked safely on the Thunderbirds Launch Pad!');
+      window.showToast('🏝️ RETURNED TO SHONKBIRD ATOLL!', 'S.S. Shonk-Saucer docked safely on the secret Launch Pad!');
     }
     broadcastState(true);
   }
@@ -1187,14 +1187,14 @@ window.BlahajUFO = (function () {
     state.phase = 'landing';
     state.phaseTimer = 0;
     state.orbitalCeilingReached = false;
-    // If landing near Tracy Isle, automatically open the Thunderbirds bay & funnel onto the pad!
+    // If landing near Shonkbird Atoll, automatically open the secret bay & funnel onto the pad!
     const nearIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z) < 42.0;
     if (nearIsle) {
       state.hangarTargetOpen = true;
     }
     if (window.showToast) {
       window.showToast(
-        nearIsle ? '🏝️ TRACY ISLE PAD APPROACH ENGAGED' : '🛬 AUTO-LANDING SEQUENCE ACTIVE',
+        nearIsle ? '🏝️ SHONKBIRD ATOLL PAD APPROACH ENGAGED' : '🛬 AUTO-LANDING SEQUENCE ACTIVE',
         nearIsle
           ? 'Opening Thunderbirds bay & funneling onto the hydraulic pad…'
           : 'Stabilizing hull, extending landing stairs & touching down softly…'
@@ -1501,74 +1501,80 @@ window.BlahajUFO = (function () {
     const glowViolet = new THREE.MeshBasicMaterial({ color: 0xc084fc, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
     const glowPink = new THREE.MeshBasicMaterial({ color: 0xf472b6 });
 
-    // 1. Ventral Tractor Beam Emitter (sockets.belly)
+    // 1. Ventral Tractor Beam Emitter (sockets.belly) — Chunky Cartoony Bell!
     const tractorRoot = new THREE.Group();
-    const tRing = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.12, 10, 24), chromeMat);
+    const tRing = new THREE.Mesh(new THREE.TorusGeometry(1.45, 0.22, 12, 24), chromeMat);
     tRing.rotation.x = Math.PI / 2;
-    const tCore = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 0.45, 16), glowGreen);
-    tCore.position.y = -0.18;
+    const tCore = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 1.18, 0.85, 16), glowGreen);
+    tCore.position.y = -0.35;
     tractorRoot.add(tRing, tCore);
     if (sockets.belly) sockets.belly.add(tractorRoot);
 
-    // 2. Twin Retro Ray-Gun Plasma Turrets (sockets.portWing + sockets.starboardWing)
+    // 2. Twin Retro Ray-Gun Plasma Turrets (sockets.portWing + sockets.starboardWing) — Oversized Jetsons Blasters!
     const turretL = new THREE.Group();
     const turretR = new THREE.Group();
     const buildRayGun = (root) => {
-      const housing = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), chromeMat);
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 1.35, 12), brassMat);
+      const housing = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), chromeMat);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.26, 2.25, 12), brassMat);
       barrel.rotation.x = Math.PI / 2;
-      barrel.position.z = 0.7;
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), glowCyan);
-      tip.position.z = 1.42;
-      const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 8, 16), glowPink);
-      ring1.position.z = 0.92;
-      root.add(housing, barrel, tip, ring1);
+      barrel.position.z = 1.15;
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), glowCyan);
+      tip.position.z = 2.32;
+      const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.07, 8, 18), glowPink);
+      ring1.position.z = 1.35;
+      const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.06, 8, 18), glowPink);
+      ring2.position.z = 1.85;
+      root.add(housing, barrel, tip, ring1, ring2);
     };
     buildRayGun(turretL);
     buildRayGun(turretR);
     if (sockets.portWing) sockets.portWing.add(turretL);
     if (sockets.starboardWing) sockets.starboardWing.add(turretR);
 
-    // 3. Aetheric Quest Radar Dish (sockets.dorsalRack)
+    // 3. Aetheric Quest Radar Dish (sockets.dorsalRack) — Big Dramatic Parabolic Dish!
     const radarRoot = new THREE.Group();
-    const rMast = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.14, 0.9, 10), chromeMat);
-    rMast.position.y = 0.45;
-    const rDish = new THREE.Mesh(new THREE.SphereGeometry(0.75, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), brassMat);
+    const rMast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.24, 1.35, 10), chromeMat);
+    rMast.position.y = 0.68;
+    const rDish = new THREE.Mesh(new THREE.SphereGeometry(1.25, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.44), brassMat);
     rDish.rotation.x = -Math.PI * 0.35;
-    rDish.position.set(0, 1.05, 0.15);
-    const rNeedle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.6, 8), glowCyan);
+    rDish.position.set(0, 1.55, 0.25);
+    const rNeedle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.10, 0.95, 8), glowCyan);
     rNeedle.rotation.x = Math.PI * 0.15;
-    rNeedle.position.set(0, 1.12, 0.45);
-    radarRoot.add(rMast, rDish, rNeedle);
+    rNeedle.position.set(0, 1.65, 0.72);
+    const rTipOrb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), glowCyan);
+    rTipOrb.position.set(0, 1.85, 0.95);
+    radarRoot.add(rMast, rDish, rNeedle, rTipOrb);
     if (sockets.dorsalRack) sockets.dorsalRack.add(radarRoot);
 
-    // 4. Mojo Hyperdrive Warp Fins (sockets.rearNacelles)
+    // 4. Mojo Hyperdrive Warp Fins (sockets.rearNacelles) — Huge Swept Cartoony Energy Wings!
     const hyperRoot = new THREE.Group();
     [-1, 1].forEach((side) => {
-      const wing = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 1.4), glowViolet);
-      wing.position.set(side * 2.1, 0.35, -0.35);
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.22, 2.2), glowViolet);
+      wing.position.set(side * 3.1, 0.55, -0.55);
       wing.rotation.z = side * 0.28;
       wing.rotation.y = side * -0.22;
-      const trim = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.15, 0.18), chromeMat);
-      trim.position.set(side * 2.1, 0.35, 0.32);
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.28, 0.32), chromeMat);
+      trim.position.set(side * 3.1, 0.55, 0.52);
       trim.rotation.z = side * 0.28;
       trim.rotation.y = side * -0.22;
-      hyperRoot.add(wing, trim);
+      const pod = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), glowPink);
+      pod.position.set(side * 4.8, 1.05, -0.8);
+      hyperRoot.add(wing, trim, pod);
     });
     if (sockets.rearNacelles) sockets.rearNacelles.add(hyperRoot);
 
-    // 5. Disco Mirrorball & Sonic Megaphone Dome (sockets.dorsalRack)
+    // 5. Disco Mirrorball & Sonic Megaphone Dome (sockets.dorsalRack) — Bold Retro Party Rig!
     const discoRoot = new THREE.Group();
-    const dMast = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.95, 10), chromeMat);
-    dMast.position.y = 0.48;
+    const dMast = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.35, 10), chromeMat);
+    dMast.position.y = 0.68;
     const dBall = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.46, 1),
-      new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.95, roughness: 0.08, emissive: 0x38bdf8, emissiveIntensity: 0.35 })
+      new THREE.IcosahedronGeometry(0.82, 1),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.95, roughness: 0.08, emissive: 0x38bdf8, emissiveIntensity: 0.45 })
     );
-    dBall.position.y = 1.18;
-    const dHorn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.65, 12, 1, true), brassMat);
+    dBall.position.y = 1.75;
+    const dHorn = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.15, 14, 1, true), brassMat);
     dHorn.rotation.x = -Math.PI / 2;
-    dHorn.position.set(0, 0.72, 0.42);
+    dHorn.position.set(0, 1.05, 0.68);
     discoRoot.add(dMast, dBall, dHorn);
     if (sockets.dorsalRack) sockets.dorsalRack.add(discoRoot);
 
@@ -2219,7 +2225,7 @@ window.BlahajUFO = (function () {
           state.phase = 'flying';
         }
       } else if (state.phase === 'landing') {
-        // Automated gentle touchdown sequence (funnels onto Tracy Isle pad if within 42m!)
+        // Automated gentle touchdown sequence (funnels onto Shonkbird Atoll pad if within 42m!)
         const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
         const funnelToPad = dIsle < 42.0;
         let targetY;
@@ -2264,7 +2270,7 @@ window.BlahajUFO = (function () {
           if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
           if (window.showToast) {
             window.showToast(
-              funnelToPad ? '🏝️ DOCKED ON TRACY ISLE PAD!' : '🛸 TOUCHDOWN COMPLETE!',
+              funnelToPad ? '🏝️ DOCKED ON SHONKBIRD ATOLL PAD!' : '🛸 TOUCHDOWN COMPLETE!',
               'Glowing boarding stairs deployed! Press [E] to step out—walk away to fold the secret base shut.'
             );
           }
@@ -2277,7 +2283,7 @@ window.BlahajUFO = (function () {
           state.hatchTargetOpen = false;
           playJetsonsHorn();
         } else {
-          // Ride the Tracy Isle hydraulic elevator smoothly if parked on it!
+          // Ride the Shonkbird Atoll hydraulic elevator smoothly if parked on it!
           const dIsle = Math.hypot(state.pos.x - ISLE_X, state.pos.z - ISLE_Z);
           if (dIsle < 11.5) {
             state.pos.y = HANGAR_LOWER_Y + state.hangarOpenProg * (HANGAR_RAISED_Y - HANGAR_LOWER_Y) + 1.5;
@@ -2412,7 +2418,7 @@ window.BlahajUFO = (function () {
       state.orbitalCeilingReached = state.pos.y >= KARMAN_CEILING_Y - 4.0;
       updateJetsonsEngineHum(state.localRole === 'passenger' && state.phase !== 'parked', Math.min(1, state.speed / 35), Math.min(1, state.pos.y / KARMAN_CEILING_Y), state.turboActive);
     } else {
-      // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Tracy Isle elevator!
+      // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Shonkbird Atoll elevator!
       if (state.phase === 'landing') {
         const groundY = getSafeLandingHeight(state.pos.x, state.pos.z);
         const targetY = groundY + 1.45;
