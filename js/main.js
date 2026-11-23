@@ -8547,94 +8547,93 @@
     });
   }
 
+  function triggerVolcanoCraterMeltdown(reason = 'Fell into the Volcano Crater') {
+    if (isRebirthing) return;
+    isRebirthing = true;
+    player.trapCooldown = 4.0;
+    playerInvulnTimer = 4.5;
+    player.warmth = 0;
+    updateMetersUI();
+    if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
+
+    const sillyEpitaphs = [
+      ['🔥🦈 YEEEEEOW!! CRISPY MARSHMALLOW!', 'Your 100% polyester stuffing just achieved toasted s’more status! Shipping back to IKEA...'],
+      ['🌋🧸 *SQUEAK-POOF!* WARRANTY VOIDED!', 'Even the volcano winced at that bellyflop! Returning to Wire Bin #303.735.88...'],
+      ['💥🦈 DRAMATIC SLOW-MO DEFLATION!', 'All 303.735.88 grams of fluff have ascended as cozy steam! Report to IKEA QA!'],
+      ['🚨🏷️ EMERGENCY PLUSH RECALL!', 'Tag status: EXTRA CRISPY. Please stand by while Hermes vacuums up your stuffing!']
+    ];
+    const [toastTitle, toastSub] = sillyEpitaphs[Math.floor(Math.random() * sillyEpitaphs.length)];
+
+    CozyAudio.trapHit();
+    if (CozyAudio.shonk) CozyAudio.shonk();
+    spawnFloatingBurst(player.pos, 0xff4500, 28);
+    spawnFloatingBurst(player.pos, 0xffffff, 26); // giant cloud of escaping cotton stuffing!
+    showToast(toastTitle, toastSub);
+    addChatLog(`🌋🦈 <strong>${toastTitle}</strong> — ${toastSub}`, 'danger');
+
+    const startPos = player.pos.clone();
+    const startRotY = player.rotY || 0;
+    const startTime = performance.now();
+    const DURATION_MS = 1650;
+    let midBurstDone = false;
+    const activeZoneAtDeath = currentZone;
+
+    const animateSillyLavaDeath = (now) => {
+      const t = Math.min(1, (now - startTime) / DURATION_MS);
+
+      if (player.mesh) {
+        // Cartoon parabolic "YEEEEOW!" skyrocket pop out of the lava, then pancake flop
+        const arcY = Math.sin(Math.min(1, t * 1.15) * Math.PI) * 10.5;
+        player.pos.set(startPos.x, startPos.y + arcY, startPos.z);
+        player.mesh.position.copy(player.pos);
+
+        if (t < 0.65) {
+          // Wild ceiling-fan spin + stretchy cartoon panic
+          player.mesh.rotation.y = startRotY + t * 28.0;
+          player.mesh.rotation.z = Math.sin(t * 36.0) * 0.65;
+          const stretch = 1.0 + Math.sin(t * Math.PI * 3) * 0.32;
+          player.mesh.scale.set(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch));
+        } else {
+          // Dramatic squeaky-toy pancake deflation
+          const p = (t - 0.65) / 0.35;
+          player.mesh.rotation.y = startRotY + 18.2 + p * 2.0;
+          player.mesh.rotation.z = Math.sin(p * 18.0) * 0.18 * (1 - p);
+          player.mesh.scale.set(1.0 + p * 0.55, Math.max(0.22, 1.0 - p * 0.78), 1.0 + p * 0.45);
+        }
+      }
+
+      if (!midBurstDone && t >= 0.38) {
+        midBurstDone = true;
+        if (CozyAudio.bounceBoing) CozyAudio.bounceBoing();
+        spawnFloatingBurst(player.pos, 0xffffff, 30);
+        spawnFloatingBurst(player.pos, 0xffcc44, 18);
+      }
+
+      if (t < 1 && currentZone === activeZoneAtDeath) {
+        requestAnimationFrame(animateSillyLavaDeath);
+      } else {
+        if (player.mesh) {
+          player.mesh.scale.set(1, 1, 1);
+          player.mesh.rotation.z = 0;
+        }
+        triggerUnstuffedRecovery(reason);
+      }
+    };
+
+    requestAnimationFrame(animateSillyLavaDeath);
+  }
+
   function handleVolcanoTrapHit(trapName) {
     if (isRebirthing || player.trapCooldown > 0) return;
 
-    // Falling into the Molten Lava Sea triggers a comically dramatic slapstick meltdown,
-    // destroys all stuffing, and sends the shark to IKEA Spawning Pits for rebirth!
-    if (trapName === 'Molten Lava Sea') {
-      isRebirthing = true;
-      player.trapCooldown = 4.0;
-      playerInvulnTimer = 4.5;
-      player.warmth = 0;
-      updateMetersUI();
-      if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
-
-      const sillyEpitaphs = [
-        ['🔥🦈 YEEEEEOW!! CRISPY MARSHMALLOW!', 'Your 100% polyester stuffing just achieved toasted s’more status! Shipping back to IKEA...'],
-        ['🌋🧸 *SQUEAK-POOF!* WARRANTY VOIDED!', 'Even the volcano winced at that bellyflop! Returning to Wire Bin #303.735.88...'],
-        ['💥🦈 DRAMATIC SLOW-MO DEFLATION!', 'All 303.735.88 grams of fluff have ascended as cozy steam! Report to IKEA QA!'],
-        ['🚨🏷️ EMERGENCY PLUSH RECALL!', 'Tag status: EXTRA CRISPY. Please stand by while Hermes vacuums up your stuffing!']
-      ];
-      const [toastTitle, toastSub] = sillyEpitaphs[Math.floor(Math.random() * sillyEpitaphs.length)];
-
-      CozyAudio.trapHit();
-      if (CozyAudio.shonk) CozyAudio.shonk();
-      spawnFloatingBurst(player.pos, 0xff4500, 28);
-      spawnFloatingBurst(player.pos, 0xffffff, 26); // giant cloud of escaping cotton stuffing!
-      showToast(toastTitle, toastSub);
-      addChatLog(`🌋🦈 <strong>${toastTitle}</strong> — ${toastSub}`, 'danger');
-
-      const startPos = player.pos.clone();
-      const startRotY = player.rotY || 0;
-      const startTime = performance.now();
-      const DURATION_MS = 1650;
-      let midBurstDone = false;
-
-      const animateSillyLavaDeath = (now) => {
-        const t = Math.min(1, (now - startTime) / DURATION_MS);
-
-        if (player.mesh) {
-          // Cartoon parabolic "YEEEEOW!" skyrocket pop out of the lava, then pancake flop
-          const arcY = Math.sin(Math.min(1, t * 1.15) * Math.PI) * 10.5;
-          player.pos.set(startPos.x, startPos.y + arcY, startPos.z);
-          player.mesh.position.copy(player.pos);
-
-          if (t < 0.65) {
-            // Wild ceiling-fan spin + stretchy cartoon panic
-            player.mesh.rotation.y = startRotY + t * 28.0;
-            player.mesh.rotation.z = Math.sin(t * 36.0) * 0.65;
-            const stretch = 1.0 + Math.sin(t * Math.PI * 3) * 0.32;
-            player.mesh.scale.set(1 / Math.sqrt(stretch), stretch, 1 / Math.sqrt(stretch));
-          } else {
-            // Dramatic squeaky-toy pancake deflation
-            const p = (t - 0.65) / 0.35;
-            player.mesh.rotation.y = startRotY + 18.2 + p * 2.0;
-            player.mesh.rotation.z = Math.sin(p * 18.0) * 0.18 * (1 - p);
-            player.mesh.scale.set(1.0 + p * 0.55, Math.max(0.22, 1.0 - p * 0.78), 1.0 + p * 0.45);
-          }
-        }
-
-        if (!midBurstDone && t >= 0.38) {
-          midBurstDone = true;
-          if (CozyAudio.bounceBoing) CozyAudio.bounceBoing();
-          spawnFloatingBurst(player.pos, 0xffffff, 30);
-          spawnFloatingBurst(player.pos, 0xffcc44, 18);
-        }
-
-        if (t < 1 && currentZone === 'volcano') {
-          requestAnimationFrame(animateSillyLavaDeath);
-        } else {
-          if (player.mesh) {
-            player.mesh.scale.set(1, 1, 1);
-            player.mesh.rotation.z = 0;
-          }
-          triggerUnstuffedRecovery('Bellyflopped into the Molten Lava Sea');
-        }
-      };
-
-      requestAnimationFrame(animateSillyLavaDeath);
-      return;
-    }
-
     // Pass 81: MMO Defensive Postures (Fin Deflection Parry & Double Fin Defense Aegis)
-    if (window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {
+    if (trapName !== 'Molten Lava Sea' && window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {
       const mit = window.BlahajMMO.mitigateIncomingHit(25, trapName, null);
       if (mit.parried) {
         player.trapCooldown = 1.4;
         return;
       }
-      if (mit.blocked && trapName !== 'Molten Lava Sea') {
+      if (mit.blocked) {
         player.trapCooldown = 1.4;
         player.warmth = Math.max(0, player.warmth - mit.damage);
         updateMetersUI();
@@ -8646,8 +8645,8 @@
       }
     }
 
-    // Freshly Laundered Shield: Absorbs up to 2 trap strikes without fluff damage!
-    if (player.launderedShieldHits > 0) {
+    // Freshly Laundered Shield: Absorbs up to 2 trap strikes (not full lava falls) without fluff damage!
+    if (trapName !== 'Molten Lava Sea' && player.launderedShieldHits > 0) {
       player.launderedShieldHits--;
       player.trapCooldown = 1.2;
       CozyAudio.bounceBoing();
@@ -8662,7 +8661,8 @@
     spawnFloatingBurst(player.pos, 0xff4500, 18);
 
     const armorBonus = player.unlockedUpgrades.has('kevlar_stitching') ? 0.6 : 1.0;
-    const dmg = Math.round(25 * armorBonus);
+    const baseDmg = (trapName === 'Molten Lava Sea') ? 28 : 25;
+    const dmg = Math.round(baseDmg * armorBonus);
     player.warmth = Math.max(0, player.warmth - dmg);
     updateMetersUI();
     if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
@@ -15579,7 +15579,9 @@
           player.coyoteTimer = Math.max(0, player.coyoteTimer - dt);
         }
 
-        if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
+        if (player.pos.z < -362 && player.pos.y < -8.2) {
+          triggerVolcanoCraterMeltdown('Volcano Overlook Crater Lake');
+        } else if (player.pos.y < window.BlahajVolcano.constants.LAVA_Y - 2.2) {
           handleVolcanoTrapHit('Molten Lava Sea');
         }
       } else if (currentZone === 'spherical_foods' && window.BlahajSphericalFoods) {
@@ -16029,6 +16031,14 @@
         } else {
           // Walk across natural terrain & player structures, or swim through dynamic ocean depths!
           const groundY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
+
+          // Main Island Overworld Volcano Caldera Crater (-28, 22.5, -148, radius 18.5):
+          // Falling into the open volcano crater triggers the slapstick meltdown & IKEA rebirth!
+          if (!isRebirthing && !player.inUFO &&
+              Math.hypot(player.pos.x - (-28), player.pos.z - (-148)) < 17.5 &&
+              player.pos.y <= 23.6) {
+            triggerVolcanoCraterMeltdown('Overworld Volcano Caldera Crater');
+          }
           const waterSurfaceY = worldApi.getWaveHeight(player.pos.x, player.pos.z, elapsed);
           player.waterSurfaceY = waterSurfaceY;
 
