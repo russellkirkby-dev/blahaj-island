@@ -54,6 +54,7 @@ window.BlahajUFO = (function () {
   let seatPilotAnchor = null;
   let seatPassengerAnchor = null;
   let cockpitCamAnchor = null;
+  let canopyDomeMesh = null;
   let ufoPointLight = null;
 
   // Flight & Island State
@@ -479,15 +480,15 @@ window.BlahajUFO = (function () {
       color: 0xf43f5e, // Nostalgic retro cherry-red diner/Jetsons upholstery!
       roughness: 0.72
     });
-    const canopyGlassMat = new THREE.MeshPhysicalMaterial({
+    // Lightweight glass material (avoid MeshPhysicalMaterial transmission pass, which triggers a second full-scene render!)
+    const canopyGlassMat = new THREE.MeshStandardMaterial({
       color: 0xbae6fd,
       transparent: true,
-      opacity: 0.26,
-      roughness: 0.06,
-      metalness: 0.1,
-      transmission: 0.55,
+      opacity: 0.22,
+      roughness: 0.08,
+      metalness: 0.15,
       depthWrite: false,
-      side: THREE.DoubleSide
+      side: THREE.FrontSide
     });
 
     // Main Lower Saucer Dish
@@ -678,9 +679,9 @@ window.BlahajUFO = (function () {
 
     // Crystal-Clear Bubble Canopy Dome (so sharks are clearly visible from outside!)
     const domeGeo = new THREE.SphereGeometry(3.45, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.56);
-    const domeMesh = new THREE.Mesh(domeGeo, canopyGlassMat);
-    domeMesh.position.y = 0.85;
-    ufoHullGroup.add(domeMesh);
+    canopyDomeMesh = new THREE.Mesh(domeGeo, canopyGlassMat);
+    canopyDomeMesh.position.y = 0.85;
+    ufoHullGroup.add(canopyDomeMesh);
 
     // Sleek curved chrome canopy ribs
     [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((ry) => {
@@ -1990,12 +1991,14 @@ window.BlahajUFO = (function () {
       window.player.mesh.position.copy(worldSeat);
       window.player.mesh.rotation.order = 'YXZ';
       window.player.mesh.rotation.set(state.pitch, state.yaw, state.roll);
-      // Hide local shark mesh only in Inside Cockpit View so it doesn't block the windshield!
+      // Hide local shark mesh & glass dome overdraw in Inside Cockpit View so windshield is 100% crisp & fast!
       window.player.mesh.visible = (state.viewMode !== 'inside');
+      if (canopyDomeMesh) canopyDomeMesh.visible = (state.viewMode !== 'inside');
 
       // Drive Camera for Inside Cockpit View vs Outside Chase View!
       if (camera && camState) {
         if (state.viewMode === 'inside') {
+          ufoGroup.updateMatrixWorld(true);
           const camWorld = new THREE.Vector3();
           cockpitCamAnchor.getWorldPosition(camWorld);
           const lookWorld = new THREE.Vector3(0, 1.88, 12.0);
