@@ -76,6 +76,7 @@ window.BlahajInventory = (function () {
       stats: '+15% Agility · Tropical Toast · Hold in Fin',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'sip_margarita',
       usePrompt: 'Enjoy Frosted Margarita (45s Savoring) 🍸'
     },
@@ -91,6 +92,7 @@ window.BlahajInventory = (function () {
       stats: '+100% Warmth · Island Radiance · Hold in Fin',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'sip_cocktail',
       usePrompt: 'Sip Sunset Cocktail (45s Savoring) 🍹'
     },
@@ -106,6 +108,7 @@ window.BlahajInventory = (function () {
       stats: '+20% Comfort · Bouncy Step · Hold in Fin',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'sip_boba',
       usePrompt: 'Drink Starlight Boba (45s Savoring) 🧋'
     },
@@ -120,7 +123,8 @@ window.BlahajInventory = (function () {
       desc: 'A rubber-clad carrot in floral boardshorts that tumbled off the high Volcano Balcony and bounced unharmed into the sea.',
       stats: '+15% Plush Bounce Height · Lucky Charm',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     hex_key: {
       id: 'hex_key',
@@ -133,7 +137,8 @@ window.BlahajInventory = (function () {
       desc: 'Hiram\'s indestructible brass hex key. Unlocks bridges, ramps, observation docks, and pocket portals across the archipelago.',
       stats: 'Unlocks Master Builder Mode [C] · Zero Decay',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     retired_tag: {
       id: 'retired_tag',
@@ -146,7 +151,8 @@ window.BlahajInventory = (function () {
       desc: 'Your original white IKEA factory barcode tag snipped by the Order of the Sacred Scissors during the Rite of Detagging. Proof that you are no longer a numbered commodity from Erf, but a Named Shark of Blåhaj Island.',
       stats: '+100% Identity Coherence · Unlocks Custom Builder Privileges',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     ingvar_tape: {
       id: 'ingvar_tape',
@@ -159,7 +165,8 @@ window.BlahajInventory = (function () {
       desc: 'Sacred paper-and-brass measuring ribbon recovered from the IKEA Spawning Pits on Erf. Used by Hiram and Detagged Builders to measure geological harmony and snap flat-pack modular structures.',
       stats: '+25% Snap Precision · Flat-Pack Alignment',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     sacred_scissors: {
       id: 'sacred_scissors',
@@ -172,7 +179,8 @@ window.BlahajInventory = (function () {
       desc: 'Gleaming ceremonial shears blessed by the Order of the Sacred Scissors: "A Tag Removed · A Name Received · A Shark Reborn."',
       stats: 'Rite of Detagging Emblem · +15% Plush Pride',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     seam_needle: {
       id: 'seam_needle',
@@ -197,7 +205,8 @@ window.BlahajInventory = (function () {
       desc: 'Hermes\'s eternal lantern. Burns with violet-amber starlight, revealing paths between Los Angeles and New Zealand shores.',
       stats: 'Portal Guide Beacon · Clears Interdimensional Fog',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     beach_ball: {
       id: 'beach_ball',
@@ -450,7 +459,8 @@ window.BlahajInventory = (function () {
       desc: 'Prismatic cyan-and-violet quartz crystal harvested from the Subterranean Bioluminescent Sea-Cave Grotto beneath your Personal Pocket Atoll. Fuels the ÅNGBÅT-TRE Volcanic Steam Launch and Nimue’s Seam commissions.',
       stats: 'Upgrades Custom Boats (BÅT-BYGGE) · Mills into SKÄRHAJ Kits',
       canUse: false,
-      canHold: true
+      canHold: true,
+      throwable: true
     },
     homestead_charter: {
       id: 'homestead_charter',

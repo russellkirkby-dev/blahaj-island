@@ -3703,6 +3703,23 @@
         g.add(loaf);
         return g;
       }
+      if (itemId === 'margarita') {
+        const g = new THREE.Group();
+        const glass = new THREE.Mesh(
+          new THREE.ConeGeometry(0.18, 0.28, 12),
+          new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 0.35, roughness: 0.15 })
+        );
+        glass.rotation.x = Math.PI;
+        glass.position.y = 0.08;
+        g.add(glass);
+        return g;
+      }
+      if (itemId === 'tropical_cocktail' || itemId === 'celestial_boba') {
+        return new THREE.Mesh(
+          new THREE.CylinderGeometry(0.13, 0.10, 0.30, 12),
+          new THREE.MeshStandardMaterial({ color: itemId === 'celestial_boba' ? 0xfbbf24 : 0xfb7185, emissive: 0xf97316, emissiveIntensity: 0.35, roughness: 0.2 })
+        );
+      }
       if (itemId === 'party_favor') {
         return new THREE.Mesh(
           new THREE.CylinderGeometry(0.12, 0.12, 0.42, 10),
@@ -3716,12 +3733,33 @@
         );
       }
       return new THREE.Mesh(
-        new THREE.SphereGeometry(0.26, 10, 8),
+        new THREE.SphereGeometry(0.24, 10, 8),
         new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35 })
       );
     }
 
-    function throwActiveFinItemTo(targetPos) {
+    function raiseBinocularsTowardScreen(sx, sy) {
+      if (isUsingBinoculars) {
+        exitBinocularMode();
+        return;
+      }
+      // Point camera yaw/pitch toward where the Fin Cursor clicked!
+      if (typeof sx === 'number' && typeof sy === 'number' && camera) {
+        finSense.rayNdc.set((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1);
+        finSense.raycaster.setFromCamera(finSense.rayNdc, camera);
+        const dir = finSense.raycaster.ray.direction;
+        if (dir && dir.lengthSq() > 0.001) {
+          camState.yaw = Math.atan2(-dir.x, -dir.z);
+          camState.pitch = Math.max(-0.55, Math.min(0.65, Math.asin(Math.max(-0.95, Math.min(0.95, dir.y)))));
+        }
+      }
+      camState.isRightDown = false;
+      camState.isRightDragging = false;
+      syncCaptureUI();
+      enterBinocularMode();
+    }
+
+    function throwActiveFinItemTo(targetPos, opts = null) {
       const itemId = playerHeldItem ? playerHeldItem.id : null;
       if (!itemId || !player.inventory || !player.inventory.isThrowable || !player.inventory.isThrowable(itemId)) return false;
       if (!player.inventory.hasItem(itemId, 1)) {
@@ -3740,8 +3778,8 @@
       const startPos = new THREE.Vector3(player.pos.x, player.pos.y + 1.15, player.pos.z);
       const endPos = targetPos.clone();
       const horizDist = Math.hypot(endPos.x - startPos.x, endPos.z - startPos.z);
-      const duration = Math.max(0.32, Math.min(0.85, 0.26 + horizDist * 0.025));
-      const arcHeight = Math.max(1.4, Math.min(5.5, horizDist * 0.22 + 1.1));
+      const duration = Math.max(0.28, Math.min(0.82, 0.24 + horizDist * 0.024));
+      const arcHeight = Math.max(1.1, Math.min(5.2, horizDist * 0.22 + 0.9));
 
       const mesh = createThrownMesh(itemId);
       mesh.position.copy(startPos);
@@ -3757,13 +3795,41 @@
         endPos,
         elapsed: 0,
         duration,
-        arcHeight
+        arcHeight,
+        giftToPartner: !!(opts && opts.giftToPartner),
+        giftToNpcName: (opts && opts.giftToNpcName) || null
       });
       return true;
     }
 
     function onThrownItemLanded(proj) {
       const landPos = proj.endPos;
+      const def = (window.BlahajInventory && window.BlahajInventory.ITEMS && window.BlahajInventory.ITEMS[proj.itemId]) || { name: proj.itemId, icon: '📦' };
+
+      // 1. DIRECTLY THROWN INTO CO-OP PARTNER'S INVENTORY!
+      if (proj.giftToPartner) {
+        CozyAudio.bistroChime();
+        spawnFloatingBurst(landPos, 0x38bdf8, 18);
+        window.BlahajNetwork?.send({
+          type: 'item_gifted',
+          itemType: proj.itemId,
+          count: 1,
+          fromName: player.name || 'Friend'
+        });
+        showFinSenseCard(def.icon || '🎁', `Tossed ${def.name} to Friend!`, 'Added +1 directly into their satchel!', '', '', 3500);
+        addChatLog(`${def.icon || '🎁'} Tossed <strong>${def.name}</strong> directly into your friend’s inventory!`, 'coop');
+        return;
+      }
+
+      // 2. DIRECTLY THROWN TO A FRIENDLY NPC!
+      if (proj.giftToNpcName) {
+        CozyAudio.shonk();
+        spawnFloatingBurst(landPos, 0xf472b6, 16);
+        showFinSenseCard(def.icon || '💙', `${proj.giftToNpcName} caught ${def.name}!`, '“Ooh, thank you!!” 🦈✨', '', '', 3500);
+        return;
+      }
+
+      // 3. LANDED ON THE FLOOR / WORLD
       if (proj.itemId === 'breb') {
         CozyAudio.birbChirp();
         if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.spawnBrebLoaf === 'function') {
@@ -3803,23 +3869,38 @@
         spawnFloatingBurst(landPos, 0xec4899, 18);
         spawnFloatingBurst(new THREE.Vector3(landPos.x, landPos.y + 0.6, landPos.z), 0xfbbf24, 14);
         showFinSenseCard('🎉', 'POP! Party Cracker!', 'Confetti & cheer burst!', '', '', 2800);
-      } else if (proj.itemId === 'tea') {
-        CozyAudio.bistroChime();
-        spawnFloatingBurst(landPos, 0xf59e0b, 16);
-        let splashedEnemy = null;
-        if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+      } else {
+        // Tea splash if enemy is right where it landed; otherwise spawn real collectible world pickup on the ground!
+        if (proj.itemId === 'tea' && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+          let splashedEnemy = null;
           (window.BlahajEnemies.getEnemies() || []).forEach((en) => {
             if (!en.defeated && en.mesh && en.mesh.position.distanceTo(landPos) < 4.5) {
               splashedEnemy = en;
               if (window.BlahajEnemies.boopEnemy) window.BlahajEnemies.boopEnemy(en, player.pos);
             }
           });
+          if (splashedEnemy) {
+            CozyAudio.bistroChime();
+            spawnFloatingBurst(landPos, 0xf59e0b, 16);
+            showFinSenseCard('🫖', `Steaming Tea Splash on ${splashedEnemy.name || 'Enemy'}!`, 'Warm bergamot mist!', '', '', 3000);
+            return;
+          }
         }
-        showFinSenseCard('🫖', splashedEnemy ? `Steaming Tea Splash on ${splashedEnemy.name || 'Enemy'}!` : 'Steaming Tea Splash!', 'Warm bergamot mist!', '', '', 3000);
-      } else {
-        CozyAudio.shonk();
-        spawnFloatingBurst(landPos, 0x38bdf8, 12);
-        showFinSenseCard('🏐', 'Tossed Beach Ball!', 'Boing!', '', '', 2200);
+        if (CozyAudio.coinDrop) CozyAudio.coinDrop();
+        spawnFloatingBurst(landPos, 0x38bdf8, 10);
+        if ((currentZone === 'island' || currentZone === 'overworld') && worldPickups && typeof worldPickups.spawnPickup === 'function') {
+          const dropId = `throw_${proj.itemId}_${Date.now()}_${Math.floor(Math.random() * 9999)}`;
+          const dropPos = { x: landPos.x, y: landPos.y + 0.15, z: landPos.z };
+          worldPickups.spawnPickup(proj.itemId, dropPos, dropId, 1);
+          window.BlahajNetwork?.send({
+            type: 'item_dropped',
+            id: dropId,
+            itemType: proj.itemId,
+            pos: dropPos,
+            count: 1
+          });
+        }
+        showFinSenseCard(def.icon || '📦', `Tossed ${def.name}!`, 'Landed on the ground (click to pick back up)', '', '', 2600);
       }
     }
 
@@ -4059,6 +4140,19 @@
         }
       };
 
+      // 0. YOURSELF (Click your own shark to Drink Margarita / Tea / Boba, Snack on Breb, or Self-Groom!)
+      if (player.mesh && player.mesh.visible && !isUsingBinoculars) {
+        consider(player.pos.x, player.pos.y + 0.95, player.pos.z, 62, {
+          kind: 'self',
+          icon: '🦈',
+          name: player.name || 'Yourself',
+          lore: `Stuffing: ${Math.round(player.stuffing || 100)}% · Mange: ${Math.round(player.mange || 0)}%`,
+          reach: 5.0,
+          maxDist: 20,
+          ref: player
+        });
+      }
+
       // 1. World Pickups (island/overworld)
       if ((currentZone === 'island' || currentZone === 'overworld') && worldPickups && typeof worldPickups.getPickups === 'function') {
         const list = worldPickups.getPickups();
@@ -4234,23 +4328,22 @@
         if (heldId === 'binoculars') {
           setFinCursorKind('examine');
           if (now >= finSense.examineUntil) {
-            showFinSenseCard('🔭', 'Brass Marine Binoculars', 'Left-Click to Raise Binoculars', '', '', 0);
-          }
-          return;
-        }
-        if (isHoldingDrink) {
-          setFinCursorKind('pickup');
-          if (now >= finSense.examineUntil) {
-            const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '🍹', name: heldId };
-            showFinSenseCard(def.icon || '🍹', def.name, 'Left-Click to Drink (+30% Stuffing)', '', '', 0);
+            showFinSenseCard('🔭', 'Brass Marine Binoculars', 'Left-Click to Raise Binoculars toward cursor', '', '', 0);
           }
           return;
         }
         if (isHoldingThrowable) {
           setFinCursorKind('pickup');
           if (now >= finSense.examineUntil) {
-            const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '🥖', name: heldId };
-            showFinSenseCard(def.icon || '🥖', `Throw ${def.name}`, '🎯 Left-Click ground to toss (up to 24m)', '', '', 0);
+            const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '📦', name: heldId };
+            showFinSenseCard(
+              def.icon || '📦',
+              `Throw / Place ${def.name}`,
+              isHoldingDrink ? '🎯 Click ground to toss · Click Yourself to drink!' : '🎯 Left-Click ground to place or toss (up to 24m)',
+              '',
+              '',
+              0
+            );
           }
           return;
         }
@@ -4260,11 +4353,19 @@
       }
 
       const tool = getEffectiveFinTool(target);
-      const kindMap = { pickup: 'pickup', npc: 'npc', birb: isHoldingThrowable ? 'pickup' : 'npc', enemy: 'enemy', rift: 'rift', landmark: target.dist <= (target.reach || 8) ? 'pickup' : 'examine' };
+      const kindMap = { self: isHoldingDrink ? 'pickup' : 'npc', pickup: 'pickup', npc: isHoldingThrowable ? 'pickup' : 'npc', birb: isHoldingThrowable ? 'pickup' : 'npc', enemy: 'enemy', rift: 'rift', landmark: target.dist <= (target.reach || 8) ? 'pickup' : 'examine' };
       setFinCursorKind(kindMap[target.kind] || 'examine');
 
       let actionHint = 'Left-Click to Interact';
-      if (tool === 'pet') {
+      if (target.kind === 'self') {
+        if (isHoldingDrink) actionHint = `🍹 Left-Click to Drink ${playerHeldItem.name} (+30% Stuffing)`;
+        else if (heldId === 'breb') actionHint = '🥖 Left-Click to Snack on Breb (+15% Stuffing)';
+        else if (heldId === 'party_favor') actionHint = '🎉 Left-Click to Pop Party Cracker!';
+        else if (heldId === 'binoculars') actionHint = '🔭 Left-Click to Raise Binoculars';
+        else actionHint = '✨ Left-Click to Groom Plush Coat';
+      } else if (heldId === 'binoculars') {
+        actionHint = '🔭 Left-Click to Aim & Raise Binoculars';
+      } else if (tool === 'pet') {
         actionHint = '💙 Left-Click to Pet / Boop';
       } else if (target.kind === 'birb') {
         if (heldId === 'breb') {
@@ -4281,7 +4382,13 @@
       } else if (target.kind === 'landmark') {
         actionHint = target.dist <= target.reach ? '✋ Left-Click to Open / Use' : (isHoldingThrowable ? `🎯 Left-Click to Throw ${playerHeldItem.name}` : '🔍 Automatic FinSense');
       } else if (target.kind === 'npc') {
-        actionHint = target.dist <= target.reach ? '💙 Left-Click to Talk / Pet' : '🔍 Automatic FinSense';
+        if (isHoldingThrowable) {
+          actionHint = target.dist <= 4.5
+            ? `🎁 Left-Click to Hand ${playerHeldItem.name}`
+            : `🎁 Left-Click to Throw ${playerHeldItem.name} to ${target.name}!`;
+        } else {
+          actionHint = target.dist <= target.reach ? '💙 Left-Click to Talk / Pet' : '🔍 Automatic FinSense';
+        }
       }
 
       // Automatic Mouseover FinSense: immediately show both the action hint AND the subtle lore snippet!
@@ -4312,17 +4419,44 @@
         return;
       }
 
-      // 1. CLICKED EMPTY GROUND / OPEN SPACE -> Held item dictates Left-Click!
-      if (!target) {
-        if (heldId === 'binoculars') {
-          if (isUsingBinoculars) exitBinocularMode();
-          else enterBinocularMode();
-          return;
-        }
-        if (isHoldingDrink) {
+      // 0.5 CLICKED YOURSELF -> Drink Margarita/Tea/Cocktail/Boba, Snack on Breb, Pop Cracker, or Self-Groom!
+      if (target && target.kind === 'self') {
+        if (isHoldingDrink || heldId === 'party_favor' || heldId === 'seam_detector') {
           triggerActiveFinKeyAction(false);
           return;
         }
+        if (heldId === 'binoculars') {
+          raiseBinocularsTowardScreen(sx, sy);
+          return;
+        }
+        if (heldId === 'breb' && player.inventory && player.inventory.hasItem('breb', 1)) {
+          player.inventory.removeItem('breb', 1);
+          const beforeStuff = Math.round(player.stuffing || 0);
+          player.stuffing = Math.min(100, (player.stuffing || 0) + 15);
+          const healed = Math.max(0, Math.round(player.stuffing) - beforeStuff);
+          CozyAudio.bistroChime();
+          spawnFloatingBurst(player.pos, 0xfbbf24, 14);
+          showFinSenseCard('🥖', 'Snacked on Warm Breb!', healed > 0 ? `+${healed}% Stuffing Repaired!` : 'Warm & toasty!', '', '', 2800);
+          if (!player.inventory.hasItem('breb', 1)) {
+            finSense.activeSlotIdx = -1;
+            stowHeldItem(true);
+          }
+          updateMetersUI();
+          renderFinBelt();
+          return;
+        }
+        triggerGroomAvatar();
+        return;
+      }
+
+      // 0.6 BINOCULARS ANYWHERE -> Raise Binoculars aimed directly toward where you clicked!
+      if (heldId === 'binoculars') {
+        raiseBinocularsTowardScreen(sx, sy);
+        return;
+      }
+
+      // 1. CLICKED EMPTY GROUND / SKY / WORLD -> Place (if close) or Throw in a 3D arc (if far)!
+      if (!target) {
         if (heldId === 'seam_detector') {
           triggerActiveFinKeyAction(false);
           return;
@@ -4341,6 +4475,19 @@
       }
 
       const tool = getEffectiveFinTool(target);
+
+      // 1.4 THROW / HAND ITEM DIRECTLY TO A FRIEND (Co-op Partner -> straight into their inventory! NPC -> happy catch!)
+      if (target.kind === 'npc' && isHoldingThrowable && tool !== 'pet') {
+        const dest = new THREE.Vector3(target.wx, target.wy, target.wz);
+        const d = Math.hypot(dest.x - player.pos.x, dest.z - player.pos.z);
+        if (d <= 24.0) {
+          throwActiveFinItemTo(dest, {
+            giftToPartner: !!target.isCoopPartner,
+            giftToNpcName: target.isCoopPartner ? null : target.name
+          });
+          return;
+        }
+      }
 
       // 1.5 BIRB + BREB (or any throwable): close = hand-feed right at fin; far = throw in a 3D arc!
       if (target.kind === 'birb') {
@@ -4377,15 +4524,13 @@
         return;
       }
 
-      // 1.7 HELD TOOL/DRINK ON NON-MATCHING DISTANT TARGET
-      if (heldId === 'binoculars') {
-        if (isUsingBinoculars) exitBinocularMode();
-        else enterBinocularMode();
-        return;
-      }
-      if (isHoldingDrink && target.kind !== 'npc') {
-        triggerActiveFinKeyAction(false);
-        return;
+      // 1.7 THROWABLE AT DISTANT LANDMARK/GROUND -> Throw in a 3D arc toward that spot!
+      if (target.kind === 'landmark' && isHoldingThrowable && target.dist > target.reach && tool !== 'pet') {
+        const groundPt = computeGroundPointUnderScreen(sx, sy, 24.0);
+        if (groundPt) {
+          throwActiveFinItemTo(groundPt);
+          return;
+        }
       }
 
       // 2. PET / PAT / BOOP
@@ -14238,6 +14383,19 @@
             spawnFloatingBurst(cPos, 0xfbbf24, 32);
             spawnFloatingBurst(cPos, 0xec4899, 24);
             addChatLog("🎉 <em>Happy Birthday Helen!</em> Your partner popped a festive party cracker! Confetti and golden streamers burst into the air!", 'coop');
+          }
+        } else if (data.type === 'item_gifted' && data.itemType) {
+          if (player.inventory) {
+            const added = player.inventory.addItem(data.itemType, data.count || 1);
+            const def = (window.BlahajInventory && window.BlahajInventory.ITEMS && window.BlahajInventory.ITEMS[data.itemType]) || { name: data.itemType, icon: '🎁' };
+            if (added > 0) {
+              CozyAudio.bistroChime();
+              spawnFloatingBurst(player.pos, 0x38bdf8, 18);
+              updateMetersUI();
+              if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+              showToast(`CAUGHT ${def.name.toUpperCase()}! ${def.icon}✨`, `${data.fromName || 'Your friend'} tossed +${added} straight into your satchel!`);
+              addChatLog(`${def.icon} Caught <strong>${def.name}</strong> (+${added}) tossed by <strong>${data.fromName || 'your friend'}</strong>!`, 'coop');
+            }
           }
         } else if (data.type === 'item_dropped') {
           if (worldPickups) {
