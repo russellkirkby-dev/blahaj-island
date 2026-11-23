@@ -7731,9 +7731,15 @@
             scene.add(player.mesh);
           }
 
-          if (isRebirthing && lastSavePoint) {
-            player.pos.set(lastSavePoint.x, lastSavePoint.y, lastSavePoint.z);
-            player.rotY = (typeof lastSavePoint.rotY === 'number') ? lastSavePoint.rotY : -Math.PI / 2;
+          if (isRebirthing) {
+            const spawnX = 0.0;
+            const spawnZ = -20.0;
+            const spawnY = (worldApi && typeof worldApi.getGroundAndStructureHeight === 'function')
+              ? worldApi.getGroundAndStructureHeight(spawnX, spawnZ)
+              : 2.0;
+            lastSavePoint = { x: spawnX, y: spawnY, z: spawnZ, rotY: 0 };
+            player.pos.set(spawnX, spawnY, spawnZ);
+            player.rotY = 0;
             camState.yaw = player.rotY;
             isRebirthing = false;
             player.stuffing = 100;
@@ -7752,8 +7758,8 @@
             isTransitioningZone = false;
             updateCoopPartnerVisibility();
 
-            showToast('REBORN & RESTUFFED! ✨🧸', 'Navigated Hermes’s Portal back to your last save point on Blåhaj Island!');
-            addChatLog('🧸✨ <strong>Reborn in the IKEA Spawning Pits:</strong> Your plush seams have been re-stitched with premium polyester fluff! You emerge through Hermes’s Portal safely back at your last island save point.', 'system');
+            showToast('REBORN AT THE GREAT PORTAL! ✨🧸', 'Navigated Hermes’s Portal back to the Great Cross-Ocean Portal on Blåhaj Island!');
+            addChatLog('🧸✨ <strong>Reborn in the IKEA Spawning Pits:</strong> Your plush seams have been re-stitched with premium polyester fluff! You emerge through Hermes’s Portal safely at <strong>The Great Cross-Ocean Portal</strong>.', 'system');
 
             if (window.BlahajSaveSystem) window.BlahajSaveSystem.saveNow();
 

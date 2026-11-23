@@ -2324,15 +2324,70 @@ window.BlahajWorld = (function () {
     });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
 
+    // High-resolution smooth basalt caldera liner (eliminates coarse 4.3m terrain triangle splits inside the steep crater!)
+    const linerMat = new THREE.MeshStandardMaterial({
+      color: 0x1e1924,
+      roughness: 0.9,
+      bumpMap: getTerrainBumpTexture(),
+      bumpScale: 0.14,
+      side: THREE.DoubleSide
+    });
+    const calderaLiner = new THREE.Mesh(
+      new THREE.CylinderGeometry(VOLCANO_CFG.craterRadius + 1.5, VOLCANO_CFG.lavaRadius - 1.5, 92, 64, 6, true),
+      linerMat
+    );
+    calderaLiner.position.set(VOLCANO_CFG.x, 66.0, VOLCANO_CFG.z);
+    group.add(calderaLiner);
+
     // Volcanic ambient glow radiating from within the natural caldera crater bowl
     lavaLight = new THREE.PointLight(0xff591c, 5.5, 280);
     lavaLight.position.set(VOLCANO_CFG.x, 58, VOLCANO_CFG.z);
     group.add(lavaLight);
 
-    // Glowing Molten Magma Pool inside the Deep Caldera Bowl
+    // Animated Swirling Molten Magma Lake inside the Deep Caldera Bowl (matches Volcano Dungeon shader)
+    const calderaLavaMat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        varying vec2 vWorldXZ;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldXZ = wp.xz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }`,
+      fragmentShader: `
+        uniform float uTime;
+        varying vec2 vWorldXZ;
+        float hash(vec2 p) {
+          p = fract(p * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(
+            mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+            mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+            f.y
+          );
+        }
+        void main() {
+          vec2 uv = vWorldXZ * 0.14;
+          float n1 = noise(uv + vec2(uTime * 0.28, -uTime * 0.19));
+          float n2 = noise(uv * 2.1 - vec2(uTime * 0.35, uTime * 0.24));
+          float heat = clamp(n1 * 0.6 + n2 * 0.4, 0.0, 1.0);
+          vec3 crust = vec3(0.16, 0.04, 0.02);
+          vec3 magma = vec3(0.98, 0.28, 0.03);
+          vec3 core = vec3(1.0, 0.85, 0.22);
+          vec3 col = mix(crust, magma, smoothstep(0.25, 0.62, heat));
+          col = mix(col, core, smoothstep(0.66, 0.92, heat));
+          gl_FragColor = vec4(col, 1.0);
+        }`
+    });
     calderaLavaPool = new THREE.Mesh(
-      new THREE.CircleGeometry(VOLCANO_CFG.lavaRadius, 40),
-      new THREE.MeshBasicMaterial({ color: 0xff5a14 })
+      new THREE.CircleGeometry(VOLCANO_CFG.lavaRadius + 1.5, 48),
+      calderaLavaMat
     );
     calderaLavaPool.rotation.x = -Math.PI / 2;
     calderaLavaPool.position.set(VOLCANO_CFG.x, VOLCANO_CFG.lavaY, VOLCANO_CFG.z);
@@ -2347,7 +2402,7 @@ window.BlahajWorld = (function () {
     ].forEach((spec, idx) => {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(spec.r, spec.tube, 8, 36),
-        new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.85 })
+        new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.75 })
       );
       ring.rotation.x = Math.PI / 2;
       ring.position.set(VOLCANO_CFG.x, VOLCANO_CFG.lavaY + 0.25 + idx * 0.1, VOLCANO_CFG.z);
@@ -2355,56 +2410,123 @@ window.BlahajWorld = (function () {
       calderaLavaRings.push({ mesh: ring, phase: idx * 1.9, baseR: spec.r });
     });
 
-    // Look-Down Overlook Balcony Silhouette perched on the inner south crater cliff (mirrors the Dungeon finale from above!)
+    // Exact Look-Down Replica of the Volcano Dungeon Overlook Balcony (BALCONY hw:16, hd:8.5)
+    // Perched on the inner south crater cliff so peering from above shows the exact dungeon finale!
+    {
     const balconyY = 74.0;
-    const balconyZ = VOLCANO_CFG.z + 31.0;
+    const balconyZ = VOLCANO_CFG.z + 30.5;
     const balconyGroup = new THREE.Group();
     balconyGroup.position.set(VOLCANO_CFG.x, balconyY, balconyZ);
+    balconyGroup.scale.setScalar(0.72);
 
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(16.0, 2.2, 9.5), basaltMat);
-    deck.position.y = -1.1;
+    const balcFloorMat = new THREE.MeshStandardMaterial({ color: 0x2a2334, roughness: 0.8 });
+    const balcObsidianMat = new THREE.MeshStandardMaterial({ color: 0x120f18, roughness: 0.45, metalness: 0.35 });
+    const balcGlowMat = new THREE.MeshBasicMaterial({ color: 0xff9933 });
+
+    // Balcony slab & rock shelf beneath (matches volcano.js lines 1771-1777)
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(32.0, 1.8, 17.0), basaltMat);
+    deck.position.y = -0.9;
     balconyGroup.add(deck);
+    const shelf = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 3), basaltMat);
+    shelf.scale.set(17, 6, 12);
+    shelf.position.set(0, -6.4, 1);
+    balconyGroup.add(shelf);
 
-    // Balustrade posts facing north over the magma lake
-    for (let bx = -7.2; bx <= 7.21; bx += 2.4) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.4, 0.45), basaltMat);
-      post.position.set(bx, 0.7, -4.4);
-      balconyGroup.add(post);
+    // Side rails & 9 front balustrade posts with glowing orange-gold sphere caps (matches lines 1780-1788)
+    [-16, 16].forEach((sx) => {
+      const sWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 17.0), basaltMat);
+      sWall.position.set(sx, 0.55, 0);
+      balconyGroup.add(sWall);
+    });
+    for (let px = -16; px <= 16.1; px += 4) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.6, 8), basaltMat);
+      post.position.set(px, 0.8, -8.5);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), balcGlowMat);
+      cap.position.set(px, 1.75, -8.5);
+      balconyGroup.add(post, cap);
     }
 
-    // Twin braziers + glowing return portal silhouette + 3 volunteer carrot silhouettes on the overlook
-    [-5.5, 5.5].forEach((bx) => {
-      const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 1.1, 8), brassMat);
-      brazier.position.set(bx, 0.55, -2.5);
-      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 10), new THREE.MeshBasicMaterial({ color: 0xff7724 }));
-      flame.position.set(bx, 1.35, -2.5);
+    // Corridor Portal Frame, Lintel, Back Cliff Walls, Buttresses & Top Arch (matches lines 1791-1815)
+    [-5.4, 5.4].forEach((px) => {
+      const pillar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 14, 2.4), basaltMat);
+      pillar.position.set(px, 7, 8.0);
+      balconyGroup.add(pillar);
+    });
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(13, 2.2, 2.6), basaltMat);
+    lintel.position.set(0, 14.6, 8.0);
+    balconyGroup.add(lintel);
+    [-11.2, 11.2].forEach((wx) => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(11.6, 22, 2.4), basaltMat);
+      wall.position.set(wx, 11, 8.0);
+      const buttress = new THREE.Mesh(new THREE.BoxGeometry(1.8, 18, 1.4), balcFloorMat);
+      buttress.position.set(wx, 9, 7.1);
+      balconyGroup.add(wall, buttress);
+    });
+    const topArch = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 2.4), basaltMat);
+    topArch.position.set(0, 19, 8.0);
+    balconyGroup.add(topArch);
+
+    // Return Portal Home (matches lines 1818-1843)
+    const portalGroup = new THREE.Group();
+    portalGroup.position.set(12, 3.4, 2.5);
+    portalGroup.lookAt(new THREE.Vector3(0, 3.4, -1.5));
+    const portalRing = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.3, 10, 28), brassMat);
+    const portalDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(2.45, 24),
+      new THREE.MeshBasicMaterial({ color: 0x60a5fa, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+    );
+    portalGroup.add(portalRing, portalDisc);
+    balconyGroup.add(portalGroup);
+
+    // Twin Braziers (matches lines 1844-1845)
+    [-9, 9].forEach((bx) => {
+      const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.45, 1.2, 8), brassMat);
+      brazier.position.set(bx, 0.6, 5.5);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 10), new THREE.MeshBasicMaterial({ color: 0xff6a1a }));
+      flame.position.set(bx, 1.45, 5.5);
       balconyGroup.add(brazier, flame);
     });
 
-    const portalRing = new THREE.Mesh(
-      new THREE.TorusGeometry(1.9, 0.25, 8, 24),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-    );
-    portalRing.position.set(5.2, 2.2, 1.5);
-    const portalDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(1.75, 20),
-      new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
-    );
-    portalDisc.position.set(5.2, 2.2, 1.5);
-    balconyGroup.add(portalRing, portalDisc);
+    // Twin Obsidian Gargoyles on front corners (matches lines 1848-1867)
+    [-14.5, 14.5].forEach((gx, idx) => {
+      const gGroup = new THREE.Group();
+      gGroup.position.set(gx, 1.1, -7.7);
+      const gPedestal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.4, 1.2), basaltMat);
+      const gStatue = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 1), balcObsidianMat);
+      gStatue.position.y = 1.2;
+      const gHorns = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 6), brassMat);
+      gHorns.position.set(0, 1.9, 0);
+      gGroup.add(gPedestal, gStatue, gHorns);
+      gGroup.rotation.y = idx === 0 ? 0.35 : -0.35;
+      balconyGroup.add(gGroup);
+    });
 
-    const carrotMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.5 });
+    // All 8 Colorful Volunteer Carrots lined up along the front edge (matches lines 1870-1878)
+    const carrotColors = [0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6, 0x3b82f6, 0xec4899, 0x14b8a6, 0xf97316];
     const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 });
-    [-2.4, 0.0, 2.4].forEach((cx) => {
-      const cBody = new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.3, 8), carrotMat);
-      cBody.rotation.x = Math.PI;
-      cBody.position.set(cx, 0.85, -3.5);
-      const cTop = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 6), leafMat);
-      cTop.position.set(cx, 1.65, -3.5);
-      balconyGroup.add(cBody, cTop);
+    carrotColors.forEach((col, i) => {
+      const cx = -12.25 + i * 3.5;
+      const cz = -7.1;
+      if (window.BlahajModels && typeof window.BlahajModels.createBeachCarrot === 'function') {
+        const cMesh = window.BlahajModels.createBeachCarrot(col);
+        cMesh.position.set(cx, 0.3, cz);
+        cMesh.rotation.y = Math.PI;
+        balconyGroup.add(cMesh);
+      } else {
+        const cBody = new THREE.Mesh(
+          new THREE.ConeGeometry(0.42, 1.4, 8),
+          new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 })
+        );
+        cBody.rotation.x = Math.PI;
+        cBody.position.set(cx, 0.85, cz);
+        const cTop = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.5, 6), leafMat);
+        cTop.position.set(cx, 1.7, cz);
+        balconyGroup.add(cBody, cTop);
+      }
     });
 
     group.add(balconyGroup);
+    }
 
     // Billowing Skyward Volcanic Ash & Ember Plume ascending naturally from deep within the crater
     const emberGeo = new THREE.BufferGeometry();
@@ -5776,8 +5898,9 @@ window.BlahajWorld = (function () {
       calderaEruptionTimer = Math.max(0, calderaEruptionTimer - dt * 0.75);
     }
     if (calderaLavaPool) {
-      const pulse = 1.0 + Math.sin(time * 2.4) * 0.03 + (calderaEruptionTimer > 0 ? Math.sin(time * 18) * 0.04 : 0);
-      calderaLavaPool.scale.set(pulse, pulse, 1);
+      if (calderaLavaPool.material && calderaLavaPool.material.uniforms && calderaLavaPool.material.uniforms.uTime) {
+        calderaLavaPool.material.uniforms.uTime.value = time;
+      }
     }
     calderaLavaRings.forEach((cr) => {
       const s = 0.88 + 0.14 * Math.sin(time * 2.1 + cr.phase) + calderaEruptionTimer * 0.18;
