@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12.2" />
+  <link rel="stylesheet" href="styles.css?v=12.3" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2607,32 +2607,57 @@
     <div class="modal-card quest-modal-card">
       <button type="button" class="modal-close" id="close-quest-log-modal" aria-label="Close Quest Log">✕</button>
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
-        <h2 style="margin: 0; font-size: 1.28rem; color: #fde68a;">📜 Blåhaj Island · Quest Log</h2>
+        <h2 style="margin: 0; font-size: 1.28rem; color: #fde68a;">📜 Blåhaj Island · Quest Log <small style="font-size:0.75rem; color:#94a3b8; font-weight:500;">(Double-click any quest for details)</small></h2>
         <button type="button" class="pause-btn" id="btn-ql-close" style="padding: 5px 12px;">Close [L]</button>
       </div>
       <div id="quest-log-body" class="quest-log-body"></div>
     </div>
   </div>
 
+  <!-- MMO QUEST DETAIL MODAL (Opened by double-clicking any quest in Quest Log) -->
+  <div id="quest-detail-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" style="z-index: 2200;">
+    <div class="modal-card quest-modal-card">
+      <button type="button" class="modal-close" id="close-quest-detail-modal" aria-label="Close Quest Details">✕</button>
+      <div class="qg-header">
+        <img id="qd-portrait" class="qg-portrait" src="assets/gallery/Solomon.png" alt="Quest Giver" />
+        <div>
+          <h2 id="qd-title" style="margin: 0; font-size: 1.25rem; color: #fde68a;">Quest Title</h2>
+          <div id="qd-giver" style="font-size: 0.82rem; color: #cbd5e1; margin-top: 2px;">Quest Giver</div>
+          <div id="qd-where" style="font-size: 0.78rem; color: #7dd3fc; margin-top: 2px;">Location</div>
+        </div>
+      </div>
+      <div class="qd-body">
+        <p id="qd-desc" class="qg-desc" style="font-size: 0.9rem; margin-bottom: 8px;"></p>
+        <div id="qd-objectives" class="q-obj-list"></div>
+        <div id="qd-hint" class="qg-hint" style="margin-top: 8px;"></div>
+        <div id="qd-reward" class="qg-reward" style="margin-top: 8px;"></div>
+        <div id="qd-status" style="margin-top: 8px; font-size: 0.85rem; font-weight: 700; color: #fde047;"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; margin-top: 12px;">
+        <button type="button" class="pause-btn" id="btn-qd-close">Back to Quest Log</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=12.2"></script>
-  <script src="js/quests.js?v=12.2"></script>
-  <script src="js/sharks3d.js?v=12.2"></script>
-  <script src="js/ufo.js?v=12.2"></script>
-  <script src="js/world3d.js?v=12.2"></script>
-  <script src="js/volcano.js?v=12.2"></script>
-  <script src="js/laundromat.js?v=12.2"></script>
-  <script src="js/sphericalFoods.js?v=12.2"></script>
-  <script src="js/volleyball.js?v=12.2"></script>
-  <script src="js/spawningPits.js?v=12.2"></script>
-  <script src="js/homestead.js?v=12.2"></script>
-  <script src="js/network.js?v=12.2"></script>
-  <script src="js/inventory.js?v=12.2"></script>
-  <script src="js/enemies.js?v=12.2"></script>
-  <script src="js/seam.js?v=12.2"></script>
-  <script src="js/mmoControls.js?v=12.2"></script>
+  <script src="js/lore.js?v=12.3"></script>
+  <script src="js/quests.js?v=12.3"></script>
+  <script src="js/sharks3d.js?v=12.3"></script>
+  <script src="js/ufo.js?v=12.3"></script>
+  <script src="js/world3d.js?v=12.3"></script>
+  <script src="js/volcano.js?v=12.3"></script>
+  <script src="js/laundromat.js?v=12.3"></script>
+  <script src="js/sphericalFoods.js?v=12.3"></script>
+  <script src="js/volleyball.js?v=12.3"></script>
+  <script src="js/spawningPits.js?v=12.3"></script>
+  <script src="js/homestead.js?v=12.3"></script>
+  <script src="js/network.js?v=12.3"></script>
+  <script src="js/inventory.js?v=12.3"></script>
+  <script src="js/enemies.js?v=12.3"></script>
+  <script src="js/seam.js?v=12.3"></script>
+  <script src="js/mmoControls.js?v=12.3"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=12.2"></script>
-  <script src="js/main.js?v=12.2"></script>
+  <script src="js/saveSystem.js?v=12.3"></script>
+  <script src="js/main.js?v=12.3"></script>
 </body>
 </html>

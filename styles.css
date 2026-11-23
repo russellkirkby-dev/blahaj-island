@@ -8667,6 +8667,52 @@ body.ufo-flight-mode .hud-bottom-left {
   color: #94a3b8;
   padding: 6px 2px;
 }
+.ql-item[data-qid] {
+  cursor: pointer;
+}
+.ql-item[data-qid]:hover {
+  border-color: rgba(245, 205, 121, 0.75);
+  background: rgba(24, 36, 58, 0.9);
+}
+.q-obj-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+}
+.q-obj-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.65);
+  color: #e2e8f0;
+}
+.q-obj-row.met {
+  background: rgba(16, 185, 129, 0.16);
+  color: #a7f3d0;
+}
+.q-obj-count {
+  font-size: 11.5px;
+  color: #fde68a;
+  white-space: nowrap;
+}
+.q-obj-row.met .q-obj-count {
+  color: #6ee7b7;
+}
+.ql-dbl-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.qd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
 /* Integrated Builder Fin Mode: Hide legacy separate panels & style Builder Fin Belt inside #fin-belt-bar */
 #builder-panel,

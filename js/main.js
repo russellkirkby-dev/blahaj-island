@@ -5950,6 +5950,7 @@
       isVisible('dialogue-modal') ||
       isVisible('quest-giver-modal') ||
       isVisible('quest-log-modal') ||
+      isVisible('quest-detail-modal') ||
       isVisible('portal-modal') ||
       isVisible('gallery-modal') ||
       isVisible('upgrades-modal') ||
@@ -15100,6 +15101,9 @@
     if (window.BlahajSeam) {
       window.BlahajSeam.update(dt, elapsed, player.pos, currentZone);
     }
+    if (window.BlahajQuests && typeof window.BlahajQuests.update === 'function') {
+      window.BlahajQuests.update(elapsed);
+    }
     if (window.BlahajMMO && typeof window.BlahajMMO.update === 'function') {
       window.BlahajMMO.update(dt, elapsed);
     }
@@ -17406,7 +17410,7 @@
 
     worldActors.forEach((act) => {
       if (!act.mesh.visible) return;
-      if (window.BlahajQuests) window.BlahajQuests.syncActorMarker(act.id, act.labelEl);
+      if (window.BlahajQuests) window.BlahajQuests.syncActorMarker(act.id, act.labelEl, act.mesh);
       projectLabel(act.mesh.position, act.labelEl, 3.25, false);
     });
 
