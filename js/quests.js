@@ -576,13 +576,8 @@ window.BlahajQuests = (function () {
   }
 
   function openQuestDetailModal(questId) {
-    const q = QUEST_CATALOG.find((x) => x.id === questId);
     const modal = document.getElementById('quest-detail-modal');
-    if (!q || !modal) return;
-    const giver = GIVER_META[q.giverId];
-    const active = isQuestActive(q);
-    const ready = isQuestReadyToTurnIn(q);
-    const done = isQuestCompleted(q);
+    if (!modal) return;
 
     const portraitEl = document.getElementById('qd-portrait');
     const titleEl = document.getElementById('qd-title');
@@ -593,6 +588,46 @@ window.BlahajQuests = (function () {
     const hintEl = document.getElementById('qd-hint');
     const rewEl = document.getElementById('qd-reward');
     const statusEl = document.getElementById('qd-status');
+
+    if (questId === 'world_daily_seam' || questId === 'world_incursion_cleanup') {
+      const seamState = window.BlahajSeam ? window.BlahajSeam.getState() : null;
+      const isIncursion = questId === 'world_incursion_cleanup';
+      if (portraitEl) portraitEl.src = 'assets/gallery/Nimue.png';
+      if (titleEl) titleEl.textContent = isIncursion ? '🚨 Incursion Cleanup' : '🪡 Daily Great Seam Maintenance';
+      if (giverEl) giverEl.textContent = 'Quest Giver: Archipelago World Event (Auto-Tracked)';
+      if (whereEl) whereEl.textContent = isIncursion ? '📍 Location: Blåhaj Island Coastlines & Shores' : '📍 Location: Island, Volcano, Laundromat & Spherical Foods';
+      if (descEl) {
+        descEl.textContent = isIncursion
+          ? 'The Great Seam tore open when rifts were left unmended! Sea Invaders have flopped onto the island.'
+          : 'Six Cosmic Rifts open each UTC day across Blåhaj Island and its instances. Equip the Aetheric Seam Diviner [H] to triangulate and stitch them shut!';
+      }
+      if (objEl) {
+        objEl.innerHTML = isIncursion
+          ? `<div class="q-obj-row">${seamState ? `${seamState.invadersBanished} / ${seamState.invadersNeeded}` : '0 / 6'} Sea Invaders Expelled</div>`
+          : `<div class="q-obj-row">${seamState ? `${seamState.mendedCount} / ${seamState.totalRifts}` : '0 / 6'} Cosmic Rifts Mended</div>`;
+      }
+      if (hintEl) {
+        hintEl.textContent = isIncursion
+          ? '💡 How to complete: Boop Sea Invaders [F] back into the ocean, or beam them up with the UFO Tractor Beam [T] and drop them into the Volcano!'
+          : '💡 How to complete: Hold [H] Aetheric Seam Diviner to follow the signal & stitch all 6 rifts before the daily timer expires.';
+      }
+      if (rewEl) rewEl.textContent = '🎁 Rewards: Peaceful Island & Daily Seam Harmony';
+      if (statusEl) {
+        statusEl.textContent = isIncursion
+          ? '🚨 Active World Event'
+          : (seamState && seamState.mendedCount >= seamState.totalRifts ? '✅ All 6 Rifts Mended Today!' : '⏳ Active Daily World Quest');
+      }
+      modal.classList.remove('hidden');
+      if (window._blahajSyncCaptureUI) window._blahajSyncCaptureUI();
+      return;
+    }
+
+    const q = QUEST_CATALOG.find((x) => x.id === questId);
+    if (!q) return;
+    const giver = GIVER_META[q.giverId];
+    const active = isQuestActive(q);
+    const ready = isQuestReadyToTurnIn(q);
+    const done = isQuestCompleted(q);
 
     if (portraitEl && giver) portraitEl.src = giver.portrait;
     if (titleEl) titleEl.textContent = `${q.icon} ${q.title}`;
@@ -627,20 +662,28 @@ window.BlahajQuests = (function () {
     const worldHtml = seamState ? `
       <div class="ql-section">
         <h4>🌍 Daily World Events</h4>
-        <div class="ql-item ${seamState.mendedCount >= seamState.totalRifts ? 'done' : ''}">
+        <div class="ql-item ${seamState.mendedCount >= seamState.totalRifts ? 'done' : ''}" data-qid="world_daily_seam" title="Double-click or click Details for full breakdown">
           <div class="ql-item-head">
             <span>🪡 Daily Great Seam Maintenance</span>
             <span>${seamState.mendedCount} / ${seamState.totalRifts} Rifts</span>
           </div>
           <div class="ql-item-sub">Stitch the 6 cosmic rifts across the island once per day to keep reality cozy.</div>
+          <div class="ql-item-rew" style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+            <span class="ql-dbl-hint">Double-click for details</span>
+            <button type="button" class="qg-action-btn secondary ql-details-btn" data-qid="world_daily_seam">🔍 Details</button>
+          </div>
         </div>
         ${seamState.state === 'incursion' ? `
-        <div class="ql-item alert">
+        <div class="ql-item alert" data-qid="world_incursion_cleanup" title="Double-click or click Details for full breakdown">
           <div class="ql-item-head">
             <span>🚨 Incursion Cleanup (Active!)</span>
             <span>${seamState.invadersBanished} / ${seamState.invadersNeeded} Expelled</span>
           </div>
           <div class="ql-item-sub">Boop Sea Invaders back into the ocean OR abduct them with the UFO Tractor Beam and drop them into the Volcano!</div>
+          <div class="ql-item-rew" style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+            <span class="ql-dbl-hint">Double-click for details</span>
+            <button type="button" class="qg-action-btn secondary ql-details-btn" data-qid="world_incursion_cleanup">🔍 Details</button>
+          </div>
         </div>` : ''}
       </div>
     ` : '';
@@ -664,7 +707,10 @@ window.BlahajQuests = (function () {
             <span>${mode === 'done' ? '✅ Done' : (ready ? '✅ Ready!' : summaryCounts)}</span>
           </div>
           <div class="q-obj-list">${renderObjectivesHtml(q, true)}</div>
-          <div class="ql-item-rew">🎁 ${q.rewardLabel} <span class="ql-dbl-hint">· Double-click for details</span></div>
+          <div class="ql-item-rew" style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px;">
+            <span>🎁 ${q.rewardLabel} <span class="ql-dbl-hint">· Double-click for details</span></span>
+            <button type="button" class="qg-action-btn secondary ql-details-btn" data-qid="${q.id}">🔍 Details</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -685,12 +731,7 @@ window.BlahajQuests = (function () {
       </div>
     `;
 
-    bodyEl.querySelectorAll('.ql-item[data-qid]').forEach((el) => {
-      el.addEventListener('dblclick', (e) => {
-        e.stopPropagation();
-        openQuestDetailModal(el.dataset.qid);
-      });
-    });
+    // Event delegation on #quest-log-body is bound once in init() so re-renders never break double-clicks
   }
 
   function openQuestLogModal() {
@@ -722,6 +763,26 @@ window.BlahajQuests = (function () {
     document.getElementById('close-quest-detail-modal')?.addEventListener('click', closeQuestDetailModal);
     document.getElementById('btn-qd-close')?.addEventListener('click', closeQuestDetailModal);
     document.getElementById('btn-open-quest-log')?.addEventListener('click', toggleQuestLogModal);
+
+    const qlBody = document.getElementById('quest-log-body');
+    if (qlBody && !qlBody._delegatedBound) {
+      qlBody._delegatedBound = true;
+      qlBody.addEventListener('dblclick', (e) => {
+        const card = e.target && e.target.closest ? e.target.closest('.ql-item[data-qid]') : null;
+        if (card && card.dataset.qid) {
+          e.stopPropagation();
+          openQuestDetailModal(card.dataset.qid);
+        }
+      });
+      qlBody.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('.ql-details-btn[data-qid]') : null;
+        if (btn && btn.dataset.qid) {
+          e.stopPropagation();
+          openQuestDetailModal(btn.dataset.qid);
+        }
+      });
+    }
+
     renderQuestLog();
   }
 
