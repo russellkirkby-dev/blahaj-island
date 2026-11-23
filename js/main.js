@@ -8548,7 +8548,19 @@
   }
 
   function handleVolcanoTrapHit(trapName) {
-    if (player.trapCooldown > 0) return;
+    if (isRebirthing || player.trapCooldown > 0) return;
+
+    // Falling into the Molten Lava Sea destroys all stuffing and sends the shark to IKEA Spawning Pits
+    if (trapName === 'Molten Lava Sea') {
+      player.trapCooldown = 2.5;
+      CozyAudio.trapHit();
+      spawnFloatingBurst(player.pos, 0xff4500, 24);
+      player.warmth = 0;
+      updateMetersUI();
+      if (typeof updateVitalsHUD === 'function') updateVitalsHUD();
+      triggerUnstuffedRecovery('Fell into the Molten Lava Sea');
+      return;
+    }
 
     // Pass 81: MMO Defensive Postures (Fin Deflection Parry & Double Fin Defense Aegis)
     if (window.BlahajMMO && typeof window.BlahajMMO.mitigateIncomingHit === 'function') {

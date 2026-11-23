@@ -166,6 +166,20 @@ window.BlahajSeam = (function () {
 
     },
 
+    {
+
+      id: 'laundry_folding_corner',
+
+      zone: 'laundromat',
+
+      name: 'Laundromat · Folding Table Linen Corner',
+
+      desc: 'Hovering beside the stacked eucalyptus-scented towels in the southeast corner.',
+
+      pos: { x: 8.2, y: 1.5, z: 10.5 }
+
+    },
+
     // --- SPHERICAL FOODS RESTAURANT ---
 
     {
@@ -207,6 +221,34 @@ window.BlahajSeam = (function () {
       desc: 'Floating behind Monsieur Betterave’s grand greeting buffet.',
 
       pos: { x: -9.5, y: 1.8, z: 4.0 }
+
+    },
+
+    {
+
+      id: 'bistro_north_fountain',
+
+      zone: 'spherical_foods',
+
+      name: 'Spherical Foods · North Pearl Fountain Alcove',
+
+      desc: 'Shimmering beside the marble orb fountain near the north rotunda wall.',
+
+      pos: { x: -6.5, y: 1.6, z: -8.5 }
+
+    },
+
+    {
+
+      id: 'bistro_east_lantern',
+
+      zone: 'spherical_foods',
+
+      name: 'Spherical Foods · East Velvet Lantern Corner',
+
+      desc: 'Floating under the warm spherical pendant lanterns on the eastern curve.',
+
+      pos: { x: 8.5, y: 1.6, z: -6.0 }
 
     },
 
@@ -294,9 +336,140 @@ window.BlahajSeam = (function () {
 
       pos: { x: 88.0, y: 2.5, z: -78.0 }
 
+    },
+
+    {
+
+      id: 'island_great_portal_plaza',
+
+      zone: 'island',
+
+      name: 'Great Portal · Starlight Transit Plaza',
+
+      desc: 'Sparkling beside the carved stone steps of the Great Cross-Ocean Portal.',
+
+      pos: { x: 7.5, y: 2.2, z: -28.0 }
+
+    },
+
+    {
+
+      id: 'island_volcano_gate_step',
+
+      zone: 'island',
+
+      name: 'Volcano Foothills · Basalt Gate Approach',
+
+      desc: 'Hovering just outside the obsidian archway of the Sacred Volcano Trial.',
+
+      pos: { x: -8.0, y: 2.5, z: -50.0 }
+
+    },
+
+    {
+
+      id: 'island_bistro_patio',
+
+      zone: 'island',
+
+      name: 'Spherical Patio · Terracotta Courtyard',
+
+      desc: 'Floating outside Monsieur Betterave’s rotunda terrace.',
+
+      pos: { x: -41.0, y: 2.2, z: 36.0 }
+
+    },
+
+    {
+
+      id: 'island_laundry_awning',
+
+      zone: 'island',
+
+      name: 'Laundromat Lane · Steam Vent Awning',
+
+      desc: 'Shimmering near the warm eucalyptus vent outside The Sacred Laundromat.',
+
+      pos: { x: -55.0, y: 2.4, z: -8.0 }
+
+    },
+
+    {
+
+      id: 'island_observatory_deck',
+
+      zone: 'island',
+
+      name: 'Crust Cliffs · Brass Telescope Deck',
+
+      desc: 'Perched on the stone overlook beside the Starlight Observatory Telescope.',
+
+      pos: { x: 47.0, y: 8.0, z: -39.0 }
+
     }
 
   ];
+
+  // Deterministic PRNG (Mulberry32) so every player gets the exact same daily rifts for a given UTC day seed
+  function mulberry32(seed) {
+    let a = (Number(seed) || 1) >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function shuffleWithRng(arr, rng) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      const tmp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = tmp;
+    }
+    return copy;
+  }
+
+  function pickDailySeededRifts(seed) {
+    const rng = mulberry32((seed ^ 0x51A7A5) >>> 0);
+    const byZone = {
+      island: [],
+      volcano: [],
+      laundromat: [],
+      spherical_foods: []
+    };
+    CANDIDATE_POOL.forEach((loc) => {
+      if (!byZone[loc.zone]) byZone[loc.zone] = [];
+      byZone[loc.zone].push(loc);
+    });
+
+    const islandPick = shuffleWithRng(byZone.island, rng).slice(0, 2);
+    const volcanoPick = shuffleWithRng(byZone.volcano, rng).slice(0, 2);
+    const laundryPick = shuffleWithRng(byZone.laundromat, rng).slice(0, 1);
+    const bistroPick = shuffleWithRng(byZone.spherical_foods, rng).slice(0, 1);
+
+    const selected = [...islandPick, ...laundryPick, ...bistroPick, ...volcanoPick];
+    if (selected.length < 6) {
+      const usedIds = new Set(selected.map((s) => s.id));
+      const leftovers = shuffleWithRng(CANDIDATE_POOL.filter((c) => !usedIds.has(c.id)), rng);
+      while (selected.length < 6 && leftovers.length > 0) {
+        selected.push(leftovers.shift());
+      }
+    }
+
+    return selected.slice(0, 6).map((c, idx) => ({
+      num: idx + 1,
+      id: `seam_rift_${idx + 1}`,
+      locId: c.id,
+      zone: c.zone,
+      name: c.name,
+      desc: c.desc,
+      pos: { ...c.pos },
+      mended: false
+    }));
+  }
 
   let activeRifts = []; // 6 currently chosen rifts
 
@@ -695,10 +868,10 @@ window.BlahajSeam = (function () {
 
       } else {
 
-        // Fresh universal UTC hour: use the canonical 6 iconic locations across the archipelago
+        // Fresh universal UTC cycle: deterministically pick 6 seeded rifts from CANDIDATE_POOL
         cycleState = 'calm';
         invadersBanishedCount = 0;
-        chosen = CANONICAL_6.map((c) => ({ ...c, mended: false }));
+        chosen = pickDailySeededRifts(curEpochHour);
 
       }
 
@@ -1208,8 +1381,8 @@ window.BlahajSeam = (function () {
         if (unmendedCount > 0) {
           triggerIncursion();
         } else {
-          // All 6 rifts were mended in the previous hour: start the new UTC hour with fresh rifts!
-          selectActiveRifts(CANONICAL_6.map((c) => ({ ...c, mended: false })));
+          // All 6 rifts were mended in the previous cycle: start the new UTC day with fresh seeded rifts!
+          selectActiveRifts(pickDailySeededRifts(curEpochHour));
           onAllRiftsMended();
         }
       }
