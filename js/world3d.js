@@ -441,16 +441,17 @@ window.BlahajWorld = (function () {
     const vz = z - VOLCANO_CFG.z;
     const dVolcano = Math.sqrt(vx * vx + vz * vz);
     const vAngle = Math.atan2(vz, vx);
-    // Fade radial lobes & ribs smoothly to 0 near the crater rim so the 360-degree rim is level!
-    const rimSmooth = smoothstep(VOLCANO_CFG.craterRadius, VOLCANO_CFG.radius * 0.82, dVolcano);
-    const penRadius = VOLCANO_CFG.radius + (Math.cos(vAngle * 4) * 7 + Math.sin(vAngle * 7) * 4) * rimSmooth;
+    // Natural jagged volcanic footprint & craggy rim peaks
+    const penRadius = VOLCANO_CFG.radius + Math.cos(vAngle * 4) * 7 + Math.sin(vAngle * 7) * 4;
 
     let hVolcano = baseSeabed;
     if (dVolcano < penRadius) {
       const norm = Math.max(0, 1 - dVolcano / penRadius);
-      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.04) * 2.8 * norm * (1 - Math.pow(norm, 2.5)) * rimSmooth;
-      // Towering volcanic mountain rising to a level ~109m caldera rim
-      let cone = -2.0 + Math.pow(norm, 1.18) * 188.0 + ribs;
+      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.04) * 2.8 * norm * (1 - Math.pow(norm, 2.5));
+      const rimBand = Math.max(0, 1 - Math.abs(dVolcano - VOLCANO_CFG.craterRadius) / 9.0);
+      const rimSpikes = (Math.sin(vAngle * 13) * 2.6 + Math.cos(vAngle * 19 + 0.7) * 2.2) * rimBand;
+      // Towering volcanic mountain rising to a jagged, natural craggy caldera rim
+      let cone = -2.0 + Math.pow(norm, 1.18) * 188.0 + ribs + rimSpikes;
 
       // Deep open caldera crater bowl plunging below VOLCANO_CFG.lavaY (26m) down to ~18m
       if (dVolcano < VOLCANO_CFG.craterRadius) {
@@ -891,11 +892,11 @@ window.BlahajWorld = (function () {
     if (Math.abs(x - -28) < 12.5 && z < -184 + VOLCANO_CFG.wharfZShift && z >= -222 + VOLCANO_CFG.wharfZShift) {
       return -2.5;
     }
-    // Inside the open caldera mouth, drop the coarse 4.3m terrain mesh cleanly below the custom craggy caldera wall & lava lake
-    // so coarse terrain triangles never poke through as spiky teeth!
+    // Inside the deep caldera interior (well inside the jagged rim at craterRadius),
+    // drop the coarse 4.3m terrain mesh below the lava lake while preserving the spiky rim teeth at the top!
     const dVol = Math.hypot(x - VOLCANO_CFG.x, z - VOLCANO_CFG.z);
-    if (dVol < VOLCANO_CFG.craterRadius - 1.5) {
-      const tIn = smoothstep(VOLCANO_CFG.craterRadius - 1.5, VOLCANO_CFG.craterRadius - 9.0, dVol);
+    if (dVol < VOLCANO_CFG.craterRadius - 4.2) {
+      const tIn = smoothstep(VOLCANO_CFG.craterRadius - 4.2, VOLCANO_CFG.craterRadius - 11.0, dVol);
       const baseH = getTerrainHeight(x, z);
       return baseH * (1 - tIn) + (VOLCANO_CFG.lavaY - 6.0) * tIn;
     }
@@ -2363,21 +2364,23 @@ window.BlahajWorld = (function () {
       const idx = [];
       const c = new THREE.Color();
       const yBot = VOLCANO_CFG.lavaY - 2.0; // 24m
-      const yTop = 111.5;                   // meets the 109.2m terrain rim cleanly
+      const yTop = 109.5;                   // rises into jagged craggy peaks along the rim
 
       for (let i = 0; i <= rings; i++) {
         const v = i / rings; // 0 = bottom at lava, 1 = top at crater rim
         const baseY = yBot + v * (yTop - yBot);
-        // Bell-shaped caldera profile widening from 31m at lava to 47.5m at the rim, then curling over the terrain lip
-        const baseR = 31.0 + Math.pow(v, 0.78) * 16.2 + (v > 0.88 ? (v - 0.88) * 18.0 : 0);
+        // Tapered caldera profile from 31m at lava to 45.2m at the rim (tucked cleanly inside the spiky terrain rim)
+        const baseR = 31.0 + Math.pow(v, 0.82) * 14.2;
 
         for (let j = 0; j <= segs; j++) {
           const phi = (j / segs) * Math.PI * 2;
-          const rimTaper = 1.0 - smoothstep(0.86, 1.0, v) * 0.65;
-          const amp = (3.4 + v * 1.4) * rimTaper;
+          const amp = 3.2 + v * 1.2;
           const n = (vFbm(Math.cos(phi) * 3.2 + baseY * 0.05, Math.sin(phi) * 3.2) - 0.5) * 2.0 * amp;
-          const r = baseR + n;
-          const y = baseY + (vFbm(phi * 5.0, baseY * 0.08) - 0.5) * 2.4 * rimTaper;
+          const r = baseR + n * (1.0 - smoothstep(0.82, 1.0, v) * 0.55);
+          // Natural jagged volcanic crag teeth along the upper crater crown
+          const crownFactor = smoothstep(0.75, 1.0, v);
+          const cragTeeth = (Math.sin(phi * 13) * 3.4 + Math.cos(phi * 19 + 0.7) * 2.8 + (vFbm(phi * 8.0, 3.1) - 0.5) * 6.5) * crownFactor;
+          const y = baseY + (vFbm(phi * 5.0, baseY * 0.08) - 0.5) * 2.6 + cragTeeth;
 
           pos.push(VOLCANO_CFG.x + Math.sin(phi) * r, y, VOLCANO_CFG.z + Math.cos(phi) * r);
 
