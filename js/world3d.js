@@ -441,14 +441,15 @@ window.BlahajWorld = (function () {
     const vz = z - VOLCANO_CFG.z;
     const dVolcano = Math.sqrt(vx * vx + vz * vz);
     const vAngle = Math.atan2(vz, vx);
-    // Grand towering volcano footprint (~3x taller rim ~115m, deep open caldera down to y=16m)
-    const penRadius = VOLCANO_CFG.radius + Math.cos(vAngle * 4) * 7 + Math.sin(vAngle * 7) * 4;
+    // Fade radial lobes & ribs smoothly to 0 near the crater rim so the 360-degree rim is level!
+    const rimSmooth = smoothstep(VOLCANO_CFG.craterRadius, VOLCANO_CFG.radius * 0.82, dVolcano);
+    const penRadius = VOLCANO_CFG.radius + (Math.cos(vAngle * 4) * 7 + Math.sin(vAngle * 7) * 4) * rimSmooth;
 
     let hVolcano = baseSeabed;
     if (dVolcano < penRadius) {
       const norm = Math.max(0, 1 - dVolcano / penRadius);
-      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.04) * 2.8 * norm * (1 - Math.pow(norm, 2.5));
-      // Towering volcanic mountain rising to ~115m caldera rim
+      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.04) * 2.8 * norm * (1 - Math.pow(norm, 2.5)) * rimSmooth;
+      // Towering volcanic mountain rising to a level ~109m caldera rim
       let cone = -2.0 + Math.pow(norm, 1.18) * 188.0 + ribs;
 
       // Deep open caldera crater bowl plunging below VOLCANO_CFG.lavaY (26m) down to ~18m
@@ -2324,19 +2325,19 @@ window.BlahajWorld = (function () {
     });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
 
-    // High-resolution smooth basalt caldera liner (eliminates coarse 4.3m terrain triangle splits inside the steep crater!)
+    // High-resolution smooth basalt caldera liner (BackSide only & tucked inside the 109m rim so it never pokes through outside slopes!)
     const linerMat = new THREE.MeshStandardMaterial({
-      color: 0x1e1924,
+      color: 0x3a323e,
       roughness: 0.9,
       bumpMap: getTerrainBumpTexture(),
       bumpScale: 0.14,
-      side: THREE.DoubleSide
+      side: THREE.BackSide
     });
     const calderaLiner = new THREE.Mesh(
-      new THREE.CylinderGeometry(VOLCANO_CFG.craterRadius + 1.5, VOLCANO_CFG.lavaRadius - 1.5, 92, 64, 6, true),
+      new THREE.CylinderGeometry(VOLCANO_CFG.craterRadius - 1.2, VOLCANO_CFG.lavaRadius - 1.5, 84, 64, 6, true),
       linerMat
     );
-    calderaLiner.position.set(VOLCANO_CFG.x, 66.0, VOLCANO_CFG.z);
+    calderaLiner.position.set(VOLCANO_CFG.x, 63.0, VOLCANO_CFG.z);
     group.add(calderaLiner);
 
     // Volcanic ambient glow radiating from within the natural caldera crater bowl
