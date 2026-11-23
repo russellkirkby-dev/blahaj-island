@@ -8397,3 +8397,110 @@ body.ufo-flight-mode .hud-bottom-left {
   justify-content: flex-start !important;
   padding: 7px 12px 7px 24px !important;
 }
+
+/* ==========================================================================
+   MASTER BUILDER OVERHAUL: RIGHT-DOCKED DRAWER + COMPACT PLACEMENT PILL
+   ========================================================================== */
+.builder-panel.builder-side-drawer {
+  position: fixed !important;
+  right: 16px !important;
+  top: 86px !important;
+  bottom: 126px !important;
+  width: 348px !important;
+  max-width: 90vw !important;
+  z-index: 45 !important;
+  background: linear-gradient(160deg, rgba(16, 26, 44, 0.90), rgba(26, 38, 62, 0.92)) !important;
+  padding: 10px 12px !important;
+  pointer-events: auto !important;
+}
+.builder-panel.builder-side-drawer .builder-header {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+}
+.builder-panel.builder-side-drawer .builder-title-wrap {
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+.builder-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.builder-exit-btn {
+  border-color: rgba(248, 113, 113, 0.7) !important;
+  color: #fecaca !important;
+}
+.builder-exit-btn:hover {
+  background: rgba(220, 38, 38, 0.45) !important;
+  color: #fff !important;
+}
+.builder-panel.builder-side-drawer .builder-controls-row {
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+}
+.builder-panel.builder-side-drawer .builder-cat-tabs {
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+}
+.builder-panel.builder-side-drawer .builder-cat-btn {
+  flex: 1 1 auto !important;
+  padding: 5px 8px !important;
+  font-size: 11px !important;
+}
+.builder-panel.builder-side-drawer .builder-items-row {
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 7px !important;
+  overflow-y: auto !important;
+  padding-right: 3px !important;
+  flex: 1 1 auto !important;
+}
+.builder-active-bar {
+  position: fixed;
+  right: 16px;
+  bottom: 72px;
+  z-index: 46;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(14, 24, 42, 0.92), rgba(24, 36, 58, 0.94));
+  border: 1.5px solid #f5cd79;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 205, 121, 0.2);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+.builder-cycle-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(245, 205, 121, 0.5);
+  background: rgba(20, 32, 54, 0.9);
+  color: #fde68a;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.builder-cycle-btn:hover {
+  background: rgba(245, 205, 121, 0.25);
+  color: #fff;
+}
+.builder-selected-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #f8fafc;
+  padding: 0 4px;
+}
+.builder-active-meta {
+  font-size: 10.5px;
+  color: #93c5fd;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 1px 6px;
+  border-radius: 99px;
+}

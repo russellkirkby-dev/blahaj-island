@@ -2569,6 +2569,7 @@
   // Hiram the Magical Builder State (Exclusive to Hiram [3]!)
   const builderState = {
     active: false,
+    catalogOpen: false,
     freeBuild: false,
     snapGrid: true,
     storyFloor: 0,
@@ -5516,14 +5517,31 @@
         return;
       }
 
-      // C: Opens Character Info / Equipment screen (or Shift+C / active builder toggles Builder Mode)
+      // C: In Build Mode, toggles the Blueprint Catalog drawer while keeping your hologram active!
+      // Shift+C toggles Build Mode on/off; plain C outside Build Mode opens Character Info.
       if (k === 'c') {
         e.preventDefault();
-        if (e.shiftKey || builderState.active) {
+        if (builderState.active) {
+          if (e.shiftKey) {
+            setBuilderMode(false);
+          } else {
+            setBuilderCatalogOpen(!builderState.catalogOpen);
+          }
+        } else if (e.shiftKey) {
           toggleBuilderMode();
         } else {
           toggleCharacterSheetModal(player.sharkId, 'stats');
         }
+        return;
+      }
+      if (builderState.active && (k === '[' || k === ']')) {
+        e.preventDefault();
+        cycleBuilderBlueprint(k === ']' ? 1 : -1);
+        return;
+      }
+      if (builderState.active && k === 'escape' && !isAnyModalOpen()) {
+        e.preventDefault();
+        setBuilderMode(false);
         return;
       }
 
@@ -6181,6 +6199,48 @@
         openSpawningPitsRaidModal();
       });
     }
+    const hideCatBtn = document.getElementById('btn-builder-hide-catalog');
+    if (hideCatBtn) {
+      hideCatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setBuilderCatalogOpen(false);
+      });
+    }
+    const toggleCatBtn = document.getElementById('btn-builder-toggle-catalog');
+    if (toggleCatBtn) {
+      toggleCatBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setBuilderCatalogOpen(!builderState.catalogOpen);
+      });
+    }
+    const exitDrawerBtn = document.getElementById('btn-builder-exit-drawer');
+    if (exitDrawerBtn) {
+      exitDrawerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setBuilderMode(false);
+      });
+    }
+    const exitBarBtn = document.getElementById('btn-builder-exit-bar');
+    if (exitBarBtn) {
+      exitBarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setBuilderMode(false);
+      });
+    }
+    const prevBtn = document.getElementById('btn-builder-prev');
+    if (prevBtn) {
+      prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleBuilderBlueprint(-1);
+      });
+    }
+    const nextBtn = document.getElementById('btn-builder-next');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleBuilderBlueprint(1);
+      });
+    }
     setupSpawningPitsRaidUI();
     setupHomesteadAndCommissionsUI();
     renderBuilderToolbar();
@@ -6224,25 +6284,72 @@
     setBuilderMode(!builderState.active);
   }
 
+  function updateBuilderActiveBar() {
+    const bar = document.getElementById('builder-active-bar');
+    if (!bar) return;
+    bar.classList.toggle('hidden', !builderState.active);
+    if (!builderState.active) return;
+    const spec = (LORE.buildCatalog || []).find((x) => x.id === builderState.selectedId);
+    const iconEl = document.getElementById('builder-active-icon');
+    const nameEl = document.getElementById('builder-active-name');
+    const metaEl = document.getElementById('builder-active-meta');
+    const toggleBtn = document.getElementById('btn-builder-toggle-catalog');
+    if (iconEl) iconEl.textContent = spec ? spec.icon : '🏗️';
+    if (nameEl) nameEl.textContent = spec ? spec.name : 'Blueprint';
+    if (metaEl) {
+      const f = builderState.storyFloor || 0;
+      const floorStr = f === 0 ? '1F' : f === 1 ? '2F' : '3F';
+      const snapStr = builderState.snapGrid ? 'Snap ON' : 'Free';
+      metaEl.textContent = `${floorStr} · ${snapStr}`;
+    }
+    if (toggleBtn) {
+      toggleBtn.classList.toggle('active', !!builderState.catalogOpen);
+    }
+  }
+
+  function setBuilderCatalogOpen(open) {
+    if (!builderState.active) open = false;
+    builderState.catalogOpen = !!open;
+    const panel = document.getElementById('builder-panel');
+    if (panel) panel.classList.toggle('hidden', !builderState.catalogOpen);
+    updateBuilderActiveBar();
+  }
+
+  function cycleBuilderBlueprint(dir) {
+    const items = (LORE.buildCatalog || []).filter((x) => x.category === builderState.category);
+    if (!items.length) return;
+    const idx = items.findIndex((x) => x.id === builderState.selectedId);
+    const nextIdx = ((idx === -1 ? 0 : idx) + dir + items.length) % items.length;
+    builderState.selectedId = items[nextIdx].id;
+    CozyAudio.shonk();
+    refreshPreviewMesh();
+    renderBuilderToolbar();
+  }
+
   function setBuilderMode(active) {
     if (active && !canUseBuilderMode(player.sharkId)) return;
     builderState.active = active;
+    builderState.catalogOpen = !!active;
     const panel = document.getElementById('builder-panel');
     const slotC = document.getElementById('slot-c');
-    if (panel) panel.classList.toggle('hidden', !active);
+    if (panel) panel.classList.toggle('hidden', !builderState.catalogOpen);
     if (slotC) slotC.classList.toggle('active', active);
 
     if (active) {
       CozyAudio.allenBuild();
       refreshPreviewMesh();
       renderBuilderToolbar();
+      updateBuilderActiveBar();
       showToast(
-        'HIRAM MASTER BUILDER MODE [C]',
-        'Select a blueprint below! Press [E] or Left-Click to build, [R] to rotate, [X] to remove, or [V] for Free-Build!'
+        'HIRAM MASTER BUILDER MODE',
+        'Pick a blueprint on the right (the menu auto-hides so you can see!). [C] toggles Catalog · [[]/[]] cycles · [E]/Click builds · [Esc] exits.'
       );
-    } else if (builderState.previewMesh) {
-      scene.remove(builderState.previewMesh);
-      builderState.previewMesh = null;
+    } else {
+      updateBuilderActiveBar();
+      if (builderState.previewMesh) {
+        scene.remove(builderState.previewMesh);
+        builderState.previewMesh = null;
+      }
     }
   }
 
@@ -6335,9 +6442,11 @@
           CozyAudio.shonk();
           refreshPreviewMesh();
           renderBuilderToolbar();
+          setBuilderCatalogOpen(false);
         });
         itemsContainer.appendChild(card);
       });
+    updateBuilderActiveBar();
   }
 
   function updateBuilderPreview(elapsed) {
