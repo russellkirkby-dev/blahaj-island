@@ -2467,6 +2467,117 @@ window.BlahajWorld = (function () {
     topArch.position.set(0, 19, 8.0);
     balconyGroup.add(topArch);
 
+    // Trompe-l'oeil perspective backdrop of the Volcano Dungeon corridor behind the balcony archway
+    // (basalt walls, glowing lava-lit floor trims, alternating brass braziers, & distant Ember Spiral glow)
+    {
+      const tc = document.createElement('canvas');
+      tc.width = 512;
+      tc.height = 512;
+      const tctx = tc.getContext('2d');
+
+      // Deep volcanic cavern sky / misty abyss gradient
+      const bg = tctx.createLinearGradient(0, 0, 0, 512);
+      bg.addColorStop(0.0, '#140b16');
+      bg.addColorStop(0.45, '#2b1322');
+      bg.addColorStop(0.75, '#4a1c19');
+      bg.addColorStop(1.0, '#1c1624');
+      tctx.fillStyle = bg;
+      tctx.fillRect(0, 0, 512, 512);
+
+      // Distant Ember Spiral & Tea House warm amber glow at vanishing point
+      const vanX = 256;
+      const vanY = 235;
+      const glow = tctx.createRadialGradient(vanX, vanY, 8, vanX, vanY, 175);
+      glow.addColorStop(0.0, 'rgba(255, 196, 80, 0.92)');
+      glow.addColorStop(0.28, 'rgba(255, 102, 24, 0.55)');
+      glow.addColorStop(0.65, 'rgba(130, 32, 48, 0.22)');
+      glow.addColorStop(1.0, 'rgba(20, 11, 22, 0)');
+      tctx.fillStyle = glow;
+      tctx.fillRect(0, 0, 512, 512);
+
+      // Perspective dark basalt corridor floor (narrowing toward vanishing point)
+      tctx.fillStyle = '#241e2e';
+      tctx.beginPath();
+      tctx.moveTo(40, 512);
+      tctx.lineTo(472, 512);
+      tctx.lineTo(vanX + 42, vanY + 12);
+      tctx.lineTo(vanX - 42, vanY + 12);
+      tctx.closePath();
+      tctx.fill();
+
+      // Perspective stone slab lines across the floor
+      tctx.strokeStyle = 'rgba(255, 140, 48, 0.16)';
+      tctx.lineWidth = 2;
+      for (let step = 0.15; step <= 0.95; step += 0.14) {
+        const y = vanY + 12 + Math.pow(step, 1.55) * (512 - vanY - 12);
+        const halfW = 42 + Math.pow(step, 1.55) * (216 - 42);
+        tctx.beginPath();
+        tctx.moveTo(vanX - halfW, y);
+        tctx.lineTo(vanX + halfW, y);
+        tctx.stroke();
+      }
+
+      // Glowing orange-gold floor edge trims & low basalt side walls
+      [-1, 1].forEach((side) => {
+        tctx.fillStyle = '#181320';
+        tctx.beginPath();
+        tctx.moveTo(vanX + side * 216, 512);
+        tctx.lineTo(vanX + side * 246, 512);
+        tctx.lineTo(vanX + side * 48, vanY + 6);
+        tctx.lineTo(vanX + side * 42, vanY + 12);
+        tctx.closePath();
+        tctx.fill();
+
+        tctx.strokeStyle = 'rgba(255, 145, 45, 0.72)';
+        tctx.lineWidth = 4;
+        tctx.beginPath();
+        tctx.moveTo(vanX + side * 216, 512);
+        tctx.lineTo(vanX + side * 42, vanY + 12);
+        tctx.stroke();
+      });
+
+      // Alternating glowing brass braziers receding into the tunnel
+      [0.22, 0.42, 0.68, 0.88].forEach((t, idx) => {
+        const side = idx % 2 === 0 ? -1 : 1;
+        const p = Math.pow(t, 1.45);
+        const bx = vanX + side * (36 + p * 145);
+        const by = vanY + 10 + p * (480 - vanY - 10);
+        const rad = 5 + p * 16;
+
+        // Brazier stand
+        tctx.fillStyle = '#b4873e';
+        tctx.fillRect(bx - rad * 0.45, by - rad * 0.3, rad * 0.9, rad * 1.1);
+
+        // Flame glow
+        const fg = tctx.createRadialGradient(bx, by - rad * 0.6, 1, bx, by - rad * 0.6, rad * 1.8);
+        fg.addColorStop(0, '#fff7c2');
+        fg.addColorStop(0.4, '#ff8822');
+        fg.addColorStop(1, 'rgba(255, 80, 10, 0)');
+        tctx.fillStyle = fg;
+        tctx.beginPath();
+        tctx.arc(bx, by - rad * 0.6, rad * 1.8, 0, Math.PI * 2);
+        tctx.fill();
+      });
+
+      // Distant Tea House Pavilion silhouette at the top of the Ember Spiral
+      tctx.fillStyle = '#1b1422';
+      tctx.fillRect(vanX - 26, vanY - 18, 52, 22);
+      tctx.beginPath();
+      tctx.moveTo(vanX - 34, vanY - 18);
+      tctx.lineTo(vanX, vanY - 38);
+      tctx.lineTo(vanX + 34, vanY - 18);
+      tctx.closePath();
+      tctx.fill();
+
+      const tunnelTex = new THREE.CanvasTexture(tc);
+      const tunnelBackdrop = new THREE.Mesh(
+        new THREE.PlaneGeometry(10.8, 13.5),
+        new THREE.MeshBasicMaterial({ map: tunnelTex, side: THREE.DoubleSide })
+      );
+      tunnelBackdrop.position.set(0, 6.75, 8.2);
+      balconyGroup.add(tunnelBackdrop);
+    }
+
     // Return Portal Home (matches lines 1818-1843)
     const portalGroup = new THREE.Group();
     portalGroup.position.set(12, 3.4, 2.5);
