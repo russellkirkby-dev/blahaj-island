@@ -3441,6 +3441,67 @@
     }
   }
 
+  const SHARED_SPRAY_GEO = new THREE.SphereGeometry(0.16, 6, 5);
+  const SHARED_SPRAY_WHITE_MAT = new THREE.MeshBasicMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.9 });
+  const SHARED_SPRAY_AQUA_MAT = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.85 });
+  const SHARED_FOAM_RING_GEO = new THREE.RingGeometry(0.65, 1.05, 28);
+
+  function spawnWaterBreachSplash(originPos, scale = 1.0, waterY = null) {
+    const activeScene = getActiveScene();
+    if (!activeScene || !originPos) return;
+    const surfY = (typeof waterY === 'number') ? waterY : originPos.y;
+    const count = Math.round(24 * Math.min(2.2, Math.max(0.8, scale)));
+
+    // 1. Expanding white-foam surface shockwave rings
+    [0, 1].forEach((ringIdx) => {
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: ringIdx === 0 ? 0xf8fafc : 0xbae6fd,
+        transparent: true,
+        opacity: 0.88 - ringIdx * 0.2,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const ring = new THREE.Mesh(SHARED_FOAM_RING_GEO, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(originPos.x, surfY + 0.08 + ringIdx * 0.04, originPos.z);
+      ring.scale.setScalar(0.55 * scale);
+      activeScene.add(ring);
+      floatingBursts.push({
+        mesh: ring,
+        vel: new THREE.Vector3(0, 0.12, 0),
+        life: 0.72 + ringIdx * 0.16,
+        maxLife: 0.72 + ringIdx * 0.16,
+        expandRate: (6.5 + ringIdx * 2.2) * scale,
+        baseScale: 0.55 * scale
+      });
+    });
+
+    // 2. Arcing sea-spray droplets & mist plumes
+    for (let i = 0; i < count; i++) {
+      const isWhite = i % 2 === 0;
+      const mesh = new THREE.Mesh(SHARED_SPRAY_GEO, isWhite ? SHARED_SPRAY_WHITE_MAT : SHARED_SPRAY_AQUA_MAT);
+      const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+      const radOut = (0.35 + Math.random() * 0.9) * scale;
+      const horizSpd = (2.8 + Math.random() * 5.2) * Math.sqrt(scale);
+      const upSpd = (5.8 + Math.random() * 6.5) * Math.sqrt(scale);
+      mesh.position.set(
+        originPos.x + Math.cos(ang) * radOut,
+        surfY + 0.15 + Math.random() * 0.45 * scale,
+        originPos.z + Math.sin(ang) * radOut
+      );
+      const dropScale = (0.65 + Math.random() * 0.95) * Math.min(1.8, Math.max(0.75, scale * 0.8));
+      mesh.scale.setScalar(dropScale);
+      activeScene.add(mesh);
+      floatingBursts.push({
+        mesh,
+        vel: new THREE.Vector3(Math.cos(ang) * horizSpd, upSpd, Math.sin(ang) * horizSpd),
+        gravity: 21.0,
+        life: 0.85 + Math.random() * 0.4,
+        maxLife: 1.25
+      });
+    }
+  }
+
   function spawnUnderwaterBubbles(originPos, count = 4) {
     const activeScene = getActiveScene();
     for (let i = 0; i < count; i++) {
@@ -16079,11 +16140,15 @@
           // Full swimming mode when submerged or in deeper waters
           player.isSwimming = player.inWater && (player.pos.y < waterSurfaceY - 0.15 || groundY < waterSurfaceY - 1.2);
 
-          // Water entry splash!
+          // Water entry & breach splash!
           if (!wasInWater && player.inWater) {
-            CozyAudio.waterSplash(0.18, 0.3);
+            CozyAudio.waterSplash(0.22, 0.32);
             spawnUnderwaterBubbles(player.pos, 8);
+            spawnWaterBreachSplash(player.pos, 0.95, waterSurfaceY);
             player.velY *= 0.35; // Water resistance absorbs downward velocity
+          } else if (wasInWater && !player.inWater && player.velY > 2.2) {
+            CozyAudio.waterSplash(0.26, 0.36);
+            spawnWaterBreachSplash(player.pos, 1.25, waterSurfaceY);
           }
 
           if (player.isSwimming) {
@@ -16129,10 +16194,11 @@
               player.isGrounded = false;
             }
 
-            // 5. Breaching the surface: if leaping upward past the wave crest, launch into air!
+            // 5. Breaching the surface: if leaping upward past the wave crest, launch into air with spray!
             if (player.pos.y > waterSurfaceY && player.velY > 4.2) {
-              CozyAudio.waterSplash(0.16, 0.25);
+              CozyAudio.waterSplash(0.24, 0.32);
               spawnUnderwaterBubbles(player.pos, 6);
+              spawnWaterBreachSplash(player.pos, 1.25, waterSurfaceY);
               if (player.mesh && player.mesh.userData) {
                 player.mesh.userData.flipTimer = 0.45;
               }
@@ -17867,11 +17933,23 @@
     for (let i = floatingBursts.length - 1; i >= 0; i--) {
       const b = floatingBursts[i];
       b.life -= dt;
+      if (b.gravity) b.vel.y -= b.gravity * dt;
       b.mesh.position.addScaledVector(b.vel, dt);
-      b.mesh.rotation.y += dt * 4;
-      b.mesh.scale.setScalar(Math.max(0.01, b.life));
+      if (b.expandRate) {
+        const prog = 1 - Math.max(0, b.life / (b.maxLife || 0.8));
+        b.mesh.scale.setScalar((b.baseScale || 0.5) + prog * b.expandRate);
+        if (b.mesh.material && typeof b.mesh.material.opacity === 'number') {
+          b.mesh.material.opacity = Math.max(0, (1 - prog) * 0.85);
+        }
+      } else {
+        b.mesh.rotation.y += dt * 4;
+        b.mesh.scale.setScalar(Math.max(0.01, b.life));
+      }
       if (b.life <= 0) {
         if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
+        if (b.expandRate && b.mesh.material && typeof b.mesh.material.dispose === 'function') {
+          b.mesh.material.dispose();
+        }
         floatingBursts.splice(i, 1);
       }
     }
@@ -18067,7 +18145,8 @@
     rerollSeamRifts: () => window.BlahajSeam && window.BlahajSeam.rerollRifts(),
     instaMendAllSeams: () => window.BlahajSeam && window.BlahajSeam.instaMendAll(),
     banishAllInvaders: () => window.BlahajSeam && window.BlahajSeam.banishAllInvaders(),
-    getSeamState: () => window.BlahajSeam && window.BlahajSeam.getState()
+    getSeamState: () => window.BlahajSeam && window.BlahajSeam.getState(),
+    spawnWaterBreachSplash
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;

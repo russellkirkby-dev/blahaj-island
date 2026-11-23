@@ -105,6 +105,9 @@ window.BlahajUFO = (function () {
     cockpitLookYaw: 0,
     cockpitLookPitch: 0,
     hyperdriveTimer: 0,
+    windscreenWetTimer: 0,
+    windscreenDrops: [],
+    rimDripCooldown: 0,
     radarStatusText: null,
     radarStatusUntil: 0,
     tractorBeam: false,
@@ -1155,6 +1158,112 @@ window.BlahajUFO = (function () {
     return !!(state.hatchTargetOpen && state.hatchOpenProg >= 0.7);
   }
 
+  function seedWindscreenDroplets() {
+    state.windscreenDrops = [];
+    const count = 38;
+    for (let i = 0; i < count; i++) {
+      state.windscreenDrops.push({
+        xNorm: 0.04 + Math.random() * 0.92,
+        yNorm: Math.random() * 0.72,
+        r: 2.5 + Math.random() * 4.5,
+        speedY: 0.11 + Math.random() * 0.22,
+        streakLen: 18 + Math.random() * 46,
+        wobblePhase: Math.random() * Math.PI * 2,
+        alpha: 0.55 + Math.random() * 0.35
+      });
+    }
+  }
+
+  function updateWindscreenWaterEffects(dt) {
+    const canvas = document.getElementById('ufo-windscreen-rain');
+    if (state.windscreenWetTimer > 0) {
+      state.windscreenWetTimer = Math.max(0, state.windscreenWetTimer - dt);
+    }
+
+    const showCockpitDrops = !!(
+      state.localRole &&
+      state.viewMode === 'inside' &&
+      !state.isSubmerged &&
+      state.windscreenWetTimer > 0
+    );
+
+    if (!showCockpitDrops) {
+      if (canvas && !canvas.classList.contains('hidden')) {
+        canvas.classList.add('hidden');
+      }
+      // External orbit camera: shed 3D water droplets off the saucer rim while drying!
+      if (state.localRole && state.viewMode === 'outside' && !state.isSubmerged && state.windscreenWetTimer > 0) {
+        state.rimDripCooldown = (state.rimDripCooldown || 0) - dt;
+        if (state.rimDripCooldown <= 0 && window.BlahajGame && typeof window.BlahajGame.spawnFloatingBurst === 'function') {
+          state.rimDripCooldown = 0.22;
+          const ang = Math.random() * Math.PI * 2;
+          const dripPos = new THREE.Vector3(
+            state.pos.x + Math.cos(ang) * 3.6,
+            state.pos.y - 0.35,
+            state.pos.z + Math.sin(ang) * 3.6
+          );
+          window.BlahajGame.spawnFloatingBurst(dripPos, 0xbae6fd, 4);
+        }
+      }
+      return;
+    }
+
+    if (!canvas) return;
+    if (canvas.classList.contains('hidden')) canvas.classList.remove('hidden');
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+
+    const fade = Math.min(1.0, state.windscreenWetTimer / 1.4);
+    for (let i = 0; i < state.windscreenDrops.length; i++) {
+      const d = state.windscreenDrops[i];
+      d.yNorm += d.speedY * dt;
+      d.wobblePhase += dt * 4.5;
+      if (d.yNorm > 1.08) {
+        if (state.windscreenWetTimer > 1.8) {
+          d.yNorm = -0.05;
+          d.xNorm = 0.04 + Math.random() * 0.92;
+        } else {
+          continue;
+        }
+      }
+
+      const cx = d.xNorm * w + Math.sin(d.wobblePhase) * 2.2;
+      const cy = d.yNorm * h;
+      const a = d.alpha * fade;
+
+      // Running water streak behind the droplet
+      const grad = ctx.createLinearGradient(cx, cy - d.streakLen, cx, cy);
+      grad.addColorStop(0, 'rgba(186, 230, 253, 0)');
+      grad.addColorStop(0.7, `rgba(186, 230, 253, ${(a * 0.32).toFixed(3)})`);
+      grad.addColorStop(1, `rgba(224, 242, 254, ${(a * 0.72).toFixed(3)})`);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = Math.max(1.5, d.r * 0.75);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - d.streakLen);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+
+      // Glistening droplet bead + specular highlight
+      ctx.fillStyle = `rgba(186, 230, 253, ${(a * 0.55).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, d.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${(a * 0.9).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(cx - d.r * 0.3, cy - d.r * 0.3, Math.max(1, d.r * 0.34), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   function exitUFO() {
     if (!state.localRole) return;
     const myId = getMyClientId();
@@ -1184,6 +1293,9 @@ window.BlahajUFO = (function () {
       }
     }
     state.localRole = null;
+    state.windscreenWetTimer = 0;
+    const rainCanvas = document.getElementById('ufo-windscreen-rain');
+    if (rainCanvas) rainCanvas.classList.add('hidden');
 
     // Place player shark safely at the foot of the glowing boarding stairs!
     if (window.player) {
@@ -2521,7 +2633,17 @@ window.BlahajUFO = (function () {
         const wasSubmerged = !!state.isSubmerged;
         state.isSubmerged = state.pos.y < waterY;
         if (state.isSubmerged !== wasSubmerged) {
-          if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.28, 0.45);
+          if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.32, 0.48);
+          if (window.BlahajGame && typeof window.BlahajGame.spawnWaterBreachSplash === 'function') {
+            window.BlahajGame.spawnWaterBreachSplash(state.pos, state.isSubmerged ? 2.0 : 2.5, waterY);
+          }
+          if (!state.isSubmerged) {
+            // Breached out of water: coat the glass canopy with droplets & running streaks!
+            state.windscreenWetTimer = 4.2;
+            seedWindscreenDroplets();
+          } else {
+            state.windscreenWetTimer = 0;
+          }
           if (window.showToast) {
             window.showToast(
               state.isSubmerged ? '🌊 HYDRO-SUBMERGED!' : '🚀 BREACHED OCEAN SURFACE!',
@@ -2662,6 +2784,7 @@ window.BlahajUFO = (function () {
     ufoGroup.position.set(state.pos.x, state.pos.y + hoverBob, state.pos.z);
     ufoGroup.rotation.order = 'YXZ';
     ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+    updateWindscreenWaterEffects(dt);
 
     // Thruster flame scaling
     const thrustScale = state.phase === 'parked' ? 0.18 : (0.7 + Math.min(1.2, state.speed / 24) + (state.turboActive ? 0.9 : 0));
