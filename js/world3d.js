@@ -891,6 +891,14 @@ window.BlahajWorld = (function () {
     if (Math.abs(x - -28) < 12.5 && z < -184 + VOLCANO_CFG.wharfZShift && z >= -222 + VOLCANO_CFG.wharfZShift) {
       return -2.5;
     }
+    // Inside the open caldera mouth, drop the coarse 4.3m terrain mesh cleanly below the custom craggy caldera wall & lava lake
+    // so coarse terrain triangles never poke through as spiky teeth!
+    const dVol = Math.hypot(x - VOLCANO_CFG.x, z - VOLCANO_CFG.z);
+    if (dVol < VOLCANO_CFG.craterRadius - 1.5) {
+      const tIn = smoothstep(VOLCANO_CFG.craterRadius - 1.5, VOLCANO_CFG.craterRadius - 9.0, dVol);
+      const baseH = getTerrainHeight(x, z);
+      return baseH * (1 - tIn) + (VOLCANO_CFG.lavaY - 6.0) * tIn;
+    }
     return getTerrainHeight(x, z);
   }
 
@@ -2325,24 +2333,97 @@ window.BlahajWorld = (function () {
     });
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
 
-    // High-resolution smooth basalt caldera liner (BackSide only & tucked inside the 109m rim so it never pokes through outside slopes!)
-    const linerMat = new THREE.MeshStandardMaterial({
-      color: 0x3a323e,
-      roughness: 0.9,
-      bumpMap: getTerrainBumpTexture(),
-      bumpScale: 0.14,
-      side: THREE.BackSide
-    });
-    const calderaLiner = new THREE.Mesh(
-      new THREE.CylinderGeometry(VOLCANO_CFG.craterRadius - 1.2, VOLCANO_CFG.lavaRadius - 1.5, 84, 64, 6, true),
-      linerMat
-    );
-    calderaLiner.position.set(VOLCANO_CFG.x, 63.0, VOLCANO_CFG.z);
-    group.add(calderaLiner);
+    // Procedural Craggy Stratified Caldera Wall (ported directly from volcano.js buildCrater!)
+    // Replaces the smooth cylinder liner with organic displaced volcanic strata, dark obsidian rock,
+    // glowing lower lava reflection, and a ring of heavy rim boulders that seal the terrain seam.
+    {
+      const vHash = (n) => {
+        const s = Math.sin(n) * 43758.5453123;
+        return s - Math.floor(s);
+      };
+      const vNoise = (x, y) => {
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+        const fx = x - ix;
+        const fy = y - iy;
+        const ux = fx * fx * (3 - 2 * fx);
+        const uy = fy * fy * (3 - 2 * fy);
+        const a = vHash(ix + iy * 57);
+        const b = vHash(ix + 1 + iy * 57);
+        const c = vHash(ix + (iy + 1) * 57);
+        const d = vHash(ix + 1 + (iy + 1) * 57);
+        return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+      };
+      const vFbm = (x, y) => 0.5 * vNoise(x, y) + 0.3 * vNoise(x * 2.03, y * 2.03) + 0.2 * vNoise(x * 4.07, y * 4.07);
 
-    // Volcanic ambient glow radiating from within the natural caldera crater bowl
-    lavaLight = new THREE.PointLight(0xff591c, 5.5, 280);
-    lavaLight.position.set(VOLCANO_CFG.x, 58, VOLCANO_CFG.z);
+      const rings = 44;
+      const segs = 96;
+      const pos = [];
+      const col = [];
+      const idx = [];
+      const c = new THREE.Color();
+      const yBot = VOLCANO_CFG.lavaY - 2.0; // 24m
+      const yTop = 111.5;                   // meets the 109.2m terrain rim cleanly
+
+      for (let i = 0; i <= rings; i++) {
+        const v = i / rings; // 0 = bottom at lava, 1 = top at crater rim
+        const baseY = yBot + v * (yTop - yBot);
+        // Bell-shaped caldera profile widening from 31m at lava to 47.5m at the rim, then curling over the terrain lip
+        const baseR = 31.0 + Math.pow(v, 0.78) * 16.2 + (v > 0.88 ? (v - 0.88) * 18.0 : 0);
+
+        for (let j = 0; j <= segs; j++) {
+          const phi = (j / segs) * Math.PI * 2;
+          const rimTaper = 1.0 - smoothstep(0.86, 1.0, v) * 0.65;
+          const amp = (3.4 + v * 1.4) * rimTaper;
+          const n = (vFbm(Math.cos(phi) * 3.2 + baseY * 0.05, Math.sin(phi) * 3.2) - 0.5) * 2.0 * amp;
+          const r = baseR + n;
+          const y = baseY + (vFbm(phi * 5.0, baseY * 0.08) - 0.5) * 2.4 * rimTaper;
+
+          pos.push(VOLCANO_CFG.x + Math.sin(phi) * r, y, VOLCANO_CFG.z + Math.cos(phi) * r);
+
+          // Exact volcano.js stratified obsidian-basalt palette + molten under-glow near lava lake
+          const band = 0.5 + 0.5 * Math.sin(y * 0.35 + n * 0.5);
+          const lavaGlow = 1.0 - smoothstep(yBot, yBot + 26.0, y);
+          c.setRGB(
+            0.13 * (0.6 + 0.5 * band) + lavaGlow * 0.78,
+            0.09 * (0.6 + 0.5 * band) + lavaGlow * 0.24,
+            0.11 * (0.6 + 0.5 * band) + lavaGlow * 0.04
+          );
+          col.push(c.r, c.g, c.b);
+        }
+      }
+
+      for (let i = 0; i < rings; i++) {
+        for (let j = 0; j < segs; j++) {
+          const a = i * (segs + 1) + j;
+          const b = a + segs + 1;
+          idx.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+      }
+
+      const craterGeo = new THREE.BufferGeometry();
+      craterGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      craterGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      craterGeo.setIndex(idx);
+      craterGeo.computeVertexNormals();
+
+      const craterWallMesh = new THREE.Mesh(
+        craterGeo,
+        new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.94,
+          metalness: 0.04,
+          bumpMap: getTerrainBumpTexture(),
+          bumpScale: 0.12,
+          side: THREE.DoubleSide
+        })
+      );
+      group.add(craterWallMesh);
+    }
+
+    // Deep magma glow positioned near the lava surface (matches volcano.js lakeLight so upper cliffs stay moody & dark!)
+    lavaLight = new THREE.PointLight(0xff4a14, 2.8, 130);
+    lavaLight.position.set(VOLCANO_CFG.x, VOLCANO_CFG.lavaY + 10.0, VOLCANO_CFG.z);
     group.add(lavaLight);
 
     // Animated Swirling Molten Magma Lake inside the Deep Caldera Bowl (matches Volcano Dungeon shader)
@@ -2467,115 +2548,81 @@ window.BlahajWorld = (function () {
     topArch.position.set(0, 19, 8.0);
     balconyGroup.add(topArch);
 
-    // Trompe-l'oeil perspective backdrop of the Volcano Dungeon corridor behind the balcony archway
-    // (basalt walls, glowing lava-lit floor trims, alternating brass braziers, & distant Ember Spiral glow)
+    // Massive Craggy Rock Overhangs, Brow Boulders & Flanking Cliff Buttresses so the balcony looks CARVED out of the living volcano wall!
+    const rockCarveSpecs = [
+      // Heavy overhanging rock brow jutting out above the temple lintel & top arch
+      { x: 0.0, y: 22.5, z: 7.2, sx: 14.5, sy: 5.2, sz: 6.5, rx: 0.18, ry: 0.1, rz: -0.05 },
+      { x: -9.5, y: 20.8, z: 6.8, sx: 8.5, sy: 5.5, sz: 5.8, rx: 0.12, ry: 0.4, rz: 0.15 },
+      { x: 9.5, y: 20.8, z: 6.8, sx: 8.5, sy: 5.5, sz: 5.8, rx: 0.12, ry: -0.4, rz: -0.15 },
+      // Left & right craggy cliff shoulders embedding the side walls into the caldera rock
+      { x: -16.8, y: 11.0, z: 6.2, sx: 6.5, sy: 13.5, sz: 6.5, rx: 0.05, ry: 0.3, rz: -0.12 },
+      { x: 16.8, y: 11.0, z: 6.2, sx: 6.5, sy: 13.5, sz: 6.5, rx: 0.05, ry: -0.3, rz: 0.12 },
+      { x: -18.5, y: 3.5, z: 2.0, sx: 5.2, sy: 6.5, sz: 8.5, rx: -0.08, ry: 0.25, rz: -0.18 },
+      { x: 18.5, y: 3.5, z: 2.0, sx: 5.2, sy: 6.5, sz: 8.5, rx: -0.08, ry: -0.25, rz: 0.18 },
+      // Deep jagged root crags beneath the balcony shelf anchoring it into the lower cliff
+      { x: -10.5, y: -5.8, z: 3.5, sx: 7.5, sy: 6.2, sz: 7.0, rx: 0.2, ry: 0.5, rz: 0.1 },
+      { x: 10.5, y: -5.8, z: 3.5, sx: 7.5, sy: 6.2, sz: 7.0, rx: 0.2, ry: -0.5, rz: -0.1 },
+      { x: 0.0, y: -9.5, z: 4.5, sx: 11.0, sy: 7.0, sz: 6.5, rx: -0.15, ry: 0.2, rz: 0.0 }
+    ];
+    rockCarveSpecs.forEach((rc) => {
+      const crag = new THREE.Mesh(new THREE.DodecahedronGeometry(1.0, 1), basaltMat);
+      crag.scale.set(rc.sx, rc.sy, rc.sz);
+      crag.position.set(rc.x, rc.y, rc.z);
+      crag.rotation.set(rc.rx, rc.ry, rc.rz);
+      balconyGroup.add(crag);
+    });
+
+    // Real 3D Recessed Dungeon Corridor & Tea Nook behind the archway (matches volcano.js stepOverlook + stepTeaHouse!)
+    // Gives true 3D depth & parallax from every UFO camera angle instead of a flat 2D sticker!
     {
-      const tc = document.createElement('canvas');
-      tc.width = 512;
-      tc.height = 512;
-      const tctx = tc.getContext('2d');
+      const corrGroup = new THREE.Group();
+      corrGroup.position.set(0, 0, 8.0); // starts right at the archway threshold (z = 8.0) and extends back (+Z) into the mountain
 
-      // Deep volcanic cavern sky / misty abyss gradient
-      const bg = tctx.createLinearGradient(0, 0, 0, 512);
-      bg.addColorStop(0.0, '#140b16');
-      bg.addColorStop(0.45, '#2b1322');
-      bg.addColorStop(0.75, '#4a1c19');
-      bg.addColorStop(1.0, '#1c1624');
-      tctx.fillStyle = bg;
-      tctx.fillRect(0, 0, 512, 512);
-
-      // Distant Ember Spiral & Tea House warm amber glow at vanishing point
-      const vanX = 256;
-      const vanY = 235;
-      const glow = tctx.createRadialGradient(vanX, vanY, 8, vanX, vanY, 175);
-      glow.addColorStop(0.0, 'rgba(255, 196, 80, 0.92)');
-      glow.addColorStop(0.28, 'rgba(255, 102, 24, 0.55)');
-      glow.addColorStop(0.65, 'rgba(130, 32, 48, 0.22)');
-      glow.addColorStop(1.0, 'rgba(20, 11, 22, 0)');
-      tctx.fillStyle = glow;
-      tctx.fillRect(0, 0, 512, 512);
-
-      // Perspective dark basalt corridor floor (narrowing toward vanishing point)
-      tctx.fillStyle = '#241e2e';
-      tctx.beginPath();
-      tctx.moveTo(40, 512);
-      tctx.lineTo(472, 512);
-      tctx.lineTo(vanX + 42, vanY + 12);
-      tctx.lineTo(vanX - 42, vanY + 12);
-      tctx.closePath();
-      tctx.fill();
-
-      // Perspective stone slab lines across the floor
-      tctx.strokeStyle = 'rgba(255, 140, 48, 0.16)';
-      tctx.lineWidth = 2;
-      for (let step = 0.15; step <= 0.95; step += 0.14) {
-        const y = vanY + 12 + Math.pow(step, 1.55) * (512 - vanY - 12);
-        const halfW = 42 + Math.pow(step, 1.55) * (216 - 42);
-        tctx.beginPath();
-        tctx.moveTo(vanX - halfW, y);
-        tctx.lineTo(vanX + halfW, y);
-        tctx.stroke();
-      }
-
-      // Glowing orange-gold floor edge trims & low basalt side walls
-      [-1, 1].forEach((side) => {
-        tctx.fillStyle = '#181320';
-        tctx.beginPath();
-        tctx.moveTo(vanX + side * 216, 512);
-        tctx.lineTo(vanX + side * 246, 512);
-        tctx.lineTo(vanX + side * 48, vanY + 6);
-        tctx.lineTo(vanX + side * 42, vanY + 12);
-        tctx.closePath();
-        tctx.fill();
-
-        tctx.strokeStyle = 'rgba(255, 145, 45, 0.72)';
-        tctx.lineWidth = 4;
-        tctx.beginPath();
-        tctx.moveTo(vanX + side * 216, 512);
-        tctx.lineTo(vanX + side * 42, vanY + 12);
-        tctx.stroke();
-      });
-
-      // Alternating glowing brass braziers receding into the tunnel
-      [0.22, 0.42, 0.68, 0.88].forEach((t, idx) => {
-        const side = idx % 2 === 0 ? -1 : 1;
-        const p = Math.pow(t, 1.45);
-        const bx = vanX + side * (36 + p * 145);
-        const by = vanY + 10 + p * (480 - vanY - 10);
-        const rad = 5 + p * 16;
-
-        // Brazier stand
-        tctx.fillStyle = '#b4873e';
-        tctx.fillRect(bx - rad * 0.45, by - rad * 0.3, rad * 0.9, rad * 1.1);
-
-        // Flame glow
-        const fg = tctx.createRadialGradient(bx, by - rad * 0.6, 1, bx, by - rad * 0.6, rad * 1.8);
-        fg.addColorStop(0, '#fff7c2');
-        fg.addColorStop(0.4, '#ff8822');
-        fg.addColorStop(1, 'rgba(255, 80, 10, 0)');
-        tctx.fillStyle = fg;
-        tctx.beginPath();
-        tctx.arc(bx, by - rad * 0.6, rad * 1.8, 0, Math.PI * 2);
-        tctx.fill();
-      });
-
-      // Distant Tea House Pavilion silhouette at the top of the Ember Spiral
-      tctx.fillStyle = '#1b1422';
-      tctx.fillRect(vanX - 26, vanY - 18, 52, 22);
-      tctx.beginPath();
-      tctx.moveTo(vanX - 34, vanY - 18);
-      tctx.lineTo(vanX, vanY - 38);
-      tctx.lineTo(vanX + 34, vanY - 18);
-      tctx.closePath();
-      tctx.fill();
-
-      const tunnelTex = new THREE.CanvasTexture(tc);
-      const tunnelBackdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(10.8, 13.5),
-        new THREE.MeshBasicMaterial({ map: tunnelTex, side: THREE.DoubleSide })
+      // Enclosed dark basalt tunnel shell so no outside sky/rock leaks into the corridor
+      const tunnelShell = new THREE.Mesh(
+        new THREE.BoxGeometry(10.4, 14.2, 22.0),
+        new THREE.MeshStandardMaterial({ color: 0x120e18, roughness: 0.95, side: THREE.BackSide })
       );
-      tunnelBackdrop.position.set(0, 6.75, 8.2);
-      balconyGroup.add(tunnelBackdrop);
+      tunnelShell.position.set(0, 6.8, 11.0);
+      corrGroup.add(tunnelShell);
+
+      // Corridor floor slab + glowing orange-gold side trims + low inner walls (volcano.js lines 1761-1768)
+      const corrFloor = new THREE.Mesh(new THREE.BoxGeometry(8.4, 1.4, 21.5), balcFloorMat);
+      corrFloor.position.set(0, -0.7, 10.8);
+      corrGroup.add(corrFloor);
+
+      [-4.2, 4.2].forEach((sx) => {
+        const trim = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 21.2), balcGlowMat);
+        trim.position.set(sx, 0.07, 10.8);
+        const lowWall = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 21.2), basaltMat);
+        lowWall.position.set(sx * 1.07, 0.55, 10.8);
+        corrGroup.add(trim, lowWall);
+      });
+
+      // Alternating 3D Brass Braziers receding down the corridor (volcano.js lines 1765-1768)
+      [[-3.2, 4.5], [3.2, 9.0], [-3.2, 13.5], [3.2, 18.0]].forEach(([bx, bz]) => {
+        const bStand = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 1.15, 8), brassMat);
+        bStand.position.set(bx, 0.58, bz);
+        const bFlame = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff7722 }));
+        bFlame.position.set(bx, 1.35, bz);
+        corrGroup.add(bStand, bFlame);
+      });
+
+      // Warm Rest Nook Tea Table, Celadon Brass Teapot & Tufted Cushions visible at the end of the corridor (volcano.js lines 1664-1745)
+      const teaDais = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.4, 0.12, 16), basaltMat);
+      teaDais.position.set(1.8, 0.06, 19.2);
+      const teaTable = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.25, 0.85, 16), balcFloorMat);
+      teaTable.position.set(1.8, 0.45, 19.2);
+      const teapot = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 10), brassMat);
+      teapot.position.set(1.8, 1.15, 19.2);
+      corrGroup.add(teaDais, teaTable, teapot);
+
+      // Warm interior point light illuminating the 3D tunnel from within
+      const corrLight = new THREE.PointLight(0xff7b24, 1.8, 28);
+      corrLight.position.set(0, 4.5, 11.0);
+      corrGroup.add(corrLight);
+
+      balconyGroup.add(corrGroup);
     }
 
     // Return Portal Home (matches lines 1818-1843)
