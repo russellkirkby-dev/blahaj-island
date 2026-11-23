@@ -8334,3 +8334,66 @@ body.ufo-flight-mode .fin-belt-bar {
   transform: translateY(-8px) scale(0.97) !important;
   pointer-events: none !important;
 }
+
+/* ==========================================================================
+   PASS 110: ZERO-CLIP CHAT/ACTION-BAR & CLEAN UFO INSTRUMENT/SIDEBAR LAYOUT
+   ========================================================================== */
+.hud-bottom-left {
+  width: 245px !important;
+  bottom: 14px !important;
+  left: 14px !important;
+}
+body.ufo-flight-mode .hud-bottom-left {
+  bottom: 14px !important;
+}
+.hud-bottom-center {
+  bottom: 10px !important;
+}
+.mmo-action-bar {
+  gap: 3px !important;
+  padding: 5px 8px !important;
+}
+
+/* UFO Instruments: Compact & tucked cleanly at the bottom-center so the saucer is 100% unobstructed! */
+.ufo-center-instrument-row {
+  gap: 10px !important;
+  margin-top: auto !important;
+  margin-bottom: 4px !important;
+}
+.ufo-telemetry-card {
+  min-width: 98px !important;
+  padding: 6px 10px !important;
+  border-radius: 12px !important;
+}
+.ufo-tele-val {
+  font-size: 0.96rem !important;
+}
+.ufo-tele-sub {
+  font-size: 0.62rem !important;
+}
+.ufo-horizon-wrap {
+  width: 98px !important;
+  height: 98px !important;
+}
+#ufo-horizon-canvas {
+  width: 98px !important;
+  height: 98px !important;
+}
+
+/* UFO Saucer Appendages (1-5): Docked vertically down the right-hand side! */
+.ufo-module-belt {
+  position: fixed !important;
+  right: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  margin: 0 !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  padding: 8px !important;
+  z-index: 1200 !important;
+}
+.ufo-module-slot {
+  justify-content: flex-start !important;
+  padding: 7px 12px 7px 24px !important;
+}
