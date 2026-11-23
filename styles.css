@@ -8474,10 +8474,33 @@ body.ufo-flight-mode .hud-bottom-left {
 
 /* Fix HUD vertical clearances: never overlap Great Seam watch or Vitals/Action Bar! */
 #interaction-prompt {
-  bottom: 186px !important;
+  bottom: 206px !important;
 }
 .play-capture-pill {
   top: 156px !important;
+}
+
+/* Unified Top-Right Message & Alert Zone (never drops banners over center compass or quests!) */
+.hud-top-right {
+  top: 106px !important;
+  right: 16px !important;
+}
+#toast-banner,
+#volcano-hud-card {
+  position: fixed !important;
+  top: 16px !important;
+  right: 16px !important;
+  left: auto !important;
+  transform: none !important;
+  width: 330px !important;
+  max-width: 90vw !important;
+  text-align: left !important;
+  z-index: 1300 !important;
+}
+#volcano-hud-card.fading-out {
+  opacity: 0 !important;
+  transform: translateY(-8px) scale(0.97) !important;
+  pointer-events: none !important;
 }
 
 /* Integrated Builder Fin Mode: Hide legacy separate panels & style Builder Fin Belt inside #fin-belt-bar */
