@@ -736,9 +736,6 @@ window.BlahajVolcano = (function () {
     // Dedicated Dynamic Point Light for geyser flashes
     // Skip per-geyser PointLight (emissive plume already glows brightly; removing 8 PointLights halves fragment shader cost!)
     const light = null;
-    light.position.set(0, cragHeight + 2.0, 0);
-    light.visible = false;
-    group.add(light);
 
     scn.add(group);
 
@@ -869,9 +866,6 @@ window.BlahajVolcano = (function () {
     // Dynamic firelight casting on stairs
     // Skip per-flamethrower PointLight (emissive flame cone already glows brightly; keeps GPU shader fast!)
     const light = null;
-    light.position.set(0, 0.4, 2.8);
-    light.visible = false;
-    group.add(light);
 
     scn.add(group);
 
