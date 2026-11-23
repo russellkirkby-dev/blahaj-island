@@ -978,14 +978,14 @@ window.BlahajUFO = (function () {
         toggleHangarDoors(true, true);
         playHangarKlaxon();
       }
+      // Stay parked with boarding stairs down so co-op passengers can board!
+      // Pressing Space or W initiates the smooth launch sequence whenever the pilot is ready.
       if (state.phase === 'parked') {
-        state.phase = 'launching';
-        state.phaseTimer = 0;
-        state.hatchTargetOpen = false;
+        state.hatchTargetOpen = true;
       }
       playJetsonsHorn();
       if (window.showToast) {
-        window.showToast('🛸 WELCOME ABOARD CAPTAIN!', 'WASD Fly · Space/Shift Altitude · [V] Inside/Outside View · [L] Auto-Land · [F] Horn!');
+        window.showToast('🛸 WELCOME ABOARD CAPTAIN!', 'Waiting on the pad (stairs down for co-pilot)! Press [Space] or [W] to launch · [L] Land · [V] View!');
       }
     }
 
