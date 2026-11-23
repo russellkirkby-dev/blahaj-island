@@ -8503,6 +8503,171 @@ body.ufo-flight-mode .hud-bottom-left {
   pointer-events: none !important;
 }
 
+/* ==========================================================================
+   MMO QUEST GIVERS (! / ?), OFFER PANEL & QUEST LOG [L]
+   ========================================================================== */
+.quest-marker-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
+  animation: questMarkerBob 1.6s ease-in-out infinite;
+}
+.quest-marker-badge.qm-available {
+  background: linear-gradient(135deg, #fde047, #f59e0b);
+  color: #1e1b09;
+  border: 1.5px solid #fef9c3;
+}
+.quest-marker-badge.qm-turnin {
+  background: linear-gradient(135deg, #fef08a, #eab308);
+  color: #1e1b09;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.85);
+}
+.quest-marker-badge.qm-progress {
+  background: rgba(51, 65, 85, 0.92);
+  color: #cbd5e1;
+  border: 1.5px solid #94a3b8;
+  animation: none;
+}
+@keyframes questMarkerBob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.quest-modal-card {
+  width: 620px;
+  max-width: 94vw;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+}
+.qg-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(245, 205, 121, 0.25);
+  margin-bottom: 10px;
+}
+.qg-portrait {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid #f5cd79;
+}
+.qg-quest-list,
+.quest-log-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+.qg-card,
+.ql-item {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qg-card.ready,
+.ql-item.ready {
+  border-color: #facc15;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.22);
+}
+.qg-card.active,
+.ql-item.alert {
+  border-color: #38bdf8;
+}
+.qg-card.done,
+.ql-item.done {
+  opacity: 0.72;
+  border-color: rgba(52, 211, 153, 0.45);
+}
+.qg-card-head,
+.ql-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+.qg-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: rgba(245, 205, 121, 0.16);
+  color: #fde68a;
+  border: 1px solid rgba(245, 205, 121, 0.35);
+}
+.qg-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.45;
+  font-style: italic;
+}
+.qg-hint,
+.ql-item-sub {
+  font-size: 12px;
+  color: #93c5fd;
+}
+.qg-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.qg-reward,
+.ql-item-rew {
+  font-size: 12px;
+  color: #fde68a;
+  font-weight: 700;
+}
+.qg-status-pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.qg-status-pill.in-prog {
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+.qg-status-pill.completed {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+.ql-section h4 {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f5cd79;
+}
+.ql-empty,
+.qg-empty {
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 6px 2px;
+}
+
 /* Integrated Builder Fin Mode: Hide legacy separate panels & style Builder Fin Belt inside #fin-belt-bar */
 #builder-panel,
 #builder-active-bar {

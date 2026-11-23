@@ -2194,6 +2194,9 @@ window.BlahajUFO = (function () {
         if (window.BlahajWorld && typeof window.BlahajWorld.triggerCalderaEruption === 'function') {
           window.BlahajWorld.triggerCalderaEruption(ufoGroup ? ufoGroup.parent : null, { x: vd.x, z: vd.z });
         }
+        if (window.BlahajQuests && typeof window.BlahajQuests.recordEvent === 'function') {
+          window.BlahajQuests.recordEvent('volcano_drop', 1);
+        }
         if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.35, 0.4);
         if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
         if (vd.kind === 'enemy' && obj) {

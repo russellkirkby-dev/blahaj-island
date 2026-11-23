@@ -40,7 +40,7 @@
 
 window.BlahajSeam = (function () {
 
-  const CYCLE_DURATION = 3600; // 1 Hour in seconds
+  const CYCLE_DURATION = 86400; // Daily 24-Hour UTC Seam Maintenance Cycle
 
   // Universal wall-clock UTC cycle: every player computes the exact same timer from Date.now()!
   let debugTimeOffsetMs = 0;

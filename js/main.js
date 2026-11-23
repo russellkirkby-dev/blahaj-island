@@ -3078,6 +3078,9 @@
     setupSettingsUI();
     applyAllSettings();
     setupBuilderUI();
+    if (window.BlahajQuests && typeof window.BlahajQuests.init === 'function') {
+      window.BlahajQuests.init();
+    }
     setupNetwork();
     renderQuestList();
     updateMetersUI();
@@ -5744,6 +5747,13 @@
       if (k === 'z' && builderState.active) {
         cycleBuilderStoryElevation();
       }
+      if (k === 'l' && !isAnyModalOpen() && !(window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard())) {
+        e.preventDefault();
+        if (window.BlahajQuests && typeof window.BlahajQuests.toggleQuestLogModal === 'function') {
+          window.BlahajQuests.toggleQuestLogModal();
+        }
+        return;
+      }
       if (k === 'x') removeNearestBuiltStructure();
 
       if (player.isLounging) {
@@ -5938,6 +5948,8 @@
       isVisible('modal-homestead-commissions') ||
       isVisible('spellbook-modal') ||
       isVisible('dialogue-modal') ||
+      isVisible('quest-giver-modal') ||
+      isVisible('quest-log-modal') ||
       isVisible('portal-modal') ||
       isVisible('gallery-modal') ||
       isVisible('upgrades-modal') ||
@@ -6782,6 +6794,7 @@
       CozyAudio.allenBuild();
       spawnFloatingBurst(builderState.targetPos, 0xffd166, 14);
       completeQuest('q-build');
+      if (window.BlahajQuests) window.BlahajQuests.recordEvent('spawning_heist_or_build', 1);
       updateMetersUI();
       renderBuilderToolbar();
 
@@ -7111,6 +7124,7 @@
     const fwd = new THREE.Vector3(Math.sin(player.rotY), 0, Math.cos(player.rotY)).normalize();
     const snoutPos = player.pos.clone().add(new THREE.Vector3(fwd.x * 1.1, 0.95, fwd.z * 1.1));
     spawnFloatingBurst(snoutPos, 0x38bdf8, 8);
+    if (window.BlahajQuests) window.BlahajQuests.recordEvent('nose_beep', 1);
 
     // 2. Check for nearby enemy to execute Boop Attack!
     if (window.BlahajEnemies && typeof window.BlahajEnemies.checkBoopHit === 'function') {
@@ -8283,6 +8297,7 @@
 
     titleEl.textContent = 'Spherical Foods Bistro & Rotunda';
     subEl.textContent = 'Entering the grand dining rotunda… Everything is better in a sphere! 🧆✨';
+    if (window.BlahajQuests) window.BlahajQuests.recordEvent('spherical_visit_or_order', 1);
     barEl.style.width = '0%';
     overlay.classList.remove('hidden');
 
@@ -9326,6 +9341,22 @@
             craftFuseAtNimue();
           }
         });
+      }
+
+      if (window.BlahajQuests) {
+        const qStatus = window.BlahajQuests.getGiverStatus(act.id);
+        const isPatron = ['solomon', 'nimue', 'hiram', 'hermes', 'beetroot_waiter', 'tatiana', 'ivanka'].includes(act.id);
+        if (isPatron) {
+          const qBadge = qStatus === 'turnin' ? '❓ Turn In Quest!' : (qStatus === 'available' ? '❗ Quests Available' : '📜 View Quests');
+          actorActions.unshift({
+            label: qBadge,
+            className: 'btn-primary',
+            onClick: () => {
+              closeDialogueModal();
+              window.BlahajQuests.openGiverModal(act.id);
+            }
+          });
+        }
       }
 
       openDialogueModal({
@@ -13465,6 +13496,10 @@
     const added = player.inventory.addItem(itemType, count);
     if (added > 0) {
       if (worldPickups) worldPickups.collect(pickup);
+      if (window.BlahajQuests) {
+        if (itemType === 'guano') window.BlahajQuests.recordEvent('pickup_guano', added);
+        if (itemType === 'flatpack_crate') window.BlahajQuests.recordEvent('spawning_heist_or_build', added);
+      }
       CozyAudio.bistroChime();
 
       const def = window.BlahajInventory?.ITEMS[itemType] || { name: itemType, icon: '📦' };
@@ -13686,6 +13721,7 @@
         player.inventory.removeItem('firework_rocket', 1);
         updateMetersUI();
       }
+      if (window.BlahajQuests) window.BlahajQuests.recordEvent('firework_launched', 1);
       window.BlahajNetwork.send({ type: 'firework_launch' });
     }
     CozyAudio.fireworkWhistle();
@@ -16527,8 +16563,10 @@
       const iconEl = document.getElementById('seam-watch-icon');
 
       if (watchEl && timerEl && badgeEl) {
-        const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+        const hh = Math.floor(remaining / 3600);
+        const mm = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
         const ss = String(remaining % 60).padStart(2, '0');
+        const formattedTime = hh > 0 ? `${hh}h ${mm}m` : `${mm}:${ss}`;
 
         if (seamState.state === 'incursion') {
           timerEl.textContent = 'BREACH!';
@@ -16540,7 +16578,7 @@
             handEl.style.transform = `rotate(${(elapsed * 360) % 360}deg)`;
           }
         } else {
-          timerEl.textContent = `${mm}:${ss}`;
+          timerEl.textContent = formattedTime;
           if (iconEl) iconEl.textContent = '🪡';
           watchEl.className = 'seam-mini-watch';
 
@@ -17367,6 +17405,7 @@
 
     worldActors.forEach((act) => {
       if (!act.mesh.visible) return;
+      if (window.BlahajQuests) window.BlahajQuests.syncActorMarker(act.id, act.labelEl);
       projectLabel(act.mesh.position, act.labelEl, 3.25, false);
     });
 

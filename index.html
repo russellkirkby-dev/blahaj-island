@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=12.0" />
+  <link rel="stylesheet" href="styles.css?v=12.1" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -166,8 +166,12 @@
             <kbd>K</kbd>
           </button>
           <button type="button" class="btn-open-charsheet-hud" id="btn-open-homestead-hud" title="Open Personal Pocket Atoll, Custom Boat Shipyard (BÅT-BYGGE), Sea-Cave &amp; Daily Founder Commissions [J]" style="margin-top: 5px; background: linear-gradient(135deg, rgba(2, 132, 199, 0.88), rgba(15, 23, 42, 0.92)); border-color: rgba(56, 189, 248, 0.65);">
-            <span>🏝️⛵ Atoll, Boat &amp; Daily Quests</span>
+            <span>🏝️⛵ Atoll, Boat &amp; Commissions</span>
             <kbd>J</kbd>
+          </button>
+          <button type="button" class="btn-open-charsheet-hud" id="btn-open-quest-log" title="Open MMO Quest Log &amp; Daily World Quests [L]" style="margin-top: 5px; background: linear-gradient(135deg, rgba(180, 120, 32, 0.88), rgba(22, 28, 46, 0.92)); border-color: rgba(245, 205, 121, 0.7);">
+            <span>📜 Quest Log</span>
+            <kbd>L</kbd>
           </button>
 
           <!-- Founder Archodect Quick-Power Pill (Visible to Russell & Helen) -->
@@ -2580,24 +2584,55 @@
     </div>
   </div>
 
+  <!-- MMO QUEST GIVER MODAL -->
+  <div id="quest-giver-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card quest-modal-card">
+      <button type="button" class="modal-close" id="close-quest-giver-modal" aria-label="Close Quest Giver">✕</button>
+      <div class="qg-header">
+        <img id="qg-portrait" class="qg-portrait" src="assets/gallery/Solomon.png" alt="Quest Giver" />
+        <div>
+          <h2 id="qg-name" style="margin: 0; font-size: 1.25rem; color: #fde68a;">Quest Giver</h2>
+          <div id="qg-role" style="font-size: 0.82rem; color: #94a3b8;">Island Patron</div>
+        </div>
+      </div>
+      <div id="qg-quest-list" class="qg-quest-list"></div>
+      <div style="display:flex; justify-content:flex-end; margin-top: 10px;">
+        <button type="button" class="pause-btn" id="btn-qg-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MMO QUEST LOG MODAL [L] -->
+  <div id="quest-log-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card quest-modal-card">
+      <button type="button" class="modal-close" id="close-quest-log-modal" aria-label="Close Quest Log">✕</button>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 1.28rem; color: #fde68a;">📜 Blåhaj Island · Quest Log</h2>
+        <button type="button" class="pause-btn" id="btn-ql-close" style="padding: 5px 12px;">Close [L]</button>
+      </div>
+      <div id="quest-log-body" class="quest-log-body"></div>
+    </div>
+  </div>
+
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=12.0"></script>
-  <script src="js/sharks3d.js?v=12.0"></script>
-  <script src="js/ufo.js?v=12.0"></script>
-  <script src="js/world3d.js?v=12.0"></script>
-  <script src="js/volcano.js?v=12.0"></script>
-  <script src="js/laundromat.js?v=12.0"></script>
-  <script src="js/sphericalFoods.js?v=12.0"></script>
-  <script src="js/volleyball.js?v=12.0"></script>
-  <script src="js/spawningPits.js?v=12.0"></script>
-  <script src="js/homestead.js?v=12.0"></script>
-  <script src="js/network.js?v=12.0"></script>
-  <script src="js/inventory.js?v=12.0"></script>
-  <script src="js/enemies.js?v=12.0"></script>
-  <script src="js/seam.js?v=12.0"></script>
-  <script src="js/mmoControls.js?v=12.0"></script>
+  <script src="js/lore.js?v=12.1"></script>
+  <script src="js/quests.js?v=12.1"></script>
+  <script src="js/sharks3d.js?v=12.1"></script>
+  <script src="js/ufo.js?v=12.1"></script>
+  <script src="js/world3d.js?v=12.1"></script>
+  <script src="js/volcano.js?v=12.1"></script>
+  <script src="js/laundromat.js?v=12.1"></script>
+  <script src="js/sphericalFoods.js?v=12.1"></script>
+  <script src="js/volleyball.js?v=12.1"></script>
+  <script src="js/spawningPits.js?v=12.1"></script>
+  <script src="js/homestead.js?v=12.1"></script>
+  <script src="js/network.js?v=12.1"></script>
+  <script src="js/inventory.js?v=12.1"></script>
+  <script src="js/enemies.js?v=12.1"></script>
+  <script src="js/seam.js?v=12.1"></script>
+  <script src="js/mmoControls.js?v=12.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=12.0"></script>
-  <script src="js/main.js?v=12.0"></script>
+  <script src="js/saveSystem.js?v=12.1"></script>
+  <script src="js/main.js?v=12.1"></script>
 </body>
 </html>
