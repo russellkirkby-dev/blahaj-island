@@ -76,6 +76,7 @@ window.BlahajUFO = (function () {
   let activeModuleIdx = 0;
   const ufoPlasmaBolts = [];
   const ufoRadarWaves = [];
+  const volcanoDropAnims = [];
   let ufoPointLight = null;
 
   // Flight & Island State
@@ -1297,28 +1298,23 @@ window.BlahajUFO = (function () {
       e.inSubspaceVault = false;
       e.isFlying = false;
       if (inVolcanoCrater) {
-        // Dropped directly into the Main Island Volcano Caldera -> Volcanic Incineration!
-        if (e.isIncursionInvader && window.BlahajSeam && typeof window.BlahajSeam.onInvaderExpelledToSea === 'function') {
-          e.isIncursionInvader = false;
-          window.BlahajSeam.onInvaderExpelledToSea(e);
-        }
-        e.mange = 0;
-        if (e.patrolRoute && e.patrolRoute.length > 0) {
-          const wp = e.patrolRoute[0];
-          e.pos.set(wp.x, e.homePos ? e.homePos.y : -0.65, wp.z);
-        } else if (e.homePos) {
-          e.pos.copy(e.homePos);
-        }
+        // Animate tumbling plunge into the Molten Caldera Pool -> Eruption & Incineration!
+        const startDropY = Math.max(25.0, state.pos.y - 2.0);
         if (e.mesh) {
-          e.mesh.position.copy(e.pos);
+          e.mesh.position.set(dropX, startDropY, dropZ);
           e.mesh.scale.set(1, 1, 1);
           e.mesh.visible = true;
         }
-        if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
+        volcanoDropAnims.push({
+          kind: 'enemy',
+          ref: e,
+          title: item.title,
+          x: dropX,
+          y: startDropY,
+          z: dropZ,
+          vy: -4.0
+        });
         playBeamCaptureChime(true);
-        if (window.showToast) {
-          window.showToast('🌋🔥 VOLCANIC INCINERATION!', `${item.title} was dropped into the molten caldera and poofed back to respawn refreshed!`);
-        }
         updateAvionicsButtonsUI();
         updateAvionicsHUD();
         broadcastState(true);
@@ -1336,6 +1332,20 @@ window.BlahajUFO = (function () {
     } else if (item.kind === 'beach_ball' && item.ref) {
       const bb = item.ref;
       bb.inSubspaceVault = false;
+      if (inVolcanoCrater) {
+        const startDropY = Math.max(25.0, state.pos.y - 2.0);
+        if (bb.mesh) {
+          bb.mesh.position.set(dropX, startDropY, dropZ);
+          bb.mesh.scale.set(1, 1, 1);
+          bb.mesh.visible = true;
+        }
+        volcanoDropAnims.push({ kind: 'beach_ball', ref: bb, title: item.title, x: dropX, y: startDropY, z: dropZ, vy: -4.0 });
+        playBeamCaptureChime(true);
+        updateAvionicsButtonsUI();
+        updateAvionicsHUD();
+        broadcastState(true);
+        return;
+      }
       bb.vel.set((Math.random() - 0.5) * 4.0, 0, (Math.random() - 0.5) * 4.0);
       if (bb.mesh) {
         bb.mesh.position.set(dropX, dropY + 0.4, dropZ);
@@ -1345,6 +1355,20 @@ window.BlahajUFO = (function () {
     } else if (item.kind === 'carrot' && item.ref) {
       const c = item.ref;
       c.inSubspaceVault = false;
+      if (inVolcanoCrater) {
+        const startDropY = Math.max(25.0, state.pos.y - 2.0);
+        if (c.mesh) {
+          c.mesh.position.set(dropX, startDropY, dropZ);
+          c.mesh.scale.set(1, 1, 1);
+          c.mesh.visible = true;
+        }
+        volcanoDropAnims.push({ kind: 'carrot', ref: c, title: item.title, x: dropX, y: startDropY, z: dropZ, vy: -4.0 });
+        playBeamCaptureChime(true);
+        updateAvionicsButtonsUI();
+        updateAvionicsHUD();
+        broadcastState(true);
+        return;
+      }
       c.knockedOff = true;
       c.respawnTimer = 14.0;
       c.vel.set((Math.random() - 0.5) * 3.0, 2.0, (Math.random() - 0.5) * 3.0);
@@ -2137,6 +2161,53 @@ window.BlahajUFO = (function () {
         if (w.mesh.geometry) w.mesh.geometry.dispose();
         if (w.mesh.material) w.mesh.material.dispose();
         ufoRadarWaves.splice(i, 1);
+      }
+    }
+    for (let i = volcanoDropAnims.length - 1; i >= 0; i--) {
+      const vd = volcanoDropAnims[i];
+      vd.vy -= 36.0 * dt;
+      vd.y += vd.vy * dt;
+      const obj = vd.ref;
+      if (obj && obj.mesh) {
+        obj.mesh.position.set(vd.x, vd.y, vd.z);
+        obj.mesh.rotation.x += dt * 9.0;
+        obj.mesh.rotation.z += dt * 7.0;
+      }
+      if (vd.y <= 22.8) {
+        volcanoDropAnims.splice(i, 1);
+        if (window.BlahajWorld && typeof window.BlahajWorld.triggerCalderaEruption === 'function') {
+          window.BlahajWorld.triggerCalderaEruption(ufoGroup ? ufoGroup.parent : null, { x: vd.x, z: vd.z });
+        }
+        if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.35, 0.4);
+        if (window.CozyAudio && window.CozyAudio.allenBuild) window.CozyAudio.allenBuild();
+        if (vd.kind === 'enemy' && obj) {
+          if (obj.isIncursionInvader && window.BlahajSeam && typeof window.BlahajSeam.onInvaderExpelledToSea === 'function') {
+            obj.isIncursionInvader = false;
+            window.BlahajSeam.onInvaderExpelledToSea(obj);
+          }
+          obj.mange = 0;
+          if (obj.patrolRoute && obj.patrolRoute.length > 0) {
+            const wp = obj.patrolRoute[0];
+            obj.pos.set(wp.x, obj.homePos ? obj.homePos.y : -0.65, wp.z);
+          } else if (obj.homePos) {
+            obj.pos.copy(obj.homePos);
+          }
+          if (obj.mesh) {
+            obj.mesh.position.copy(obj.pos);
+            obj.mesh.rotation.set(0, obj.rotY || 0, 0);
+            obj.mesh.scale.set(1, 1, 1);
+          }
+        } else if (vd.kind === 'beach_ball' && obj && obj.mesh) {
+          obj.vel.set(0, 12, 0);
+          obj.mesh.position.set(vd.x, 38, vd.z);
+        } else if (vd.kind === 'carrot' && obj && obj.mesh) {
+          obj.knockedOff = true;
+          obj.respawnTimer = 10.0;
+          obj.mesh.visible = false;
+        }
+        if (window.showToast) {
+          window.showToast('🌋🔥 VOLCANIC INCINERATION!', `${vd.title} plunged into the molten caldera in a fiery eruption!`);
+        }
       }
     }
     if (lavaLampBlob) {

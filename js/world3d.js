@@ -28,6 +28,10 @@ window.BlahajWorld = (function () {
   let waterUniforms = null;
   let grassUniforms = null;
   let emberSystem = null;
+  let calderaLavaPool = null;
+  let calderaLavaRings = [];
+  let calderaEruptionTimer = 0;
+  let calderaBurstParticles = [];
   let terrainBumpTex = null;
 
   // Celestial Day/Night & Lighting references
@@ -2328,6 +2332,32 @@ window.BlahajWorld = (function () {
     lavaLight = new THREE.PointLight(0xff591c, 4.5, 200);
     lavaLight.position.set(-28, 36, -148);
     group.add(lavaLight);
+
+    // Glowing Molten Magma Pool inside the Caldera Bowl (-28, -148)
+    calderaLavaPool = new THREE.Mesh(
+      new THREE.CircleGeometry(18.5, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff5a14 })
+    );
+    calderaLavaPool.rotation.x = -Math.PI / 2;
+    calderaLavaPool.position.set(-28, 22.5, -148);
+    group.add(calderaLavaPool);
+
+    // Pulsing concentric incandescent magma crust rings
+    calderaLavaRings = [];
+    [
+      { r: 15.0, tube: 0.55, color: 0xff8c24 },
+      { r: 9.5, tube: 0.45, color: 0xfbbf24 },
+      { r: 4.5, tube: 0.35, color: 0xfef08a }
+    ].forEach((spec, idx) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(spec.r, spec.tube, 8, 32),
+        new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.85 })
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(-28, 22.7 + idx * 0.08, -148);
+      group.add(ring);
+      calderaLavaRings.push({ mesh: ring, phase: idx * 1.9, baseR: spec.r });
+    });
 
     // Billowing Skyward Volcanic Ash & Ember Plume ascending naturally from deep within the crater
     const emberGeo = new THREE.BufferGeometry();
@@ -5662,7 +5692,42 @@ window.BlahajWorld = (function () {
     if (activeCamera) lastCamera = activeCamera;
     if (waterUniforms) waterUniforms.uTime.value = time;
     if (grassUniforms) grassUniforms.uTime.value = time;
-    if (lavaLight) lavaLight.intensity = 3.2 + Math.sin(time * 4.5) * 0.65;
+    if (lavaLight) {
+      const erupBoost = calderaEruptionTimer > 0 ? calderaEruptionTimer * 10.0 : 0;
+      lavaLight.intensity = 3.2 + Math.sin(time * 4.5) * 0.65 + erupBoost;
+    }
+    if (calderaEruptionTimer > 0) {
+      calderaEruptionTimer = Math.max(0, calderaEruptionTimer - dt * 0.75);
+    }
+    if (calderaLavaPool) {
+      const pulse = 1.0 + Math.sin(time * 2.4) * 0.03 + (calderaEruptionTimer > 0 ? Math.sin(time * 18) * 0.04 : 0);
+      calderaLavaPool.scale.set(pulse, pulse, 1);
+    }
+    calderaLavaRings.forEach((cr) => {
+      const s = 0.88 + 0.14 * Math.sin(time * 2.1 + cr.phase) + calderaEruptionTimer * 0.18;
+      cr.mesh.scale.set(s, s, 1);
+      cr.mesh.rotation.z = time * (0.25 + cr.phase * 0.05);
+    });
+    for (let i = calderaBurstParticles.length - 1; i >= 0; i--) {
+      const bp = calderaBurstParticles[i];
+      bp.life -= dt;
+      bp.vel.y -= 18.0 * dt;
+      bp.mesh.position.addScaledVector(bp.vel, dt);
+      if (bp.isRing) {
+        const u = 1.0 - Math.max(0, bp.life / bp.maxLife);
+        bp.mesh.scale.setScalar(1.0 + u * 18.0);
+        bp.mesh.material.opacity = (1.0 - u) * 0.9;
+      } else {
+        bp.mesh.rotation.x += dt * 6;
+        bp.mesh.rotation.z += dt * 5;
+      }
+      if (bp.life <= 0) {
+        if (bp.mesh.parent) bp.mesh.parent.remove(bp.mesh);
+        if (bp.mesh.geometry) bp.mesh.geometry.dispose();
+        if (bp.mesh.material) bp.mesh.material.dispose();
+        calderaBurstParticles.splice(i, 1);
+      }
+    }
     updateDayNight(scene);
 
     if (emberSystem) {
@@ -6137,8 +6202,48 @@ window.BlahajWorld = (function () {
     });
   }
 
+  function triggerCalderaEruption(scene, impactPos = null) {
+    calderaEruptionTimer = 1.4;
+    const sc = scene || (calderaLavaPool ? calderaLavaPool.parent : null);
+    if (!sc) return;
+    const cx = impactPos ? impactPos.x : -28.0;
+    const cz = impactPos ? impactPos.z : -148.0;
+    const cy = 22.8;
+
+    // Expanding fiery shockwave ring
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.2, 2.2, 32),
+      new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(cx, cy + 0.3, cz);
+    sc.add(ring);
+    calderaBurstParticles.push({ mesh: ring, vel: new THREE.Vector3(0, 2.5, 0), life: 1.1, maxLife: 1.1, isRing: true });
+
+    // Fountain of incandescent magma globules & sparks
+    const colors = [0xff4500, 0xff8c00, 0xfbbf24, 0xfef08a];
+    for (let i = 0; i < 24; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 4.0 + Math.random() * 11.0;
+      const orb = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.45 + Math.random() * 0.55, 0),
+        new THREE.MeshBasicMaterial({ color: colors[i % colors.length] })
+      );
+      orb.position.set(cx + (Math.random() - 0.5) * 3.0, cy + 0.5, cz + (Math.random() - 0.5) * 3.0);
+      sc.add(orb);
+      calderaBurstParticles.push({
+        mesh: orb,
+        vel: new THREE.Vector3(Math.cos(ang) * spd, 14.0 + Math.random() * 14.0, Math.sin(ang) * spd),
+        life: 1.4 + Math.random() * 0.6,
+        maxLife: 2.0,
+        isRing: false
+      });
+    }
+  }
+
   return {
     buildWorld,
+    triggerCalderaEruption,
     getTerrainHeight,
     getGroundAndStructureHeight,
     getLandmarkSurfaceHeight,
