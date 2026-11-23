@@ -500,13 +500,27 @@ window.BlahajSeam = (function () {
 
     const canvas = document.createElement('canvas');
 
-    canvas.width = 256;
+    canvas.width = 512;
 
     canvas.height = 112;
 
     const ctx = canvas.getContext('2d');
 
-    const x = 8, y = 8, w = 240, h = 96, r = 24;
+    const label = mended ? `✨ SEAM #${num} (SEALED)` : `🪡 SEAM #${num}`;
+
+    ctx.font = 'bold 34px sans-serif';
+
+    const measuredW = Math.ceil(ctx.measureText(label).width);
+
+    const w = Math.min(496, Math.max(250, measuredW + 64));
+
+    const h = 92;
+
+    const x = Math.round((canvas.width - w) * 0.5);
+
+    const y = 10;
+
+    const r = 24;
 
     ctx.beginPath();
 
@@ -532,7 +546,7 @@ window.BlahajSeam = (function () {
 
     ctx.stroke();
 
-    ctx.font = 'bold 36px sans-serif';
+    ctx.font = 'bold 34px sans-serif';
 
     ctx.fillStyle = '#ffffff';
 
@@ -540,7 +554,7 @@ window.BlahajSeam = (function () {
 
     ctx.textBaseline = 'middle';
 
-    ctx.fillText(mended ? `✨ SEAM #${num} (SEALED)` : `🪡 SEAM #${num}`, 128, 56);
+    ctx.fillText(label, canvas.width * 0.5, y + h * 0.5, w - 28);
 
     const tex = new THREE.CanvasTexture(canvas);
 
@@ -548,9 +562,9 @@ window.BlahajSeam = (function () {
 
     const sprite = new THREE.Sprite(mat);
 
-    sprite.scale.set(3.2, 1.4, 1.0);
+    sprite.scale.set(5.4, 1.18, 1.0);
 
-    sprite.position.set(0, 1.9, 0);
+    sprite.position.set(0, 1.95, 0);
 
     return { sprite, canvas, tex, mat };
 

@@ -4791,6 +4791,11 @@ window.BlahajWorld = (function () {
         worldColliders.push({ x: px, z: pz, radius: 0.65, topY: py + h });
       }
     });
+
+    // Solid exterior rotunda wall collider for Spherical Foods Bistro (-52, 34, radius 8.25m)
+    // Blocks walking through the walls while leaving the front door [E] and rooftop dome (y >= y0 + 5.5) accessible
+    const sphereY0 = getTerrainHeight(-52, 34);
+    worldColliders.push({ x: -52, z: 34, radius: 8.25, topY: sphereY0 + 5.45 });
   }
 
   function buildGreatSeamRifts(scene) {
