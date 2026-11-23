@@ -12658,6 +12658,9 @@
 
   function damagePlayer(amount = 16, attackerTitle = 'Enemy', knockbackDir = null) {
     if (playerInvulnTimer > 0) return;
+    if (player.inUFO || (window.BlahajUFO && typeof window.BlahajUFO.isLocalAboard === 'function' && window.BlahajUFO.isLocalAboard())) {
+      return;
+    }
 
     // Pass 81 & 82: MMO Defensive Postures & Passive Fin-Stance Armor
     let mangeDelta = 0.05;

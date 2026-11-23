@@ -825,8 +825,12 @@ window.BlahajEnemies = (function () {
 
       // STATE C: AI BEHAVIOR (IDLE / PATROL ROUTE / CHASE)
       const distToPlayer = playerPos ? enemy.pos.distanceTo(playerPos) : 999;
+      const playerInUFO = !!(
+        (window.BlahajUFO && typeof window.BlahajUFO.isLocalAboard === 'function' && window.BlahajUFO.isLocalAboard()) ||
+        (window.player && window.player.inUFO)
+      );
 
-      if (distToPlayer < enemy.aggroDist && !(enemy.pacifiedTimer > 0)) {
+      if (!playerInUFO && distToPlayer < enemy.aggroDist && !(enemy.pacifiedTimer > 0)) {
         enemy.isChasing = true;
 
         // Turn towards player
@@ -884,8 +888,8 @@ window.BlahajEnemies = (function () {
           }
         }
 
-        // Active enemy attack on player with real combat stakes!
-        if (distToPlayer < 1.75 && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
+        // Active enemy attack on player with real combat stakes (blocked by UFO glass dome!)
+        if (!playerInUFO && distToPlayer < 1.75 && (!enemy.attackCooldown || enemy.attackCooldown <= 0)) {
           enemy.attackCooldown = 1.75; // 1.75s attack cooldown
           const dmg = (enemy.type === 'shark') ? 18 : (enemy.type === 'starfish' ? 14 : 10);
           if (window.BlahajGame && typeof window.BlahajGame.damagePlayer === 'function') {
