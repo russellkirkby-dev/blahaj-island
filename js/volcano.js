@@ -734,7 +734,8 @@ window.BlahajVolcano = (function () {
     group.add(plume);
 
     // Dedicated Dynamic Point Light for geyser flashes
-    const light = new THREE.PointLight(0xff6a00, 0, 18);
+    // Skip per-geyser PointLight (emissive plume already glows brightly; removing 8 PointLights halves fragment shader cost!)
+    const light = null;
     light.position.set(0, cragHeight + 2.0, 0);
     light.visible = false;
     group.add(light);
@@ -866,7 +867,8 @@ window.BlahajVolcano = (function () {
     group.add(pilot);
 
     // Dynamic firelight casting on stairs
-    const light = new THREE.PointLight(0xff5500, 0, 16);
+    // Skip per-flamethrower PointLight (emissive flame cone already glows brightly; keeps GPU shader fast!)
+    const light = null;
     light.position.set(0, 0.4, 2.8);
     light.visible = false;
     group.add(light);
@@ -2420,10 +2422,10 @@ window.BlahajVolcano = (function () {
     lakeFlare = Math.max(0, lakeFlare - dt * 0.9);
     lakeLight.intensity = 3.4 + lakeFlare * 9 + Math.sin(t * 3) * 0.3;
 
-    // Ambient embers: zone-culled & throttled to every 2nd frame for 60fps performance
+    // Ambient embers: zone-culled & throttled to every 3rd frame for smooth 60fps
     emberTick++;
-    if (emberTick % 2 === 0) {
-      const dt2 = dt * 2;
+    if (emberTick % 3 === 0) {
+      const dt2 = dt * 3;
       const inCave = !actors.length || actors.some((a) => a.z > -260);
       if (inCave && embersCave) {
         const e1 = embersCave.geometry.attributes.position.array;

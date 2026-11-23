@@ -3526,7 +3526,7 @@
         } else if (camState.isModalPointerUnlock) {
           camState.isModalPointerUnlock = false;
         } else {
-          clearAllMovementKeys();
+          // Only enter freeMouse on Esc unlock; NEVER wipe movement keys mid-jump!
           if (wasLocked && !isAnyModalOpen()) {
             camState.freeMouse = true;
           }
@@ -3650,6 +3650,11 @@
         camState.isRightDragging = true;
       }
       camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
+
+      // Immediately lock pointer on mousedown when in Camera Orbit mode (clean gesture, zero race!)
+      if (!camState.freeMouse && !isAnyModalOpen() && document.pointerLockElement !== canvas) {
+        try { canvas.requestPointerLock?.(); } catch (err) {}
+      }
     });
 
     canvas.addEventListener('mouseup', (e) => {
@@ -3663,25 +3668,17 @@
       }
       camState.isChordMoving = !!(camState.isLeftDown && camState.isRightDown);
 
-      if (!camState.isLeftDown && !camState.isRightDown && camState.freeMouse && document.pointerLockElement === canvas) {
-        camState.isDragPointerLock = true;
-        document.exitPointerLock?.();
-      }
-
       if (dragDist < 6 && !isAnyModalOpen()) {
         const clickX = camState.isPointerLocked ? (window.innerWidth * 0.5) : e.clientX;
         const clickY = camState.isPointerLocked ? (window.innerHeight * 0.5) : e.clientY;
         if (e.button === 0 && builderState.active) {
           placeActiveBlueprint();
         } else if (e.button === 0 && window.BlahajMMO) {
-          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, camState.isPointerLocked);
+          // Pass skipGroundFace=true so clicking to lock camera NEVER fights or yanks the camera!
+          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, true);
         } else if (e.button === 2 && window.BlahajMMO) {
-          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, true, camState.isPointerLocked);
+          window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, true, true);
         }
-      }
-
-      if (!camState.freeMouse && !isAnyModalOpen() && document.pointerLockElement !== canvas) {
-        try { canvas.requestPointerLock?.(); } catch (err) {}
       }
     });
 
@@ -3757,12 +3754,6 @@
           dy = Math.max(-80, Math.min(80, dy));
           if (camState.isLeftDown || camState.isRightDown) {
             accumDragDist += Math.hypot(dx, dy);
-          }
-
-          // Lock pointer when dragging in free mouse mode
-          if (camState.freeMouse && accumDragDist >= 5 && (camState.isLeftDown || camState.isRightDown) && document.pointerLockElement !== canvas) {
-            camState.isDragPointerLock = true;
-            try { canvas.requestPointerLock?.(); } catch (err) {}
           }
         }
 
@@ -4322,15 +4313,18 @@
           camState.freeMouse = !camState.freeMouse;
           lastClientX = null;
           lastClientY = null;
+          camState.isLeftDown = false;
+          camState.isLeftDragging = false;
+          camState.isRightDown = false;
+          camState.isRightDragging = false;
           if (camState.freeMouse) {
             if (document.pointerLockElement === canvas) {
               camState.isAltToggleUnlock = true;
               document.exitPointerLock?.();
             }
-            showToast('🖱️ FREE MOUSE: ON [Alt]', 'Cursor unlocked to click HUD, targets & menus. Press [Alt] again to orbit camera.');
+            showToast('🖱️ FREE MOUSE: ON [Alt]', 'Cursor unlocked to click HUD & menus (drag to orbit). Press [Alt] again for Camera Orbit.');
           } else {
-            try { canvas.requestPointerLock?.(); } catch (err) {}
-            showToast('🎥 CAMERA ORBIT: ON [Alt]', 'Move mouse to orbit around your shark. Walk (WASD) to move in the camera direction!');
+            showToast('🎥 CAMERA ORBIT: ON [Alt]', 'Move mouse to orbit (click once to lock pointer). Walk (WASD) follows camera!');
           }
         }
         altComboUsed = false;
