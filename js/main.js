@@ -2222,6 +2222,7 @@
     }
 
     updateHeldItemHUD();
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
 
     const detPanel = document.getElementById('seam-detector-panel');
     if (detPanel) {
@@ -2263,6 +2264,7 @@
     }
 
     updateHeldItemHUD();
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
 
     const detPanel = document.getElementById('seam-detector-panel');
     if (detPanel) {
@@ -2340,8 +2342,10 @@
         addChatLog(`✨ Finished savoring <strong>${getHeldItemMeta(finishedId).name}</strong>! Your fin is now free.`, 'cozy');
       }
       updateHeldItemHUD();
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
     } else {
       updateHeldItemHUD();
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
     }
   }
 
@@ -3524,6 +3528,8 @@
       draggingRange: null
     };
     const finCursorEl = document.getElementById('shark-fin-cursor');
+    const finBadgeEl = document.getElementById('shark-fin-badge');
+    const finBeltBarEl = document.getElementById('fin-belt-bar');
     const playCapturePillEl = document.getElementById('play-capture-pill');
     const pauseOverlayEl = document.getElementById('game-pause-overlay');
     const finSenseBoxEl = document.getElementById('fin-sense-box');
@@ -3538,11 +3544,383 @@
     const finSense = {
       armedTool: 'interact',     // 'interact' | 'examine' | 'pet' (used in Persistent mode)
       tempOverride: null,        // null (Smart Auto) | 'interact' | 'examine' | 'pet' (1-3 while RMB in Smart mode)
+      activeSlotIdx: -1,         // -1 = Bare Fin, 0..8 = Fin Slots 1..9
       hoveredTarget: null,
       lastPickAt: 0,
       examineUntil: 0,
-      projVec: new THREE.Vector3()
+      fKeyDownAt: 0,
+      fKeyActive: false,
+      projVec: new THREE.Vector3(),
+      raycaster: new THREE.Raycaster(),
+      rayNdc: new THREE.Vector2()
     };
+
+    const thrownProjectiles = [];
+
+    function syncFinCursorBadge() {
+      if (!finBadgeEl) return;
+      if (playerHeldItem && playerHeldItem.id) {
+        const meta = (window.BlahajInventory && window.BlahajInventory.ITEMS && window.BlahajInventory.ITEMS[playerHeldItem.id]) || getHeldItemMeta(playerHeldItem.id);
+        finBadgeEl.textContent = (meta && meta.icon) || playerHeldItem.icon || '✨';
+        finBadgeEl.classList.remove('hidden');
+      } else {
+        finBadgeEl.textContent = '';
+        finBadgeEl.classList.add('hidden');
+      }
+    }
+
+    function renderFinBelt() {
+      if (!finBeltBarEl || !player.inventory) return;
+      const slots = player.inventory.getSlots();
+      const heldId = playerHeldItem ? playerHeldItem.id : null;
+      let html = '';
+      for (let i = 0; i < 9; i++) {
+        const s = slots[i];
+        const isActive = !!(s && heldId && s.id === heldId && (finSense.activeSlotIdx === i || finSense.activeSlotIdx === -1));
+        if (s) {
+          const qtyHtml = s.qty > 1 ? `<span class="fin-belt-qty">${s.qty}</span>` : '';
+          html += `<button type="button" class="fin-belt-slot${isActive ? ' active' : ''}" data-finslot="${i}" title="[${i + 1}] ${s.name}${s.throwable ? ' (Throwable)' : ''}"><span class="fin-belt-key">${i + 1}</span><span class="fin-belt-icon">${s.icon || '📦'}</span>${qtyHtml}</button>`;
+        } else {
+          html += `<button type="button" class="fin-belt-slot empty" data-finslot="${i}" title="Fin Slot ${i + 1} (Empty · Bare Fin)"><span class="fin-belt-key">${i + 1}</span></button>`;
+        }
+      }
+      finBeltBarEl.innerHTML = html;
+      finBeltBarEl.querySelectorAll('.fin-belt-slot').forEach((btn) => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          selectFinSlot(parseInt(btn.dataset.finslot, 10));
+        });
+      });
+      syncFinCursorBadge();
+    }
+    window._blahajRenderFinBelt = renderFinBelt;
+
+    function selectFinSlot(idx) {
+      if (!player.inventory || idx < 0 || idx > 8) return;
+      const slot = player.inventory.getSlot(idx);
+      if (!slot) {
+        finSense.activeSlotIdx = -1;
+        if (playerHeldItem.id) stowHeldItem(true);
+        renderFinBelt();
+        showFinSenseCard('🦈', 'Bare Fin', 'Pick Up · Open · Pet · Boop', '', '', 1800);
+        return;
+      }
+      // Pressing the active slot again stows back to Bare Fin
+      if (finSense.activeSlotIdx === idx && playerHeldItem.id === slot.id) {
+        finSense.activeSlotIdx = -1;
+        stowHeldItem(true);
+        renderFinBelt();
+        showFinSenseCard('🦈', 'Bare Fin', 'Stowed item · Bare Fin ready', '', '', 1800);
+        return;
+      }
+      finSense.activeSlotIdx = idx;
+      equipHeldItem(slot.id);
+      renderFinBelt();
+      const hint = slot.throwable ? 'Click close to use · Click far/ground or Hold [F] to throw!' : 'Tap [F] or Click target with Fin Cursor';
+      showFinSenseCard(slot.icon || '✨', `[${idx + 1}] ${slot.name}`, hint, '', '', 2200);
+    }
+
+    function cycleFinSlot(delta) {
+      if (!player.inventory) return;
+      // Cycle through [-1 (Bare Fin), ...occupied 0..8 fin slots]
+      const cycle = [-1];
+      for (let i = 0; i < 9; i++) {
+        if (player.inventory.getSlot(i)) cycle.push(i);
+      }
+      if (cycle.length <= 1) return;
+      let curPos = cycle.indexOf(finSense.activeSlotIdx);
+      if (curPos === -1) curPos = 0;
+      const nextPos = (curPos + (delta > 0 ? 1 : -1) + cycle.length) % cycle.length;
+      const nextIdx = cycle[nextPos];
+      if (nextIdx === -1) {
+        finSense.activeSlotIdx = -1;
+        if (playerHeldItem.id) stowHeldItem(true);
+        renderFinBelt();
+        showFinSenseCard('🦈', 'Bare Fin', 'Pick Up · Open · Pet · Boop', '', '', 1800);
+      } else {
+        selectFinSlot(nextIdx);
+      }
+    }
+
+    function computeGroundPointUnderScreen(sx, sy) {
+      if (!camera) return null;
+      finSense.rayNdc.set((sx / window.innerWidth) * 2 - 1, -(sy / window.innerHeight) * 2 + 1);
+      finSense.raycaster.setFromCamera(finSense.rayNdc, camera);
+      const orig = finSense.raycaster.ray.origin;
+      const dir = finSense.raycaster.ray.direction;
+      if (dir.y >= -0.02) {
+        // Aiming near/above horizon: throw ~15m forward along ray
+        const tx = player.pos.x + dir.x * 15;
+        const tz = player.pos.z + dir.z * 15;
+        const ty = (worldApi && worldApi.getTerrainHeight) ? Math.max(0.2, worldApi.getTerrainHeight(tx, tz)) : player.pos.y;
+        return new THREE.Vector3(tx, ty, tz);
+      }
+      // Step along ray to intersect terrain/floor cleanly (fast, ~24 steps max, up to 36m)
+      for (let d = 2.0; d <= 36.0; d += 1.2) {
+        const rx = orig.x + dir.x * d;
+        const ry = orig.y + dir.y * d;
+        const rz = orig.z + dir.z * d;
+        let gy = player.pos.y;
+        if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.getGroundAndStructureHeight === 'function') {
+          gy = worldApi.getGroundAndStructureHeight(rx, rz, ry + 1.0);
+        } else if (currentZone === 'volcano' && window.BlahajVolcano) {
+          gy = window.BlahajVolcano.getFloorHeight(rx, rz, ry + 1.0);
+          if (gy < -100) gy = window.BlahajVolcano.constants.LAVA_Y || -6;
+        }
+        if (ry <= gy + 0.15) {
+          return new THREE.Vector3(rx, gy, rz);
+        }
+      }
+      const tx = player.pos.x + dir.x * 18;
+      const tz = player.pos.z + dir.z * 18;
+      const ty = (worldApi && worldApi.getTerrainHeight) ? worldApi.getTerrainHeight(tx, tz) : player.pos.y;
+      return new THREE.Vector3(tx, ty, tz);
+    }
+
+    function createThrownMesh(itemId) {
+      if (itemId === 'breb') {
+        const g = new THREE.Group();
+        const loaf = new THREE.Mesh(
+          new THREE.SphereGeometry(0.26, 10, 8),
+          new THREE.MeshStandardMaterial({ color: 0xd99142, roughness: 0.72 })
+        );
+        loaf.scale.set(1.45, 0.78, 0.95);
+        g.add(loaf);
+        return g;
+      }
+      if (itemId === 'party_favor') {
+        return new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.12, 0.42, 10),
+          new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xec4899, emissiveIntensity: 0.35 })
+        );
+      }
+      if (itemId === 'tea') {
+        return new THREE.Mesh(
+          new THREE.CylinderGeometry(0.16, 0.13, 0.24, 10),
+          new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, emissiveIntensity: 0.4 })
+        );
+      }
+      return new THREE.Mesh(
+        new THREE.SphereGeometry(0.26, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35 })
+      );
+    }
+
+    function throwActiveFinItemTo(targetPos) {
+      const itemId = playerHeldItem ? playerHeldItem.id : null;
+      if (!itemId || !player.inventory || !player.inventory.isThrowable || !player.inventory.isThrowable(itemId)) return false;
+      if (!player.inventory.hasItem(itemId, 1)) {
+        showFinSenseCard('🎒', 'Out of items!', 'None left in your satchel', '', '', 2200);
+        return false;
+      }
+
+      player.inventory.removeItem(itemId, 1);
+      if (!player.inventory.hasItem(itemId, 1)) {
+        finSense.activeSlotIdx = -1;
+        stowHeldItem(true);
+      }
+      updateMetersUI();
+      renderFinBelt();
+
+      const startPos = new THREE.Vector3(player.pos.x, player.pos.y + 1.15, player.pos.z);
+      const endPos = targetPos.clone();
+      const horizDist = Math.hypot(endPos.x - startPos.x, endPos.z - startPos.z);
+      const duration = Math.max(0.32, Math.min(0.85, 0.26 + horizDist * 0.025));
+      const arcHeight = Math.max(1.4, Math.min(5.5, horizDist * 0.22 + 1.1));
+
+      const mesh = createThrownMesh(itemId);
+      mesh.position.copy(startPos);
+      const activeScene = getActiveScene() || scene;
+      activeScene.add(mesh);
+
+      if (CozyAudio.shonk) CozyAudio.shonk();
+      thrownProjectiles.push({
+        itemId,
+        mesh,
+        sceneRef: activeScene,
+        startPos,
+        endPos,
+        elapsed: 0,
+        duration,
+        arcHeight
+      });
+      return true;
+    }
+
+    function onThrownItemLanded(proj) {
+      const landPos = proj.endPos;
+      if (proj.itemId === 'breb') {
+        CozyAudio.birbChirp();
+        if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.spawnBrebLoaf === 'function') {
+          worldApi.spawnBrebLoaf(landPos);
+          if (player.unlockedUpgrades.has('golden_breb')) {
+            worldApi.spawnBrebLoaf(new THREE.Vector3(landPos.x + 1.2, landPos.y, landPos.z - 0.7));
+            worldApi.spawnBrebLoaf(new THREE.Vector3(landPos.x - 1.2, landPos.y, landPos.z + 0.7));
+          }
+          let hungryNearby = 0;
+          const maxRadius = player.unlockedUpgrades.has('golden_breb') ? 32 : 22;
+          (worldApi.getBirbFlock ? worldApi.getBirbFlock() : []).forEach((b) => {
+            if (b.mesh && b.mesh.position.distanceTo(landPos) < maxRadius && !(b.satiationTimer > 0)) {
+              hungryNearby++;
+            }
+          });
+          showFinSenseCard(
+            '🥖',
+            hungryNearby > 0 ? `Breb landed! (${hungryNearby} Birb${hungryNearby > 1 ? 's' : ''} hopping over!)` : 'Tossed Warm Breb!',
+            hungryNearby > 0 ? '🐦 Watch for Birb Guano drops!' : 'Golden loaf landed on the ground',
+            '',
+            '',
+            3200
+          );
+        }
+        spawnFloatingBurst(landPos, 0xfbbf24, 12);
+        window.BlahajNetwork?.send({
+          type: 'emote',
+          kind: 'breb',
+          x: landPos.x,
+          y: landPos.y,
+          z: landPos.z,
+          golden: player.unlockedUpgrades.has('golden_breb'),
+          birbsFedCount: player.birbsFedCount
+        });
+      } else if (proj.itemId === 'party_favor') {
+        CozyAudio.bistroChime();
+        spawnFloatingBurst(landPos, 0xec4899, 18);
+        spawnFloatingBurst(new THREE.Vector3(landPos.x, landPos.y + 0.6, landPos.z), 0xfbbf24, 14);
+        showFinSenseCard('🎉', 'POP! Party Cracker!', 'Confetti & cheer burst!', '', '', 2800);
+      } else if (proj.itemId === 'tea') {
+        CozyAudio.bistroChime();
+        spawnFloatingBurst(landPos, 0xf59e0b, 16);
+        let splashedEnemy = null;
+        if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+          (window.BlahajEnemies.getEnemies() || []).forEach((en) => {
+            if (!en.defeated && en.mesh && en.mesh.position.distanceTo(landPos) < 4.5) {
+              splashedEnemy = en;
+              if (window.BlahajEnemies.boopEnemy) window.BlahajEnemies.boopEnemy(en, player.pos);
+            }
+          });
+        }
+        showFinSenseCard('🫖', splashedEnemy ? `Steaming Tea Splash on ${splashedEnemy.name || 'Enemy'}!` : 'Steaming Tea Splash!', 'Warm bergamot mist!', '', '', 3000);
+      } else {
+        CozyAudio.shonk();
+        spawnFloatingBurst(landPos, 0x38bdf8, 12);
+        showFinSenseCard('🏐', 'Tossed Beach Ball!', 'Boing!', '', '', 2200);
+      }
+    }
+
+    function updateThrownProjectiles(dt) {
+      for (let i = thrownProjectiles.length - 1; i >= 0; i--) {
+        const p = thrownProjectiles[i];
+        p.elapsed += dt;
+        const u = Math.min(1, p.elapsed / p.duration);
+        const x = p.startPos.x + (p.endPos.x - p.startPos.x) * u;
+        const z = p.startPos.z + (p.endPos.z - p.startPos.z) * u;
+        const baseY = p.startPos.y + (p.endPos.y - p.startPos.y) * u;
+        const y = baseY + Math.sin(u * Math.PI) * p.arcHeight;
+        p.mesh.position.set(x, y, z);
+        p.mesh.rotation.x += dt * 7.5;
+        p.mesh.rotation.z += dt * 5.2;
+        if (u >= 1) {
+          if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+          if (p.mesh.geometry) p.mesh.geometry.dispose();
+          if (p.mesh.material) p.mesh.material.dispose();
+          thrownProjectiles.splice(i, 1);
+          onThrownItemLanded(p);
+        }
+      }
+    }
+    window._blahajUpdateThrownProjectiles = updateThrownProjectiles;
+
+    function triggerActiveFinKeyAction(isHoldThrow = false) {
+      const itemId = playerHeldItem ? playerHeldItem.id : null;
+
+      // Hold F with a throwable item -> lob forward along camera look direction!
+      if (isHoldThrow && itemId && player.inventory && player.inventory.isThrowable(itemId)) {
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        dir.y = 0;
+        if (dir.lengthSq() < 0.001) dir.set(-Math.sin(camState.yaw), 0, -Math.cos(camState.yaw));
+        dir.normalize();
+        const tx = player.pos.x + dir.x * 13.5;
+        const tz = player.pos.z + dir.z * 13.5;
+        const ty = (worldApi && worldApi.getGroundAndStructureHeight && (currentZone === 'island' || currentZone === 'overworld'))
+          ? worldApi.getGroundAndStructureHeight(tx, tz, player.pos.y + 3)
+          : player.pos.y;
+        throwActiveFinItemTo(new THREE.Vector3(tx, ty, tz));
+        return;
+      }
+
+      // Tap F -> Instant Fin Action for whatever is currently in your right fin!
+      if (!itemId) {
+        if (!isAnyModalOpen() && window.BlahajMMO) {
+          window.BlahajMMO.triggerSlot('f');
+        } else {
+          triggerBeepNose();
+        }
+        return;
+      }
+      if (itemId === 'breb') {
+        triggerFeedBreb();
+        renderFinBelt();
+        return;
+      }
+      if (itemId === 'binoculars') {
+        if (isUsingBinoculars) exitBinocularMode();
+        else enterBinocularMode();
+        return;
+      }
+      if (itemId === 'seam_detector') {
+        if (window.BlahajSeam) {
+          const rifts = window.BlahajSeam.getActiveRiftsForZone(currentZone) || [];
+          const near = rifts.find((r) => !r.mended && r.pos && Math.hypot(r.pos.x - player.pos.x, r.pos.z - player.pos.z) <= 8.0);
+          if (near) {
+            window.BlahajSeam.mendRift(near.id);
+            showFinSenseCard('✨', `Mended Seam #${near.num}!`, 'Aetheric Diviner Resonance', '', '', 3500);
+            return;
+          }
+          const info = window.BlahajSeam.getNearestRift(player.pos, currentZone);
+          if (CozyAudio.pocketWatchClick) CozyAudio.pocketWatchClick();
+          showFinSenseCard('🧭', 'Seam Diviner Ping', info && info.nearest ? `${info.nearest.name} · ${Math.round(info.nearest.dist)}m` : 'All nearby rifts quiet', '', '', 3000);
+        }
+        return;
+      }
+      if (itemId === 'tea' || itemId === 'margarita' || itemId === 'tropical_cocktail' || itemId === 'celestial_boba') {
+        if (player.inventory && player.inventory.hasItem(itemId, 1)) {
+          player.inventory.removeItem(itemId, 1);
+          player.warmth = 100;
+          player.stuffing = Math.min(100, (player.stuffing || 100) + 20);
+          player.teaBuffTimer = Math.max(player.teaBuffTimer || 0, 120);
+          CozyAudio.bistroChime();
+          spawnFloatingBurst(player.pos, 0x38bdf8, 14);
+          showFinSenseCard(playerHeldItem.icon || '🍵', `Sipped ${playerHeldItem.name}!`, '+100% Warmth & Cozy Spirit', '', '', 3000);
+          if (!player.inventory.hasItem(itemId, 1)) {
+            finSense.activeSlotIdx = -1;
+            stowHeldItem(true);
+          }
+          updateMetersUI();
+          renderFinBelt();
+        }
+        return;
+      }
+      if (itemId === 'party_favor') {
+        if (player.inventory && player.inventory.hasItem('party_favor', 1)) {
+          player.inventory.removeItem('party_favor', 1);
+          CozyAudio.bistroChime();
+          spawnFloatingBurst(player.pos, 0xec4899, 20);
+          spawnFloatingBurst(new THREE.Vector3(player.pos.x, player.pos.y + 0.8, player.pos.z), 0xfbbf24, 16);
+          showFinSenseCard('🎉', 'Popped Party Cracker!', 'Confetti shower!', '', '', 2800);
+          if (!player.inventory.hasItem('party_favor', 1)) {
+            finSense.activeSlotIdx = -1;
+            stowHeldItem(true);
+          }
+          updateMetersUI();
+          renderFinBelt();
+        }
+        return;
+      }
+      // Fallback for other held items (hex_key, star_lantern, etc.) -> Snoot Boop!
+      triggerBeepNose();
+    }
 
     const FIN_KIND_CLASSES = ['fin-kind-pickup', 'fin-kind-examine', 'fin-kind-npc', 'fin-kind-enemy', 'fin-kind-rift'];
 
@@ -3707,6 +4085,28 @@
         });
       }
 
+      // 2.5 Plump Island Birbs (so you can point your fin at a Birb to Feed Breb, Throw Breb, or Pet!)
+      if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.getBirbFlock === 'function') {
+        const flock = worldApi.getBirbFlock() || [];
+        for (let i = 0; i < flock.length; i++) {
+          const b = flock[i];
+          if (!b || !b.mesh || !b.mesh.visible) continue;
+          const bp = b.mesh.position;
+          const snoozing = b.satiationTimer > 0;
+          consider(bp.x, bp.y + 0.45, bp.z, 46, {
+            kind: 'birb',
+            icon: snoozing ? '💤' : '🐦',
+            name: snoozing ? 'Snoozing Island Birb' : 'Plump Island Birb',
+            lore: snoozing
+              ? 'Happily stuffed with warm Breb and loafing peacefully in the grass.'
+              : 'A round, chirpy meadow Birb eyeing your satchel for warm Breb.',
+            reach: 4.5,
+            maxDist: 55,
+            ref: b
+          });
+        }
+      }
+
       // 3. Enemies (island/overworld)
       if ((currentZone === 'island' || currentZone === 'overworld') && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
         const enemies = window.BlahajEnemies.getEnemies() || [];
@@ -3799,16 +4199,27 @@
         return;
       }
 
+      const heldId = playerHeldItem ? playerHeldItem.id : null;
+      const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
+
       const target = pickWorldTargetUnderFin(finCursor.x, finCursor.y);
       finSense.hoveredTarget = target;
       if (!target) {
+        if (isHoldingThrowable && getEffectiveFinTool(null) === 'interact') {
+          setFinCursorKind('pickup');
+          if (now >= finSense.examineUntil) {
+            const def = window.BlahajInventory?.ITEMS[heldId] || { icon: '🥖', name: heldId };
+            showFinSenseCard(def.icon || '🥖', `Throw ${def.name}`, '🎯 Click ground to toss in a 3D arc!', '', '', 0);
+          }
+          return;
+        }
         setFinCursorKind(null);
         hideFinSenseCard(false);
         return;
       }
 
       const tool = getEffectiveFinTool(target);
-      const kindMap = { pickup: 'pickup', npc: 'npc', enemy: 'enemy', rift: 'rift', landmark: tool === 'interact' ? 'pickup' : 'examine' };
+      const kindMap = { pickup: 'pickup', npc: 'npc', birb: isHoldingThrowable ? 'pickup' : 'npc', enemy: 'enemy', rift: 'rift', landmark: tool === 'interact' ? 'pickup' : 'examine' };
       setFinCursorKind(kindMap[target.kind] || 'examine');
 
       let actionHint = 'Click to Examine';
@@ -3816,12 +4227,18 @@
         actionHint = '🔍 Click to Examine';
       } else if (tool === 'pet') {
         actionHint = '💙 Click to Pet / Boop';
+      } else if (target.kind === 'birb') {
+        if (heldId === 'breb') {
+          actionHint = target.dist <= 4.5 ? '🥖 Click to Hand-Feed Breb' : '🥖 Click to Throw Breb to Birb!';
+        } else {
+          actionHint = '💙 Click to Pet Birb';
+        }
       } else if (target.kind === 'pickup') {
         actionHint = target.dist <= target.reach ? '✋ Click to Pick Up' : '✋ Move closer to Pick Up';
       } else if (target.kind === 'rift') {
         actionHint = target.ref.mended ? '✨ Sealed Rift' : (target.dist <= target.reach ? '🪡 Click to Mend Rift' : '🪡 Move closer to Mend');
       } else if (target.kind === 'enemy') {
-        actionHint = '🎯 Click to Target';
+        actionHint = (heldId === 'tea' && target.dist > 4.5) ? '🫖 Click to Throw Tea Splash!' : '🎯 Click to Target';
       } else if (target.kind === 'landmark') {
         actionHint = target.dist <= target.reach ? '✋ Click to Interact' : '🔍 Click to Examine';
       }
@@ -3833,8 +4250,19 @@
     }
 
     function handleFinWorldClick(sx, sy) {
+      const heldId = playerHeldItem ? playerHeldItem.id : null;
+      const isHoldingThrowable = !!(heldId && player.inventory && player.inventory.isThrowable && player.inventory.isThrowable(heldId));
       const target = pickWorldTargetUnderFin(sx, sy);
+
+      // Clicked empty ground/world while holding a throwable item (Breb, Party Cracker, Tea, Beach Ball) -> Throw in a 3D arc!
       if (!target) {
+        if (isHoldingThrowable && getEffectiveFinTool(null) === 'interact') {
+          const groundPt = computeGroundPointUnderScreen(sx, sy);
+          if (groundPt) {
+            throwActiveFinItemTo(groundPt);
+            return;
+          }
+        }
         if (window.BlahajMMO && !isAnyModalOpen()) {
           window.BlahajMMO.handleCanvasClick(sx, sy, camera, false, true);
         }
@@ -3847,6 +4275,35 @@
       if (tool === 'examine') {
         if (CozyAudio.pocketWatchClick) CozyAudio.pocketWatchClick();
         showFinSenseCard(target.icon, target.name, '🔍 FinSense Examine', `${Math.round(target.dist)}m`, target.lore, 6500);
+        return;
+      }
+
+      // 1.5 BIRB + BREB (or any throwable): close = hand-feed right at fin; far = throw in a 3D arc!
+      if (target.kind === 'birb') {
+        if (heldId === 'breb' && tool !== 'pet') {
+          if (target.dist <= 4.5) {
+            triggerFeedBreb();
+            renderFinBelt();
+            showFinSenseCard('🥖', 'Hand-fed Warm Breb!', '🐦 The Birb chirps happily!', `${Math.round(target.dist)}m`, '', 2800);
+          } else {
+            throwActiveFinItemTo(new THREE.Vector3(target.wx, target.wy, target.wz));
+          }
+          return;
+        }
+        if (isHoldingThrowable && target.dist > 4.5 && tool !== 'pet') {
+          throwActiveFinItemTo(new THREE.Vector3(target.wx, target.wy, target.wz));
+          return;
+        }
+        // Bare fin or Pet mode on a Birb -> gentle pat!
+        if (CozyAudio.birbChirp) CozyAudio.birbChirp();
+        spawnFloatingBurst(new THREE.Vector3(target.wx, target.wy + 0.3, target.wz), 0xf472b6, 12);
+        showFinSenseCard('🐦', `Patted ${target.name}!`, 'Happy chirps! 💙', `${Math.round(target.dist)}m`, target.lore, 3500);
+        return;
+      }
+
+      // 1.6 THROWABLE AT FAR ENEMY (e.g. Steaming Tea Splash or Party Cracker!)
+      if (target.kind === 'enemy' && isHoldingThrowable && target.dist > 4.5 && tool === 'interact') {
+        throwActiveFinItemTo(new THREE.Vector3(target.wx, target.wy, target.wz));
         return;
       }
 
@@ -4073,6 +4530,7 @@
       syncCaptureUI();
     });
     syncCaptureUI();
+    renderFinBelt();
 
     window.addEventListener('blur', clearAllMovementKeys);
     document.addEventListener('visibilitychange', () => {
@@ -4358,6 +4816,13 @@
 
     window.addEventListener('wheel', (e) => {
       if (camState.isPointerLocked && isFinCursorActive()) {
+        // If holding Right-Click over the 3D world (no modal open): Scroll Wheel cycles 1-9 Fin Slots!
+        if (camState.isRightDown && !isAnyModalOpen()) {
+          e.preventDefault();
+          cycleFinSlot(e.deltaY > 0 ? 1 : -1);
+          updateFinSenseHover(true);
+          return;
+        }
         // Scroll any scrollable modal/panel under the Shark Fin Cursor
         let el = document.elementFromPoint(finCursor.x, finCursor.y);
         while (el && el !== document.body) {
@@ -4690,18 +5155,17 @@
       if (e.key === 'F4' || (e.altKey && e.code === 'Digit4')) { e.preventDefault(); spawnPlayerShark('nimue'); return; }
       if (e.key === 'F6' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
 
-      // MMO Number Row (1 through 6) & Shift/Ctrl Modifiers
-      if (!e.altKey && !isAnyModalOpen() && /^Digit[1-6]$/.test(e.code)) {
+      // Pass 93: Number Row 1-9 selects Fin Slots (top 9 fin-eligible inventory items); Shift+1..6 triggers MMO combat bar!
+      if (!e.altKey && !isAnyModalOpen() && /^Digit[1-9]$/.test(e.code)) {
         e.preventDefault();
         const numStr = e.code.replace('Digit', '');
-        if (window.BlahajMMO) {
-          if (e.shiftKey) {
-            window.BlahajMMO.triggerSlot(`shift+${numStr}`);
-          } else if (e.ctrlKey && numStr === '1') {
-            window.BlahajMMO.executeAbility('tea_infusion');
-          } else {
-            window.BlahajMMO.triggerSlot(numStr);
-          }
+        const slotIdx = parseInt(numStr, 10) - 1;
+        if (e.shiftKey && window.BlahajMMO && slotIdx < 6) {
+          window.BlahajMMO.triggerSlot(`shift+${numStr}`);
+        } else if (e.ctrlKey && numStr === '1' && window.BlahajMMO) {
+          window.BlahajMMO.executeAbility('tea_infusion');
+        } else {
+          selectFinSlot(slotIdx);
         }
         return;
       }
@@ -4793,10 +5257,9 @@
         }
       }
       if (k === 'f') {
-        if (!isAnyModalOpen() && window.BlahajMMO) {
-          window.BlahajMMO.triggerSlot('f');
-        } else {
-          triggerBeepNose();
+        if (!e.repeat) {
+          finSense.fKeyDownAt = performance.now();
+          finSense.fKeyActive = true;
         }
       }
       if (k === 'q') {
@@ -4920,6 +5383,13 @@
         return;
       }
       const k = (e.key || '').toLowerCase();
+      if (k === 'f' && finSense.fKeyActive) {
+        finSense.fKeyActive = false;
+        const heldMs = performance.now() - finSense.fKeyDownAt;
+        if (!isAnyModalOpen()) {
+          triggerActiveFinKeyAction(heldMs >= 320);
+        }
+      }
       const mapped = mapCodeToKey(e.code);
       if (k) keys[k] = false;
       if (mapped) keys[mapped] = false;
@@ -12362,6 +12832,7 @@
       showToast(`PICKED UP ${def.name.toUpperCase()}! ${def.icon}✨`, `Added +${added} into Satchel! (Total: ${player.inventory.getItemCount(itemType)})`);
       addChatLog(`${def.icon} Picked up <strong>${def.name}</strong> (+${added} into Satchel, total: ${player.inventory.getItemCount(itemType)}).`, 'cozy');
       updateMetersUI();
+      if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
 
       window.BlahajNetwork.send({
         type: 'item_collected',
@@ -13937,6 +14408,9 @@
     }
     updateCoopPartner(dt, elapsed);
     updateFloatingBursts(dt);
+    if (typeof window._blahajUpdateThrownProjectiles === 'function') {
+      window._blahajUpdateThrownProjectiles(dt);
+    }
 
     const activeScene = getActiveScene();
     try {
@@ -15353,6 +15827,9 @@
 
   function claimAethericSeamDiviner() {
     localStorage.setItem('blahaj_unlocked_seam_detector', 'true');
+    if (player.inventory && !player.inventory.hasItem('seam_detector', 1)) {
+      player.inventory.addItem('seam_detector', 1);
+    }
     equipHeldItem('seam_detector');
     CozyAudio.portalChime();
     spawnFloatingBurst(player.pos, 0xa855f7, 26);

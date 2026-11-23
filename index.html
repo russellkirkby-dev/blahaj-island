@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9.2" />
+  <link rel="stylesheet" href="styles.css?v=9.3" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2472,6 +2472,7 @@
       <path d="M 7 10 C 13 14, 19 20, 23 27" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round"/>
       <circle cx="3.5" cy="3.5" r="2.2" fill="#ffffff"/>
     </svg>
+    <span id="shark-fin-badge" class="shark-fin-badge hidden"></span>
   </div>
 
   <!-- Non-blocking Entry Pill (Shown when OS cursor is free and Pause Menu is closed) -->
@@ -2511,7 +2512,9 @@
     </div>
   </div>
 
-  <!-- Bottom-Right FinSense Inspector & Mode Strip (Quiet, out of center screen) -->
+  <!-- Bottom-Right FinSense Inspector, 1-9 Fin Belt & Mode Strip -->
+  <div id="fin-belt-bar" class="fin-belt-bar" aria-label="Fin Slots 1-9"></div>
+
   <div id="fin-sense-box" class="fin-sense-box hidden" aria-live="polite">
     <div id="fin-mode-strip" class="fin-mode-strip hidden">
       <button type="button" class="fin-mode-btn active" data-fintool="interact" title="Interact / Pick Up [1 while RMB]"><span>1</span> ✋ Use</button>
@@ -2532,23 +2535,23 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=9.2"></script>
-  <script src="js/sharks3d.js?v=9.2"></script>
-  <script src="js/ufo.js?v=9.2"></script>
-  <script src="js/world3d.js?v=9.2"></script>
-  <script src="js/volcano.js?v=9.2"></script>
-  <script src="js/laundromat.js?v=9.2"></script>
-  <script src="js/sphericalFoods.js?v=9.2"></script>
-  <script src="js/volleyball.js?v=9.2"></script>
-  <script src="js/spawningPits.js?v=9.2"></script>
-  <script src="js/homestead.js?v=9.2"></script>
-  <script src="js/network.js?v=9.2"></script>
-  <script src="js/inventory.js?v=9.2"></script>
-  <script src="js/enemies.js?v=9.2"></script>
-  <script src="js/seam.js?v=9.2"></script>
-  <script src="js/mmoControls.js?v=9.2"></script>
+  <script src="js/lore.js?v=9.3"></script>
+  <script src="js/sharks3d.js?v=9.3"></script>
+  <script src="js/ufo.js?v=9.3"></script>
+  <script src="js/world3d.js?v=9.3"></script>
+  <script src="js/volcano.js?v=9.3"></script>
+  <script src="js/laundromat.js?v=9.3"></script>
+  <script src="js/sphericalFoods.js?v=9.3"></script>
+  <script src="js/volleyball.js?v=9.3"></script>
+  <script src="js/spawningPits.js?v=9.3"></script>
+  <script src="js/homestead.js?v=9.3"></script>
+  <script src="js/network.js?v=9.3"></script>
+  <script src="js/inventory.js?v=9.3"></script>
+  <script src="js/enemies.js?v=9.3"></script>
+  <script src="js/seam.js?v=9.3"></script>
+  <script src="js/mmoControls.js?v=9.3"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=9.2"></script>
-  <script src="js/main.js?v=9.2"></script>
+  <script src="js/saveSystem.js?v=9.3"></script>
+  <script src="js/main.js?v=9.3"></script>
 </body>
 </html>

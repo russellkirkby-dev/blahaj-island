@@ -20,6 +20,7 @@ window.BlahajInventory = (function () {
       stats: '+100% Birb Gathering Radius · Steaming Warmth',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'toss_breb',
       usePrompt: 'Toss Warm Breb [B] 🥖'
     },
@@ -59,6 +60,7 @@ window.BlahajInventory = (function () {
       stats: '+100% Tea Comfort · Grants Warmth Buff',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'sip_tea',
       usePrompt: 'Sip Sacred Tea (+5m Steaming Spirit) 🍵'
     },
@@ -207,7 +209,9 @@ window.BlahajInventory = (function () {
       type: 'Physics Toy · Ocean Floater',
       desc: 'Buoyant inflatable beach ball. Bump it with your shark nose or boat bow to watch it launch over rolling swells!',
       stats: 'Elastic Collision Rating: 0.96 · Waterproof',
-      canUse: false
+      canUse: false,
+      canHold: true,
+      throwable: true
     },
     obsidian: {
       id: 'obsidian',
@@ -233,6 +237,7 @@ window.BlahajInventory = (function () {
       stats: '+20% Comfort · Rainbow Confetti Burst',
       canUse: true,
       canHold: true,
+      throwable: true,
       useAction: 'pop_cracker',
       usePrompt: 'Pop Party Cracker 🎉'
     },
@@ -294,6 +299,19 @@ window.BlahajInventory = (function () {
       type: 'Nautical Scope · 4.5x Zoom',
       desc: 'Heavy dual-barrel maritime binoculars with polished brass and navy casing. Press [T] or [F] to scan the horizon through first-person lenses with live compass & landmark rangefinder.',
       stats: '4.5x Optical Zoom · Dynamic Landmark Rangefinder',
+      canUse: true,
+      canHold: true
+    },
+    seam_detector: {
+      id: 'seam_detector',
+      name: 'Aetheric Seam Diviner',
+      icon: '🧭',
+      rarity: 'legendary',
+      category: 'tools',
+      maxStack: 1,
+      type: 'Cosmic Resonator · Rift Tracker',
+      desc: 'Sacred steampunk celestial resonator claimed from the Crater Overlook. Hold in your fin to track and mend Great Seam Rifts.',
+      stats: 'Live Rift Bearing & Sonar · Fin-Slot Eligible',
       canUse: true,
       canHold: true
     },
@@ -449,25 +467,65 @@ window.BlahajInventory = (function () {
     }
   };
 
-  // 2. PLAYER INVENTORY ENGINE (16-SLOT LIVE SATCHEL)
+  // 2. PLAYER INVENTORY ENGINE (24-SLOT LIVE SATCHEL: SLOTS 1-9 = FIN SLOTS, 10-24 = BAG SLOTS)
+  const FIN_SLOT_COUNT = 9;
+
+  function isFinEligible(itemId) {
+    const def = ITEMS[itemId];
+    return !!(def && (def.canHold || def.finEligible));
+  }
+
+  function isThrowable(itemId) {
+    const def = ITEMS[itemId];
+    return !!(def && def.throwable);
+  }
+
   function createPlayerInventory() {
     const NUM_SLOTS = 24;
     const slots = new Array(NUM_SLOTS).fill(null);
 
-    // Initial default satchel contents
+    function enforceFinSlots() {
+      // 1. Demote any non-fin-eligible items out of Slots 0..8 into Bag Slots 9..23
+      for (let i = 0; i < FIN_SLOT_COUNT; i++) {
+        if (slots[i] && !isFinEligible(slots[i].id)) {
+          const displaced = slots[i];
+          slots[i] = null;
+          for (let j = FIN_SLOT_COUNT; j < NUM_SLOTS; j++) {
+            if (!slots[j]) {
+              slots[j] = displaced;
+              break;
+            }
+          }
+        }
+      }
+      // 2. Promote fin-eligible items sitting in Bag Slots 9..23 up into open Fin Slots 0..8
+      for (let j = FIN_SLOT_COUNT; j < NUM_SLOTS; j++) {
+        if (slots[j] && isFinEligible(slots[j].id)) {
+          for (let i = 0; i < FIN_SLOT_COUNT; i++) {
+            if (!slots[i]) {
+              slots[i] = slots[j];
+              slots[j] = null;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Initial default satchel contents (eligible items auto-populate Fin Slots 1-9, ineligible slip to 10+)
     const defaultContents = [
       { id: 'breb', qty: 5 },
       { id: 'tea', qty: 3 },
+      { id: 'binoculars', qty: 1 },
       { id: 'margarita', qty: 2 },
       { id: 'tropical_cocktail', qty: 2 },
       { id: 'celestial_boba', qty: 2 },
       { id: 'carrot_toy', qty: 1 },
       { id: 'hex_key', qty: 1 },
-      { id: 'seam_needle', qty: 1 },
       { id: 'star_lantern', qty: 1 },
+      { id: 'seam_needle', qty: 1 },
       { id: 'beach_ball', qty: 2 },
-      { id: 'obsidian', qty: 4 },
-      { id: 'binoculars', qty: 1 }
+      { id: 'obsidian', qty: 4 }
     ];
 
     defaultContents.forEach((item, idx) => {
@@ -475,14 +533,17 @@ window.BlahajInventory = (function () {
         slots[idx] = { id: item.id, qty: item.qty };
       }
     });
+    enforceFinSlots();
 
     function addItem(itemId, count = 1) {
       if (!ITEMS[itemId] || count <= 0) return 0;
       const def = ITEMS[itemId];
+      const eligible = isFinEligible(itemId);
+      const startSlot = eligible ? 0 : FIN_SLOT_COUNT;
       let remaining = count;
 
-      // 1. Try to merge into existing non-full stacks
-      for (let i = 0; i < NUM_SLOTS; i++) {
+      // 1. Try to merge into existing non-full stacks (respecting slot eligibility)
+      for (let i = startSlot; i < NUM_SLOTS; i++) {
         if (slots[i] && slots[i].id === itemId) {
           const space = def.maxStack - slots[i].qty;
           if (space > 0) {
@@ -494,8 +555,8 @@ window.BlahajInventory = (function () {
         }
       }
 
-      // 2. Fill empty slots
-      for (let i = 0; i < NUM_SLOTS; i++) {
+      // 2. Fill empty slots (fin-eligible -> 1..9 then 10..24; ineligible -> strictly 10..24!)
+      for (let i = startSlot; i < NUM_SLOTS; i++) {
         if (!slots[i]) {
           const toAdd = Math.min(def.maxStack, remaining);
           slots[i] = { id: itemId, qty: toAdd };
@@ -580,12 +641,17 @@ window.BlahajInventory = (function () {
           slots[i] = null;
         }
       }
+      enforceFinSlots();
       return true;
     }
 
     return {
       slots,
       numSlots: NUM_SLOTS,
+      finSlotCount: FIN_SLOT_COUNT,
+      isFinEligible,
+      isThrowable,
+      enforceFinSlots,
       addItem,
       removeItem,
       getItemCount,

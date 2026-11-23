@@ -8123,3 +8123,105 @@ body.ufo-flight-mode .hud-bottom-left {
 .fin-sense-body.hidden {
   display: none !important;
 }
+
+/* ==========================================================================
+   PASS 93: 1-9 FIN SLOTS BELT & HELD-ITEM FIN CURSOR BADGE
+   ========================================================================== */
+.shark-fin-badge {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1.5px solid rgba(125, 211, 252, 0.85);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.65);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: #ffffff;
+  pointer-events: none;
+}
+.shark-fin-badge.hidden {
+  display: none !important;
+}
+
+.fin-belt-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 132px;
+  transform: translateX(-50%);
+  z-index: 1080;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 14px;
+  background: rgba(11, 18, 34, 0.82);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(8px);
+  user-select: none;
+}
+body.ufo-flight-mode .fin-belt-bar {
+  display: none !important;
+}
+.fin-belt-slot {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(30, 41, 59, 0.72);
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.fin-belt-slot:hover {
+  border-color: rgba(125, 211, 252, 0.7);
+  background: rgba(51, 65, 85, 0.9);
+  transform: translateY(-2px);
+}
+.fin-belt-slot.active {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.32);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.55);
+  transform: translateY(-2px);
+}
+.fin-belt-slot.empty {
+  opacity: 0.42;
+}
+.fin-belt-key {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #94a3b8;
+  line-height: 1;
+}
+.fin-belt-slot.active .fin-belt-key {
+  color: #e0f2fe;
+}
+.fin-belt-icon {
+  font-size: 1.12rem;
+  line-height: 1;
+}
+.fin-belt-qty {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fde68a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  line-height: 1;
+}
