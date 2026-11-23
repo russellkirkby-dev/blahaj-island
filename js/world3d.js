@@ -136,6 +136,17 @@ window.BlahajWorld = (function () {
     { id: 'charter_atoll', x: 0, z: 205, radius: 52, elev: 4.2, dockX: 0, dockZ: 152, dockDir: 'z' }
   ];
 
+  // Authoritative Enlarged Northern Volcano & Look-Down Caldera Configuration
+  const VOLCANO_CFG = {
+    x: -28,
+    z: -235,
+    radius: 128,
+    craterRadius: 46,
+    lavaRadius: 34,
+    lavaY: 26.0,
+    wharfZShift: -140
+  };
+
   function getTerrainBumpTexture() {
     if (terrainBumpTex) return terrainBumpTex;
     const canvas = document.createElement('canvas');
@@ -195,18 +206,18 @@ window.BlahajWorld = (function () {
     const rM = 74 + Math.cos(aM * 3 - 0.4) * 11 + Math.sin(aM * 5 + 1.1) * 6;
     let dMin = Math.sqrt(dxM * dxM + dzM * dzM) - rM;
 
-    // 2. Volcano Peninsula & Caldera Footprint
-    const dxV = x - (-28);
-    const dzV = z - (-148);
+    // 2. Volcano Peninsula & Caldera Footprint (moved north to -235 so it never engulfs main/outer islands)
+    const dxV = x - VOLCANO_CFG.x;
+    const dzV = z - VOLCANO_CFG.z;
     const aV = Math.atan2(dzV, dxV);
-    const rV = 76 + Math.cos(aV * 4) * 5 + Math.sin(aV * 7) * 3;
+    const rV = VOLCANO_CFG.radius + Math.cos(aV * 4) * 7 + Math.sin(aV * 7) * 4;
     const dVolc = Math.sqrt(dxV * dxV + dzV * dzV) - rV;
     if (dVolc < dMin) dMin = dVolc;
 
-    // Isthmus spine connecting main island to volcano (z in [-32, -105])
-    if (z < -32 && z > -105) {
-      const tIsth = (-z - 32) / 73;
-      const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+    // Isthmus spine connecting main island to volcano (z in [-32, -120])
+    if (z < -32 && z > -120) {
+      const tIsth = (-z - 32) / 88;
+      const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 14;
       const isthWidth = 14.0 - Math.sin(tIsth * Math.PI) * 3.5;
       const dIsth = Math.abs(x - spineX) - isthWidth;
       if (dIsth < dMin) dMin = dIsth;
@@ -303,10 +314,10 @@ window.BlahajWorld = (function () {
       d = d * (1 - tDrop) + (-21.5 + duneNoise) * tDrop;
     }
 
-    // 4. Volcanic oceanic trench plunge north of Volcano Peninsula (z < -135)
-    const dVolcCenter = Math.hypot(x - -28, z - -148);
-    if (dVolcCenter > 80 && z < -135) {
-      const trench = smoothstep(80, 190, dVolcCenter);
+    // 4. Volcanic oceanic trench plunge north of Volcano Peninsula (z < -220)
+    const dVolcCenter = Math.hypot(x - VOLCANO_CFG.x, z - VOLCANO_CFG.z);
+    if (dVolcCenter > VOLCANO_CFG.radius + 6 && z < -220) {
+      const trench = smoothstep(VOLCANO_CFG.radius + 6, VOLCANO_CFG.radius + 110, dVolcCenter);
       d -= trench * 2.0;
     }
 
@@ -318,8 +329,8 @@ window.BlahajWorld = (function () {
   }
 
   function getTerrainHeight(x, z) {
-    // 1. Rear Volcano Wharf Dock Plank & Sea Cave Cavern (North side of Volcano Peninsula: x = -28, z = -172..-218)
-    if (Math.abs(x - -28) < 5.8 && z <= -172 && z >= -218) {
+    // 1. Rear Volcano Wharf Dock Plank & Sea Cave Cavern (North side of Volcano: x = -28, z = -312..-358)
+    if (Math.abs(x - -28) < 5.8 && z <= -172 + VOLCANO_CFG.wharfZShift && z >= -218 + VOLCANO_CFG.wharfZShift) {
       return 1.4;
     }
 
@@ -414,9 +425,9 @@ window.BlahajWorld = (function () {
 
     // 6. THE SACRED VOLCANO PENINSULA (Isthmus + Massive Truncated Caldera Volcano)
     let hIsthmus = baseSeabed;
-    if (z < -32 && z > -105) {
-      const tIsth = (-z - 32) / 73;
-      const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 10;
+    if (z < -32 && z > -120) {
+      const tIsth = (-z - 32) / 88;
+      const spineX = -14 - Math.sin(tIsth * Math.PI * 0.65) * 14;
       const distFromSpine = Math.abs(x - spineX);
       const isthWidth = 14.0 - Math.sin(tIsth * Math.PI) * 3.5;
       if (distFromSpine < isthWidth + 10) {
@@ -426,30 +437,30 @@ window.BlahajWorld = (function () {
       }
     }
 
-    const vx = x - -28;
-    const vz = z - -148;
+    const vx = x - VOLCANO_CFG.x;
+    const vz = z - VOLCANO_CFG.z;
     const dVolcano = Math.sqrt(vx * vx + vz * vz);
     const vAngle = Math.atan2(vz, vx);
-    // Grand volcano footprint
-    const penRadius = 76 + Math.cos(vAngle * 4) * 5 + Math.sin(vAngle * 7) * 3;
+    // Grand towering volcano footprint (~3x taller rim ~115m, deep open caldera down to y=16m)
+    const penRadius = VOLCANO_CFG.radius + Math.cos(vAngle * 4) * 7 + Math.sin(vAngle * 7) * 4;
 
     let hVolcano = baseSeabed;
     if (dVolcano < penRadius) {
       const norm = Math.max(0, 1 - dVolcano / penRadius);
-      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.05) * 1.6 * norm * (1 - Math.pow(norm, 2.5));
-      // Sheer, unclimbable mountain cliffs rising up to caldera rim at y ≈ 56
-      let cone = -2.0 + Math.pow(norm, 1.35) * 60.0 + ribs;
+      const ribs = Math.sin(vAngle * 9 + dVolcano * 0.04) * 2.8 * norm * (1 - Math.pow(norm, 2.5));
+      // Towering volcanic mountain rising to ~115m caldera rim
+      let cone = -2.0 + Math.pow(norm, 1.18) * 188.0 + ribs;
 
-      // Truncated caldera crater bowl (clean drop into caldera basin)
-      if (dVolcano < 22) {
-        const craterDrop = Math.cos((dVolcano / 22) * (Math.PI * 0.5)) * 26.0;
+      // Deep open caldera crater bowl plunging below VOLCANO_CFG.lavaY (26m) down to ~18m
+      if (dVolcano < VOLCANO_CFG.craterRadius) {
+        const craterDrop = Math.cos((dVolcano / VOLCANO_CFG.craterRadius) * (Math.PI * 0.5)) * 168.0;
         cone -= craterDrop;
       }
 
-      // North Wharf Sea Cove: carve deep navigable water around the Rear Wharf (z < -184)
-      if (z < -184) {
+      // North Wharf Sea Cove: carve deep navigable water around the Rear Wharf
+      if (z < -184 + VOLCANO_CFG.wharfZShift) {
         const dWharfDock = Math.abs(x - -28);
-        if (dWharfDock > 4.2 || z < -218) {
+        if (dWharfDock > 4.2 || z < -218 + VOLCANO_CFG.wharfZShift) {
           cone = baseSeabed;
         } else {
           cone = Math.min(cone, 1.4);
@@ -803,9 +814,8 @@ window.BlahajWorld = (function () {
       }
     }
 
-    // 7. Rear Volcano Wharf Dock & Sea Cave (x = -28, z in [-216, -172])
-    // Dock: BoxGeometry(8.5, 0.7, 44) at y = 1.4 (top: 1.75)
-    if (Math.abs(x - (-28)) <= 4.4 && z >= -216 && z <= -172) {
+    // 7. Rear Volcano Wharf Dock & Sea Cave
+    if (Math.abs(x - (-28)) <= 4.4 && z >= -216 + VOLCANO_CFG.wharfZShift && z <= -172 + VOLCANO_CFG.wharfZShift) {
       const topY = 1.75;
       if (refY === null || (topY <= refY + 2.8 && topY >= refY - 1.2)) {
         if (topY > bestY) bestY = topY;
@@ -877,19 +887,8 @@ window.BlahajWorld = (function () {
     if (Math.abs(x - -28) < 6.2 && z <= -172 && z >= -218) {
       return 1.4;
     }
-    if (Math.abs(x - -28) < 12.5 && z < -184 && z >= -222) {
+    if (Math.abs(x - -28) < 12.5 && z < -184 + VOLCANO_CFG.wharfZShift && z >= -222 + VOLCANO_CFG.wharfZShift) {
       return -2.5;
-    }
-    if (Math.abs(x - -28) < 14.0 && z <= -110 && z >= -172) {
-      const vx = x - -28;
-      const vz = z - -148;
-      const dVolcano = Math.sqrt(vx * vx + vz * vz);
-      const norm = Math.max(0, 1 - dVolcano / 78);
-      let cone = -2.0 + Math.pow(norm, 1.25) * 58.0;
-      if (dVolcano < 24) {
-        cone -= Math.cos((dVolcano / 24) * (Math.PI * 0.5)) * 28.0;
-      }
-      return Math.max(22.0, cone);
     }
     return getTerrainHeight(x, z);
   }
@@ -935,23 +934,20 @@ window.BlahajWorld = (function () {
       const vy = getExteriorMountainHeight(vx, vz);
       posAttr.setY(i, vy);
 
-      const dVol = Math.sqrt(Math.pow(vx - -28, 2) + Math.pow(vz - -148, 2));
-      const vAng = Math.atan2(vz - -148, vx - -28);
+      const dVol = Math.sqrt(Math.pow(vx - VOLCANO_CFG.x, 2) + Math.pow(vz - VOLCANO_CFG.z, 2));
+      const vAng = Math.atan2(vz - VOLCANO_CFG.z, vx - VOLCANO_CFG.x);
       const c = new THREE.Color();
 
       const onRoad = isOnIslandRoad(vx, vz);
 
-      if (dVol < 24 && vy > 24) {
-        c.setHex(0xff5e1a);
-      } else if (dVol < 78 && vy > 5.0) {
-        const lavaStream = Math.pow(Math.abs(Math.sin(vAng * 5 + dVol * 0.085)), 18);
-        const dOverlook = Math.sqrt(Math.pow(vx - -28, 2) + Math.pow(vz - -127, 2));
-        if (lavaStream > 0.62 && vy > 9.0 && dOverlook > 14) {
+      if (dVol < VOLCANO_CFG.craterRadius + 2 && vy > 22) {
+        c.setHex(dVol < VOLCANO_CFG.lavaRadius + 3 ? 0xff5e1a : 0x3a2528);
+      } else if (dVol < VOLCANO_CFG.radius + 4 && vy > 5.0) {
+        const lavaStream = Math.pow(Math.abs(Math.sin(vAng * 5 + dVol * 0.06)), 18);
+        if (lavaStream > 0.62 && vy > 12.0) {
           c.setHex(0xff6a1f);
-        } else if (dOverlook < 12.5) {
-          c.setHex(0x3a3447);
         } else {
-          const shade = 0.14 + (vy / 70) * 0.08;
+          const shade = 0.14 + Math.min(1, vy / 120) * 0.12;
           c.setRGB(shade + 0.03, shade, shade + 0.04);
         }
       } else if (isInCleanBeachSandBand(vx, vz) && vy < 3.2) {
@@ -1180,16 +1176,16 @@ window.BlahajWorld = (function () {
   // Strictly excludes rare earth, volcanic caldera rock, basalt, lava streams, roads, beaches and wharf
   function isUnderlyingTerrainGreen(x, z) {
     const vy = getExteriorMountainHeight(x, z);
-    const dVol = Math.hypot(x - -28, z - -148);
+    const dVol = Math.hypot(x - VOLCANO_CFG.x, z - VOLCANO_CFG.z);
 
     // 1. Shoreline, beach sand band, and ocean seabed (NOT green)
     if (vy < 1.15) return false;
     if (isInCleanBeachSandBand(x, z)) return false;
 
     // 2. High volcanic cone, caldera interior, lava streams, and sheer basalt cliffs (vy > 5.0 on mountain)
-    // Green foothills belt (dVol < 78 && vy <= 5.0) IS green meadow and is permitted!
-    if (dVol < 24 && vy > 24) return false;
-    if (dVol < 78 && vy > 5.0) return false;
+    // Green foothills belt (dVol < VOLCANO_CFG.radius + 4 && vy <= 5.0) IS green meadow and is permitted!
+    if (dVol < VOLCANO_CFG.craterRadius + 2 && vy > 20) return false;
+    if (dVol < VOLCANO_CFG.radius + 4 && vy > 5.0) return false;
 
     // 3. Cobblestone roads and pathways (NOT green)
     if (isOnIslandRoad(x, z)) return false;
@@ -1305,10 +1301,10 @@ window.BlahajWorld = (function () {
     // 2. Place 1,200 Astroturf Tufts around the Volcano Base Foothills (Strictly Green Surfaces Only)
     const targetVolcano = placed + 1200;
     for (let attempt = 0; attempt < 3500 && placed < targetVolcano && placed < tuftCount; attempt++) {
-      const r = 58 + Math.random() * 18; // dVol between 35 and 76
+      const r = (VOLCANO_CFG.radius - 18) + Math.random() * 20;
       const th = Math.random() * Math.PI * 2;
-      const gx = -28 + Math.cos(th) * r;
-      const gz = -148 + Math.sin(th) * r;
+      const gx = VOLCANO_CFG.x + Math.cos(th) * r;
+      const gz = VOLCANO_CFG.z + Math.sin(th) * r;
 
       if (!isUnderlyingTerrainGreen(gx, gz)) continue;
 
@@ -2329,35 +2325,86 @@ window.BlahajWorld = (function () {
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.28, metalness: 0.84 });
 
     // Volcanic ambient glow radiating from within the natural caldera crater bowl
-    lavaLight = new THREE.PointLight(0xff591c, 4.5, 200);
-    lavaLight.position.set(-28, 36, -148);
+    lavaLight = new THREE.PointLight(0xff591c, 5.5, 280);
+    lavaLight.position.set(VOLCANO_CFG.x, 58, VOLCANO_CFG.z);
     group.add(lavaLight);
 
-    // Glowing Molten Magma Pool inside the Caldera Bowl (-28, -148)
+    // Glowing Molten Magma Pool inside the Deep Caldera Bowl
     calderaLavaPool = new THREE.Mesh(
-      new THREE.CircleGeometry(18.5, 32),
+      new THREE.CircleGeometry(VOLCANO_CFG.lavaRadius, 40),
       new THREE.MeshBasicMaterial({ color: 0xff5a14 })
     );
     calderaLavaPool.rotation.x = -Math.PI / 2;
-    calderaLavaPool.position.set(-28, 22.5, -148);
+    calderaLavaPool.position.set(VOLCANO_CFG.x, VOLCANO_CFG.lavaY, VOLCANO_CFG.z);
     group.add(calderaLavaPool);
 
     // Pulsing concentric incandescent magma crust rings
     calderaLavaRings = [];
     [
-      { r: 15.0, tube: 0.55, color: 0xff8c24 },
-      { r: 9.5, tube: 0.45, color: 0xfbbf24 },
-      { r: 4.5, tube: 0.35, color: 0xfef08a }
+      { r: 28.0, tube: 0.75, color: 0xff8c24 },
+      { r: 18.0, tube: 0.60, color: 0xfbbf24 },
+      { r: 8.5, tube: 0.45, color: 0xfef08a }
     ].forEach((spec, idx) => {
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(spec.r, spec.tube, 8, 32),
+        new THREE.TorusGeometry(spec.r, spec.tube, 8, 36),
         new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.85 })
       );
       ring.rotation.x = Math.PI / 2;
-      ring.position.set(-28, 22.7 + idx * 0.08, -148);
+      ring.position.set(VOLCANO_CFG.x, VOLCANO_CFG.lavaY + 0.25 + idx * 0.1, VOLCANO_CFG.z);
       group.add(ring);
       calderaLavaRings.push({ mesh: ring, phase: idx * 1.9, baseR: spec.r });
     });
+
+    // Look-Down Overlook Balcony Silhouette perched on the inner south crater cliff (mirrors the Dungeon finale from above!)
+    const balconyY = 74.0;
+    const balconyZ = VOLCANO_CFG.z + 31.0;
+    const balconyGroup = new THREE.Group();
+    balconyGroup.position.set(VOLCANO_CFG.x, balconyY, balconyZ);
+
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(16.0, 2.2, 9.5), basaltMat);
+    deck.position.y = -1.1;
+    balconyGroup.add(deck);
+
+    // Balustrade posts facing north over the magma lake
+    for (let bx = -7.2; bx <= 7.21; bx += 2.4) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.4, 0.45), basaltMat);
+      post.position.set(bx, 0.7, -4.4);
+      balconyGroup.add(post);
+    }
+
+    // Twin braziers + glowing return portal silhouette + 3 volunteer carrot silhouettes on the overlook
+    [-5.5, 5.5].forEach((bx) => {
+      const brazier = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.4, 1.1, 8), brassMat);
+      brazier.position.set(bx, 0.55, -2.5);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 10), new THREE.MeshBasicMaterial({ color: 0xff7724 }));
+      flame.position.set(bx, 1.35, -2.5);
+      balconyGroup.add(brazier, flame);
+    });
+
+    const portalRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.9, 0.25, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    portalRing.position.set(5.2, 2.2, 1.5);
+    const portalDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.75, 20),
+      new THREE.MeshBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+    );
+    portalDisc.position.set(5.2, 2.2, 1.5);
+    balconyGroup.add(portalRing, portalDisc);
+
+    const carrotMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.5 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.6 });
+    [-2.4, 0.0, 2.4].forEach((cx) => {
+      const cBody = new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.3, 8), carrotMat);
+      cBody.rotation.x = Math.PI;
+      cBody.position.set(cx, 0.85, -3.5);
+      const cTop = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 6), leafMat);
+      cTop.position.set(cx, 1.65, -3.5);
+      balconyGroup.add(cBody, cTop);
+    });
+
+    group.add(balconyGroup);
 
     // Billowing Skyward Volcanic Ash & Ember Plume ascending naturally from deep within the crater
     const emberGeo = new THREE.BufferGeometry();
@@ -2376,10 +2423,10 @@ window.BlahajWorld = (function () {
 
     for (let i = 0; i < emberCount; i++) {
       const ang = Math.random() * Math.PI * 2;
-      const rad = Math.sqrt(Math.random()) * 13.5;
-      emberPositions[i * 3] = -28 + Math.cos(ang) * rad;
-      emberPositions[i * 3 + 1] = 32.5 + Math.random() * 85;
-      emberPositions[i * 3 + 2] = -148 + Math.sin(ang) * rad;
+      const rad = Math.sqrt(Math.random()) * 24.0;
+      emberPositions[i * 3] = VOLCANO_CFG.x + Math.cos(ang) * rad;
+      emberPositions[i * 3 + 1] = VOLCANO_CFG.lavaY + 4.0 + Math.random() * 145;
+      emberPositions[i * 3 + 2] = VOLCANO_CFG.z + Math.sin(ang) * rad;
 
       const col = emberPalette[Math.floor(Math.random() * emberPalette.length)];
       emberColors[i * 3] = col.r;
@@ -3444,6 +3491,7 @@ window.BlahajWorld = (function () {
     outerArchLight.position.set(-28, 7.2, -187);
     wharfGroup.add(outerArchLight);
 
+    wharfGroup.position.z = VOLCANO_CFG.wharfZShift;
     scene.add(wharfGroup);
   }
 
@@ -4681,7 +4729,7 @@ window.BlahajWorld = (function () {
       { x: 0, z: 73, rotY: 0, sail: 0xf7efe0, lantern: 0xffd27d, name: 'Sunlit Cream Regatta Boat' },
       { x: -6.8, z: 60, rotY: -0.25, sail: 0x38bdf8, lantern: 0x7ce8ff, name: 'Blåhaj Azure Regatta Boat' },
       { x: 42.5, z: 66, rotY: 0.15, sail: 0xff8a75, lantern: 0xffbe6b, name: 'Endless Pier Coral Sailboat' },
-      { x: -21.5, z: -204, rotY: Math.PI, sail: 0xc084fc, lantern: 0xe9d5ff, name: 'Rear Volcano Wharf Sailboat' }
+      { x: -21.5, z: -204 + VOLCANO_CFG.wharfZShift, rotY: Math.PI, sail: 0xc084fc, lantern: 0xe9d5ff, name: 'Rear Volcano Wharf Sailboat' }
     ];
 
     boatSpecs.forEach((bs, idx) => {
@@ -5768,11 +5816,11 @@ window.BlahajWorld = (function () {
     if (emberSystem) {
       const camX = lastCamera ? lastCamera.position.x : 0;
       const camZ = lastCamera ? lastCamera.position.z : 0;
-      const distToCraterSq = (camX - (-28)) * (camX - (-28)) + (camZ - (-148)) * (camZ - (-148));
+      const distToCraterSq = (camX - VOLCANO_CFG.x) * (camX - VOLCANO_CFG.x) + (camZ - VOLCANO_CFG.z) * (camZ - VOLCANO_CFG.z);
 
       // Embers smoothly ascend and swirl across all playable islands without ever freezing.
-      // Beyond far fog range (320m), hide the mesh cleanly so no static billboards linger.
-      const inViewRange = distToCraterSq < 320 * 320;
+      // Beyond far fog range (420m), hide the mesh cleanly so no static billboards linger.
+      const inViewRange = distToCraterSq < 420 * 420;
       emberSystem.visible = inViewRange;
 
       if (inViewRange) {
@@ -5787,12 +5835,12 @@ window.BlahajWorld = (function () {
           z += Math.cos(time * 1.1 + i * 0.41) * 0.035;
 
           // Reset into deep crater floor when reaching skyward apex
-          if (y > 122) {
-            y = 32.5 + Math.random() * 4.0;
+          if (y > 180) {
+            y = VOLCANO_CFG.lavaY + 4.0 + Math.random() * 6.0;
             const ang = Math.random() * Math.PI * 2;
-            const rad = Math.sqrt(Math.random()) * 13.5;
-            x = -28 + Math.cos(ang) * rad;
-            z = -148 + Math.sin(ang) * rad;
+            const rad = Math.sqrt(Math.random()) * 24.0;
+            x = VOLCANO_CFG.x + Math.cos(ang) * rad;
+            z = VOLCANO_CFG.z + Math.sin(ang) * rad;
           }
 
           pos.setXYZ(i, x, y, z);
@@ -6264,9 +6312,9 @@ window.BlahajWorld = (function () {
     calderaEruptionTimer = 1.4;
     const sc = scene || (calderaLavaPool ? calderaLavaPool.parent : null);
     if (!sc) return;
-    const cx = impactPos ? impactPos.x : -28.0;
-    const cz = impactPos ? impactPos.z : -148.0;
-    const cy = 22.8;
+    const cx = impactPos ? impactPos.x : VOLCANO_CFG.x;
+    const cz = impactPos ? impactPos.z : VOLCANO_CFG.z;
+    const cy = VOLCANO_CFG.lavaY + 0.4;
 
     // Expanding fiery shockwave ring
     const ring = new THREE.Mesh(
@@ -6300,6 +6348,7 @@ window.BlahajWorld = (function () {
   }
 
   return {
+    VOLCANO: VOLCANO_CFG,
     buildWorld,
     triggerCalderaEruption,
     getTerrainHeight,

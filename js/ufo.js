@@ -26,7 +26,7 @@ window.BlahajUFO = (function () {
   const ISLE_DECK_Y = 5.4;
   const HANGAR_LOWER_Y = 2.0;
   const HANGAR_RAISED_Y = 7.2;
-  const KARMAN_CEILING_Y = 122.0;
+  const KARMAN_CEILING_Y = 185.0;
 
   let sceneRef = null;
   let isBuilt = false;
@@ -1297,7 +1297,8 @@ window.BlahajUFO = (function () {
     const dropX = state.pos.x;
     const dropZ = state.pos.z;
     const dropY = getSafeGroundHeight(dropX, dropZ) + 0.45;
-    const inVolcanoCrater = Math.hypot(dropX - (-28.0), dropZ - (-148.0)) < 21.0;
+    const vCfg = (window.BlahajWorld && window.BlahajWorld.VOLCANO) || { x: -28.0, z: -235.0, craterRadius: 46.0 };
+    const inVolcanoCrater = Math.hypot(dropX - vCfg.x, dropZ - vCfg.z) < (vCfg.craterRadius || 46.0);
 
     if (item.kind === 'enemy' && item.ref) {
       const e = item.ref;

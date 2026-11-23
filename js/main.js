@@ -12061,7 +12061,8 @@
     });
 
     // 3. Draw Volcano Peninsula & Isthmus
-    const pVolcano = w2c(-28, -148);
+    const vCfgMap = (worldApi && worldApi.VOLCANO) || { x: -28, z: -235 };
+    const pVolcano = w2c(vCfgMap.x, vCfgMap.z);
     const pIsthmusMid = w2c(-18, -60);
     const pMainNorth = w2c(-5, -20);
 
@@ -16032,11 +16033,12 @@
           // Walk across natural terrain & player structures, or swim through dynamic ocean depths!
           const groundY = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z, player.pos.y);
 
-          // Main Island Overworld Volcano Caldera Crater (-28, 22.5, -148, radius 18.5):
-          // Falling into the open volcano crater triggers the slapstick meltdown & IKEA rebirth!
+          // Main Island Overworld Volcano Caldera Crater:
+          // Falling into the open volcano crater magma lake triggers the slapstick meltdown & IKEA rebirth!
+          const vCfg = (worldApi && worldApi.VOLCANO) || { x: -28, z: -235, lavaRadius: 34, lavaY: 26.0 };
           if (!isRebirthing && !player.inUFO &&
-              Math.hypot(player.pos.x - (-28), player.pos.z - (-148)) < 17.5 &&
-              player.pos.y <= 23.6) {
+              Math.hypot(player.pos.x - vCfg.x, player.pos.z - vCfg.z) < (vCfg.lavaRadius - 1.0) &&
+              player.pos.y <= vCfg.lavaY + 1.8) {
             triggerVolcanoCraterMeltdown('Overworld Volcano Caldera Crater');
           }
           const waterSurfaceY = worldApi.getWaveHeight(player.pos.x, player.pos.z, elapsed);

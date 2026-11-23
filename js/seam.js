@@ -320,7 +320,7 @@ window.BlahajSeam = (function () {
 
       desc: 'Tucked under the dark volcanic rocks behind the northern shore.',
 
-      pos: { x: -28.0, y: 2.2, z: -185.0 }
+      pos: { x: -28.0, y: 2.2, z: -325.0 }
 
     },
 

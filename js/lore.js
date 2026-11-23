@@ -255,7 +255,7 @@ window.BLAHAJ_LORE = {
       id: 'rear_volcano_wharf',
       name: 'Rear Volcano Wharf & Sea Cave',
       zoneTitle: 'North Shore · Rear Volcano Wharf & Sea Cave Gate',
-      pos: { x: -28, z: -198 },
+      pos: { x: -28, z: -338 },
       radius: 16,
       prompt: 'Enter Volcano Trial Dungeon [E] 🌋⚔️',
       type: 'rear_wharf'
