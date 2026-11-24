@@ -1,9 +1,9 @@
 // ============================================================================
 // BLÅHAJ ISLAND — THE SWISS CHEESE PLANETOID (js/cheesePlanet.js)
-// v16.5: Part 1 Complete Loop — Eerie Quiet Arrival, Aetheric Radar Scan
-//        Revealing Sectors & Irritating Finite Bugs, Tractor-Beam Core Hauling,
-//        Anomalous Sealed Cave Entrance, Critical Mass Detonation, Subterranean
-//        Interior Crater Bowl & Amplified Between-Seam Relay Dish + Hermes Portal!
+// v17.9: Full 24-Bunker / 8-Sector Tactical Battles, Multi-HP Space Invader
+//        Bugs with Pixel-Torpedoes, Phase-Cloak & Sonic-Shockwave Stun Counter-
+//        play, Built-In Subspace Vault Tractor Beam Core Hauling & Disgorging,
+//        and Hyperspace Checkpoint Respawn on Hull Breach!
 // ============================================================================
 
 window.BlahajCheeseMoon = (function () {
@@ -18,20 +18,20 @@ window.BlahajCheeseMoon = (function () {
   const CAVE_NORMAL = new THREE.Vector3(0, 0.985, -0.172).normalize();
   const CAVE_SURFACE_POS = new THREE.Vector3()
     .copy(PLANET_CENTER)
-    .addScaledVector(CAVE_NORMAL, TRENCH_FLOOR_RADIUS + 0.6); // ~(0, -30.8, -21.7)
+    .addScaledVector(CAVE_NORMAL, TRENCH_FLOOR_RADIUS + 0.6);
 
   // Subterranean Interior Crater Bowl directly beneath the Breach Shaft!
   const INTERIOR_CRATER_CENTER = new THREE.Vector3(
     CAVE_SURFACE_POS.x,
     CAVE_SURFACE_POS.y - 38.0,
     CAVE_SURFACE_POS.z
-  ); // ~(0, -68.8, -21.7)
+  );
   const INTERIOR_CRATER_RADIUS = 34.0;
   const INTERIOR_FOCAL_POS = new THREE.Vector3(
     INTERIOR_CRATER_CENTER.x,
     INTERIOR_CRATER_CENTER.y - INTERIOR_CRATER_RADIUS + 6.5,
     INTERIOR_CRATER_CENTER.z
-  ); // Bottom focal point of the parabolic crater bowl ~(0, -96.3, -21.7)
+  );
 
   const REENTRY_POS = new THREE.Vector3(0, 38.0, -98.0);
   const REENTRY_RADIUS = 13.5;
@@ -41,38 +41,23 @@ window.BlahajCheeseMoon = (function () {
   let reentryGateGroup = null;
   let reentryRingMesh = null;
 
-  // 4 Distinct Bunker Sectors around the planetoid trenches (finite bugs per sector, zero respawns!)
+  // 8 Trench Sectors × 3 Fortified Bunkers = 24 Bunkers total around the planetoid!
   const SECTOR_DEFS = [
-    {
-      id: 'sector_north',
-      name: 'North Meridian Gorge',
-      normal: new THREE.Vector3(0.0, 0.955, 0.295).normalize(),
-      bugCount: 3
-    },
-    {
-      id: 'sector_east',
-      name: 'East Eclipse Trench',
-      normal: new THREE.Vector3(0.46, 0.875, -0.15).normalize(),
-      bugCount: 4
-    },
-    {
-      id: 'sector_west',
-      name: 'West Geode Canyon',
-      normal: new THREE.Vector3(-0.46, 0.875, -0.15).normalize(),
-      bugCount: 4
-    },
-    {
-      id: 'sector_south',
-      name: 'South Shadow Rim',
-      normal: new THREE.Vector3(0.0, 0.84, -0.54).normalize(),
-      bugCount: 4
-    }
+    { id: 'sector_north', name: 'North Meridian Gorge', normal: new THREE.Vector3(0.0, 0.955, 0.295).normalize(), bugCount: 7 },
+    { id: 'sector_ne', name: 'Northeast Eclipse Basin', normal: new THREE.Vector3(0.36, 0.91, 0.20).normalize(), bugCount: 7 },
+    { id: 'sector_east', name: 'East Eclipse Trench', normal: new THREE.Vector3(0.48, 0.86, -0.16).normalize(), bugCount: 7 },
+    { id: 'sector_se', name: 'Southeast Rind Narrow', normal: new THREE.Vector3(0.34, 0.84, -0.42).normalize(), bugCount: 7 },
+    { id: 'sector_south', name: 'South Shadow Rim', normal: new THREE.Vector3(0.0, 0.83, -0.55).normalize(), bugCount: 8 },
+    { id: 'sector_sw', name: 'Southwest Fondue Chasm', normal: new THREE.Vector3(-0.34, 0.84, -0.42).normalize(), bugCount: 7 },
+    { id: 'sector_west', name: 'West Geode Canyon', normal: new THREE.Vector3(-0.48, 0.86, -0.16).normalize(), bugCount: 7 },
+    { id: 'sector_nw', name: 'Northwest Crater Approach', normal: new THREE.Vector3(-0.36, 0.91, 0.20).normalize(), bugCount: 7 }
   ];
 
   const cheeseSectors = [];
   const cheeseBunkers = [];
-  const coreOrbs = []; // Volatile Core Power-Ups exposed when a sector's bunkers are busted
+  const coreOrbs = []; // Volatile Core Power-Ups exposed only when ALL 3 bunkers AND ALL bugs in a sector are defeated
   const invaders = [];
+  const invaderBolts = []; // 1980s Pixel-Plasma Torpedoes fired by the Space Invaders!
   const bursts = [];
 
   // Mission Progression State
@@ -86,18 +71,15 @@ window.BlahajCheeseMoon = (function () {
 
   let caveRevealed = false;
   let caveBreached = false;
-  let coresCarried = 0;
   let coresInHole = 0;
-  const CORES_REQUIRED = 4;
+  const CORES_REQUIRED = 6; // Collect & disgorge 6 Cores from the 8 3-bunker sector strongholds!
   let relayDeployed = false;
 
   let lastScanReminderAt = 0;
   let timeSinceLastScan = 0;
 
-  // 3D Groups for Anomalous Cave Entrance, Subterranean Interior Crater, Relay Dish & Hermes Portal
   let caveAnomalyGroup = null;
   let caveRindPlugMesh = null;
-  let caveBeaconMesh = null;
   let caveCoreSocketMeshes = [];
   let interiorCraterGroup = null;
   let craterFocalRingMesh = null;
@@ -105,9 +87,9 @@ window.BlahajCheeseMoon = (function () {
   let relayDishSpinner = null;
   let hermesPortalGroup = null;
   let hermesPortalRing = null;
-  let carriedCoreVisualGroup = null;
 
   let invaderTextures = [];
+  let stunnedInvaderTexture = null;
   let nextInvaderId = 1;
   let invadersClearedCount = 0;
   let bunkersDestroyedCount = 0;
@@ -218,7 +200,6 @@ window.BlahajCheeseMoon = (function () {
   }
 
   function getPlanetRadiusAtNormal(nx, ny, nz) {
-    // If the Cave Seal has been blasted open, carve a vertical breach shaft straight down into the Interior Crater!
     if (caveBreached) {
       const dotCave = nx * CAVE_NORMAL.x + ny * CAVE_NORMAL.y + nz * CAVE_NORMAL.z;
       if (dotCave > 0.985) {
@@ -356,7 +337,7 @@ window.BlahajCheeseMoon = (function () {
       flatShading: true
     });
 
-    // 4. Build the 4 Scan-Revealed Bunker Sectors (start hidden & peaceful until scanned!)
+    // 4. Build 8 Scan-Revealed Bunker Sectors (24 Fortified Swiss-Cheese Bunkers total!)
     cheeseSectors.length = 0;
     cheeseBunkers.length = 0;
     coreOrbs.length = 0;
@@ -367,7 +348,6 @@ window.BlahajCheeseMoon = (function () {
         .copy(PLANET_CENTER)
         .addScaledVector(sDef.normal, TRENCH_FLOOR_RADIUS + 3.2);
 
-      // Spawn coordinates on either side of the trench (no floating black disc meshes!)
       const tangent = new THREE.Vector3(1, 0, 0);
       if (Math.abs(sDef.normal.x) > 0.7) tangent.set(0, 0, 1);
       const sideDir = new THREE.Vector3().crossVectors(sDef.normal, tangent).normalize();
@@ -382,20 +362,20 @@ window.BlahajCheeseMoon = (function () {
         sectorHoles.push({ pos: holePos, normal: inwardDir });
       });
 
-      // 3 Fortified Swiss-Cheese Bunkers per Sector (1 Main Core Bunker + 2 Flanking Cover Bunkers)
+      // 3 Heavily Fortified Swiss-Cheese Bunkers per Sector (24 Bunkers total!)
       const sectorBunkers = [];
       [-1, 0, 1].forEach((offsetIdx) => {
         const bGroup = new THREE.Group();
         const bPos = centerPos.clone()
           .addScaledVector(fwdDir, offsetIdx * 11.5)
-          .addScaledVector(sideDir, (offsetIdx === 0 ? 0 : offsetIdx * 4.5));
+          .addScaledVector(sideDir, offsetIdx === 0 ? 0 : offsetIdx * 4.5);
         bGroup.position.copy(bPos);
         bGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sDef.normal);
 
         const isCoreBunker = offsetIdx === 0;
-        const bw = isCoreBunker ? 9.6 : 7.8;
-        const bh = isCoreBunker ? 6.4 : 5.2;
-        const bd = isCoreBunker ? 5.6 : 4.4;
+        const bw = isCoreBunker ? 9.8 : 8.0;
+        const bh = isCoreBunker ? 6.6 : 5.4;
+        const bd = isCoreBunker ? 5.8 : 4.6;
 
         const mainBlock = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), bunkerMat.clone());
         const notchL = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.2, bd * 0.9), bunkerMat);
@@ -407,7 +387,6 @@ window.BlahajCheeseMoon = (function () {
         bGroup.add(mainBlock, notchL, notchR, darkPore);
 
         if (isCoreBunker) {
-          // Glowing volatile golden-violet seams showing this bunker holds the Sector's Core Power-Up!
           const coreGlowRing = new THREE.Mesh(
             new THREE.TorusGeometry(3.2, 0.28, 10, 24),
             new THREE.MeshBasicMaterial({ color: 0xfacc15 })
@@ -417,10 +396,11 @@ window.BlahajCheeseMoon = (function () {
           bGroup.add(coreGlowRing);
         }
 
-        // Hidden until revealed by Aetheric Radar scan!
         bGroup.visible = false;
         planetoidGroup.add(bGroup);
 
+        // High HP so bunkers require sustained fire — especially once their bug defenders are cleared!
+        const maxHp = isCoreBunker ? 24 : 16;
         const bObj = {
           id: `bunker_${sIdx}_${offsetIdx + 1}`,
           sectorId: sDef.id,
@@ -429,8 +409,8 @@ window.BlahajCheeseMoon = (function () {
           mesh: mainBlock,
           pos: bPos,
           normal: sDef.normal.clone(),
-          hp: isCoreBunker ? 4 : 3,
-          maxHp: isCoreBunker ? 4 : 3,
+          hp: maxHp,
+          maxHp,
           radius: isCoreBunker ? 6.8 : 5.6,
           alive: true
         };
@@ -447,32 +427,34 @@ window.BlahajCheeseMoon = (function () {
         name: sDef.name,
         normal: sDef.normal.clone(),
         centerPos,
+        sideDir,
+        fwdDir,
         bugCount: sDef.bugCount,
         group: secGroup,
-        beaconBeam: null,
         holes: sectorHoles,
         bunkers: sectorBunkers,
         revealed: false,
         cleared: false,
-        coreSpawned: false,
-        coreCollected: false
+        coreSpawned: false
       });
     });
 
-    // 5. Anomalous Sealed Cave Entrance at the Trench Crossroads
+    // 5. Anomalous Sealed Cave Entrance & Subterranean Interior Crater
     buildAnomalousCaveAndCrater(cheeseTex);
 
     cheeseScene.add(planetoidGroup);
 
-    // 6. 1980s Pixel Space Invader Textures (zero bugs spawned at start — eerie quiet!)
+    // 6. 1980s Pixel Space Invader Textures (+ Stunned Gold Texture when hit by Sonic Shockwave!)
     invaderTextures = [
       createInvaderTexture(INVADER_BITMAPS[0], '#7dd3fc', '#050811'),
       createInvaderTexture(INVADER_BITMAPS[1], '#38bdf8', '#050811'),
-      createInvaderTexture(INVADER_BITMAPS[0], '#fde047', '#1c1004')
+      createInvaderTexture(INVADER_BITMAPS[0], '#c084fc', '#140524')
     ];
+    stunnedInvaderTexture = createInvaderTexture(INVADER_BITMAPS[1], '#facc15', '#422006');
     invaders.length = 0;
+    invaderBolts.length = 0;
 
-    // 7. Golden Orbital Warp-Out Gate (Emergency Return to Deep Space)
+    // 7. Golden Orbital Warp-Out Gate
     reentryGateGroup = new THREE.Group();
     reentryGateGroup.position.copy(REENTRY_POS);
     reentryGateGroup.lookAt(new THREE.Vector3(0, 25, 0));
@@ -493,21 +475,15 @@ window.BlahajCheeseMoon = (function () {
     reentryGateGroup.add(reentryRingMesh, innerDisc);
     cheeseScene.add(reentryGateGroup);
 
-    // 8. Visual Orbiting Core Group attached near UFO when carrying Cores
-    carriedCoreVisualGroup = new THREE.Group();
-    cheeseScene.add(carriedCoreVisualGroup);
-
     isBuilt = true;
     return cheeseScene;
   }
 
   function buildAnomalousCaveAndCrater(cheeseTex) {
-    // A. Surface Anomalous Sealed Cave Entrance
     caveAnomalyGroup = new THREE.Group();
     caveAnomalyGroup.position.copy(CAVE_SURFACE_POS);
     caveAnomalyGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), CAVE_NORMAL);
 
-    // Raised Cheese Rim around the Cave Depression
     const rimMesh = new THREE.Mesh(
       new THREE.TorusGeometry(13.5, 2.6, 12, 32),
       new THREE.MeshStandardMaterial({
@@ -520,7 +496,6 @@ window.BlahajCheeseMoon = (function () {
     rimMesh.rotation.x = Math.PI / 2;
     caveAnomalyGroup.add(rimMesh);
 
-    // Hardened Crystalline Rind Plug sealing the shaft (explodes on Critical Mass + Laser Shot!)
     caveRindPlugMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(12.2, 11.4, 3.6, 24),
       new THREE.MeshStandardMaterial({
@@ -535,33 +510,29 @@ window.BlahajCheeseMoon = (function () {
     caveRindPlugMesh.position.y = -0.6;
     caveAnomalyGroup.add(caveRindPlugMesh);
 
-    // 4 Glowing Core Sockets on top of the Sealed Cave Plug showing how many Cores have been dropped in (0/4..4/4)
+    // 6 Glowing Core Sockets on top of the Sealed Cave Plug (0/6..6/6)
     caveCoreSocketMeshes = [];
     for (let i = 0; i < CORES_REQUIRED; i++) {
       const ang = (i / CORES_REQUIRED) * Math.PI * 2;
       const sock = new THREE.Mesh(
-        new THREE.SphereGeometry(1.75, 16, 14),
+        new THREE.SphereGeometry(1.65, 16, 14),
         new THREE.MeshBasicMaterial({
           color: 0x334155,
           transparent: true,
           opacity: 0.55
         })
       );
-      sock.position.set(Math.cos(ang) * 5.2, 1.6, Math.sin(ang) * 5.2);
+      sock.position.set(Math.cos(ang) * 5.6, 1.6, Math.sin(ang) * 5.6);
       caveAnomalyGroup.add(sock);
       caveCoreSocketMeshes.push(sock);
     }
 
-    // Surface Anomalous Cave Entrance uses HUD Diamond Waypoint + Radar Blip (no 3D light cone!)
-    caveBeaconMesh = null;
-
     planetoidGroup.add(caveAnomalyGroup);
 
-    // B. Subterranean Interior Crater Bowl (revealed beneath the breach shaft!)
+    // Subterranean Interior Crater Bowl
     interiorCraterGroup = new THREE.Group();
     interiorCraterGroup.position.copy(INTERIOR_CRATER_CENTER);
 
-    // Concave Parabolic Crater Chamber Shell
     const craterShell = new THREE.Mesh(
       new THREE.SphereGeometry(INTERIOR_CRATER_RADIUS, 28, 22),
       new THREE.MeshStandardMaterial({
@@ -575,7 +546,6 @@ window.BlahajCheeseMoon = (function () {
     );
     interiorCraterGroup.add(craterShell);
 
-    // Parabolic Crater Floor Dish Platform (natural signal amplifier bowl!)
     const craterFloorBowl = new THREE.Mesh(
       new THREE.CylinderGeometry(22.0, 14.0, 3.5, 28),
       new THREE.MeshStandardMaterial({
@@ -588,7 +558,6 @@ window.BlahajCheeseMoon = (function () {
     craterFloorBowl.position.y = -INTERIOR_CRATER_RADIUS + 4.5;
     interiorCraterGroup.add(craterFloorBowl);
 
-    // Glowing Focal Amplification Landing Ring at the center of the Interior Crater Floor
     craterFocalRingMesh = new THREE.Mesh(
       new THREE.TorusGeometry(8.5, 0.45, 12, 36),
       new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
@@ -597,7 +566,6 @@ window.BlahajCheeseMoon = (function () {
     craterFocalRingMesh.position.y = -INTERIOR_CRATER_RADIUS + 6.4;
     interiorCraterGroup.add(craterFocalRingMesh);
 
-    // Warm Subterranean Geode Point Light & Glowing Purple Hiram-Geodes around the Crater Walls
     const craterLight = new THREE.PointLight(0xc084fc, 2.4, 85);
     craterLight.position.set(0, -4.0, 0);
     interiorCraterGroup.add(craterLight);
@@ -620,7 +588,6 @@ window.BlahajCheeseMoon = (function () {
       interiorCraterGroup.add(gCluster);
     }
 
-    // Sealed Underground Tunnel Gate on the far crater wall (Threshold to the Deep Cheese Dungeon for Parts 2–4!)
     const deepTunnelArch = new THREE.Mesh(
       new THREE.TorusGeometry(7.2, 1.4, 10, 24, Math.PI),
       new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.65, roughness: 0.35 })
@@ -633,7 +600,7 @@ window.BlahajCheeseMoon = (function () {
     deepTunnelDark.position.set(0, -INTERIOR_CRATER_RADIUS + 6.5, -INTERIOR_CRATER_RADIUS + 4.8);
     interiorCraterGroup.add(deepTunnelArch, deepTunnelDark);
 
-    // C. Deployable Between-Seam Relay Dish at the Crater Focal Point (hidden until deployed with [E]!)
+    // Deployable Between-Seam Relay Dish
     relayDishGroup = new THREE.Group();
     relayDishGroup.position.set(0, -INTERIOR_CRATER_RADIUS + 6.4, 0);
 
@@ -663,7 +630,6 @@ window.BlahajCheeseMoon = (function () {
     relayDishSpinner.add(bigBowl, dishSpire);
     relayDishGroup.add(relayDishSpinner);
 
-    // Towering Amplified Seam Signal Beam shooting straight up out of the Interior Crater through the Breach Hole!
     const relaySkyBeam = new THREE.Mesh(
       new THREE.CylinderGeometry(1.8, 4.6, 130.0, 24, 1, true),
       new THREE.MeshBasicMaterial({
@@ -680,7 +646,6 @@ window.BlahajCheeseMoon = (function () {
     relayDishGroup.visible = false;
     interiorCraterGroup.add(relayDishGroup);
 
-    // D. Hermes' Direct Between Portal inside the Interior Crater (opens beside the Relay Dish!)
     hermesPortalGroup = new THREE.Group();
     hermesPortalGroup.position.set(11.5, -INTERIOR_CRATER_RADIUS + 11.0, 4.0);
     hermesPortalGroup.lookAt(new THREE.Vector3(0, -INTERIOR_CRATER_RADIUS + 11.0, 0));
@@ -734,27 +699,68 @@ window.BlahajCheeseMoon = (function () {
     }
   }
 
+  function resetEncounterOnDefeat() {
+    // Called if the Space Invader bugs destroy the UFO and send you back to your Mojo Hyperspace checkpoint!
+    for (let i = invaders.length - 1; i >= 0; i--) {
+      if (invaders[i].sprite && invaders[i].sprite.parent) {
+        invaders[i].sprite.parent.remove(invaders[i].sprite);
+      }
+    }
+    invaders.length = 0;
+
+    for (let i = invaderBolts.length - 1; i >= 0; i--) {
+      if (invaderBolts[i].mesh && invaderBolts[i].mesh.parent) {
+        invaderBolts[i].mesh.parent.remove(invaderBolts[i].mesh);
+      }
+    }
+    invaderBolts.length = 0;
+
+    // Reset any partially-cleared revealed sectors so when you return from Hyperspace, their battle restarts cleanly!
+    cheeseSectors.forEach((sec) => {
+      if (sec.revealed && !sec.cleared) {
+        sec.revealed = false;
+        if (sec.group) sec.group.visible = false;
+        sec.bunkers.forEach((b) => {
+          b.alive = true;
+          b.hp = b.maxHp;
+          if (b.group) {
+            b.group.scale.set(1, 1, 1);
+            b.group.visible = false;
+          }
+        });
+      }
+    });
+  }
+
   function spawnInvaderForSector(sector, holeIdx) {
     if (!cheeseScene || !sector || !invaderTextures.length) return;
     const hole = sector.holes[holeIdx % sector.holes.length];
     const coverBunker = sector.bunkers[holeIdx % sector.bunkers.length] || sector.bunkers[0];
     const id = `inv_${nextInvaderId++}`;
-    const tex = invaderTextures[nextInvaderId % invaderTextures.length];
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.96 });
+    const baseTex = invaderTextures[nextInvaderId % invaderTextures.length];
+    const mat = new THREE.SpriteMaterial({ map: baseTex, transparent: true, opacity: 0.96 });
     const sprite = new THREE.Sprite(mat);
-    sprite.position.copy(hole.pos).addScaledVector(hole.normal, 2.5);
-    sprite.scale.set(6.8, 5.2, 1);
+    sprite.position.copy(hole.pos).addScaledVector(hole.normal, 2.5 + (holeIdx % 3) * 3.0);
+    sprite.scale.set(7.4, 5.6, 1);
     cheeseScene.add(sprite);
 
     invaders.push({
       id,
       sectorId: sector.id,
       sprite,
+      mat,
+      baseTex,
       pos: sprite.position,
-      vel: hole.normal.clone().multiplyScalar(14.0),
+      vel: hole.normal.clone().multiplyScalar(16.0),
       homeHole: hole,
       coverBunker,
-      state: 'hiding',
+      hp: 6,
+      maxHp: 6,
+      stunTimer: 0,
+      cloakPhase: Math.random() * Math.PI * 2,
+      cloaked: false,
+      fireCooldown: 1.4 + Math.random() * 2.2,
+      state: 'ambush',
       latched: false,
       latchOffset: new THREE.Vector3(
         (Math.random() - 0.5) * 7.2,
@@ -766,43 +772,123 @@ window.BlahajCheeseMoon = (function () {
     });
   }
 
+  function spawnInvaderBolt(fromPos, targetPos) {
+    if (!cheeseScene || !fromPos || !targetPos) return;
+    const dir = new THREE.Vector3().subVectors(targetPos, fromPos).normalize();
+    const boltMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 0.85, 3.2),
+      new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+    );
+    boltMesh.position.copy(fromPos);
+    boltMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    cheeseScene.add(boltMesh);
+    invaderBolts.push({
+      mesh: boltMesh,
+      vel: dir.multiplyScalar(48.0),
+      life: 2.6
+    });
+  }
+
   function spawnSectorCoreOrb(sector) {
     if (!cheeseScene || !sector || sector.coreSpawned) return;
     sector.coreSpawned = true;
 
     const orbGroup = new THREE.Group();
-    const spawnPos = sector.centerPos.clone().addScaledVector(sector.normal, 2.5);
+    const spawnPos = sector.centerPos.clone().addScaledVector(sector.normal, 2.4);
     orbGroup.position.copy(spawnPos);
 
     const coreSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(2.1, 18, 16),
+      new THREE.SphereGeometry(2.2, 18, 16),
       new THREE.MeshBasicMaterial({ color: 0xfacc15 })
     );
     const outerHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(3.1, 0.25, 10, 28),
+      new THREE.TorusGeometry(3.2, 0.28, 10, 28),
       new THREE.MeshBasicMaterial({ color: 0xc084fc })
     );
     orbGroup.add(coreSphere, outerHalo);
     orbGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sector.normal);
     cheeseScene.add(orbGroup);
 
+    // Exposes .mesh and .inSubspaceVault so ufo.js's built-in Tractor Beam & Subspace Vault works identically to Blåhaj Island!
     coreOrbs.push({
       id: `core_${sector.id}`,
       sectorId: sector.id,
-      group: orbGroup,
+      title: `${sector.name} Core`,
+      mesh: orbGroup,
       outerHalo,
       pos: orbGroup.position,
       normal: sector.normal.clone(),
-      collected: false
+      inSubspaceVault: false,
+      consumedInPit: false
     });
 
     if (window.showToast) {
       window.showToast(
-        '⚡🧀 VOLATILE BUNKER CORE EXPOSED!',
-        `Clear the remaining bugs in ${sector.name}, then switch to [1] Tractor Beam to pull out the Core Power-Up!`
+        `✅ ${sector.name.toUpperCase()} STRONGHOLD DEFEATED!`,
+        'Switch to [1] Tractor Beam and Left-Click (or press [T]) to beam the Volatile Core into your Subspace Vault!'
       );
     }
     updateObjectiveHUD();
+  }
+
+  // Called by ufo.js disgorgeFromSubspaceVault() when the pilot presses [T] or Left-Clicks with [1] Tractor Beam while holding a Core!
+  function onDisgorgeCoreFromVault(coreRef, ufoPos) {
+    if (!coreRef) return false;
+    coreRef.inSubspaceVault = false;
+
+    const dropPos = ufoPos ? ufoPos.clone() : CAVE_SURFACE_POS.clone();
+    const dCave = dropPos.distanceTo(CAVE_SURFACE_POS);
+
+    if (!caveBreached && dCave <= 26.0) {
+      // Disgorged directly over the Anomalous Sealed Cave Entrance Pit!
+      coreRef.consumedInPit = true;
+      if (coreRef.mesh) coreRef.mesh.visible = false;
+      if (!caveRevealed) caveRevealed = true;
+
+      coresInHole = Math.min(CORES_REQUIRED, coresInHole + 1);
+      updateCaveCoreSocketsVisual();
+      spawnCheeseBurst(CAVE_SURFACE_POS, 0xc084fc, 28, 1.6);
+
+      if (coresInHole >= CORES_REQUIRED) {
+        if (!hasShownCriticalMassThought) {
+          hasShownCriticalMassThought = true;
+          showPausedThought({
+            badge: '⚡💣 INNER THOUGHT · CRITICAL MASS REACHED!',
+            title: `All ${CORES_REQUIRED} Core Power-Ups Are Packed in the Cave Pit!`,
+            body:
+              `The Sealed Cave Entrance is vibrating at <strong>Critical Mass (${CORES_REQUIRED}/${CORES_REQUIRED} Cores)</strong>!<br><br>` +
+              'Let’s switch to <strong>🔫 Ray Turrets ([2])</strong> and <strong>fire a single laser shot into the glowing cave pit</strong> to detonate the pile and blast open the shaft into the moon’s interior!',
+            hint: '💡 Switch to [2] Ray Turrets and shoot the glowing Sealed Cave Entrance pit!'
+          });
+        }
+      } else if (window.showToast) {
+        window.showToast(
+          `🕳️⚡ CORE DISGORGED INTO CAVE PIT! (${coresInHole}/${CORES_REQUIRED})`,
+          `Need ${CORES_REQUIRED - coresInHole} more Core${CORES_REQUIRED - coresInHole === 1 ? '' : 's'} for Critical Mass! Use [3] Aetheric Radar to scan for the next Bunker Stronghold.`
+        );
+      }
+      updateObjectiveHUD();
+      return true;
+    }
+
+    // Disgorged away from the Cave Pit — place the Core on the canyon floor directly beneath the saucer so the pilot can beam it back up!
+    const rel = new THREE.Vector3().subVectors(dropPos, PLANET_CENTER);
+    const dist = rel.length() || 1;
+    const norm = rel.divideScalar(dist);
+    const surfR = getPlanetRadiusAtNormal(norm.x, norm.y, norm.z);
+    if (coreRef.mesh) {
+      coreRef.mesh.position.copy(PLANET_CENTER).addScaledVector(norm, surfR + 2.4);
+      coreRef.mesh.scale.set(1, 1, 1);
+      coreRef.mesh.visible = true;
+    }
+    if (window.showToast) {
+      window.showToast(
+        '🧀⚡ CORE RELEASED ON TRENCH FLOOR',
+        `You are ${Math.round(dCave)}m from the Sealed Cave Pit! Beam the Core back into your Subspace Vault [T] and disgorge it over the Cave Pit!`
+      );
+    }
+    updateObjectiveHUD();
+    return false;
   }
 
   function onAethericRadarScan(ufoPos) {
@@ -813,20 +899,16 @@ window.BlahajCheeseMoon = (function () {
     const pos = ufoPos || new THREE.Vector3(0, -10, 0);
     let summaryText = '';
 
-    // 1. If the player is inside the Breached Interior Crater and hasn't deployed the Relay Dish yet, scanning triggers/highlights the Focal Point!
     if (caveBreached && !relayDeployed && pos.distanceTo(INTERIOR_FOCAL_POS) < 42.0) {
       deployRelayDishInCrater();
       return '📡 Relay Dish Deployed in Interior Crater!';
     }
 
-    // 2. Check if we should reveal the Anomalous Sealed Cave Entrance!
-    // Reveals when scanning within 78m of the Cave Entrance OR on the 2nd+ scan once at least 1 sector has been discovered!
     const distToCave = pos.distanceTo(CAVE_SURFACE_POS);
     const revealedSectorsCount = cheeseSectors.filter((s) => s.revealed).length;
 
     if (!caveRevealed && (distToCave < 78.0 || revealedSectorsCount >= 1)) {
       caveRevealed = true;
-      if (caveBeaconMesh) caveBeaconMesh.visible = true;
       spawnCheeseBurst(CAVE_SURFACE_POS, 0xc084fc, 24, 1.5);
       summaryText = `Anomalous Sealed Cave Entrance detected (${Math.round(distToCave)}m)!`;
 
@@ -837,14 +919,13 @@ window.BlahajCheeseMoon = (function () {
           title: 'Wait… That’s a Sealed Cave Shaft Into the Moon!',
           body:
             'My Aetheric Radar shows a huge hollow crater right underneath this sealed depression! It’s an <strong>entrance into the moon’s interior</strong>, plugged by thick hardened cheese rind.<br><br>' +
-            'Standard Ray Turrets won’t crack a seal that thick on their own… <strong>Wait—what if I collect the 4 volatile Core Power-Ups from the bunkers with my 🟢 Tractor Beam ([1]), drop them all into this sealed pit until they hit Critical Mass, and fire one laser shot into the pile to detonate it?!</strong>',
+            `Standard Ray Turrets won’t crack a seal that thick on their own… <strong>What if we defeat the Bunker Strongholds, beam their volatile Core Power-Ups into our Subspace Vault with the 🟢 Tractor Beam ([1]), fly over this pit and press [T] / Left-Click to disgorge ${CORES_REQUIRED} Cores into the depression until it hits Critical Mass, then shoot it?!</strong>`,
           hint:
-            '💡 Plan: Scan [3] to locate all 4 Bunker Sectors → Bust bunkers & clear bugs [2] → Pull out Core Power-Ups with Tractor Beam [1] → Fly over the Sealed Cave Pit with Tractor Beam active to drop them in!'
+            '💡 Schedule: 1) Scan [3] → 2) Defeat the sector’s bugs & all 3 bunkers [2] (use Right-Click Sonic Shockwave to stun/uncloak bugs!) → 3) Beam Core into Subspace Vault with [1] Tractor Beam → 4) Disgorge Core [T / Click] over the Cave Pit!'
         });
       }
     }
 
-    // 3. Also reveal the nearest unrevealed Bunker Sector (if any remain unrevealed!)
     let nearestUnrevealed = null;
     let bestD = Infinity;
     for (let i = 0; i < cheeseSectors.length; i++) {
@@ -865,48 +946,39 @@ window.BlahajCheeseMoon = (function () {
       });
       spawnCheeseBurst(nearestUnrevealed.centerPos, 0x38bdf8, 22, 1.4);
 
-      // The scan frequency irritates this sector's finite squad of Space Invader bugs!
       for (let bi = 0; bi < nearestUnrevealed.bugCount; bi++) {
         spawnInvaderForSector(nearestUnrevealed, bi);
       }
 
-      summaryText = `Revealed ${nearestUnrevealed.name} (${Math.round(bestD)}m) — ${nearestUnrevealed.bugCount} bugs irritated!`;
+      summaryText = `Revealed ${nearestUnrevealed.name} (${Math.round(bestD)}m) — ${nearestUnrevealed.bugCount} bugs & 3 bunkers awakened!`;
 
       if (!hasShownFirstBugThought) {
         hasShownFirstBugThought = true;
         showPausedThought({
-          badge: '💭 INNER THOUGHT · SCAN IRRITATED THE BUGS!',
-          title: 'The Radar Ping Woke Up the Bugs in the Cheese Holes!',
+          badge: '💭 INNER THOUGHT · THE SCAN AWAKENED A STRONGHOLD!',
+          title: 'The Radar Sonar Awakened the Bugs — Battle Stations!',
           body:
-            'Whoa! Our Aetheric Radar frequency irritated whatever was sleeping inside those Swiss-cheese holes! Flat 2D Space Invader bugs just crawled out to hide behind the cheese bunker in <strong>' +
+            'Our Aetheric Radar frequency irritated the nest in <strong>' +
             nearestUnrevealed.name +
-            '</strong>!<br><br>' +
-            'Let’s switch to <strong>🔫 Ray Turrets ([2])</strong> (or <strong>Right-Click Sonic Shockwave</strong>) to wipe out this sector’s finite squad of bugs and bust open their bunker—then use our <strong>🟢 Tractor Beam ([1])</strong> to pull the <strong>Core Power-Up</strong> out of the rubble!',
+            '</strong>! A squad of 2D Space Invader bugs is swarming out firing pixel-torpedoes and projecting a cover grid over their <strong>3 Swiss-Cheese Bunkers</strong>!<br><br>' +
+            '• <strong>Tactic:</strong> Hit <strong>Right-Click (🪩 Disco & Sonic Shockwave)</strong> when bugs get close to shake them off your hull, strip their phase-cloak, and <strong>stun them gold for double laser damage</strong>!<br>' +
+            '• Destroy <strong>all bugs and all 3 bunkers</strong> in the stronghold to expose the <strong>Core Power-Up</strong>, then switch to <strong>🟢 Tractor Beam ([1])</strong> and <strong>Left-Click / [T]</strong> to beam it into your <strong>Subspace Vault</strong>!',
           hint:
-            '💡 Good news: Each sector only has a finite squad of bugs! Once you clear them, no more will spawn in that sector so you can use your Tractor Beam in peace.'
+            '💡 Watch your Shields & Hull! If the bugs destroy your UFO, you’ll be bounced back to your Mojo Hyperspace Crossroads checkpoint!'
         });
       }
     } else if (!summaryText) {
-      // All 4 sectors already revealed — point pilot toward nearest uncollected Core or the Cave Entrance!
-      const uncollectedCore = coreOrbs.find((c) => !c.collected);
+      const uncollectedCore = coreOrbs.find((c) => !c.inSubspaceVault && !c.consumedInPit);
       const aliveBunker = cheeseBunkers.find((b) => b.alive);
       if (uncollectedCore) {
         const d = Math.round(pos.distanceTo(uncollectedCore.pos));
-        summaryText = `Exposed Core Power-Up waiting (${d}m) — Pull it out with [1] Tractor Beam!`;
+        summaryText = `Exposed Core waiting (${d}m) — Beam into Subspace Vault with [1] Tractor Beam!`;
       } else if (aliveBunker) {
         const d = Math.round(pos.distanceTo(aliveBunker.pos));
-        summaryText = `Active Cheese Bunker located (${d}m) — Bust it with [2] Ray Turrets!`;
-      } else if (!caveBreached) {
-        const d = Math.round(pos.distanceTo(CAVE_SURFACE_POS));
-        summaryText =
-          coresInHole >= CORES_REQUIRED
-            ? `Cave Entrance at CRITICAL MASS (${d}m) — Fire [2] Ray Turrets to detonate!`
-            : `Sealed Cave Entrance (${d}m) — Drop ${CORES_REQUIRED - coresInHole} more Core(s) in with [1] Tractor Beam!`;
-      } else if (!relayDeployed) {
-        const d = Math.round(pos.distanceTo(INTERIOR_FOCAL_POS));
-        summaryText = `Interior Crater Focal Ring (${d}m below) — Fly down & press [E] to deploy Relay Dish!`;
+        summaryText = `Active Stronghold Bunker (${d}m) — Destroy all bugs & bunkers with [2] Ray Turrets!`;
       } else {
-        summaryText = `Hermes' Direct Between Portal is open inside the Interior Crater!`;
+        const d = Math.round(pos.distanceTo(CAVE_SURFACE_POS));
+        summaryText = `Sealed Cave Entrance (${d}m) — Disgorge ${CORES_REQUIRED - coresInHole} more Core(s) over the pit!`;
       }
     }
 
@@ -934,46 +1006,40 @@ window.BlahajCheeseMoon = (function () {
     }
   }
 
+  // Core Power-Up ONLY spawns once ALL 3 bunkers AND ALL bugs in that sector are defeated!
   function checkSectorCompletion(sectorId) {
     const sec = cheeseSectors.find((s) => s.id === sectorId);
-    if (!sec || !sec.revealed) return;
+    if (!sec || !sec.revealed || sec.cleared) return;
 
-    const coreBunker = sec.bunkers.find((b) => b.isCoreBunker);
     const allBunkersDown = sec.bunkers.every((b) => !b.alive);
-    if ((!coreBunker || !coreBunker.alive || allBunkersDown) && !sec.coreSpawned) {
-      spawnSectorCoreOrb(sec);
-    }
-
     const bugsAliveInSector = invaders.some((inv) => inv.alive && inv.sectorId === sectorId);
-    if (!bugsAliveInSector && (!coreBunker || !coreBunker.alive) && !sec.cleared) {
+
+    if (allBunkersDown && !bugsAliveInSector) {
       sec.cleared = true;
-      if (sec.beaconBeam && sec.beaconBeam.material) {
-        sec.beaconBeam.material.color.setHex(0x4ade80);
-      }
-      if (window.showToast) {
-        window.showToast(
-          `✅ ${sec.name.toUpperCase()} CLEARED!`,
-          'No more bugs in this sector! Switch to [1] Tractor Beam to pull out the Core Power-Up, then scan [3] for the next sector!'
-        );
-      }
+      spawnSectorCoreOrb(sec);
     }
     updateObjectiveHUD();
   }
 
-  function damageBunker(bunker, dmg = 1, fromNetwork = false) {
+  function damageBunker(bunker, rawDmg = 1, fromNetwork = false) {
     if (!bunker || !bunker.alive) return;
-    // Hidden un-scanned bunkers cannot be damaged until revealed by Aetheric Radar
     const sec = cheeseSectors.find((s) => s.id === bunker.sectorId);
     if (sec && !sec.revealed) return;
 
-    bunker.hp -= dmg;
-    spawnCheeseBurst(bunker.pos, 0xfacc15, 10, 1.1);
+    // Tactical rule: While bugs in this sector are still alive and unstunned, their glitch-grid shields the bunker!
+    const activeUnstunnedBugs = invaders.some(
+      (inv) => inv.alive && inv.sectorId === bunker.sectorId && inv.stunTimer <= 0
+    );
+    const effectiveDmg = fromNetwork ? rawDmg : (activeUnstunnedBugs ? Math.max(0.5, rawDmg * 0.45) : rawDmg * 1.35);
+
+    bunker.hp -= effectiveDmg;
+    spawnCheeseBurst(bunker.pos, activeUnstunnedBugs ? 0x38bdf8 : 0xfacc15, 7, 0.95);
 
     if (bunker.hp <= 0) {
       bunker.alive = false;
       bunkersDestroyedCount++;
       if (bunker.group) bunker.group.visible = false;
-      spawnCheeseBurst(bunker.pos, 0xeab308, 24, 1.6);
+      spawnCheeseBurst(bunker.pos, 0xeab308, 26, 1.6);
       if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
 
       checkSectorCompletion(bunker.sectorId);
@@ -986,36 +1052,51 @@ window.BlahajCheeseMoon = (function () {
         });
       }
     } else if (bunker.mesh) {
-      const s = 0.62 + (bunker.hp / bunker.maxHp) * 0.38;
+      const s = 0.62 + (Math.max(0, bunker.hp) / bunker.maxHp) * 0.38;
       bunker.group.scale.set(s, s, s);
       if (bunker.mesh.material && bunker.mesh.material.emissive) {
-        bunker.mesh.material.emissive.setHex(0xfef08a);
+        bunker.mesh.material.emissive.setHex(activeUnstunnedBugs ? 0x38bdf8 : 0xfef08a);
         setTimeout(() => {
           if (bunker.mesh && bunker.mesh.material && bunker.mesh.material.emissive) {
             bunker.mesh.material.emissive.setHex(0x000000);
           }
-        }, 100);
+        }, 90);
       }
     }
   }
 
-  function destroyInvader(inv, fromNetwork = false) {
+  function damageInvader(inv, rawDmg = 1, fromNetwork = false) {
     if (!inv || !inv.alive) return;
-    inv.alive = false;
-    inv.latched = false;
-    if (inv.sprite && inv.sprite.parent) inv.sprite.parent.remove(inv.sprite);
-    invadersClearedCount++;
-    spawnCheeseBurst(inv.pos, 0x7dd3fc, 14, 0.9);
-    if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
 
-    checkSectorCompletion(inv.sectorId);
+    // Phase-cloaked bugs resist 50% laser damage unless stunned by Sonic Shockwave (which makes them take 2x damage!)
+    const dmg = fromNetwork
+      ? 99
+      : inv.stunTimer > 0
+      ? rawDmg * 2.0
+      : inv.cloaked
+      ? rawDmg * 0.5
+      : rawDmg;
 
-    if (!fromNetwork && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
-      window.BlahajNetwork.send({
-        type: 'cheese_event',
-        action: 'invader_killed',
-        invId: inv.id
-      });
+    inv.hp -= dmg;
+    spawnCheeseBurst(inv.pos, inv.stunTimer > 0 ? 0xfacc15 : 0x7dd3fc, 6, 0.75);
+
+    if (inv.hp <= 0) {
+      inv.alive = false;
+      inv.latched = false;
+      if (inv.sprite && inv.sprite.parent) inv.sprite.parent.remove(inv.sprite);
+      invadersClearedCount++;
+      spawnCheeseBurst(inv.pos, 0x38bdf8, 16, 1.1);
+      if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
+
+      checkSectorCompletion(inv.sectorId);
+
+      if (!fromNetwork && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'cheese_event',
+          action: 'invader_killed',
+          invId: inv.id
+        });
+      }
     }
   }
 
@@ -1035,31 +1116,6 @@ window.BlahajCheeseMoon = (function () {
     }
   }
 
-  function syncCarriedCoreVisuals(ufoPos, elapsed) {
-    if (!carriedCoreVisualGroup) return;
-    while (carriedCoreVisualGroup.children.length < coresCarried) {
-      const m = new THREE.Mesh(
-        new THREE.SphereGeometry(0.95, 12, 10),
-        new THREE.MeshBasicMaterial({ color: 0xfacc15 })
-      );
-      carriedCoreVisualGroup.add(m);
-    }
-    while (carriedCoreVisualGroup.children.length > coresCarried) {
-      carriedCoreVisualGroup.remove(carriedCoreVisualGroup.children[carriedCoreVisualGroup.children.length - 1]);
-    }
-    if (!ufoPos || coresCarried <= 0) {
-      carriedCoreVisualGroup.visible = false;
-      return;
-    }
-    carriedCoreVisualGroup.visible = true;
-    carriedCoreVisualGroup.position.copy(ufoPos);
-    for (let i = 0; i < carriedCoreVisualGroup.children.length; i++) {
-      const child = carriedCoreVisualGroup.children[i];
-      const ang = elapsed * 3.2 + (i / Math.max(1, coresCarried)) * Math.PI * 2;
-      child.position.set(Math.cos(ang) * 3.4, -2.2, Math.sin(ang) * 3.4);
-    }
-  }
-
   function detonateCaveCrustSeal(fromNetwork = false) {
     if (caveBreached) return;
     caveBreached = true;
@@ -1067,9 +1123,6 @@ window.BlahajCheeseMoon = (function () {
     caveCoreSocketMeshes.forEach((s) => {
       s.visible = false;
     });
-    if (caveBeaconMesh && caveBeaconMesh.material) {
-      caveBeaconMesh.material.color.setHex(0x38bdf8);
-    }
 
     spawnCheeseBurst(CAVE_SURFACE_POS, 0xfacc15, 45, 2.4);
     spawnCheeseBurst(CAVE_SURFACE_POS, 0xc084fc, 35, 2.0);
@@ -1137,7 +1190,6 @@ window.BlahajCheeseMoon = (function () {
   function checkPlasmaBoltCollision(boltPos) {
     if (!isBuilt || !boltPos) return false;
 
-    // 0. Check if shooting the Critical-Mass Core Pile inside the Anomalous Cave Entrance!
     if (!caveBreached && coresInHole >= CORES_REQUIRED) {
       if (boltPos.distanceTo(CAVE_SURFACE_POS) <= 16.5) {
         detonateCaveCrustSeal(false);
@@ -1145,35 +1197,33 @@ window.BlahajCheeseMoon = (function () {
       }
     }
 
-    // 1. Check revealed destructible Swiss-cheese bunkers
+    // 1. Check 1980s Space Invader bugs (multi-hit tactical combat!)
+    for (let i = 0; i < invaders.length; i++) {
+      const inv = invaders[i];
+      if (!inv.alive) continue;
+      if (inv.pos.distanceTo(boltPos) <= 5.0) {
+        damageInvader(inv, 1.0, false);
+        return true;
+      }
+    }
+
+    // 2. Check revealed destructible Swiss-cheese bunkers
     for (let i = 0; i < cheeseBunkers.length; i++) {
       const b = cheeseBunkers[i];
       if (!b.alive) continue;
       const sec = cheeseSectors.find((s) => s.id === b.sectorId);
       if (sec && !sec.revealed) continue;
       if (b.pos.distanceTo(boltPos) <= b.radius) {
-        damageBunker(b, 1, false);
+        damageBunker(b, 1.0, false);
         return true;
       }
     }
 
-    // 2. Check 1980s Space Invaders
-    for (let i = 0; i < invaders.length; i++) {
-      const inv = invaders[i];
-      if (!inv.alive) continue;
-      if (inv.pos.distanceTo(boltPos) <= 4.8) {
-        destroyInvader(inv, false);
-        return true;
-      }
-    }
-
-    // 3. Check if laser bolt hit the Sealed Cave Entrance before Critical Mass (remind player!)
     if (caveRevealed && !caveBreached && boltPos.distanceTo(CAVE_SURFACE_POS) <= 13.5) {
       spawnCheeseBurst(boltPos, 0xc084fc, 8, 0.9);
       return true;
     }
 
-    // 4. Check if laser bolt hit the planetoid canyon walls/floor
     const rel = new THREE.Vector3().subVectors(boltPos, PLANET_CENTER);
     const r = rel.length();
     if (r > 1.0 && r < PLATEAU_TOP_RADIUS + 4.0) {
@@ -1188,6 +1238,7 @@ window.BlahajCheeseMoon = (function () {
     return false;
   }
 
+  // Tactical Sonic Shockwave ([5] / Right-Click): Shakes off latched bugs, strips phase-cloak & STUNS bugs gold for 6.5s so Ray Turrets deal 2x damage!
   function triggerSonicShockwave(originPos) {
     if (!isBuilt || !originPos) return;
 
@@ -1195,41 +1246,52 @@ window.BlahajCheeseMoon = (function () {
       detonateCaveCrustSeal(false);
     }
 
-    let blasted = 0;
+    let stunnedCount = 0;
     for (let i = invaders.length - 1; i >= 0; i--) {
       const inv = invaders[i];
       if (!inv.alive) continue;
-      if (inv.latched || inv.pos.distanceTo(originPos) <= 45.0) {
-        destroyInvader(inv, false);
-        blasted++;
+      if (inv.latched || inv.pos.distanceTo(originPos) <= 52.0) {
+        if (inv.latched) {
+          inv.latched = false;
+          const pushDir = new THREE.Vector3().subVectors(inv.pos, originPos).normalize();
+          inv.vel.copy(pushDir.multiplyScalar(32.0));
+        }
+        inv.stunTimer = 6.5;
+        inv.cloaked = false;
+        if (inv.mat && stunnedInvaderTexture) {
+          inv.mat.map = stunnedInvaderTexture;
+          inv.mat.opacity = 1.0;
+        }
+        damageInvader(inv, 1.5, false);
+        stunnedCount++;
       }
     }
-    for (let i = 0; i < cheeseBunkers.length; i++) {
-      const b = cheeseBunkers[i];
-      if (!b.alive) continue;
-      const sec = cheeseSectors.find((s) => s.id === b.sectorId);
-      if (sec && !sec.revealed) continue;
-      if (b.pos.distanceTo(originPos) <= 36.0) {
-        damageBunker(b, 3, false);
+
+    // Clear incoming enemy pixel-torpedoes within shockwave radius!
+    for (let i = invaderBolts.length - 1; i >= 0; i--) {
+      const ib = invaderBolts[i];
+      if (ib.mesh.position.distanceTo(originPos) <= 45.0) {
+        if (ib.mesh.parent) ib.mesh.parent.remove(ib.mesh);
+        invaderBolts.splice(i, 1);
       }
     }
-    if (blasted > 0 && window.showToast) {
+
+    if (stunnedCount > 0 && window.showToast) {
       window.showToast(
-        '🪩💥 SONIC SHOCKWAVE!',
-        `Vaporized ${blasted} Space Invader${blasted === 1 ? '' : 's'} & shattered nearby cheese cover!`
+        '🪩⚡ SONIC DISRUPTION!',
+        `Uncloaked & stunned ${stunnedCount} Space Invader${stunnedCount === 1 ? '' : 's'} for 6.5s! Blast them with [2] Ray Turrets for 2x damage!`
       );
     }
   }
 
   function updateObjectiveHUD() {
     let banner = document.getElementById('cheese-moon-objective-banner');
-    const isCheeseZone =
-      window.BlahajUFO &&
-      typeof window.BlahajUFO.getState === 'function' &&
-      window.BlahajUFO.getState() &&
-      window.BlahajUFO.getState().inCheeseMoon;
+    const ufoState =
+      window.BlahajUFO && typeof window.BlahajUFO.getState === 'function'
+        ? window.BlahajUFO.getState()
+        : null;
 
-    if (!isCheeseZone) {
+    if (!ufoState || !ufoState.inCheeseMoon) {
       if (banner) banner.style.display = 'none';
       return;
     }
@@ -1254,14 +1316,20 @@ window.BlahajCheeseMoon = (function () {
         'text-align:center',
         'box-shadow:0 8px 24px rgba(0,0,0,0.5)',
         'pointer-events:none',
-        'max-width:640px'
+        'max-width:660px'
       ].join(';');
       document.body.appendChild(banner);
     }
 
     const revealedCount = cheeseSectors.filter((s) => s.revealed).length;
     const aliveBugs = invaders.filter((x) => x.alive).length;
-    const uncollectedCores = coreOrbs.filter((c) => !c.collected).length;
+    const revealedAliveBunkers = cheeseBunkers.filter((b) => {
+      if (!b.alive) return false;
+      const sec = cheeseSectors.find((s) => s.id === b.sectorId);
+      return !!(sec && sec.revealed);
+    }).length;
+    const uncollectedCores = coreOrbs.filter((c) => !c.inSubspaceVault && !c.consumedInPit).length;
+    const holdingCoreInVault = !!(ufoState.subspaceVault && ufoState.subspaceVault.kind === 'cheese_core');
 
     let stepTitle = '';
     let stepSub = '';
@@ -1273,23 +1341,20 @@ window.BlahajCheeseMoon = (function () {
       stepTitle = '🕳️ CAVE BREACHED — FLY DOWN INTO THE INTERIOR CRATER & DEPLOY RELAY DISH [E]';
       stepSub = `Cores Detonated: ${CORES_REQUIRED}/${CORES_REQUIRED} · Descend through the cave hole to the glowing Focal Ring & press [E]!`;
     } else if (coresInHole >= CORES_REQUIRED) {
-      stepTitle = '⚡💣 CRITICAL MASS (4/4 CORES IN CAVE PIT) — FIRE [2] RAY TURRETS AT THE PIT TO DETONATE!';
+      stepTitle = `⚡💣 CRITICAL MASS (${CORES_REQUIRED}/${CORES_REQUIRED} CORES IN CAVE PIT) — FIRE [2] RAY TURRETS AT THE PIT TO DETONATE!`;
       stepSub = 'Switch to [2] Ray Turrets and shoot the glowing Sealed Cave Entrance pit!';
-    } else if (coresCarried > 0 && caveRevealed) {
-      stepTitle = `🟢 HAULING ${coresCarried} CORE POWER-UP${coresCarried > 1 ? 'S' : ''} — DROP INTO SEALED CAVE ENTRANCE WITH [1] TRACTOR BEAM!`;
-      stepSub = `Cave Pit Progress: ${coresInHole}/${CORES_REQUIRED} Cores · Fly over the purple-gold Cave Entrance with [1] Tractor Beam active!`;
-    } else if (uncollectedCores > 0 && aliveBugs === 0) {
-      stepTitle = '🟢 BUNKER CORE EXPOSED — SWITCH TO [1] TRACTOR BEAM & PULL OUT THE CORE POWER-UP!';
-      stepSub = `Sector bugs cleared! Fly over the glowing golden Core with [1] Tractor Beam active (${coresInHole + coresCarried}/${CORES_REQUIRED} collected)`;
-    } else if (aliveBugs > 0) {
-      stepTitle = `🔫 CLEAR SECTOR BUGS (${aliveBugs} LEFT) & BUST THE SWISS-CHEESE BUNKER!`;
-      stepSub = `Use [2] Ray Turrets or Right-Click Sonic Shockwave · Once cleared, no more bugs will spawn here!`;
-    } else if (revealedCount < cheeseSectors.length || !caveRevealed) {
-      stepTitle = `📡 SCAN THE ECLIPSED MOON: SELECT [3] AETHERIC RADAR & LEFT-CLICK!`;
-      stepSub = `Sectors Scanned: ${revealedCount}/${cheeseSectors.length} · Cores in Cave Pit: ${coresInHole}/${CORES_REQUIRED} (Carrying: ${coresCarried})`;
+    } else if (holdingCoreInVault) {
+      stepTitle = '🟢 CORE IN SUBSPACE VAULT — FLY OVER THE SEALED CAVE PIT & PRESS [T] / LEFT-CLICK TO DISGORGE!';
+      stepSub = `Cave Pit Progress: ${coresInHole}/${CORES_REQUIRED} Cores · Select [1] Tractor Beam and Left-Click (or press [T]) directly over the Cave Pit!`;
+    } else if (uncollectedCores > 0) {
+      stepTitle = '🟢 STRONGHOLD CLEARED — USE [1] TRACTOR BEAM (LEFT-CLICK / [T]) TO BEAM CORE INTO SUBSPACE VAULT!';
+      stepSub = `Turn on [1] Tractor Beam and hover over the glowing Core to beam it into your Subspace Vault (${coresInHole}/${CORES_REQUIRED} in Cave Pit)`;
+    } else if (aliveBugs > 0 || revealedAliveBunkers > 0) {
+      stepTitle = `🔫 STRONGHOLD BATTLE — BUGS: ${aliveBugs} · BUNKERS: ${revealedAliveBunkers}`;
+      stepSub = 'Right-Click Sonic Shockwave stuns/uncloaks bugs for 2x damage · Destroy ALL bugs & bunkers in sector to unlock Core!';
     } else {
-      stepTitle = `🧀 BUST REMAINING BUNKERS & DROP ALL 4 CORES INTO THE CAVE ENTRANCE (${coresInHole}/${CORES_REQUIRED})`;
-      stepSub = 'Use [2] Ray Turrets to bust bunkers and [1] Tractor Beam to haul Core Power-Ups to the Cave Pit!';
+      stepTitle = '📡 SCAN THE ECLIPSED MOON: SELECT [3] AETHERIC RADAR & LEFT-CLICK!';
+      stepSub = `Strongholds Scanned: ${revealedCount}/${cheeseSectors.length} (24 Bunkers total) · Cores in Cave Pit: ${coresInHole}/${CORES_REQUIRED}`;
     }
 
     banner.innerHTML = `<div>${stepTitle}</div><div style="font-size:11.5px;font-weight:600;color:#bae6fd;margin-top:2px;">${stepSub}</div>`;
@@ -1300,7 +1365,7 @@ window.BlahajCheeseMoon = (function () {
     if (!data || data.type !== 'cheese_event') return;
     if (data.action === 'invader_killed' && data.invId) {
       const inv = invaders.find((x) => x.id === data.invId && x.alive);
-      if (inv) destroyInvader(inv, true);
+      if (inv) damageInvader(inv, 99, true);
     } else if (data.action === 'bunker_destroyed' && data.bunkerId) {
       const b = cheeseBunkers.find((x) => x.id === data.bunkerId && x.alive);
       if (b) damageBunker(b, 99, true);
@@ -1333,53 +1398,48 @@ window.BlahajCheeseMoon = (function () {
 
     const targets = [];
 
-    // 1. Revealed Active Sectors (not yet cleared)
     for (let i = 0; i < cheeseSectors.length; i++) {
       const sec = cheeseSectors[i];
       if (!sec.revealed || sec.cleared) continue;
       targets.push({
         pos: sec.centerPos,
         label: sec.name.toUpperCase(),
-        color: '#38bdf8',
-        icon: '◆'
+        color: '#38bdf8'
       });
     }
 
-    // 2. Exposed Uncollected Core Power-Ups
     for (let i = 0; i < coreOrbs.length; i++) {
       const c = coreOrbs[i];
-      if (!c || c.collected) continue;
+      if (!c || c.inSubspaceVault || c.consumedInPit) continue;
       targets.push({
         pos: c.pos,
-        label: 'CORE POWER-UP',
-        color: '#facc15',
-        icon: '◆'
+        label: 'BEAM CORE [T]',
+        color: '#facc15'
       });
     }
 
-    // 3. Revealed Anomalous Cave Entrance / Interior Crater Focal Point / Hermes Portal
     if (caveRevealed) {
       if (!caveBreached) {
         targets.push({
           pos: CAVE_SURFACE_POS,
-          label: coresInHole >= CORES_REQUIRED ? 'SHOOT CAVE PIT!' : `CAVE PIT (${coresInHole}/${CORES_REQUIRED})`,
-          color: coresInHole >= CORES_REQUIRED ? '#f43f5e' : '#c084fc',
-          icon: '◈'
+          label:
+            coresInHole >= CORES_REQUIRED
+              ? 'SHOOT CAVE PIT!'
+              : `CAVE PIT (${coresInHole}/${CORES_REQUIRED})`,
+          color: coresInHole >= CORES_REQUIRED ? '#f43f5e' : '#c084fc'
         });
       } else if (!relayDeployed) {
         targets.push({
           pos: INTERIOR_FOCAL_POS,
           label: 'CRATER FOCAL RING [E]',
-          color: '#38bdf8',
-          icon: '◈'
+          color: '#38bdf8'
         });
       } else if (hermesPortalGroup) {
         const portalWorldPos = new THREE.Vector3().copy(INTERIOR_CRATER_CENTER).add(hermesPortalGroup.position);
         targets.push({
           pos: portalWorldPos,
           label: 'HERMES PORTAL HOME [E]',
-          color: '#c084fc',
-          icon: '◈'
+          color: '#c084fc'
         });
       }
     }
@@ -1403,7 +1463,6 @@ window.BlahajCheeseMoon = (function () {
       if (behind) {
         sx = w - sx;
         sy = h - sy;
-        // Push toward screen border when behind camera
         const dx = sx - w * 0.5;
         const dy = sy - h * 0.5;
         const mag = Math.hypot(dx, dy) || 1;
@@ -1433,7 +1492,6 @@ window.BlahajCheeseMoon = (function () {
   function update(dt, elapsed, camera) {
     if (!isBuilt) build();
 
-    // Hide banner & waypoints automatically if player left the Cheese Moon
     const ufoState =
       window.BlahajUFO && typeof window.BlahajUFO.getState === 'function'
         ? window.BlahajUFO.getState()
@@ -1449,23 +1507,12 @@ window.BlahajCheeseMoon = (function () {
     updateObjectiveHUD();
     updateWaypointsOnly(camera);
 
-    if (eclipseGroup) {
-      eclipseGroup.lookAt(0, -40, 0);
-    }
-    if (reentryRingMesh) {
-      reentryRingMesh.rotation.z = elapsed * 0.9;
-    }
-    if (craterFocalRingMesh) {
-      craterFocalRingMesh.rotation.z = -elapsed * 1.4;
-    }
-    if (relayDishSpinner && relayDeployed) {
-      relayDishSpinner.rotation.y = elapsed * 1.8;
-    }
-    if (hermesPortalRing && relayDeployed) {
-      hermesPortalRing.rotation.z = elapsed * 2.2;
-    }
+    if (eclipseGroup) eclipseGroup.lookAt(0, -40, 0);
+    if (reentryRingMesh) reentryRingMesh.rotation.z = elapsed * 0.9;
+    if (craterFocalRingMesh) craterFocalRingMesh.rotation.z = -elapsed * 1.4;
+    if (relayDishSpinner && relayDeployed) relayDishSpinner.rotation.y = elapsed * 1.8;
+    if (hermesPortalRing && relayDeployed) hermesPortalRing.rotation.z = elapsed * 2.2;
 
-    // Pulse the Sealed Cave Plug as more Cores are dropped in!
     if (caveRindPlugMesh && !caveBreached && caveRindPlugMesh.material) {
       const heat = coresInHole / CORES_REQUIRED;
       const pulse = 0.5 + 0.5 * Math.sin(elapsed * (3.0 + heat * 12.0));
@@ -1475,24 +1522,23 @@ window.BlahajCheeseMoon = (function () {
       }
     }
 
-    // Animate exposed Core Power-Up Orbs
     for (let i = 0; i < coreOrbs.length; i++) {
       const c = coreOrbs[i];
-      if (c.collected || !c.group) continue;
+      if (c.inSubspaceVault || c.consumedInPit || !c.mesh) continue;
       if (c.outerHalo) {
         c.outerHalo.rotation.x = elapsed * 2.6;
         c.outerHalo.rotation.y = elapsed * 1.9;
       }
     }
 
-    // Gentle New-Player Scan Reminder if they haven't scanned when a scan is needed
     const aliveBugsCount = invaders.filter((x) => x.alive).length;
-    const uncollectedCoresCount = coreOrbs.filter((c) => !c.collected).length;
+    const uncollectedCoresCount = coreOrbs.filter((c) => !c.inSubspaceVault && !c.consumedInPit).length;
     const unrevealedSectorsCount = cheeseSectors.filter((s) => !s.revealed).length;
+    const holdingCoreInVault = !!(ufoState.subspaceVault && ufoState.subspaceVault.kind === 'cheese_core');
     if (
       aliveBugsCount === 0 &&
       uncollectedCoresCount === 0 &&
-      coresCarried === 0 &&
+      !holdingCoreInVault &&
       (unrevealedSectorsCount > 0 || !caveRevealed)
     ) {
       timeSinceLastScan += dt;
@@ -1501,13 +1547,12 @@ window.BlahajCheeseMoon = (function () {
         if (window.showToast) {
           window.showToast(
             '📡 REMINDER: USE YOUR AETHERIC RADAR DISH!',
-            'Press [3] (or Right-Click + Scroll to Aetheric Radar) and Left-Click to scan for the next hidden Bunker Sector or Anomalous Cave!'
+            'Press [3] and Left-Click to scan for the next hidden Bunker Stronghold!'
           );
         }
       }
     }
 
-    // Update particle bursts
     for (let i = bursts.length - 1; i >= 0; i--) {
       const b = bursts[i];
       b.life -= dt;
@@ -1519,7 +1564,30 @@ window.BlahajCheeseMoon = (function () {
       }
     }
 
-    // Update finite Space Invader bugs (NO endless respawning!)
+    // Update enemy Space Invader Pixel-Plasma Torpedoes!
+    for (let i = invaderBolts.length - 1; i >= 0; i--) {
+      const ib = invaderBolts[i];
+      ib.life -= dt;
+      ib.mesh.position.addScaledVector(ib.vel, dt);
+      let hit = ib.life <= 0;
+      if (!hit && ufoState.pos && ib.mesh.position.distanceTo(ufoState.pos) <= 5.2) {
+        hit = true;
+        spawnCheeseBurst(ib.mesh.position, 0xf43f5e, 10, 0.9);
+        if (
+          ufoState.localRole === 'pilot' &&
+          window.BlahajUFO &&
+          typeof window.BlahajUFO.applyImpactDamage === 'function'
+        ) {
+          window.BlahajUFO.applyImpactDamage(11.0, 'Space Invader Pixel-Torpedo', false);
+        }
+      }
+      if (hit) {
+        if (ib.mesh.parent) ib.mesh.parent.remove(ib.mesh);
+        invaderBolts.splice(i, 1);
+      }
+    }
+
+    // Update Tactical Space Invader Bugs (Formation Strafing, Phase-Cloak, Torpedoes & Hull Latching!)
     let latchedCount = 0;
     for (let i = invaders.length - 1; i >= 0; i--) {
       const inv = invaders[i];
@@ -1528,8 +1596,22 @@ window.BlahajCheeseMoon = (function () {
         continue;
       }
 
-      const stepBob = Math.sin(elapsed * 6.0 + inv.phase) > 0 ? 0.55 : -0.55;
-      inv.sprite.scale.set(6.8 + stepBob, 5.2 - stepBob * 0.4, 1);
+      if (inv.stunTimer > 0) {
+        inv.stunTimer = Math.max(0, inv.stunTimer - dt);
+        if (inv.stunTimer <= 0 && inv.mat && inv.baseTex) {
+          inv.mat.map = inv.baseTex;
+        }
+      } else {
+        // Periodic Glitch Phase-Cloak (disrupted by Sonic Shockwave!)
+        inv.cloakPhase += dt * 1.8;
+        inv.cloaked = Math.sin(inv.cloakPhase) > 0.45;
+        if (inv.mat) {
+          inv.mat.opacity = inv.cloaked ? 0.34 : 0.96;
+        }
+      }
+
+      const stepBob = Math.sin(elapsed * 6.5 + inv.phase) > 0 ? 0.6 : -0.6;
+      inv.sprite.scale.set(7.4 + stepBob, 5.6 - stepBob * 0.4, 1);
 
       if (inv.latched && ufoState && ufoState.pos) {
         latchedCount++;
@@ -1540,134 +1622,65 @@ window.BlahajCheeseMoon = (function () {
           Math.random() < dt * 1.5
         ) {
           inv.latched = false;
-          inv.state = 'ambush';
           inv.vel.set((Math.random() - 0.5) * 28, 12, (Math.random() - 0.5) * 28);
         }
       } else if (ufoState && ufoState.pos) {
-        const distToUfo = inv.pos.distanceTo(ufoState.pos);
-        const hasCover = !!(inv.coverBunker && inv.coverBunker.alive);
-
-        // Bugs stay near their own sector bunker until UFO approaches within 48m or their bunker is shattered
-        if (hasCover && distToUfo > 48.0) {
-          inv.state = 'hiding';
-          const hidePos = inv.coverBunker.pos.clone();
-          const strafe = Math.sin(elapsed * 2.6 + inv.phase) * 4.2;
-          hidePos.x += strafe;
-          inv.pos.lerp(hidePos, Math.min(1.0, dt * 3.5));
-        } else if (distToUfo < 85.0) {
-          inv.state = 'ambush';
+        if (inv.stunTimer > 0) {
+          // Stunned bugs wobble helplessly in place for easy Ray Turret follow-up!
+          inv.vel.multiplyScalar(Math.max(0, 1.0 - dt * 4.0));
+          inv.pos.addScaledVector(inv.vel, dt);
+        } else {
           const toUfo = new THREE.Vector3().subVectors(ufoState.pos, inv.pos);
-          const d = toUfo.length();
-          if (d < 6.2) {
-            inv.latched = true;
-            latchedCount++;
-            if (window.showToast) {
-              window.showToast(
-                '👾 SPACE INVADER GRABBED THE HULL!',
-                'Blast with [2] Ray Turrets or Right-Click Sonic Shockwave to shake them off!'
-              );
+          const distToUfo = toUfo.length();
+
+          // Fire pixel-torpedoes when within 95m!
+          if (distToUfo < 95.0 && distToUfo > 12.0) {
+            inv.fireCooldown -= dt;
+            if (inv.fireCooldown <= 0) {
+              inv.fireCooldown = 2.1 + Math.random() * 1.8;
+              spawnInvaderBolt(inv.pos, ufoState.pos);
             }
-          } else if (d > 0.1) {
-            toUfo.normalize();
-            const chaseSpeed = hasCover ? 20.0 : 23.0;
-            inv.vel.lerp(toUfo.multiplyScalar(chaseSpeed), Math.min(1.0, dt * 2.2));
-            inv.pos.addScaledVector(inv.vel, dt);
+          }
+
+          if (distToUfo < 110.0) {
+            if (distToUfo < 6.4) {
+              inv.latched = true;
+              latchedCount++;
+              if (window.showToast) {
+                window.showToast(
+                  '👾 SPACE INVADER LATCHED ONTO THE HULL!',
+                  'Press Right-Click (Sonic Shockwave) or Barrel-Roll with [Shift] to blast them off!'
+                );
+              }
+            } else {
+              // 1980s Stepped Arcade Strafe-Weave while closing in!
+              toUfo.normalize();
+              const sideWeave = new THREE.Vector3(-toUfo.z, 0, toUfo.x)
+                .normalize()
+                .multiplyScalar(Math.sin(elapsed * 4.2 + inv.phase) * 18.0);
+              const desiredVel = toUfo.multiplyScalar(25.0).add(sideWeave);
+              inv.vel.lerp(desiredVel, Math.min(1.0, dt * 3.0));
+              inv.pos.addScaledVector(inv.vel, dt);
+            }
           }
         }
       }
     }
 
     if (ufoState && ufoState.pos) {
-      syncCarriedCoreVisuals(ufoState.pos, elapsed);
-
-      // A. Tractor Beam Core Power-Up Extraction & Cave Pit Dropping!
-      const tractorActive = !!(ufoState.tractorBeam || ufoState.activeModuleIdx === 0);
-      for (let i = 0; i < coreOrbs.length; i++) {
-        const c = coreOrbs[i];
-        if (c.collected || !c.group) continue;
-        const dCore = ufoState.pos.distanceTo(c.pos);
-        const pullRadius = ufoState.tractorBeam ? 32.0 : (ufoState.activeModuleIdx === 0 ? 18.0 : 0);
-        if (dCore < pullRadius) {
-          // Pull the glowing Core Power-Up straight toward the UFO's lower Tractor Beam dish!
-          c.pos.lerp(ufoState.pos, Math.min(1.0, dt * 5.5));
-          if (dCore < 7.5) {
-            c.collected = true;
-            c.group.visible = false;
-            coresCarried++;
-            const sec = cheeseSectors.find((s) => s.id === c.sectorId);
-            if (sec) sec.coreCollected = true;
-
-            spawnCheeseBurst(ufoState.pos, 0xfacc15, 20, 1.2);
-            if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
-
-            // Bonus: Pulling a Core Power-Up recharges Gravitronic Shields!
-            if (typeof ufoState.shieldHp === 'number') {
-              ufoState.shieldHp = Math.min(ufoState.maxShieldHp || 100, ufoState.shieldHp + 40);
-            }
-
-            if (window.showToast) {
-              window.showToast(
-                `🟢⚡ CORE POWER-UP EXTRACTED! (Carrying: ${coresCarried})`,
-                caveRevealed
-                  ? 'Fly over the Sealed Cave Entrance with your [1] Tractor Beam to drop it into the pit!'
-                  : 'Shields +40%! Switch to [3] Aetheric Radar & Left-Click to locate the Anomalous Cave Entrance!'
-              );
-            }
-            updateObjectiveHUD();
-          }
-        }
-      }
-
-      // B. Dropping Carried Core Power-Ups into the Anomalous Sealed Cave Entrance with Tractor Beam!
-      if (coresCarried > 0 && !caveBreached) {
-        const dCave = ufoState.pos.distanceTo(CAVE_SURFACE_POS);
-        if (dCave < (tractorActive ? 26.0 : 14.0)) {
-          if (!caveRevealed) {
-            caveRevealed = true;
-            if (caveBeaconMesh) caveBeaconMesh.visible = true;
-          }
-          const droppedNow = coresCarried;
-          coresInHole = Math.min(CORES_REQUIRED, coresInHole + droppedNow);
-          coresCarried = 0;
-          updateCaveCoreSocketsVisual();
-          spawnCheeseBurst(CAVE_SURFACE_POS, 0xc084fc, 24, 1.5);
-          if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
-
-          if (coresInHole >= CORES_REQUIRED) {
-            if (!hasShownCriticalMassThought) {
-              hasShownCriticalMassThought = true;
-              showPausedThought({
-                badge: '⚡💣 INNER THOUGHT · CRITICAL MASS REACHED!',
-                title: 'All 4 Core Power-Ups Are Packed in the Cave Pit!',
-                body:
-                  'The Sealed Cave Entrance is vibrating at <strong>Critical Mass (4/4 Cores)</strong>!<br><br>' +
-                  'Let’s switch to <strong>🔫 Ray Turrets ([2])</strong> and <strong>fire a single laser shot into the glowing cave pit</strong> to detonate the pile and blast open the shaft into the moon’s interior!',
-                hint: '💡 Switch to [2] Ray Turrets and shoot the glowing Sealed Cave Entrance pit!'
-              });
-            }
-          } else if (window.showToast) {
-            window.showToast(
-              `🕳️⚡ CORE DROPPED INTO CAVE PIT! (${coresInHole}/${CORES_REQUIRED})`,
-              `Need ${CORES_REQUIRED - coresInHole} more Core Power-Up${CORES_REQUIRED - coresInHole === 1 ? '' : 's'} to reach Critical Mass! Scan [3] for remaining bunkers.`
-            );
-          }
-          updateObjectiveHUD();
-        }
-      }
-
-      // C. Latched Invader Drag & Damage
+      // Latched Invader Drag & Sustained Hull Grapple Damage
       if (latchedCount > 0 && ufoState.vel) {
-        ufoState.vel.multiplyScalar(Math.max(0.45, 1.0 - latchedCount * 0.12 * dt * 5.0));
+        ufoState.vel.multiplyScalar(Math.max(0.42, 1.0 - latchedCount * 0.14 * dt * 5.0));
         if (
           ufoState.localRole === 'pilot' &&
           window.BlahajUFO &&
           typeof window.BlahajUFO.applyImpactDamage === 'function'
         ) {
-          window.BlahajUFO.applyImpactDamage(4.5 * latchedCount, 'Space Invader Hull Grapple', false);
+          window.BlahajUFO.applyImpactDamage(6.5 * latchedCount, 'Space Invader Hull Grapple', false);
         }
       }
 
-      // D. Planetoid Surface & Subterranean Interior Crater Collision
+      // Planetoid Surface & Subterranean Interior Crater Collision
       const distToCraterCenter = ufoState.pos.distanceTo(INTERIOR_CRATER_CENTER);
       const horizDistToShaft = Math.hypot(
         ufoState.pos.x - CAVE_SURFACE_POS.x,
@@ -1677,14 +1690,11 @@ window.BlahajCheeseMoon = (function () {
         caveBreached && (horizDistToShaft < 19.5 || distToCraterCenter < INTERIOR_CRATER_RADIUS + 4.0);
 
       if (inBreachShaftOrCrater && ufoState.pos.y < CAVE_SURFACE_POS.y + 4.0) {
-        // Inside the Breach Shaft or Subterranean Interior Crater Bowl!
         if (ufoState.pos.y < INTERIOR_CRATER_CENTER.y + 8.0) {
-          // Constrain smoothly inside the spherical Interior Crater Bowl
           const fromCrater = new THREE.Vector3().subVectors(ufoState.pos, INTERIOR_CRATER_CENTER);
           const dC = fromCrater.length();
           const maxCraterR = INTERIOR_CRATER_RADIUS - 5.2;
           if (dC > maxCraterR && dC > 0.01) {
-            // Allow exit up through the top breach hole (horizDistToShaft < 16.5 && y > INTERIOR_CRATER_CENTER.y + 12)
             const isTopExit = horizDistToShaft < 16.5 && ufoState.pos.y > INTERIOR_CRATER_CENTER.y + 10.0;
             if (!isTopExit) {
               const inwardN = fromCrater.divideScalar(dC);
@@ -1695,7 +1705,6 @@ window.BlahajCheeseMoon = (function () {
               }
             }
           }
-          // Floor of the Interior Crater Bowl
           const floorY = INTERIOR_FOCAL_POS.y + 2.2;
           if (ufoState.pos.y < floorY) {
             ufoState.pos.y = floorY;
@@ -1703,7 +1712,6 @@ window.BlahajCheeseMoon = (function () {
           }
         }
       } else {
-        // Outer Spherical Planetoid & Trench Wall Collision
         const rel = new THREE.Vector3().subVectors(ufoState.pos, PLANET_CENTER);
         const distFromCenter = rel.length();
         if (distFromCenter > 1.0) {
@@ -1722,7 +1730,7 @@ window.BlahajCheeseMoon = (function () {
         }
       }
 
-      // E. Collide with Revealed Intact Swiss-Cheese Bunkers
+      // Collide with Revealed Intact Swiss-Cheese Bunkers (ramming bunkers damages your shields/hull instead of free-killing them!)
       for (let i = 0; i < cheeseBunkers.length; i++) {
         const b = cheeseBunkers[i];
         if (!b.alive) continue;
@@ -1734,16 +1742,20 @@ window.BlahajCheeseMoon = (function () {
         if (dB < minB && dB > 0.01) {
           const nB = diffB.divideScalar(dB);
           ufoState.pos.copy(b.pos).addScaledVector(nB, minB + 0.2);
-          if (ufoState.vel) ufoState.vel.addScaledVector(nB, 14.0);
-          damageBunker(b, 2, false);
+          if (ufoState.vel) ufoState.vel.addScaledVector(nB, 16.0);
+          if (
+            ufoState.localRole === 'pilot' &&
+            window.BlahajUFO &&
+            typeof window.BlahajUFO.applyImpactDamage === 'function'
+          ) {
+            window.BlahajUFO.applyImpactDamage(9.0, 'Swiss Cheese Bunker Impact', false);
+          }
         }
       }
 
-      // F. Inside Interior Crater: Check Proximity to Focal Ring ([E] Deploy Relay Dish) & Hermes' Direct Portal
       if (caveBreached && ufoState.localRole === 'pilot') {
         const dFocal = ufoState.pos.distanceTo(INTERIOR_FOCAL_POS);
         if (!relayDeployed && dFocal < 18.0) {
-          // Show interaction prompt to deploy Relay Dish with [E]
           const promptEl = document.getElementById('interaction-prompt');
           const textEl = document.getElementById('interaction-text');
           if (promptEl && textEl) {
@@ -1763,7 +1775,6 @@ window.BlahajCheeseMoon = (function () {
         }
       }
 
-      // G. Emergency Orbital Re-Entry Gate back to Deep Space
       if (ufoState.localRole === 'pilot' && ufoState.pos.distanceTo(REENTRY_POS) < REENTRY_RADIUS) {
         if (window.BlahajGame && typeof window.BlahajGame.exitCheeseMoon === 'function') {
           window.BlahajGame.exitCheeseMoon(true);
@@ -1772,7 +1783,6 @@ window.BlahajCheeseMoon = (function () {
     }
   }
 
-  // Handle [E] key inside Cheese Moon (Deploy Relay Dish in Interior Crater or Enter Hermes' Direct Portal)
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'e' && e.key !== 'E') return;
     const ufoState =
@@ -1807,6 +1817,9 @@ window.BlahajCheeseMoon = (function () {
     updateWaypointsOnly,
     onEnterZone,
     onAethericRadarScan,
+    getExposedCores: () => coreOrbs,
+    onDisgorgeCoreFromVault,
+    resetEncounterOnDefeat,
     getScene: () => (isBuilt ? cheeseScene : build()),
     getPlanetCenter: () => PLANET_CENTER,
     getSurfaceRadiusAtNormal: getPlanetRadiusAtNormal,
@@ -1816,7 +1829,6 @@ window.BlahajCheeseMoon = (function () {
     getStats: () => ({
       invadersClearedCount,
       bunkersDestroyedCount,
-      coresCarried,
       coresInHole,
       caveRevealed,
       caveBreached,
@@ -1837,7 +1849,6 @@ window.BlahajCheeseMoon = (function () {
           tier: 1
         });
       }
-      // Show revealed bunkers
       for (let i = 0; i < cheeseBunkers.length; i++) {
         const b = cheeseBunkers[i];
         if (!b || !b.alive) continue;
@@ -1845,13 +1856,11 @@ window.BlahajCheeseMoon = (function () {
         if (sec && !sec.revealed) continue;
         blips.push({ x: b.pos.x, y: b.pos.y, z: b.pos.z, kind: 'monolith', tier: 2 });
       }
-      // Show exposed uncollected Core Power-Ups as bright gold gate/core blips
       for (let i = 0; i < coreOrbs.length; i++) {
         const c = coreOrbs[i];
-        if (!c || c.collected) continue;
+        if (!c || c.inSubspaceVault || c.consumedInPit) continue;
         blips.push({ x: c.pos.x, y: c.pos.y, z: c.pos.z, kind: 'gate', tier: 0 });
       }
-      // Show Anomalous Cave Entrance / Interior Crater Focal Point once revealed
       if (caveRevealed) {
         const targetPos = caveBreached ? INTERIOR_FOCAL_POS : CAVE_SURFACE_POS;
         blips.push({ x: targetPos.x, y: targetPos.y, z: targetPos.z, kind: 'gate', tier: 0 });
@@ -1866,7 +1875,7 @@ window.BlahajCheeseMoon = (function () {
         ? 'SHOOT CAVE PIT!'
         : activeInvaders > 0
         ? `BUGS: ${activeInvaders}`
-        : `CORES: ${coresInHole + coresCarried}/${CORES_REQUIRED}`;
+        : `CORES: ${coresInHole}/${CORES_REQUIRED}`;
 
       return {
         label,

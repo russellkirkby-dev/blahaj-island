@@ -1737,6 +1737,15 @@ window.BlahajUFO = (function () {
         c.mesh.scale.set(1, 1, 1);
         c.mesh.visible = true;
       }
+    } else if (item.kind === 'cheese_core' && item.ref) {
+      if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.onDisgorgeCoreFromVault === 'function') {
+        const consumedInPit = window.BlahajCheeseMoon.onDisgorgeCoreFromVault(item.ref, state.pos);
+        playBeamCaptureChime(true);
+        updateAvionicsButtonsUI();
+        updateAvionicsHUD();
+        broadcastState(true);
+        if (consumedInPit) return;
+      }
     }
 
     playBeamCaptureChime(true);
@@ -2268,11 +2277,6 @@ window.BlahajUFO = (function () {
       state.tractorBeam = false;
       if (tractorBeamMesh) tractorBeamMesh.visible = false;
       updateAvionicsButtonsUI();
-    } else if (activeModuleIdx === 0 && state.inCheeseMoon && !state.tractorBeam) {
-      // On the Cheese Moon, switching to [1] Tractor Beam automatically activates the beam cone for easy Core Power-Up hauling!
-      state.tractorBeam = true;
-      if (tractorBeamMesh) tractorBeamMesh.visible = true;
-      updateAvionicsButtonsUI();
     }
     broadcastState(true);
     renderModuleBelt();
@@ -2486,6 +2490,31 @@ window.BlahajUFO = (function () {
     state.shieldHp = state.maxShieldHp;
     state.shieldRegenDelay = 0;
     state.impactCooldown = 0;
+    state.beamingTarget = null;
+    if (state.subspaceVault && state.subspaceVault.kind === 'cheese_core') {
+      state.subspaceVault = null;
+    }
+    state.tractorBeam = false;
+    if (tractorBeamMesh) tractorBeamMesh.visible = false;
+
+    // If defeated on the Cheese Planetoid (where you checkpointed in Mojo Hyperspace), return to the Hyperspace Crossroads!
+    if (state.inCheeseMoon && window.BlahajGame && typeof window.BlahajGame.enterHyperspace === 'function') {
+      if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.resetEncounterOnDefeat === 'function') {
+        window.BlahajCheeseMoon.resetEncounterOnDefeat();
+      }
+      if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
+      if (window.showToast) {
+        window.showToast(
+          '💥⚡ HULL BREACH — EMERGENCY RECALL TO HYPERSPACE!',
+          'Space Invader bugs overwhelmed the S.S. Shonk-Saucer! Bounced back to your Mojo Hyperspace Crossroads checkpoint!'
+        );
+      }
+      updateAvionicsButtonsUI();
+      updateAvionicsHUD();
+      window.BlahajGame.enterHyperspace(true);
+      return;
+    }
+
     exitUFO();
     resetToTracyIsle();
     if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
@@ -3260,6 +3289,26 @@ window.BlahajUFO = (function () {
             if (hd < bestD) {
               bestD = hd;
               candidate = { kind: 'carrot', title: 'Beach-Shorts Carrot', icon: '🥕', ref: c, startPos: c.mesh.position.clone() };
+            }
+          }
+        }
+
+        if (!candidate && state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getExposedCores === 'function') {
+          const cores = window.BlahajCheeseMoon.getExposedCores();
+          let bestCoreD = 15.5;
+          for (let ci = 0; ci < cores.length; ci++) {
+            const core = cores[ci];
+            if (!core || core.inSubspaceVault || core.consumedInPit || !core.mesh || !core.mesh.visible) continue;
+            const d3 = core.mesh.position.distanceTo(state.pos);
+            if (d3 < bestCoreD) {
+              bestCoreD = d3;
+              candidate = {
+                kind: 'cheese_core',
+                title: core.title || 'Volatile Cheese-Core',
+                icon: '🧀⚡',
+                ref: core,
+                startPos: core.mesh.position.clone()
+              };
             }
           }
         }
