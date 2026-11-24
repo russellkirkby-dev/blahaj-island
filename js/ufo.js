@@ -3440,10 +3440,38 @@ window.BlahajUFO = (function () {
           state.vel.z += (targetVel.z - state.vel.z) * Math.min(1.0, dt * resp);
         }
 
-        state.pos.addScaledVector(state.vel, dt);
-        state.pos.x = Math.max(-355, Math.min(355, state.pos.x));
-        state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
-        state.pos.y = Math.max(-165, Math.min(175, state.pos.y));
+        if (state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getPlanetCenter === 'function') {
+          const pCenter = window.BlahajCheeseMoon.getPlanetCenter();
+          const oldRadial = new THREE.Vector3().subVectors(state.pos, pCenter);
+          const oldDist = oldRadial.length() || 1;
+          oldRadial.divideScalar(oldDist);
+
+          state.pos.addScaledVector(state.vel, dt);
+
+          const newRadial = new THREE.Vector3().subVectors(state.pos, pCenter);
+          const newDist = newRadial.length() || 1;
+          newRadial.divideScalar(newDist);
+
+          // Spherical Planetoid Gravity Curvature: rotate ship frame & velocity by the exact arc traveled around the planetoid,
+          // so flying straight follows the curved canyon floor automatically in a 360° circle around the planetoid!
+          const gravBendQuat = new THREE.Quaternion().setFromUnitVectors(oldRadial, newRadial);
+          state.spaceQuat.premultiply(gravBendQuat).normalize();
+          state.vel.applyQuaternion(gravBendQuat);
+
+          // Keep outer orbital ceiling around planetoid center (max 275m from center)
+          if (newDist > 275.0) {
+            state.pos.copy(pCenter).addScaledVector(newRadial, 275.0);
+          }
+          const syncedE = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
+          state.pitch = syncedE.x;
+          state.yaw = syncedE.y;
+          state.roll = syncedE.z;
+        } else {
+          state.pos.addScaledVector(state.vel, dt);
+          state.pos.x = Math.max(-355, Math.min(355, state.pos.x));
+          state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
+          state.pos.y = Math.max(-165, Math.min(175, state.pos.y));
+        }
 
         // After clearing all destructible asteroids in Deep Space, holding [Shift] (or Mojo Hyperdrive) for 5s warps to the Swiss Cheese Planetoid!
         if (!state.inCheeseMoon && window.BlahajSpace && typeof window.BlahajSpace.getSectorStatus === 'function') {
@@ -4027,12 +4055,13 @@ window.BlahajUFO = (function () {
       state.hatchTargetOpen = false;
       state.hatchOpenProg = 0.0;
       state.orbitalCeilingReached = true;
-      state.pos.set(0, 32.0, 155.0);
-      state.vel.set(0, -2.0, -14.0);
+      // Spawn right inside the North Meridian Canyon Trench (radius ~145m from planet center (0,-155,0)), aligned tangent to the curved trench floor!
+      state.pos.set(0, -10.0, 0.0);
+      state.vel.set(0, 0, -14.7);
       state.yaw = Math.PI;
-      state.pitch = 0.08;
+      state.pitch = 0;
       state.roll = 0;
-      state.spaceQuat.setFromEuler(new THREE.Euler(0.08, Math.PI, 0, 'YXZ')).normalize();
+      state.spaceQuat.setFromEuler(new THREE.Euler(0, Math.PI, 0, 'YXZ')).normalize();
       state.remoteTargetQuat.copy(state.spaceQuat);
       state.spaceThrottle = 0.35;
       state.spaceMouseDx = 0;
