@@ -3085,7 +3085,6 @@ window.BlahajUFO = (function () {
         const autoLevelRoll = !!gs.ufoSpaceAutoLevelRoll;
         const allowSpaceVerticalKeys = !!gs.ufoSpaceVerticalKeys;
         const invertSpacePitch = !!gs.ufoSpaceInvertPitch;
-        const qeMode = gs.ufoSpaceQEMode || 'yaw'; // 'yaw' (Rudder) | 'strafe'
         const mouseXMode = gs.ufoSpaceMouseXMode || 'roll'; // 'roll' (Flight Stick) | 'yaw'
         const sens = typeof gs.mouseSens === 'number' ? gs.mouseSens : 1.0;
 
@@ -3102,16 +3101,16 @@ window.BlahajUFO = (function () {
 
         // Pitch: W/S + Mouse Y
         const pitchSign = invertSpacePitch ? -1 : 1;
-        const keyPitchRate = fwdInput * 1.55 * pitchSign;
+        const keyPitchRate = fwdInput * 1.65 * pitchSign;
         const mousePitchVel = (mdy * 0.0022 * sens * (gs.invertY ? -1 : 1)) / Math.max(0.008, dt);
         const targetPitchRate = keyPitchRate + Math.max(-2.6, Math.min(2.6, mousePitchVel));
         state.spaceAngVelPitch += (targetPitchRate - state.spaceAngVelPitch) * Math.min(1.0, dt * 10.0);
 
-        // Rudder Yaw: Q/E (strafeInput: -1 = Q / Turn Left, +1 = E / Turn Right -> +Y = Left, -Y = Right)
-        const keyYawRate = (qeMode === 'yaw') ? (-strafeInput * 1.45) : 0;
+        // Pure Rudder Yaw (Flat Spin): Q/E turns ship horizontally around its vertical axis (180° in ~1.5s, 360° in ~3s)
+        const keyYawRate = -strafeInput * 2.1;
         const mouseYawVel = (mouseXMode === 'yaw') ? ((-mdx * 0.0024 * sens) / Math.max(0.008, dt)) : 0;
         const targetYawRate = keyYawRate + Math.max(-2.6, Math.min(2.6, mouseYawVel));
-        state.spaceAngVelYaw += (targetYawRate - state.spaceAngVelYaw) * Math.min(1.0, dt * 10.0);
+        state.spaceAngVelYaw += (targetYawRate - state.spaceAngVelYaw) * Math.min(1.0, dt * 12.0);
 
         // Roll (Aileron / Barrel Roll): Mouse X (by default) + A/D fallback/alternative!
         const keyRollRate = -turnInput * 2.45;
@@ -3140,25 +3139,22 @@ window.BlahajUFO = (function () {
 
         // 2. Derive True 3D Ship Basis Vectors from Quaternion
         const shipFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(state.spaceQuat).normalize();
-        const shipRight = new THREE.Vector3(-1, 0, 0).applyQuaternion(state.spaceQuat).normalize();
         const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(state.spaceQuat).normalize();
 
-        // 3. Separate Throttle Speed (Mouse Wheel) + Afterburner (Shift) + Lateral Strafe (Q/E)
+        // 3. Separate Throttle Speed (Mouse Wheel) + Afterburner (Shift) — pure forward/reverse flight along nose!
         const hyperSelected = activeModuleIdx === 3;
         const boostMult = turbo ? ((hyperSelected || state.hyperdriveTimer > 0) ? 2.25 : 1.75) : 1.0;
         const thr = state.spaceThrottle || 0;
         const cruiseSpeed = thr * 42.0 * boostMult;
-        const strafeVel = (qeMode === 'strafe') ? (strafeInput * 26.0 * (turbo ? 1.45 : 1.0)) : 0;
 
         const targetVel = new THREE.Vector3();
         targetVel.addScaledVector(shipFwd, cruiseSpeed);
-        if (strafeVel !== 0) targetVel.addScaledVector(shipRight, strafeVel);
         if (allowSpaceVerticalKeys && upInput !== 0) {
           targetVel.addScaledVector(shipUp, upInput * 22.0 * (turbo ? 1.45 : 1.0));
         }
 
         if (spaceFlightStyle === 'newtonian') {
-          const hasInput = Math.abs(thr) > 0.02 || strafeVel !== 0 || (allowSpaceVerticalKeys && upInput !== 0);
+          const hasInput = Math.abs(thr) > 0.02 || (allowSpaceVerticalKeys && upInput !== 0);
           if (hasInput) {
             state.vel.x += (targetVel.x - state.vel.x) * Math.min(1.0, dt * (turbo ? 3.8 : 2.6));
             state.vel.y += (targetVel.y - state.vel.y) * Math.min(1.0, dt * (turbo ? 3.8 : 2.6));
@@ -3167,8 +3163,8 @@ window.BlahajUFO = (function () {
             state.vel.multiplyScalar(Math.max(0, 1.0 - dt * 0.2));
           }
         } else {
-          // Coupled Flight Assist: crisp aerodynamic-like tracking along your nose
-          const resp = turbo ? 5.2 : 3.6;
+          // Coupled Flight Assist: nose-aligned velocity so rudder turns pivot cleanly with zero sideways slide!
+          const resp = turbo ? 7.5 : 6.0;
           state.vel.x += (targetVel.x - state.vel.x) * Math.min(1.0, dt * resp);
           state.vel.y += (targetVel.y - state.vel.y) * Math.min(1.0, dt * resp);
           state.vel.z += (targetVel.z - state.vel.z) * Math.min(1.0, dt * resp);
@@ -3588,7 +3584,7 @@ window.BlahajUFO = (function () {
           state.spacePanPitch += (0 - (state.spacePanPitch || 0)) * Math.min(1.0, dt * 7.5);
         }
         if (state.viewMode === 'inside') {
-          if (!camState.isRightDown && !camState.isMiddleDown) {
+          if (!camState.isMiddleDown) {
             state.cockpitLookYaw += (0 - state.cockpitLookYaw) * Math.min(1.0, dt * 7.5);
             state.cockpitLookPitch += (0 - state.cockpitLookPitch) * Math.min(1.0, dt * 7.5);
           }
@@ -3600,8 +3596,8 @@ window.BlahajUFO = (function () {
           eyeAnchor.getWorldPosition(camWorld);
           const eyeLocalX = state.localRole === 'passenger' ? 1.05 : -1.05;
           const lookDist = 11.4;
-          const panY = state.inSpace ? (state.cockpitLookYaw + (state.spacePanYaw || 0)) : state.cockpitLookYaw;
-          const panP = state.inSpace ? (state.cockpitLookPitch - (state.spacePanPitch || 0)) : state.cockpitLookPitch;
+          const panY = state.cockpitLookYaw;
+          const panP = state.cockpitLookPitch;
           const lx = eyeLocalX + Math.sin(panY) * Math.cos(panP) * lookDist;
           const ly = 1.88 + Math.sin(panP) * lookDist - 0.18;
           const lz = 0.98 + Math.cos(panY) * Math.cos(panP) * lookDist;
@@ -3610,19 +3606,22 @@ window.BlahajUFO = (function () {
           const shipUpCam = new THREE.Vector3(0, 1, 0).applyQuaternion(ufoGroup.quaternion).normalize();
           camState.customOverride = { pos: camWorld, lookAt: lookWorld, up: state.inSpace ? shipUpCam : null };
         } else if (state.inSpace) {
-          // Ship-Locked Flight-Sim Chase Camera in Space (with Middle-Click Free-Look Pan that auto-returns!)
+          // Ship-Locked Flight-Sim Chase Camera in Space (Middle-Click orbits centered directly on the ship!)
           ufoGroup.updateMatrixWorld(true);
           const pYaw = state.spacePanYaw || 0;
           const pPitch = state.spacePanPitch || 0;
+          const panBlend = Math.min(1.0, Math.hypot(pYaw, pPitch) * 2.4);
           const camDist = 17.2;
+          const orbitCenterY = 1.2;
           const localCamOffset = new THREE.Vector3(
             -Math.sin(pYaw) * Math.cos(pPitch) * camDist,
-            4.3 + Math.sin(pPitch) * camDist * 0.72,
+            orbitCenterY + (1 - panBlend) * 3.1 + Math.sin(pPitch) * camDist * 0.85,
             -Math.cos(pYaw) * Math.cos(pPitch) * camDist
           );
           const chasePos = localCamOffset.clone();
           ufoGroup.localToWorld(chasePos);
-          const chaseLook = new THREE.Vector3(0, 1.4, 24.0);
+          // Blend look target from ahead-of-nose (when flying straight) to the exact ship center (when Middle-Click orbiting)!
+          const chaseLook = new THREE.Vector3(0, 1.2 + (1 - panBlend) * 0.2, (1 - panBlend) * 24.0);
           ufoGroup.localToWorld(chaseLook);
           const shipUpCam = new THREE.Vector3(0, 1, 0).applyQuaternion(ufoGroup.quaternion).normalize();
           camState.customOverride = { pos: chasePos, lookAt: chaseLook, up: shipUpCam };

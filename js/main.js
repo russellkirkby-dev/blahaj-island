@@ -4880,7 +4880,7 @@
 
     function isFinCursorActive() {
       if (isUsingBinoculars || isUsingTelescope) return false;
-      if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && !isAnyModalOpen()) {
+      if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && !isAnyModalOpen()) {
         return false;
       }
       return !!(camState.isPointerLocked && (camState.isRightDown || isAnyModalOpen()));
@@ -5167,9 +5167,9 @@
         return;
       }
 
-      // Hold Middle-Click (button 1) in Deep Space to pan camera around (auto-returns on release!)
+      // Hold Middle-Click (button 1) inside the spaceship for mouse look / camera pan (auto-returns on release!)
       if (e.button === 1) {
-        if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
+        if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
           e.preventDefault();
           camState.isMiddleDown = true;
         }
@@ -5177,7 +5177,11 @@
       }
 
       if (e.button === 2) {
-        // Hold Right-Click while IN GAME brings up the Shark Fin Cursor!
+        // Reserve Right-Click inside the spaceship for future controls (do nothing for now!)
+        if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && !isAnyModalOpen()) {
+          return;
+        }
+        // Hold Right-Click while IN GAME on foot/boat brings up the Shark Fin Cursor!
         camState.isRightDown = true;
         camState.isRightDragging = false;
         syncCaptureUI();
@@ -5360,22 +5364,22 @@
         return;
       }
 
-      // Sub-mode 1.5: UFO Cockpit Pan (Hold Right-Click in Inside View to look around, auto-recenters on release!)
-      if (camState.isRightDown && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && window.BlahajUFO.panCockpit) {
-        window.BlahajUFO.panCockpit(dx, dy);
-        return;
-      }
-
-      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll; Hold Middle-Click to Pan Camera!)
-      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
-        if (camState.isMiddleDown && window.BlahajUFO.panSpaceCamera) {
+      // Sub-mode 1.5: UFO Mouse Look (Hold Middle-Click inside spaceship for everything: Cockpit & Space Outside views!)
+      if (camState.isMiddleDown && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
+        if (window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && window.BlahajUFO.panCockpit) {
+          window.BlahajUFO.panCockpit(dx, dy);
+          return;
+        }
+        if (currentZone === 'space' && window.BlahajUFO.panSpaceCamera) {
           window.BlahajUFO.panSpaceCamera(dx, dy);
           return;
         }
-        if (window.BlahajUFO.applySpaceMouseLook) {
-          window.BlahajUFO.applySpaceMouseLook(dx, dy);
-          return;
-        }
+      }
+
+      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll)
+      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
+        window.BlahajUFO.applySpaceMouseLook(dx, dy);
+        return;
       }
 
       // Sub-mode 2: Camera Orbit Mode (default IN GAME)
