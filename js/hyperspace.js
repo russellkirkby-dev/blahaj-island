@@ -22,10 +22,10 @@ window.BlahajHyperspace = (function () {
   const nebulaClouds = [];
   const stargateSlabs = [];
   const godlikeApparitions = [];
-  const founderFaceTextures = [];
-  let activePeeringFace = null;
-  let peeringFaceTimer = 3.5;
-  let nextFounderFaceIdx = 0;
+  const founderSharkModels = [];
+  let activePeeringShark = null;
+  let peeringSharkTimer = 3.0;
+  let nextFounderSharkIdx = 0;
 
   let particlePoints = null;
   let particleAngles = null;
@@ -401,24 +401,60 @@ window.BlahajHyperspace = (function () {
       stargateSlabs.push({ mesh: slab, side, yOffset: (i % 4 - 1.5) * 24.0 });
     }
 
-    // 4. Colossal Frozen-in-Time Wireframe Relics + Occasional Peering Founder Blåhaj Faces!
+    // 4. Colossal Frozen-in-Time Wireframe Relics + Occasional Colossal 3D Founder Blåhaj Models!
     godlikeApparitions.length = 0;
-    founderFaceTextures.length = 0;
-    const founderFaceDefs = [
-      { img: 'assets/gallery/Hermes.png', tint: 0x38bdf8, title: 'HERMES', relic: 'astrolabe', ang: 0.35 },
-      { img: 'assets/gallery/Solomon.png', tint: 0xfacc15, title: 'SOLOMON', relic: 'teapot', ang: 2.65 },
-      { img: 'assets/gallery/Hiram.png', tint: 0xf59e0b, title: 'HIRAM', relic: 'allen_key', ang: -0.55 },
-      { img: 'assets/gallery/Nimue.png', tint: 0xc084fc, title: 'NIMUE', relic: 'shark', ang: -2.45 }
+    founderSharkModels.length = 0;
+    const founderDefs = [
+      { id: 'hermes', tint: 0x38bdf8, relic: 'astrolabe', ang: 0.35 },
+      { id: 'solomon', tint: 0xfacc15, relic: 'teapot', ang: 2.65 },
+      { id: 'hiram', tint: 0xf59e0b, relic: 'allen_key', ang: -0.55 },
+      { id: 'nimue', tint: 0xc084fc, relic: 'shark', ang: -2.45 }
     ];
 
-    founderFaceDefs.forEach((fDef) => {
-      founderFaceTextures.push({
-        tex: createGodlikePortraitTexture(fDef.img, fDef.tint, fDef.title),
-        tint: fDef.tint
-      });
-    });
+    const loreSharks = (window.BLAHAJ_LORE && window.BLAHAJ_LORE.sharks) ? window.BLAHAJ_LORE.sharks : {};
+    if (window.BlahajModels && typeof window.BlahajModels.createPlushShark === 'function') {
+      founderDefs.forEach((fDef) => {
+        const cfg = loreSharks[fDef.id];
+        if (!cfg) return;
+        const sharkGroup = window.BlahajModels.createPlushShark(cfg, 0, []);
+        const mats = [];
+        // Make the colossal 3D shark soft, ethereal, and slightly out-of-focus against the cosmic mist
+        sharkGroup.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const matList = Array.isArray(child.material) ? child.material : [child.material];
+            matList.forEach((m) => {
+              m.transparent = true;
+              m.opacity = 0.0;
+              m.depthWrite = false;
+              if (m.emissive) {
+                m.emissive.setHex(fDef.tint);
+                m.emissiveIntensity = 0.35;
+              }
+              mats.push(m);
+            });
+          }
+        });
+        // Add a soft cosmic aura sphere around the colossal shark's head so it feels dreamy & out of focus
+        const auraMat = new THREE.MeshBasicMaterial({
+          color: fDef.tint,
+          transparent: true,
+          opacity: 0.0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const auraSphere = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 12), auraMat);
+        auraSphere.position.set(0, 0.2, 0.8);
+        sharkGroup.add(auraSphere);
+        mats.push(auraMat);
 
-    founderFaceDefs.forEach((aDef, idx) => {
+        sharkGroup.scale.setScalar(26.0);
+        sharkGroup.visible = false;
+        hyperScene.add(sharkGroup);
+        founderSharkModels.push({ group: sharkGroup, mats, auraMat, tint: fDef.tint });
+      });
+    }
+
+    founderDefs.forEach((aDef, idx) => {
       const appGroup = new THREE.Group();
 
       // Slow-spinning divine halo ring
@@ -438,7 +474,7 @@ window.BlahajHyperspace = (function () {
       const relicMesh = buildColossalFrozenRelic(aDef.relic, aDef.tint);
       appGroup.add(relicMesh);
 
-      const az = -80.0 - idx * (totalLen / founderFaceDefs.length);
+      const az = -80.0 - idx * (totalLen / founderDefs.length);
       const rad = TUNNEL_RADIUS * 1.48;
       appGroup.position.set(Math.cos(aDef.ang) * rad, Math.sin(aDef.ang) * rad * 0.65, az);
       appGroup.lookAt(new THREE.Vector3(0, 0, az + 65.0));
@@ -915,65 +951,66 @@ window.BlahajHyperspace = (function () {
       }
     }
 
-    // 4B. Occasional Colossal Founder Blue Blåhaj Faces peering into the tunnel before being whisked away by lightning!
-    if (activePeeringFace) {
-      const pf = activePeeringFace;
-      pf.z += TUNNEL_SPEED * (pf.whisking ? 1.35 : 0.44) * dt;
-      const center = getTunnelCenterAt(pf.z, elapsed);
-      pf.sprite.position.set(
-        center.x + Math.cos(pf.ang) * pf.rad,
-        center.y + Math.sin(pf.ang) * pf.rad * 0.72,
-        pf.z
+    // 4B. Occasional Colossal 3D Founder Blåhaj Models staring in through the tunnel wall before being whisked away by lightning!
+    if (activePeeringShark) {
+      const ps = activePeeringShark;
+      ps.z += TUNNEL_SPEED * (ps.whisking ? 1.35 : 0.36) * dt;
+      const center = getTunnelCenterAt(ps.z, elapsed);
+      ps.model.group.position.set(
+        center.x + Math.cos(ps.ang) * ps.rad,
+        center.y + Math.sin(ps.ang) * ps.rad * 0.68,
+        ps.z
       );
 
-      if (!pf.whisking) {
-        // Fade in as the colossal face peers through the outer mist
-        const fadeIn = Math.min(1.0, (pf.z + 245.0) / 75.0);
-        pf.mat.opacity = 0.86 * Math.max(0.05, fadeIn);
-        if (pf.z >= -48.0) {
-          pf.whisking = true;
+      // Face directly inward toward the tunnel interior & rotate slowly in a godlike trance
+      ps.model.group.lookAt(new THREE.Vector3(center.x, center.y, ps.z + 14.0));
+      ps.spinAngle += dt * 0.28;
+      ps.model.group.rotateZ(Math.sin(ps.spinAngle) * 0.22);
+
+      if (!ps.whisking) {
+        const fadeIn = Math.min(1.0, (ps.z + 250.0) / 80.0);
+        const targetOp = 0.56 * Math.max(0.05, fadeIn);
+        ps.model.mats.forEach((m) => {
+          m.opacity = m === ps.model.auraMat ? targetOp * 0.24 : targetOp;
+        });
+        if (ps.z >= -44.0) {
+          ps.whisking = true;
           spawnCrossSectionLightning(elapsed, true);
         }
       } else {
-        // Whisked away into spacetime mojo magic!
-        pf.whiskProg += dt * 1.65;
-        pf.mat.opacity = Math.max(0, 0.86 * (1.0 - pf.whiskProg));
-        const stretch = 1.0 + pf.whiskProg * 1.2;
-        pf.sprite.scale.set(145 * stretch, 145 / stretch, 1);
-        pf.rad += dt * 42.0;
-        if (pf.whiskProg >= 1.0) {
-          if (pf.sprite.parent) pf.sprite.parent.remove(pf.sprite);
-          pf.mat.dispose();
-          activePeeringFace = null;
-          peeringFaceTimer = 6.5 + Math.random() * 5.0;
+        ps.whiskProg += dt * 1.6;
+        const fadeOp = Math.max(0, 0.56 * (1.0 - ps.whiskProg));
+        ps.model.mats.forEach((m) => {
+          m.opacity = m === ps.model.auraMat ? fadeOp * 0.28 : fadeOp;
+        });
+        const stretch = 26.0 * (1.0 + ps.whiskProg * 0.9);
+        ps.model.group.scale.set(26.0 / (1.0 + ps.whiskProg * 0.5), 26.0 / (1.0 + ps.whiskProg * 0.5), stretch);
+        ps.rad += dt * 44.0;
+        if (ps.whiskProg >= 1.0) {
+          ps.model.group.visible = false;
+          ps.model.group.scale.setScalar(26.0);
+          activePeeringShark = null;
+          peeringSharkTimer = 6.5 + Math.random() * 5.0;
         }
       }
-    } else if (founderFaceTextures.length > 0) {
-      peeringFaceTimer -= dt;
-      if (peeringFaceTimer <= 0) {
-        const fInfo = founderFaceTextures[nextFounderFaceIdx % founderFaceTextures.length];
-        nextFounderFaceIdx = (nextFounderFaceIdx + 1) % founderFaceTextures.length;
-        const sMat = new THREE.SpriteMaterial({
-          map: fInfo.tex,
-          transparent: true,
-          opacity: 0.05,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false
-        });
-        const sprite = new THREE.Sprite(sMat);
-        sprite.scale.set(145, 145, 1);
-        const sideAng = (Math.random() > 0.5 ? 0.32 : Math.PI - 0.32) + (Math.random() - 0.5) * 0.55;
-        const startZ = -245.0;
+    } else if (founderSharkModels.length > 0) {
+      peeringSharkTimer -= dt;
+      if (peeringSharkTimer <= 0) {
+        const model = founderSharkModels[nextFounderSharkIdx % founderSharkModels.length];
+        nextFounderSharkIdx = (nextFounderSharkIdx + 1) % founderSharkModels.length;
+        const sideAng = (Math.random() > 0.5 ? 0.25 : Math.PI - 0.25) + (Math.random() - 0.5) * 0.65;
+        const startZ = -250.0;
+        const rad = TUNNEL_RADIUS * 1.18; // Right up against the outside of the 68m tunnel wall!
         const center = getTunnelCenterAt(startZ, elapsed);
-        const rad = TUNNEL_RADIUS * 1.24;
-        sprite.position.set(center.x + Math.cos(sideAng) * rad, center.y + Math.sin(sideAng) * rad * 0.72, startZ);
-        hyperScene.add(sprite);
-        activePeeringFace = {
-          sprite,
-          mat: sMat,
+        model.group.position.set(center.x + Math.cos(sideAng) * rad, center.y + Math.sin(sideAng) * rad * 0.68, startZ);
+        model.group.scale.setScalar(26.0);
+        model.group.visible = true;
+        activePeeringShark = {
+          model,
           ang: sideAng,
           rad,
           z: startZ,
+          spinAngle: Math.random() * Math.PI * 2,
           whisking: false,
           whiskProg: 0
         };
