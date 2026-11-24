@@ -2612,11 +2612,7 @@
     if (currentZone === 'hyperspace') {
       saveHyperspaceCheckpoint();
     } else if (currentZone === 'space' || currentZone === 'cheese_moon') {
-      if (lastSavePoint && lastSavePoint.hyperspaceCheckpoint) {
-        saveHyperspaceCheckpoint();
-      } else {
-        saveUfoIslandSpawnPoint();
-      }
+      saveUfoIslandSpawnPoint();
     } else {
       captureSavePoint(false);
     }
@@ -3246,36 +3242,48 @@
     // If player checkpointed in Mojo Hyperspace, restore them directly inside their UFO in the Hyperspace Crossroads on refresh!
     if (hasStoredSavePoint && lastSavePoint && lastSavePoint.hyperspaceCheckpoint) {
       setTimeout(() => {
-        if (window.BlahajUFO && typeof window.BlahajUFO.boardUFO === 'function') {
-          if (!window.BlahajUFO.isLocalAboard()) {
-            window.BlahajUFO.boardUFO(player, 'pilot');
+        try {
+          if (window.BlahajUFO && typeof window.BlahajUFO.boardUFO === 'function') {
+            if (!window.BlahajUFO.isLocalAboard()) {
+              window.BlahajUFO.boardUFO();
+            }
           }
+          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.build === 'function') {
+            window.BlahajHyperspace.build();
+          }
+          const hyperScene = window.BlahajHyperspace ? window.BlahajHyperspace.getScene() : null;
+          currentZone = 'hyperspace';
+          if (player.mesh && hyperScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            hyperScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && hyperScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            hyperScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
+          }
+          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.onEnterZone === 'function') {
+            window.BlahajHyperspace.onEnterZone();
+          }
+          // Force immediate camera & UFO sync so the camera is placed squarely behind the UFO inside the tunnel on frame 1!
+          if (window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+            window.BlahajUFO.update(0.016, 0, keys, camState, camera);
+          }
+          updateCamera(0, 0.016);
+          if (renderer && hyperScene && camera) {
+            renderer.compile(hyperScene, camera);
+          }
+          updateCoopPartnerVisibility();
+          showToast(
+            '⚡🌀 HYPERSPACE CHECKPOINT RESTORED!',
+            'Resumed aboard S.S. Shonk-Saucer inside the Mojo Hyperspace Crossroads!'
+          );
+        } catch (err) {
+          console.error('[Blahaj] Hyperspace checkpoint restore error:', err);
         }
-        if (window.BlahajHyperspace && typeof window.BlahajHyperspace.build === 'function') {
-          window.BlahajHyperspace.build();
-        }
-        const hyperScene = window.BlahajHyperspace ? window.BlahajHyperspace.getScene() : null;
-        currentZone = 'hyperspace';
-        if (player.mesh && hyperScene) {
-          if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
-          hyperScene.add(player.mesh);
-        }
-        if (coopPartner.mesh && hyperScene) {
-          if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
-          hyperScene.add(coopPartner.mesh);
-        }
-        if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
-          window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
-        }
-        if (window.BlahajHyperspace && typeof window.BlahajHyperspace.onEnterZone === 'function') {
-          window.BlahajHyperspace.onEnterZone();
-        }
-        updateCoopPartnerVisibility();
-        showToast(
-          '⚡🌀 HYPERSPACE CHECKPOINT RESTORED!',
-          'Resumed aboard S.S. Shonk-Saucer inside the Mojo Hyperspace Crossroads!'
-        );
-      }, 120);
+      }, 60);
     }
   }
 
