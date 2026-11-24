@@ -2542,9 +2542,26 @@
   }
 
   function isSafeToCaptureSavePoint() {
-    return currentZone === 'island' && !isRebirthing && !isTransitioningZone &&
+    const inUfo = !!(window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard());
+    return currentZone === 'island' && !inUfo && !isRebirthing && !isTransitioningZone &&
       player.isGrounded && !player.isSwimming && !player.inWater && !player.inBoat && !player.inCart &&
       (player.stuffing ?? 100) >= 25 && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z);
+  }
+
+  function saveUfoIslandSpawnPoint() {
+    const isle = (window.BlahajUFO && typeof window.BlahajUFO.getIslandCoords === 'function')
+      ? window.BlahajUFO.getIslandCoords()
+      : { x: 128.0, z: -88.0, deckY: 5.4 };
+    lastSavePoint = {
+      x: Number((isle.x - 10.5).toFixed(2)),
+      y: Number((isle.deckY + 0.5).toFixed(2)),
+      z: Number((isle.z - 7.5).toFixed(2)),
+      rotY: 0.9,
+      ufoIsleSpawn: true,
+      savedAt: Date.now()
+    };
+    hasStoredSavePoint = true;
+    try { localStorage.setItem(SAVE_POINT_KEY, JSON.stringify(lastSavePoint)); } catch (e) {}
   }
 
   function captureSavePoint(force = false) {
@@ -2574,7 +2591,11 @@
   }
 
   window.addEventListener('beforeunload', () => {
-    captureSavePoint(false);
+    if (currentZone === 'space') {
+      saveUfoIslandSpawnPoint();
+    } else {
+      captureSavePoint(false);
+    }
   });
 
   // Pass 83 Window exports for MMO Controls & HUD
@@ -2980,6 +3001,9 @@
       if (typeof lastSavePoint.rotY === 'number' && Number.isFinite(lastSavePoint.rotY)) {
         player.rotY = lastSavePoint.rotY;
         camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+      }
+      if (lastSavePoint.ufoIsleSpawn && window.BlahajUFO && typeof window.BlahajUFO.toggleHangarDoors === 'function') {
+        window.BlahajUFO.toggleHangarDoors(true, true);
       }
     }
     player.pos.y = worldApi.getGroundAndStructureHeight(player.pos.x, player.pos.z);
@@ -5177,13 +5201,14 @@
       }
 
       if (e.button === 2) {
-        // Reserve Right-Click inside the spaceship for future controls (do nothing for now!)
+        camState.isRightDown = true;
+        camState.isRightDragging = false;
+        camState.rightClickUsedWheel = false;
+        // Inside the spaceship: Right-Click+Wheel scrolls powers & single Right-Click fires #5 Sonic Shockwave (no Fin Cursor!)
         if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && !isAnyModalOpen()) {
           return;
         }
         // Hold Right-Click while IN GAME on foot/boat brings up the Shark Fin Cursor!
-        camState.isRightDown = true;
-        camState.isRightDragging = false;
         syncCaptureUI();
         updateFinHover();
         return;
@@ -5284,8 +5309,14 @@
       } else if (e.button === 1) {
         camState.isMiddleDown = false;
       } else if (e.button === 2) {
+        const wasRightDown = camState.isRightDown;
+        const usedWheel = camState.rightClickUsedWheel;
         camState.isRightDown = false;
         camState.isRightDragging = false;
+        camState.rightClickUsedWheel = false;
+        if (wasRightDown && !usedWheel && !isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.triggerSecondaryPower) {
+          window.BlahajUFO.triggerSecondaryPower();
+        }
         syncCaptureUI();
       }
       camState.isChordMoving = false;
@@ -5413,6 +5444,7 @@
       // While aboard the UFO and holding Right-Click (outside or cockpit view): Scroll Wheel cycles Saucer Appendages!
       if (camState.isPointerLocked && camState.isRightDown && !isAnyModalOpen() && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.cycleModule) {
         e.preventDefault();
+        camState.rightClickUsedWheel = true;
         window.BlahajUFO.cycleModule(e.deltaY > 0 ? 1 : -1);
         return;
       }
@@ -8089,6 +8121,7 @@
           if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
             window.BlahajUFO.setSpaceMode(true, spaceScene || scene);
           }
+          saveUfoIslandSpawnPoint();
 
           if (overlay) overlay.classList.add('hidden');
           isTransitioningZone = false;

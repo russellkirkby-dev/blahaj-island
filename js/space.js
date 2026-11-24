@@ -685,6 +685,42 @@ window.BlahajSpace = (function () {
       if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
         window.BlahajGame.exitSpaceMap(false);
       }
+    } else if (data.action === 'sonic_shockwave' && data.pos) {
+      triggerSonicShockwave(new THREE.Vector3(data.pos.x, data.pos.y, data.pos.z), true);
+    } else if (data.action === 'ufo_destroyed') {
+      if (window.BlahajUFO && typeof window.BlahajUFO.handleDestroyedFromNetwork === 'function') {
+        window.BlahajUFO.handleDestroyedFromNetwork();
+      }
+    }
+  }
+
+  function triggerSonicShockwave(originPos, fromNetwork = false) {
+    if (!isBuilt || !originPos) return;
+    spawnSpaceBurst(originPos, 0xf472b6, 22, 1.4);
+
+    // 1. Instantly shatter small (tier 1) space rocks within 38m (clears incoming debris cushion!)
+    // 2. Strongly push back medium (tier 2) space rocks within 54m
+    for (let i = breakableRocks.length - 1; i >= 0; i--) {
+      const r = breakableRocks[i];
+      if (!r || !r.alive) continue;
+      const diff = new THREE.Vector3().subVectors(r.pos, originPos);
+      const d = diff.length();
+      if (r.tier === 1 && d <= 38.0) {
+        shatterRock(r, diff.normalize().multiplyScalar(28.0), true);
+      } else if (r.tier === 2 && d <= 54.0 && d > 0.01) {
+        const pushDir = diff.divideScalar(d);
+        const strength = 42.0 * (1.0 - (d / 60.0) * 0.55);
+        r.vel.addScaledVector(pushDir, strength);
+        spawnSpaceBurst(r.pos, 0x38bdf8, 8, 0.85);
+      }
+    }
+
+    if (!fromNetwork && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'space_event',
+        action: 'sonic_shockwave',
+        pos: { x: originPos.x, y: originPos.y, z: originPos.z }
+      });
     }
   }
 
@@ -818,18 +854,29 @@ window.BlahajSpace = (function () {
         }
       }
 
-      // 4B. Bounce off UFO Hull (elastic deflection without hurting the sharks inside!)
+      // 4B. Bounce off UFO Hull (elastic deflection + speed/size-scaled gravitronic shield & hull damage!)
       if (ufoState && ufoState.pos) {
         const minUfoD = r.radius + 4.8;
         const diffU = new THREE.Vector3().subVectors(r.pos, ufoState.pos);
         const dU = diffU.length();
         if (dU < minUfoD && dU > 0.01) {
           const nU = diffU.divideScalar(dU);
+          const ufoVel = ufoState.vel || new THREE.Vector3();
+          const relVel = new THREE.Vector3().subVectors(r.vel, ufoVel);
+          const impactSpeed = Math.max(0, -relVel.dot(nU));
           r.pos.copy(ufoState.pos).addScaledVector(nU, minUfoD + 0.2);
-          r.vel.addScaledVector(nU, 10.5);
+          r.vel.addScaledVector(nU, 10.5 + impactSpeed * 0.45);
           if (ufoState.vel) ufoState.vel.addScaledVector(nU, -2.5);
           spawnSpaceBurst(r.pos, 0x38bdf8, 8, 0.7);
           if (window.CozyAudio && window.CozyAudio.bounceBoing) window.CozyAudio.bounceBoing();
+
+          if (ufoState.localRole === 'pilot' && window.BlahajUFO && typeof window.BlahajUFO.applyImpactDamage === 'function') {
+            if (impactSpeed >= 6.5 || r.tier >= 2) {
+              const sizeMult = r.tier === 2 ? 1.85 : 0.9;
+              const rawDmg = Math.max(6, Math.min(48, (impactSpeed * 0.65 + 6.0) * sizeMult));
+              window.BlahajUFO.applyImpactDamage(rawDmg, r.tier === 2 ? 'Medium Asteroid Impact' : 'Space Rock Strike', false);
+            }
+          }
         }
       }
     }
@@ -879,7 +926,7 @@ window.BlahajSpace = (function () {
       }
     }
 
-    // 4D. Giant Monolith vs UFO Hull deflection + Re-Entry Gate check
+    // 4D. Giant Monolith vs UFO Hull deflection + heavy impact damage + Re-Entry Gate check
     if (ufoState && ufoState.pos) {
       for (let mIdx = 0; mIdx < monolithRocks.length; mIdx++) {
         const m = monolithRocks[mIdx];
@@ -888,10 +935,16 @@ window.BlahajSpace = (function () {
         const d = diff.length();
         if (d < minD && d > 0.01) {
           const n = diff.divideScalar(d);
+          const impactSpeed = ufoState.vel ? Math.max(0, -ufoState.vel.dot(n)) : 12.0;
           ufoState.pos.copy(m.pos).addScaledVector(n, minD + 0.2);
           if (ufoState.vel) {
             const vn = ufoState.vel.dot(n);
             if (vn < 0) ufoState.vel.addScaledVector(n, -1.5 * vn);
+          }
+          spawnSpaceBurst(ufoState.pos.clone().addScaledVector(n, -4.5), 0xc084fc, 12, 1.0);
+          if (ufoState.localRole === 'pilot' && window.BlahajUFO && typeof window.BlahajUFO.applyImpactDamage === 'function') {
+            const rawDmg = Math.max(22, Math.min(72, impactSpeed * 1.15 + 18.0));
+            window.BlahajUFO.applyImpactDamage(rawDmg, 'Giant Monolith Collision', true);
           }
         }
       }
@@ -911,6 +964,7 @@ window.BlahajSpace = (function () {
     getScene: () => (isBuilt ? spaceScene : build()),
     checkPlasmaBoltCollision,
     handleNetworkPacket,
+    triggerSonicShockwave,
     getReentryPos: () => REENTRY_POS,
     getSectorStatus: () => ({
       wave: sectorWave,

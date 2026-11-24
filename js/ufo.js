@@ -144,6 +144,13 @@ window.BlahajUFO = (function () {
     spaceAngVelRoll: 0,
     spacePanYaw: 0,
     spacePanPitch: 0,
+    hullHp: 100,
+    maxHullHp: 100,
+    shieldHp: 100,
+    maxShieldHp: 100,
+    shieldRegenDelay: 0,
+    impactCooldown: 0,
+    secondaryCooldown: 0,
     remoteTargetQuat: new THREE.Quaternion(),
 
     // Crew & Co-op Ownership
@@ -1847,6 +1854,8 @@ window.BlahajUFO = (function () {
       warpChargeTimer: Number((state.warpChargeTimer || 0).toFixed(2)),
       inSpace: !!state.inSpace,
       spaceThrottle: Number((state.spaceThrottle || 0).toFixed(2)),
+      hullHp: Math.round(state.hullHp ?? 100),
+      shieldHp: Math.round(state.shieldHp ?? 100),
       qx: Number(state.spaceQuat.x.toFixed(4)),
       qy: Number(state.spaceQuat.y.toFixed(4)),
       qz: Number(state.spaceQuat.z.toFixed(4)),
@@ -1932,6 +1941,8 @@ window.BlahajUFO = (function () {
     if (typeof data.spaceThrottle === 'number') {
       state.spaceThrottle = data.spaceThrottle;
     }
+    if (typeof data.hullHp === 'number') state.hullHp = data.hullHp;
+    if (typeof data.shieldHp === 'number') state.shieldHp = data.shieldHp;
     if (data.phase) state.phase = data.phase;
     if (typeof data.hangarTargetOpen === 'boolean') state.hangarTargetOpen = data.hangarTargetOpen;
     if (typeof data.hatchTargetOpen === 'boolean') state.hatchTargetOpen = data.hatchTargetOpen;
@@ -2439,6 +2450,111 @@ window.BlahajUFO = (function () {
     state.spacePanPitch = Math.max(-1.15, Math.min(1.15, (state.spacePanPitch || 0) + dy * 0.0038));
   }
 
+  function respawnCrewInIkeaAfterDestruction() {
+    state.hullHp = state.maxHullHp;
+    state.shieldHp = state.maxShieldHp;
+    state.shieldRegenDelay = 0;
+    state.impactCooldown = 0;
+    exitUFO();
+    resetToTracyIsle();
+    if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
+      window.BlahajGame.exitSpaceMap(false);
+    }
+    if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
+    if (window.showToast) {
+      window.showToast(
+        '💥🛸 HULL BREACH — EMERGENCY IKEA RECALL!',
+        'S.S. Shonk-Saucer was overwhelmed by space rocks! Both sharks beamed to the IKEA Spawning Pits!'
+      );
+    }
+    setTimeout(() => {
+      if (window.BlahajGame && typeof window.BlahajGame.enterSpawningPits === 'function') {
+        window.BlahajGame.enterSpawningPits(false);
+      }
+    }, 320);
+  }
+
+  function handleDestroyedFromNetwork() {
+    if (!state.localRole) return;
+    respawnCrewInIkeaAfterDestruction();
+  }
+
+  function applyImpactDamage(rawDamage, sourceLabel = 'Asteroid Impact', isMonolith = false) {
+    if (!state.localRole || state.impactCooldown > 0) return;
+    state.impactCooldown = 0.38;
+    state.shieldRegenDelay = 3.5;
+
+    let hullDmg = 0;
+    let shieldDmg = 0;
+    if (state.shieldHp > 0) {
+      // Gravitronic force fields absorb 75% of incoming impact energy!
+      shieldDmg = Math.min(state.shieldHp, rawDamage * 0.85);
+      state.shieldHp = Math.max(0, state.shieldHp - shieldDmg);
+      hullDmg = rawDamage * 0.25;
+      if (state.shieldHp <= 0 && rawDamage > shieldDmg) {
+        hullDmg += (rawDamage - shieldDmg) * 0.5;
+      }
+    } else {
+      hullDmg = rawDamage;
+    }
+
+    state.hullHp = Math.max(0, state.hullHp - hullDmg);
+    spawnRadarWave(state.shieldHp > 0 ? 0x38bdf8 : 0xf43f5e, isMonolith ? 24 : 16);
+    if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
+
+    if (state.hullHp <= 0) {
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'space_event',
+          action: 'ufo_destroyed'
+        });
+      }
+      respawnCrewInIkeaAfterDestruction();
+      return;
+    }
+
+    if (window.showToast && (isMonolith || state.shieldHp <= 0 || hullDmg >= 8)) {
+      const shPct = Math.round(state.shieldHp);
+      const huPct = Math.round(state.hullHp);
+      window.showToast(
+        state.shieldHp > 0 ? `🛡️ GRAVITRONIC SHIELD HIT! (${shPct}%)` : `⚠️ HULL IMPACT! (${huPct}%)`,
+        `${sourceLabel} — Force fields ${shPct}% · Hull ${huPct}%`
+      );
+    }
+    updateAvionicsHUD();
+    broadcastState(true);
+  }
+
+  function triggerSecondaryPower() {
+    if (!state.localRole) return;
+    if (state.secondaryCooldown > 0) return;
+    state.secondaryCooldown = 1.15;
+
+    // Wired directly to #5 Disco & Sonic Shockwave!
+    spawnRadarWave(0xf472b6, 56);
+    spawnRadarWave(0x38bdf8, 40);
+    if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+
+    if (state.inSpace && window.BlahajSpace && typeof window.BlahajSpace.triggerSonicShockwave === 'function') {
+      window.BlahajSpace.triggerSonicShockwave(state.pos, false);
+      state.radarStatusText = '🪩💥 SONIC SHOCKWAVE! Small debris vaporized · Medium rocks pushed back!';
+      state.radarStatusUntil = performance.now() + 2600;
+    } else {
+      toggleDiscoMode();
+      // On planetary worlds, push back nearby beach balls or enemies!
+      if (window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+        const enemies = window.BlahajEnemies.getEnemies() || [];
+        enemies.forEach((en) => {
+          if (!en || en.defeated || !en.pos) return;
+          if (en.pos.distanceTo(state.pos) < 26.0 && window.BlahajEnemies.boopEnemy) {
+            window.BlahajEnemies.boopEnemy(en, state.pos);
+          }
+        });
+      }
+    }
+    updateAvionicsHUD();
+  }
+
   function updateAvionicsButtonsUI() {
     const btnView = document.getElementById('ufo-btn-view');
     const btnFloor = document.getElementById('ufo-btn-floorcam');
@@ -2628,6 +2744,20 @@ window.BlahajUFO = (function () {
       elOrbital.classList.toggle('hidden', !state.orbitalCeilingReached);
     }
 
+    const shPct = Math.max(0, Math.min(100, Math.round(state.shieldHp ?? 100)));
+    const huPct = Math.max(0, Math.min(100, Math.round(state.hullHp ?? 100)));
+    const elShVal = document.getElementById('ufo-shield-val');
+    const elHuVal = document.getElementById('ufo-hull-val');
+    const elShBar = document.getElementById('ufo-shield-bar');
+    const elHuBar = document.getElementById('ufo-hull-bar');
+    if (elShVal) elShVal.textContent = `${shPct}%`;
+    if (elHuVal) elHuVal.textContent = `${huPct}%`;
+    if (elShBar) elShBar.style.width = `${shPct}%`;
+    if (elHuBar) {
+      elHuBar.style.width = `${huPct}%`;
+      elHuBar.style.background = huPct > 50 ? '#34d399' : (huPct > 25 ? '#fbbf24' : '#f43f5e');
+    }
+
     drawArtificialHorizon();
   }
 
@@ -2636,6 +2766,14 @@ window.BlahajUFO = (function () {
   // ==========================================================================
   function update(dt, elapsed, keys, camState, camera) {
     if (!isBuilt || !ufoGroup) return;
+
+    if (state.impactCooldown > 0) state.impactCooldown = Math.max(0, state.impactCooldown - dt);
+    if (state.secondaryCooldown > 0) state.secondaryCooldown = Math.max(0, state.secondaryCooldown - dt);
+    if (state.shieldRegenDelay > 0) {
+      state.shieldRegenDelay = Math.max(0, state.shieldRegenDelay - dt);
+    } else if (state.shieldHp < state.maxShieldHp) {
+      state.shieldHp = Math.min(state.maxShieldHp, state.shieldHp + 14.0 * dt);
+    }
 
     // 1. Animate Thunderbirds Secret Hangar Doors, Tilting Palms & Hydraulic Pad
     const targetOpen = state.hangarTargetOpen ? 1.0 : 0.0;
@@ -3817,6 +3955,9 @@ window.BlahajUFO = (function () {
     adjustSpaceThrottle,
     applySpaceMouseLook,
     panSpaceCamera,
+    applyImpactDamage,
+    triggerSecondaryPower,
+    handleDestroyedFromNetwork,
     isInSpace: () => !!state.inSpace,
     isLocalAboard: () => !!state.localRole,
     isPartnerAboard: () => Boolean(
