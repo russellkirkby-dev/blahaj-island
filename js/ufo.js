@@ -2767,7 +2767,7 @@ window.BlahajUFO = (function () {
       }
     }
     if (elOrbital) {
-      elOrbital.classList.toggle('hidden', !state.orbitalCeilingReached);
+      elOrbital.classList.toggle('hidden', !state.orbitalCeilingReached || !!state.inSpace);
     }
 
     const shPct = Math.max(0, Math.min(100, Math.round(state.shieldHp ?? 100)));

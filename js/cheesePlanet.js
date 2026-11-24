@@ -1279,22 +1279,22 @@ window.BlahajCheeseMoon = (function () {
       banner.id = 'cheese-moon-objective-banner';
       banner.style.cssText = [
         'position:fixed',
-        'top:14px',
+        'top:78px',
         'left:50%',
         'transform:translateX(-50%)',
         'z-index:8900',
-        'background:rgba(15, 23, 42, 0.90)',
+        'background:rgba(15, 23, 42, 0.88)',
         'border:1.5px solid #facc15',
         'border-radius:12px',
-        'padding:8px 18px',
+        'padding:7px 16px',
         'color:#fef08a',
         'font-family:system-ui,-apple-system,sans-serif',
-        'font-size:13px',
+        'font-size:12.5px',
         'font-weight:700',
         'text-align:center',
-        'box-shadow:0 8px 24px rgba(0,0,0,0.55)',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.5)',
         'pointer-events:none',
-        'max-width:660px'
+        'max-width:640px'
       ].join(';');
       document.body.appendChild(banner);
     }
