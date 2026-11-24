@@ -3470,27 +3470,35 @@ window.BlahajUFO = (function () {
         }
 
         if (state.inHyperspace) {
-          // MOJO HYPERSPACE CROSSROADS STEERING:
-          // Stay centered to loop seamlessly; steer Left/Right (A/D, Q/E, or Mouse X) to enter staggered Off-Ramps!
-          const steerX = turnInput * 28.0 + strafeInput * 22.0 + Math.max(-24, Math.min(24, mdx * 0.65));
-          const steerY = fwdInput * 16.0 - Math.max(-16, Math.min(16, mdy * 0.45));
-          const hasSteerX = Math.abs(steerX) > 0.5;
-          const targetVx = hasSteerX ? steerX : -state.pos.x * 2.2;
-          const targetVy = Math.abs(steerY) > 0.5 ? steerY : -state.pos.y * 2.2;
+          // MOJO HYPERSPACE CROSSROADS STEERING (A/D, Q/E, Arrows, AND Mouse all steer Left/Right consistently!):
+          // Screen-Left is -X, Screen-Right is +X when facing -Z down the tunnel!
+          const keySteerX = Math.max(-1, Math.min(1, -turnInput + strafeInput));
+          const mouseSteerX = Math.max(-1.2, Math.min(1.2, mdx * 0.055 * sens));
+          const combinedX = Math.max(-1.25, Math.min(1.25, keySteerX + mouseSteerX));
 
-          state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 6.5);
-          state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 6.5);
+          const keySteerY = fwdInput;
+          const mouseSteerY = Math.max(-1.0, Math.min(1.0, -mdy * 0.045 * sens));
+          const combinedY = Math.max(-1.1, Math.min(1.1, keySteerY + mouseSteerY));
+
+          // Responsive lateral movement + gentle auto-center drift only when hands-off so last-minute pull-aways are super snappy!
+          const targetVx = Math.abs(combinedX) > 0.06 ? combinedX * 34.0 : -state.pos.x * 1.45;
+          const targetVy = Math.abs(combinedY) > 0.06 ? combinedY * 20.0 : -state.pos.y * 1.65;
+
+          state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 9.5);
+          state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 8.5);
           state.vel.z = 0;
 
-          state.pos.x = Math.max(-16.5, Math.min(16.5, state.pos.x + state.vel.x * dt));
-          state.pos.y = Math.max(-9.0, Math.min(9.0, state.pos.y + state.vel.y * dt));
+          state.pos.x = Math.max(-17.5, Math.min(17.5, state.pos.x + state.vel.x * dt));
+          state.pos.y = Math.max(-9.5, Math.min(9.5, state.pos.y + state.vel.y * dt));
           state.pos.z = 0;
 
-          const bankRoll = Math.max(-0.55, Math.min(0.55, -state.vel.x * 0.024));
-          const bankPitch = Math.max(-0.32, Math.min(0.32, state.vel.y * 0.018));
-          state.spaceQuat.setFromEuler(new THREE.Euler(bankPitch, Math.PI, bankRoll, 'YXZ')).normalize();
+          // Expressive banking roll + subtle nose-yaw into the turn so both Roll & Yaw feel natural!
+          const bankRoll = Math.max(-0.62, Math.min(0.62, -state.vel.x * 0.020));
+          const turnYaw = Math.PI + Math.max(-0.28, Math.min(0.28, -state.vel.x * 0.009));
+          const bankPitch = Math.max(-0.34, Math.min(0.34, state.vel.y * 0.016));
+          state.spaceQuat.setFromEuler(new THREE.Euler(bankPitch, turnYaw, bankRoll, 'YXZ')).normalize();
           state.pitch = bankPitch;
-          state.yaw = Math.PI;
+          state.yaw = turnYaw;
           state.roll = bankRoll;
         } else if (state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getPlanetCenter === 'function') {
           const pCenter = window.BlahajCheeseMoon.getPlanetCenter();

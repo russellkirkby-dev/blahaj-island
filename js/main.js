@@ -5777,7 +5777,15 @@
         if (k === 'v') { e.preventDefault(); window.BlahajUFO.toggleViewMode(); return; }
         if (k === 'g') { e.preventDefault(); window.BlahajUFO.toggleFloorCam(); return; }
         if (k === 'l') { e.preventDefault(); window.BlahajUFO.initiateAutoLand(); return; }
-        if (k === 'r') { e.preventDefault(); window.BlahajUFO.resetToTracyIsle(); return; }
+        if (k === 'r') {
+          e.preventDefault();
+          if (currentZone === 'hyperspace' && window.BlahajHyperspace && typeof window.BlahajHyperspace.reindexLoopToStart === 'function') {
+            window.BlahajHyperspace.reindexLoopToStart();
+          } else {
+            window.BlahajUFO.resetToTracyIsle();
+          }
+          return;
+        }
         if (k === 'h') { e.preventDefault(); window.BlahajUFO.toggleHatch(); return; }
         if (k === 't') { e.preventDefault(); window.BlahajUFO.toggleTractorBeam(); return; }
         if (k === 'k') { e.preventDefault(); window.BlahajUFO.openSharedVault(); return; }
