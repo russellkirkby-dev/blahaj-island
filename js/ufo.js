@@ -142,6 +142,8 @@ window.BlahajUFO = (function () {
     spaceAngVelPitch: 0,
     spaceAngVelYaw: 0,
     spaceAngVelRoll: 0,
+    spacePanYaw: 0,
+    spacePanPitch: 0,
     remoteTargetQuat: new THREE.Quaternion(),
 
     // Crew & Co-op Ownership
@@ -2431,6 +2433,12 @@ window.BlahajUFO = (function () {
     state.spaceMouseDy += dy;
   }
 
+  function panSpaceCamera(dx, dy) {
+    if (!state.inSpace || !state.localRole) return;
+    state.spacePanYaw = Math.max(-2.6, Math.min(2.6, (state.spacePanYaw || 0) - dx * 0.0045));
+    state.spacePanPitch = Math.max(-1.15, Math.min(1.15, (state.spacePanPitch || 0) + dy * 0.0038));
+  }
+
   function updateAvionicsButtonsUI() {
     const btnView = document.getElementById('ufo-btn-view');
     const btnFloor = document.getElementById('ufo-btn-floorcam');
@@ -2601,7 +2609,7 @@ window.BlahajUFO = (function () {
         elStatus.classList.remove('hidden');
       } else if (state.inSpace) {
         const thrPct = Math.round((state.spaceThrottle || 0) * 100);
-        elStatus.textContent = `🪐 FLIGHT SIM (${thrPct}% THR) · WHEEL = SPEED · W/S = PITCH · A/D = ROLL · MOUSE = AIM · HOLD CLICK = FIRE`;
+        elStatus.textContent = `🪐 FLIGHT SIM (${thrPct}% THR) · WHEEL = SPEED · MOUSE/W/S/A/D = PITCH & ROLL · Q/E = RUDDER · MMB = LOOK`;
         elStatus.classList.remove('hidden');
       } else if (state.orbitalCeilingReached) {
         elStatus.textContent = '✨ UPPER ORBITAL BAND (145m–185m) · HOLD [SHIFT] + [W] FOR 6 SECONDS TO JUMP TO DEEP SPACE!';
@@ -3077,10 +3085,11 @@ window.BlahajUFO = (function () {
         const autoLevelRoll = !!gs.ufoSpaceAutoLevelRoll;
         const allowSpaceVerticalKeys = !!gs.ufoSpaceVerticalKeys;
         const invertSpacePitch = !!gs.ufoSpaceInvertPitch;
-        const qeMode = gs.ufoSpaceQEMode || 'strafe'; // 'strafe' | 'yaw'
+        const qeMode = gs.ufoSpaceQEMode || 'yaw'; // 'yaw' (Rudder) | 'strafe'
+        const mouseXMode = gs.ufoSpaceMouseXMode || 'roll'; // 'roll' (Flight Stick) | 'yaw'
         const sens = typeof gs.mouseSens === 'number' ? gs.mouseSens : 1.0;
 
-        // 1. Consume accumulated mouse flight-stick deltas & combine with W/S Pitch, A/D Roll, Q/E Strafe/Yaw
+        // 1. Consume accumulated mouse flight-stick deltas & combine with W/S Pitch, A/D Roll, Q/E Rudder Yaw
         const mdx = state.spaceMouseDx || 0;
         const mdy = state.spaceMouseDy || 0;
         state.spaceMouseDx = 0;
@@ -3091,22 +3100,24 @@ window.BlahajUFO = (function () {
           state.spaceThrottle = 0;
         }
 
-        // Pitch: W/S (fwdInput: +1 = W, -1 = S). Default: W pitches nose DOWN (+X local), S pitches nose UP (-X local), invertable!
+        // Pitch: W/S + Mouse Y
         const pitchSign = invertSpacePitch ? -1 : 1;
         const keyPitchRate = fwdInput * 1.55 * pitchSign;
         const mousePitchVel = (mdy * 0.0022 * sens * (gs.invertY ? -1 : 1)) / Math.max(0.008, dt);
         const targetPitchRate = keyPitchRate + Math.max(-2.6, Math.min(2.6, mousePitchVel));
         state.spaceAngVelPitch += (targetPitchRate - state.spaceAngVelPitch) * Math.min(1.0, dt * 10.0);
 
-        // Yaw: Mouse X (moving mouse right turns ship right: -Y local), plus Q/E if set to 'yaw'
-        const keyYawRate = (qeMode === 'yaw') ? (-strafeInput * 1.35) : 0;
-        const mouseYawVel = (-mdx * 0.0024 * sens) / Math.max(0.008, dt);
+        // Rudder Yaw: Q/E (strafeInput: -1 = Q / Turn Left, +1 = E / Turn Right -> +Y = Left, -Y = Right)
+        const keyYawRate = (qeMode === 'yaw') ? (-strafeInput * 1.45) : 0;
+        const mouseYawVel = (mouseXMode === 'yaw') ? ((-mdx * 0.0024 * sens) / Math.max(0.008, dt)) : 0;
         const targetYawRate = keyYawRate + Math.max(-2.6, Math.min(2.6, mouseYawVel));
         state.spaceAngVelYaw += (targetYawRate - state.spaceAngVelYaw) * Math.min(1.0, dt * 10.0);
 
-        // Roll: A / D (turnInput: +1 = A, -1 = D -> Roll Left/CCW = -Z, Roll Right/CW = +Z)
-        const targetRollRate = -turnInput * 2.45;
-        state.spaceAngVelRoll += (targetRollRate - state.spaceAngVelRoll) * Math.min(1.0, dt * 8.5);
+        // Roll (Aileron / Barrel Roll): Mouse X (by default) + A/D fallback/alternative!
+        const keyRollRate = -turnInput * 2.45;
+        const mouseRollVel = (mouseXMode === 'roll') ? ((mdx * 0.0030 * sens) / Math.max(0.008, dt)) : 0;
+        const targetRollRate = keyRollRate + Math.max(-3.2, Math.min(3.2, mouseRollVel));
+        state.spaceAngVelRoll += (targetRollRate - state.spaceAngVelRoll) * Math.min(1.0, dt * 9.0);
 
         // Apply incremental local-axis rotations to Quaternion (zero gimbal lock!)
         const qPitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), state.spaceAngVelPitch * dt);
@@ -3571,8 +3582,13 @@ window.BlahajUFO = (function () {
 
       // Drive Camera for Inside Cockpit View (Per-Seat Shark POV!) vs Outside Chase View!
       if (camera && camState) {
+        // Auto-return Middle-Click free-look pan smoothly to straight ahead when released!
+        if (state.inSpace && !camState.isMiddleDown) {
+          state.spacePanYaw += (0 - (state.spacePanYaw || 0)) * Math.min(1.0, dt * 7.5);
+          state.spacePanPitch += (0 - (state.spacePanPitch || 0)) * Math.min(1.0, dt * 7.5);
+        }
         if (state.viewMode === 'inside') {
-          if (!camState.isRightDown) {
+          if (!camState.isRightDown && !camState.isMiddleDown) {
             state.cockpitLookYaw += (0 - state.cockpitLookYaw) * Math.min(1.0, dt * 7.5);
             state.cockpitLookPitch += (0 - state.cockpitLookPitch) * Math.min(1.0, dt * 7.5);
           }
@@ -3584,17 +3600,27 @@ window.BlahajUFO = (function () {
           eyeAnchor.getWorldPosition(camWorld);
           const eyeLocalX = state.localRole === 'passenger' ? 1.05 : -1.05;
           const lookDist = 11.4;
-          const lx = eyeLocalX + Math.sin(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
-          const ly = 1.88 + Math.sin(state.cockpitLookPitch) * lookDist - 0.18;
-          const lz = 0.98 + Math.cos(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
+          const panY = state.inSpace ? (state.cockpitLookYaw + (state.spacePanYaw || 0)) : state.cockpitLookYaw;
+          const panP = state.inSpace ? (state.cockpitLookPitch - (state.spacePanPitch || 0)) : state.cockpitLookPitch;
+          const lx = eyeLocalX + Math.sin(panY) * Math.cos(panP) * lookDist;
+          const ly = 1.88 + Math.sin(panP) * lookDist - 0.18;
+          const lz = 0.98 + Math.cos(panY) * Math.cos(panP) * lookDist;
           const lookWorld = new THREE.Vector3(lx, ly, lz);
           ufoGroup.localToWorld(lookWorld);
           const shipUpCam = new THREE.Vector3(0, 1, 0).applyQuaternion(ufoGroup.quaternion).normalize();
           camState.customOverride = { pos: camWorld, lookAt: lookWorld, up: state.inSpace ? shipUpCam : null };
         } else if (state.inSpace) {
-          // Ship-Locked Flight-Sim Chase Camera in Space (camera rolls, pitches & loops with the ship!)
+          // Ship-Locked Flight-Sim Chase Camera in Space (with Middle-Click Free-Look Pan that auto-returns!)
           ufoGroup.updateMatrixWorld(true);
-          const chasePos = new THREE.Vector3(0, 4.3, -16.8);
+          const pYaw = state.spacePanYaw || 0;
+          const pPitch = state.spacePanPitch || 0;
+          const camDist = 17.2;
+          const localCamOffset = new THREE.Vector3(
+            -Math.sin(pYaw) * Math.cos(pPitch) * camDist,
+            4.3 + Math.sin(pPitch) * camDist * 0.72,
+            -Math.cos(pYaw) * Math.cos(pPitch) * camDist
+          );
+          const chasePos = localCamOffset.clone();
           ufoGroup.localToWorld(chasePos);
           const chaseLook = new THREE.Vector3(0, 1.4, 24.0);
           ufoGroup.localToWorld(chaseLook);
@@ -3791,6 +3817,7 @@ window.BlahajUFO = (function () {
     handleNetworkPacket,
     adjustSpaceThrottle,
     applySpaceMouseLook,
+    panSpaceCamera,
     isInSpace: () => !!state.inSpace,
     isLocalAboard: () => !!state.localRole,
     isPartnerAboard: () => Boolean(

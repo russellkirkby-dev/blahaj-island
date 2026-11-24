@@ -31,7 +31,8 @@
     ufoSpaceAutoLevelRoll: false,
     ufoSpaceVerticalKeys: false,
     ufoSpaceInvertPitch: false,
-    ufoSpaceQEMode: 'strafe',
+    ufoSpaceQEMode: 'yaw',
+    ufoSpaceMouseXMode: 'roll',
     invertY: false,
     binocularInvertY: false,
     binocularInvertX: false,
@@ -5031,6 +5032,7 @@
       prevPointerDy = 0;
       camState.isLeftDown = false;
       camState.isLeftDragging = false;
+      camState.isMiddleDown = false;
       camState.isRightDown = false;
       camState.isRightDragging = false;
       camState.isChordMoving = false;
@@ -5165,7 +5167,14 @@
         return;
       }
 
-      // Middle-Mouse Click (button 1) autorun disabled to prevent accidental scroll-wheel walk-offs
+      // Hold Middle-Click (button 1) in Deep Space to pan camera around (auto-returns on release!)
+      if (e.button === 1) {
+        if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
+          e.preventDefault();
+          camState.isMiddleDown = true;
+        }
+        return;
+      }
 
       if (e.button === 2) {
         // Hold Right-Click while IN GAME brings up the Shark Fin Cursor!
@@ -5268,6 +5277,8 @@
             window.BlahajMMO.handleCanvasClick(clickX, clickY, camera, false, true);
           }
         }
+      } else if (e.button === 1) {
+        camState.isMiddleDown = false;
       } else if (e.button === 2) {
         camState.isRightDown = false;
         camState.isRightDragging = false;
@@ -5287,6 +5298,9 @@
         }
         camState.isLeftDown = false;
         camState.isLeftDragging = false;
+      }
+      if (!e || e.button === 1) {
+        camState.isMiddleDown = false;
       }
       if (!e || e.button === 2) {
         camState.isRightDown = false;
@@ -5352,10 +5366,16 @@
         return;
       }
 
-      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Yaw directly in 3D ship space!)
-      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
-        window.BlahajUFO.applySpaceMouseLook(dx, dy);
-        return;
+      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll; Hold Middle-Click to Pan Camera!)
+      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
+        if (camState.isMiddleDown && window.BlahajUFO.panSpaceCamera) {
+          window.BlahajUFO.panSpaceCamera(dx, dy);
+          return;
+        }
+        if (window.BlahajUFO.applySpaceMouseLook) {
+          window.BlahajUFO.applySpaceMouseLook(dx, dy);
+          return;
+        }
       }
 
       // Sub-mode 2: Camera Orbit Mode (default IN GAME)
@@ -10358,7 +10378,10 @@
     const ufoInvPitchEl = document.getElementById('set-ufo-space-invertpitch');
     if (ufoInvPitchEl) ufoInvPitchEl.checked = !!gameSettings.ufoSpaceInvertPitch;
     document.querySelectorAll('#group-ufo-space-qe .btn-group-item').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.qemode === (gameSettings.ufoSpaceQEMode || 'strafe'));
+      btn.classList.toggle('active', btn.dataset.qemode === (gameSettings.ufoSpaceQEMode || 'yaw'));
+    });
+    document.querySelectorAll('#group-ufo-space-mousex .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mousex === (gameSettings.ufoSpaceMouseXMode || 'roll'));
     });
     window.gameSettings = gameSettings;
     if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
@@ -10856,6 +10879,13 @@
         document.querySelectorAll('#group-ufo-space-qe .btn-group-item').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         applySetting('ufoSpaceQEMode', btn.dataset.qemode);
+      });
+    });
+    document.querySelectorAll('#group-ufo-space-mousex .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-ufo-space-mousex .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('ufoSpaceMouseXMode', btn.dataset.mousex);
       });
     });
 
