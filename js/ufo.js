@@ -3499,22 +3499,29 @@ window.BlahajUFO = (function () {
 
           state.pos.addScaledVector(state.vel, dt);
 
-          // Cushion softly inside the vast 68m wormhole cylinder (max flyable radius 54m)
+          // Cushion softly inside the vast 68m wormhole cylinder (max flyable radius 44m so chase cam never pokes outside the 68m wall!)
           const rXY = Math.hypot(state.pos.x, state.pos.y);
-          if (rXY > 54.0) {
-            const scale = 54.0 / rXY;
+          if (rXY > 44.0) {
+            const scale = 44.0 / rXY;
             state.pos.x *= scale;
             state.pos.y *= scale;
           }
           state.pos.z = Math.max(-42.0, Math.min(14.0, state.pos.z));
 
-          // Gentle downstream nose-alignment magnet (keeps you pointed generally down the wormhole while leaving 360° Barrel Roll completely free!)
+          // Keep nose pointed generally down the wormhole (-Z) while allowing full 360° Barrel Rolls & smooth steering!
           const downstreamDir = new THREE.Vector3(0, 0, -1);
           const curFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(state.spaceQuat).normalize();
+          const alignAngle = curFwd.angleTo(downstreamDir);
           const alignQuat = new THREE.Quaternion().setFromUnitVectors(curFwd, downstreamDir);
-          const slerpStrength = handsOff ? Math.min(1.0, dt * 1.8) : Math.min(1.0, dt * 0.75);
-          const stepAlign = new THREE.Quaternion().slerp(alignQuat, slerpStrength);
-          state.spaceQuat.premultiply(stepAlign).normalize();
+          // Enforce max 55° cone off-axis so you can never turn 130° sideways/backwards out of the tunnel!
+          if (alignAngle > 0.96) {
+            const clampStep = new THREE.Quaternion().slerp(alignQuat, (alignAngle - 0.96) / alignAngle);
+            state.spaceQuat.premultiply(clampStep).normalize();
+          } else {
+            const slerpStrength = handsOff ? Math.min(1.0, dt * 3.2) : Math.min(1.0, dt * 1.4);
+            const stepAlign = new THREE.Quaternion().slerp(alignQuat, slerpStrength);
+            state.spaceQuat.premultiply(stepAlign).normalize();
+          }
 
           const syncedH = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
           state.pitch = syncedH.x;
@@ -4134,10 +4141,25 @@ window.BlahajUFO = (function () {
     }
 
     if (state.inHyperspace) {
-      if (window.BlahajGame && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
-        window.BlahajGame.exitHyperspaceTo('island', true);
-      }
-      return;
+      state.phase = 'flying';
+      state.hatchTargetOpen = false;
+      state.hatchOpenProg = 0.0;
+      state.orbitalCeilingReached = true;
+      state.pos.set(0, 0, 0);
+      state.vel.set(0, 0, 0);
+      state.yaw = Math.PI;
+      state.pitch = 0;
+      state.roll = 0;
+      state.spacePanYaw = 0;
+      state.spacePanPitch = 0;
+      state.spaceQuat.setFromEuler(new THREE.Euler(0, Math.PI, 0, 'YXZ')).normalize();
+      state.remoteTargetQuat.copy(state.spaceQuat);
+      state.spaceThrottle = 1.0;
+      state.spaceMouseDx = 0;
+      state.spaceMouseDy = 0;
+      state.spaceAngVelPitch = 0;
+      state.spaceAngVelYaw = 0;
+      state.spaceAngVelRoll = 0;
     } else if (state.inCheeseMoon) {
       state.phase = 'flying';
       state.hatchTargetOpen = false;
