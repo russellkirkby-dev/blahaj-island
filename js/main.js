@@ -12569,6 +12569,7 @@
 
   function checkLandmarkDiscovery() {
     if (!player || !player.pos) return;
+    if (currentZone !== 'island' && currentZone !== 'overworld') return;
     for (const lm of ALL_MAP_LANDMARKS) {
       if (!discoveredLandmarks.has(lm.id)) {
         const d = Math.hypot(player.pos.x - lm.x, player.pos.z - lm.z);
@@ -16015,6 +16016,21 @@
     updateRemotePilotPauseBanner();
     const instancePaused = isCurrentInstancePaused();
     const ufoStepDt = instancePaused ? 0 : dt;
+
+    // Ensure zone-specific top objective banners & HUD waypoints never linger across zone transitions or overlap the Pause Menu!
+    const pauseMenuOpenNow = !!(document.getElementById('game-pause-overlay') && !document.getElementById('game-pause-overlay').classList.contains('hidden'));
+    if (currentZone !== 'hyperspace' || pauseMenuOpenNow) {
+      const hb = document.getElementById('hyperspace-objective-banner');
+      if (hb) hb.style.display = 'none';
+      const hw = document.getElementById('hyperspace-hud-waypoints');
+      if (hw) hw.style.display = 'none';
+    }
+    if (currentZone !== 'cheese_moon' || pauseMenuOpenNow) {
+      const cb = document.getElementById('cheese-moon-objective-banner');
+      if (cb) cb.style.display = 'none';
+      const cw = document.getElementById('cheese-moon-hud-waypoints');
+      if (cw) cw.style.display = 'none';
+    }
 
     // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
     if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {

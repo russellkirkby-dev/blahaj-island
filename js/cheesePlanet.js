@@ -1712,18 +1712,77 @@ window.BlahajCheeseMoon = (function () {
           }
         }
       } else {
+        // 3D Gravitronic Canyon-Wall & Floor Repulsor System (Center + 8 Saucer-Rim Perimeter Probes!)
         const rel = new THREE.Vector3().subVectors(ufoState.pos, PLANET_CENTER);
-        const distFromCenter = rel.length();
+        let distFromCenter = rel.length();
         if (distFromCenter > 1.0) {
-          const upNorm = rel.clone().divideScalar(distFromCenter);
+          let upNorm = rel.clone().divideScalar(distFromCenter);
+
+          // Build tangent basis around UFO to probe 8 points along the saucer's outer rim (radius 7.4m)
+          const refAxis = Math.abs(upNorm.x) < 0.8 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 0, 1);
+          const tanU = new THREE.Vector3().crossVectors(upNorm, refAxis).normalize();
+          const tanV = new THREE.Vector3().crossVectors(upNorm, tanU).normalize();
+
+          const probeRadius = 7.4;
+          const wallPush = new THREE.Vector3();
+          let maxWallPen = 0;
+          let contactPoint = null;
+
+          for (let pi = 0; pi < 8; pi++) {
+            const ang = (pi / 8) * Math.PI * 2;
+            const rimDir = new THREE.Vector3()
+              .addScaledVector(tanU, Math.cos(ang))
+              .addScaledVector(tanV, Math.sin(ang));
+            const probePos = new THREE.Vector3().copy(ufoState.pos).addScaledVector(rimDir, probeRadius);
+            const pRel = new THREE.Vector3().subVectors(probePos, PLANET_CENTER);
+            const pDist = pRel.length() || 1;
+            const pNorm = pRel.divideScalar(pDist);
+            const pSurfR = getPlanetRadiusAtNormal(pNorm.x, pNorm.y, pNorm.z) + 4.8;
+
+            if (distFromCenter < pSurfR) {
+              const pen = pSurfR - distFromCenter;
+              wallPush.addScaledVector(rimDir, -pen);
+              if (pen > maxWallPen) {
+                maxWallPen = pen;
+                contactPoint = probePos;
+              }
+            }
+          }
+
+          // 1. Lateral Canyon-Wall Gravitronic Deflection & Bounce!
+          if (maxWallPen > 0.05 && wallPush.lengthSq() > 0.001) {
+            const wallNormal = wallPush.normalize();
+            const pushDist = Math.min(5.5, maxWallPen * 0.72 + 0.6);
+            ufoState.pos.addScaledVector(wallNormal, pushDist);
+            ufoState.antiGravCushionActive = true;
+
+            if (ufoState.vel) {
+              const intoWall = -ufoState.vel.dot(wallNormal);
+              if (intoWall > 0) {
+                // Elastic Gravitronic Repulsor bounce away from the canyon wall!
+                ufoState.vel.addScaledVector(wallNormal, intoWall * 1.48 + 8.5);
+              } else {
+                ufoState.vel.addScaledVector(wallNormal, 5.5);
+              }
+            }
+            if (contactPoint && Math.random() < 0.35) {
+              spawnCheeseBurst(contactPoint, 0x38bdf8, 5, 0.65);
+            }
+          }
+
+          // 2. Radial Canyon-Floor Gravitronic Cushion & Bounce!
+          const relAfter = new THREE.Vector3().subVectors(ufoState.pos, PLANET_CENTER);
+          distFromCenter = relAfter.length() || 1;
+          upNorm = relAfter.divideScalar(distFromCenter);
           const surfRadius = getPlanetRadiusAtNormal(upNorm.x, upNorm.y, upNorm.z);
-          const minSafeRadius = surfRadius + 5.2;
+          const minSafeRadius = surfRadius + 5.8;
           if (distFromCenter < minSafeRadius) {
             ufoState.pos.copy(PLANET_CENTER).addScaledVector(upNorm, minSafeRadius);
+            ufoState.antiGravCushionActive = true;
             if (ufoState.vel) {
               const radialVel = ufoState.vel.dot(upNorm);
               if (radialVel < 0) {
-                ufoState.vel.addScaledVector(upNorm, -1.15 * radialVel);
+                ufoState.vel.addScaledVector(upNorm, -1.35 * radialVel + 4.2);
               }
             }
           }
