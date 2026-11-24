@@ -1689,11 +1689,19 @@ window.BlahajUFO = (function () {
       return;
     }
     const now = Date.now();
-    // 20Hz smooth sync (50ms) when actively piloting
-    if (!force && now - state.lastNetSendAt < 50) return;
-    state.lastNetSendAt = now;
-
+    // Mobile-friendly 10Hz smooth sync (100ms) when actively piloting, and delta-skip when parked & idle!
+    if (!force && now - state.lastNetSendAt < 100) return;
     const isParked = state.phase === 'parked';
+    if (!force && isParked && state.lastBroadcastParkedPos) {
+      const dxP = Math.abs(state.pos.x - state.lastBroadcastParkedPos.x);
+      const dyP = Math.abs(state.pos.y - state.lastBroadcastParkedPos.y);
+      const dzP = Math.abs(state.pos.z - state.lastBroadcastParkedPos.z);
+      if (dxP < 0.02 && dyP < 0.02 && dzP < 0.02 && now - state.lastNetSendAt < 2500) {
+        return;
+      }
+    }
+    state.lastNetSendAt = now;
+    state.lastBroadcastParkedPos = isParked ? { x: state.pos.x, y: state.pos.y, z: state.pos.z } : null;
     window.BlahajNetwork.send({
       type: 'ufo_state',
       _force: !!force,
@@ -1783,8 +1791,8 @@ window.BlahajUFO = (function () {
         pitch: typeof data.pitch === 'number' ? data.pitch : state.remoteTargetPitch,
         roll: typeof data.roll === 'number' ? data.roll : state.remoteTargetRoll
       });
-      if (state.remoteSnapshots.length > 12) {
-        state.remoteSnapshots.splice(0, state.remoteSnapshots.length - 12);
+      if (state.remoteSnapshots.length > 18) {
+        state.remoteSnapshots.splice(0, state.remoteSnapshots.length - 18);
       }
     }
     if (typeof data.vx === 'number' && typeof data.vy === 'number' && typeof data.vz === 'number') {
@@ -2906,10 +2914,10 @@ window.BlahajUFO = (function () {
         state.turboActive
       );
       broadcastState(false);
-    } else if (state.hasRemoteSync && (state.pilotClientId || Date.now() - state.lastRemotePacketAt < 12000)) {
-      // Smooth 115ms Snapshot Buffer Interpolation (absorbs Wi-Fi & cross-ocean packet jitter cleanly!)
+    } else if (state.hasRemoteSync && (state.pilotClientId || Date.now() - state.lastRemotePacketAt < 25000)) {
+      // Smooth 220ms Mobile Snapshot Buffer Interpolation (absorbs slow mobile cellular packet jitter cleanly!)
       const snaps = state.remoteSnapshots;
-      const renderTime = performance.now() - 115;
+      const renderTime = performance.now() - 220;
       let targetX = state.remoteTargetPos.x;
       let targetY = state.remoteTargetPos.y;
       let targetZ = state.remoteTargetPos.z;

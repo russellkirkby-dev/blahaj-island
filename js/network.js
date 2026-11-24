@@ -472,19 +472,19 @@ window.BlahajNetwork = (function () {
   function publishWssPayload(payload, forceImmediate = false) {
     if (!payload) return;
     const now = Date.now();
-    // Rate-limit high-frequency move & ufo_state packets over WSS to ~10Hz (95ms)
-    // so public MQTT brokers never throttle/buffer-burst them into rubberbanding!
+    // Rate-limit high-frequency move & ufo_state packets over WSS to ~8.7Hz (115ms)
+    // so slow mobile connections & public MQTT brokers never queue TCP bufferbloat!
     if (payload.type === 'move' && !forceImmediate) {
-      if (now - lastWssMoveSentAt < 95) return;
+      if (now - lastWssMoveSentAt < 115) return;
       lastWssMoveSentAt = now;
     } else if (payload.type === 'ufo_state' && !forceImmediate && !payload._force) {
-      if (now - lastWssUfoSentAt < 95) return;
+      if (now - lastWssUfoSentAt < 115) return;
       lastWssUfoSentAt = now;
     }
 
     const topic = getRealmTopic(currentRoom);
     let packetBinary = null;
-    const isHighFreq = payload.type === 'move' || payload.type === 'ufo_state' || payload.type === '__presence__';
+    const isHighFreq = payload.type === 'move' || payload.type === 'ufo_state' || payload.type === '__presence__' || payload.type === '__ping__';
     let sentToPrimary = false;
 
     wssClients.forEach((st) => {
@@ -519,13 +519,20 @@ window.BlahajNetwork = (function () {
     ctrlObj._pktId = `${clientId}-${++packetSeq}`;
     markPacketSeen(ctrlObj._pktId);
 
-    publishWssPayload(ctrlObj, true);
-
+    let sentDirect = false;
     allConns.forEach((c) => {
       if (c && c.open) {
-        try { c.send(ctrlObj); } catch (e) {}
+        try {
+          c.send(ctrlObj);
+          if (c._verified) sentDirect = true;
+        } catch (e) {}
       }
     });
+
+    const isBeacon = ctrlObj.type === '__presence__' || ctrlObj.type === '__ping__';
+    if (!isBeacon || !sentDirect) {
+      publishWssPayload(ctrlObj, !isBeacon);
+    }
   }
 
   // ==========================================================================
@@ -722,12 +729,12 @@ window.BlahajNetwork = (function () {
     }
 
     peer.on('open', () => {
-      // Delay WebRTC slot probing so it never chokes initial 3D scene startup, and skip if WSS mesh is already live!
+      // Delay WebRTC slot probing so it never chokes initial 3D scene startup, then always attempt direct P2P upgrade!
       setTimeout(() => {
-        if (!isCleaningUp && !isAnyWssBrokerConnected()) {
+        if (!isCleaningUp) {
           probeOtherRealmSlots();
         }
-      }, 6000);
+      }, 3500);
     });
 
     peer.on('connection', (incomingConn) => {
@@ -766,16 +773,15 @@ window.BlahajNetwork = (function () {
   });
 
   // ==========================================================================
-  // 3. CONTINUOUS 1-SECOND PRESENCE BEACON & STALE PEER PRUNER
-  // Guarantees players standing still at the Portal or inside interiors see each other within 1s!
+  // 3. LOW-BANDWIDTH 2.5-SECOND PRESENCE BEACON & MOBILE-TOLERANT PEER PRUNER
   // ==========================================================================
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   heartbeatInterval = setInterval(() => {
     if (isCleaningUp) return;
     const now = Date.now();
 
-    // 1. Broadcast our current position & presence over WSS + WebRTC every 1.0s when standing still!
-    if (now - lastWssMoveSentAt > 850) {
+    // 1. Broadcast our current position & presence every 2.5s only when idle!
+    if (now - lastWssMoveSentAt > 2200 && now - lastWssUfoSentAt > 2200) {
       if (latestPlayerState) {
         sendRawControl({
           type: '__presence__',
@@ -790,13 +796,13 @@ window.BlahajNetwork = (function () {
       }
     }
 
-    // 2. Prune remote peers that haven't sent any packet in >14 seconds
+    // 2. Prune remote peers only after 45 seconds of complete silence (prevents mobile cellular stalls from popping characters out!)
     activeRemotePeers.forEach((info, remId) => {
-      if (now - info.lastSeen > 14000) {
+      if (now - info.lastSeen > 45000) {
         unregisterRemotePeer(remId);
       }
     });
-  }, 1000);
+  }, 2500);
 
   // ==========================================================================
   // 4. BUILT-IN LOCAL HTTP RELAY ENGINE (When running local server.py)

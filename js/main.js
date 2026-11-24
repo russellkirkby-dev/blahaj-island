@@ -16321,35 +16321,88 @@
     });
 
     netSyncTimer += dt;
-    const syncInterval = (isMoving || player.inCart || player.inBoat) ? 0.075 : 0.25;
+    const inUfoNow = !!(player.inUFO || (window.BlahajUFO && typeof window.BlahajUFO.isLocalAboard === 'function' && window.BlahajUFO.isLocalAboard()));
+    const occCart = (player.inCart && window.BlahajLaundromat) ? window.BlahajLaundromat.getOccupiedCart() : null;
+    const cartMoving = occCart ? (Math.abs(occCart.speed) > 0.05) : false;
+    const activelyMoving = !inUfoNow && (isMoving || cartMoving || player.inBoat);
+    // Mobile-friendly tick rate: 0.11s (~9Hz) while actively moving on foot/boat/cart,
+    // 3.0s keepalive while aboard UFO (since ufo_state carries position), and delta-skipped when standing still!
+    const syncInterval = inUfoNow ? 3.0 : (activelyMoving ? 0.11 : 0.35);
     if (netSyncTimer > syncInterval) {
-      netSyncTimer = 0;
-      const occCart = (player.inCart && window.BlahajLaundromat) ? window.BlahajLaundromat.getOccupiedCart() : null;
-      const cartMoving = occCart ? (Math.abs(occCart.speed) > 0.05) : false;
       const mmoPosture = (window.BlahajMMO && typeof window.BlahajMMO.getActivePosture === 'function')
         ? window.BlahajMMO.getActivePosture()
         : null;
       const playingPlushie = !!(window.BlahajSpawningPits && typeof window.BlahajSpawningPits.isPlayingPlushie === 'function' && window.BlahajSpawningPits.isPlayingPlushie());
-      window.BlahajNetwork.send({
-        type: 'move',
-        sharkId: player.sharkId,
-        x: player.pos.x,
-        y: player.pos.y,
-        z: player.pos.z,
-        rotY: player.rotY,
-        isMoving: player.inCart ? cartMoving : isMoving,
-        inBoat: player.inBoat,
-        inCart: player.inCart,
-        cartId: player.cartId || null,
-        zone: currentZone,
-        mange: window.__BLAHAJ_MANGE__,
-        heldItemId: playerHeldItem ? playerHeldItem.id : null,
-        isLounging: !!player.isLounging,
-        loungeChairId: player.loungeChairId || null,
-        activePostureId: mmoPosture ? mmoPosture.id : null,
-        isSeatedInBooth: !!player.isSeatedInBooth,
-        isPlayingPlushie: playingPlushie
-      });
+      const rx = Number(player.pos.x.toFixed(2));
+      const ry = Number(player.pos.y.toFixed(2));
+      const rz = Number(player.pos.z.toFixed(2));
+      const rRot = Number(player.rotY.toFixed(3));
+      const heldId = playerHeldItem ? playerHeldItem.id : null;
+      const postId = mmoPosture ? mmoPosture.id : null;
+      const mangeVal = Number((window.__BLAHAJ_MANGE__ || 0).toFixed(3));
+
+      const prev = update._lastSentMove;
+      const nowMs = performance.now();
+      const unchanged = prev &&
+        Math.abs(prev.x - rx) < 0.02 &&
+        Math.abs(prev.y - ry) < 0.02 &&
+        Math.abs(prev.z - rz) < 0.02 &&
+        Math.abs(prev.rotY - rRot) < 0.02 &&
+        prev.isMoving === activelyMoving &&
+        prev.zone === currentZone &&
+        prev.heldItemId === heldId &&
+        prev.activePostureId === postId &&
+        prev.inBoat === !!player.inBoat &&
+        prev.inCart === !!player.inCart &&
+        prev.isLounging === !!player.isLounging &&
+        prev.isSeatedInBooth === !!player.isSeatedInBooth &&
+        prev.isPlayingPlushie === playingPlushie;
+
+      netSyncTimer = 0;
+      if (!unchanged || (nowMs - (prev ? prev.t : 0) > 2500)) {
+        const pkt = {
+          type: 'move',
+          sharkId: player.sharkId,
+          x: rx,
+          y: ry,
+          z: rz,
+          rotY: rRot,
+          isMoving: activelyMoving,
+          zone: currentZone,
+          mange: mangeVal
+        };
+        if (player.inBoat) pkt.inBoat = true;
+        if (player.inCart) {
+          pkt.inCart = true;
+          pkt.cartId = player.cartId || null;
+        }
+        if (heldId) pkt.heldItemId = heldId;
+        if (player.isLounging) {
+          pkt.isLounging = true;
+          pkt.loungeChairId = player.loungeChairId || null;
+        }
+        if (postId) pkt.activePostureId = postId;
+        if (player.isSeatedInBooth) pkt.isSeatedInBooth = true;
+        if (playingPlushie) pkt.isPlayingPlushie = true;
+
+        update._lastSentMove = {
+          t: nowMs,
+          x: rx,
+          y: ry,
+          z: rz,
+          rotY: rRot,
+          isMoving: activelyMoving,
+          zone: currentZone,
+          heldItemId: heldId,
+          activePostureId: postId,
+          inBoat: !!player.inBoat,
+          inCart: !!player.inCart,
+          isLounging: !!player.isLounging,
+          isSeatedInBooth: !!player.isSeatedInBooth,
+          isPlayingPlushie: playingPlushie
+        };
+        window.BlahajNetwork.send(pkt);
+      }
     }
   }
 
