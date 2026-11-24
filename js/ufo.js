@@ -3476,17 +3476,17 @@ window.BlahajUFO = (function () {
           const keySteerY = fwdInput;
 
           // Combine nose-pointed 3D space flight vector with direct lateral/vertical maneuver authority inside the vast 68m wormhole
-          const noseLatX = shipFwd.x * 38.0;
-          const noseLatY = shipFwd.y * 32.0;
-          const desiredVx = noseLatX + keySteerX * 26.0;
-          const desiredVy = noseLatY + keySteerY * 20.0;
+          const noseLatX = shipFwd.x * 44.0;
+          const noseLatY = shipFwd.y * 36.0;
+          const desiredVx = noseLatX + keySteerX * 22.0;
+          const desiredVy = noseLatY + keySteerY * 18.0;
           const desiredVz = (shipFwd.z + 1.0) * 18.0 - state.pos.z * 1.8;
 
           const handsOff =
             Math.abs(keySteerX) < 0.05 &&
             Math.abs(keySteerY) < 0.05 &&
-            Math.abs(mdx) < 0.5 &&
-            Math.abs(mdy) < 0.5;
+            Math.abs(shipFwd.x) < 0.08 &&
+            Math.abs(shipFwd.y) < 0.08;
 
           // Gentle slipstream current pulls you softly toward the middle cruising lane when hands-off,
           // so you must deliberately fly out to the outer doorway wall (|x| >= 30m) to exit!

@@ -5475,14 +5475,14 @@
           window.BlahajUFO.panCockpit(dx, dy);
           return;
         }
-        if ((currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO.panSpaceCamera) {
+        if ((currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO.panSpaceCamera) {
           window.BlahajUFO.panSpaceCamera(dx, dy);
           return;
         }
       }
 
       // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll)
-      if ((currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
+      if ((currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
         window.BlahajUFO.applySpaceMouseLook(dx, dy);
         return;
       }
