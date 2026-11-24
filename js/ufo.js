@@ -2769,7 +2769,120 @@ window.BlahajUFO = (function () {
       elHuBar.style.background = huPct > 50 ? '#34d399' : (huPct > 25 ? '#fbbf24' : '#f43f5e');
     }
 
+    if (state.inSpace) {
+      drawSpaceRadar();
+    }
+
     drawArtificialHorizon();
+  }
+
+  function drawSpaceRadar() {
+    const canvas = document.getElementById('ufo-radar-canvas');
+    const countEl = document.getElementById('ufo-radar-count');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const radarSrc = state.inCheeseMoon
+      ? (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getRadarBlips === 'function' ? window.BlahajCheeseMoon.getRadarBlips() : null)
+      : (window.BlahajSpace && typeof window.BlahajSpace.getRadarBlips === 'function' ? window.BlahajSpace.getRadarBlips() : null);
+
+    if (countEl && radarSrc) {
+      countEl.textContent = radarSrc.label || '';
+      countEl.style.color = radarSrc.cleared ? '#facc15' : '#7dd3fc';
+    }
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w * 0.5;
+    const cy = h * 0.5;
+    const rad = cx - 6;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(8, 15, 32, 0.86)';
+    ctx.fill();
+    ctx.clip();
+
+    // Range rings & crosshair
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+    ctx.lineWidth = 1;
+    [0.35, 0.7].forEach((s) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad * s, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(cx - rad, cy);
+    ctx.lineTo(cx + rad, cy);
+    ctx.moveTo(cx, cy - rad);
+    ctx.lineTo(cx, cy + rad);
+    ctx.stroke();
+
+    // Ship-relative projection using shipFwd, shipRight, shipUp
+    const invQuat = state.spaceQuat.clone().invert();
+    const maxRange = 175.0;
+
+    if (radarSrc && Array.isArray(radarSrc.blips)) {
+      radarSrc.blips.forEach((b) => {
+        const rel = new THREE.Vector3(b.x - state.pos.x, b.y - state.pos.y, b.z - state.pos.z);
+        rel.applyQuaternion(invQuat);
+        // In local ship space: +Z is forward (radar Up: -Y), -X is right (radar Right: +X), +Y is up
+        const nx = Math.max(-0.92, Math.min(0.92, -rel.x / maxRange));
+        const nz = Math.max(-0.92, Math.min(0.92, rel.z / maxRange));
+        const bx = cx + nx * rad;
+        const by = cy - nz * rad;
+        const elevPx = Math.max(-10, Math.min(10, (rel.y / maxRange) * 28));
+
+        if (b.kind === 'gate') {
+          ctx.strokeStyle = state.inCheeseMoon ? '#facc15' : '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
+          ctx.stroke();
+        } else if (b.kind === 'monolith') {
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+          ctx.beginPath();
+          ctx.arc(bx, by, 4.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const col = b.kind === 'latched'
+            ? '#f43f5e'
+            : (b.kind === 'invader' ? '#f0abfc' : (b.tier === 2 ? '#facc15' : '#38bdf8'));
+          // Elevation tick showing whether target is above or below your plane
+          if (Math.abs(elevPx) > 1.5) {
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx, by - elevPx);
+            ctx.stroke();
+          }
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.arc(bx, by, b.tier === 2 ? 3.2 : 2.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    // Center Ship Triangle
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 5);
+    ctx.lineTo(cx - 4, cy + 4);
+    ctx.lineTo(cx + 4, cy + 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+    ctx.strokeStyle = state.inCheeseMoon ? '#facc15' : '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   // ==========================================================================
@@ -3969,6 +4082,10 @@ window.BlahajUFO = (function () {
     }
     spawnRadarWave(state.inSpace ? 0xe879f9 : 0x38bdf8, 36);
     playJetsonsHorn();
+    // Default weapon: Ray Turrets (1) in space, Tractor Beam (0) on the ground!
+    if (saucerModules.length > 1) {
+      selectModule(state.inSpace ? 1 : 0);
+    }
     updateAvionicsButtonsUI();
     updateAvionicsHUD();
     if (state.localRole === 'pilot') {

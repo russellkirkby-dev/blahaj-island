@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=16.0" />
+  <link rel="stylesheet" href="styles.css?v=16.1" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2492,7 +2492,12 @@
   </div>
   <style>
     body.ufo-space-mode #ufo-space-reticle { display: block !important; }
+    body.ufo-space-mode #ufo-space-radar { display: flex !important; }
   </style>
+  <div id="ufo-space-radar" aria-hidden="true" style="display:none; position:fixed; right:18px; bottom:18px; flex-direction:column; align-items:center; gap:5px; z-index:55; pointer-events:none; background:rgba(9,15,32,0.72); border:1px solid rgba(56,189,248,0.45); border-radius:16px; padding:8px 10px; backdrop-filter:blur(6px);">
+    <canvas id="ufo-radar-canvas" width="144" height="144"></canvas>
+    <div id="ufo-radar-count" style="font-size:0.74rem; font-weight:900; letter-spacing:0.06em; color:#7dd3fc;">ROCKS: 24</div>
+  </div>
   <canvas id="ufo-windscreen-rain" class="ufo-windscreen-rain hidden"></canvas>
   <div id="ufo-avionics-hud" class="ufo-avionics-hud hidden">
     <div class="ufo-top-strip">
@@ -2737,26 +2742,26 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=16.0"></script>
-  <script src="js/quests.js?v=16.0"></script>
-  <script src="js/sharks3d.js?v=16.0"></script>
-  <script src="js/space.js?v=16.0"></script>
-  <script src="js/cheesePlanet.js?v=16.0"></script>
-  <script src="js/ufo.js?v=16.0"></script>
-  <script src="js/world3d.js?v=16.0"></script>
-  <script src="js/volcano.js?v=16.0"></script>
-  <script src="js/laundromat.js?v=16.0"></script>
-  <script src="js/sphericalFoods.js?v=16.0"></script>
-  <script src="js/volleyball.js?v=16.0"></script>
-  <script src="js/spawningPits.js?v=16.0"></script>
-  <script src="js/homestead.js?v=16.0"></script>
-  <script src="js/network.js?v=16.0"></script>
-  <script src="js/inventory.js?v=16.0"></script>
-  <script src="js/enemies.js?v=16.0"></script>
-  <script src="js/seam.js?v=16.0"></script>
-  <script src="js/mmoControls.js?v=16.0"></script>
+  <script src="js/lore.js?v=16.1"></script>
+  <script src="js/quests.js?v=16.1"></script>
+  <script src="js/sharks3d.js?v=16.1"></script>
+  <script src="js/space.js?v=16.1"></script>
+  <script src="js/cheesePlanet.js?v=16.1"></script>
+  <script src="js/ufo.js?v=16.1"></script>
+  <script src="js/world3d.js?v=16.1"></script>
+  <script src="js/volcano.js?v=16.1"></script>
+  <script src="js/laundromat.js?v=16.1"></script>
+  <script src="js/sphericalFoods.js?v=16.1"></script>
+  <script src="js/volleyball.js?v=16.1"></script>
+  <script src="js/spawningPits.js?v=16.1"></script>
+  <script src="js/homestead.js?v=16.1"></script>
+  <script src="js/network.js?v=16.1"></script>
+  <script src="js/inventory.js?v=16.1"></script>
+  <script src="js/enemies.js?v=16.1"></script>
+  <script src="js/seam.js?v=16.1"></script>
+  <script src="js/mmoControls.js?v=16.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=16.0"></script>
-  <script src="js/main.js?v=16.0"></script>
+  <script src="js/saveSystem.js?v=16.1"></script>
+  <script src="js/main.js?v=16.1"></script>
 </body>
 </html>

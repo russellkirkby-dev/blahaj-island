@@ -524,6 +524,22 @@ window.BlahajCheeseMoon = (function () {
     checkPlasmaBoltCollision,
     triggerSonicShockwave,
     handleNetworkPacket,
-    getStats: () => ({ invadersClearedCount })
+    getStats: () => ({ invadersClearedCount }),
+    getRadarBlips: () => {
+      const blips = [];
+      let activeCount = 0;
+      for (let i = 0; i < invaders.length; i++) {
+        const inv = invaders[i];
+        if (!inv || !inv.alive) continue;
+        activeCount++;
+        blips.push({ x: inv.pos.x, y: inv.pos.y, z: inv.pos.z, kind: inv.latched ? 'latched' : 'invader', tier: 1 });
+      }
+      blips.push({ x: REENTRY_POS.x, y: REENTRY_POS.y, z: REENTRY_POS.z, kind: 'gate', tier: 0 });
+      return {
+        label: `INVADERS: ${activeCount}`,
+        cleared: false,
+        blips
+      };
+    }
   };
 })();

@@ -1014,6 +1014,26 @@ window.BlahajSpace = (function () {
       remainingRocks: breakableRocks.filter((x) => x.alive).length,
       shatteredCount: rocksShatteredCount,
       respawnSeconds: ASTEROID_RESPAWN_SECONDS
-    })
+    }),
+    getRadarBlips: () => {
+      const blips = [];
+      for (let i = 0; i < monolithRocks.length; i++) {
+        const m = monolithRocks[i];
+        blips.push({ x: m.pos.x, y: m.pos.y, z: m.pos.z, kind: 'monolith', tier: 3 });
+      }
+      let remaining = 0;
+      for (let i = 0; i < breakableRocks.length; i++) {
+        const r = breakableRocks[i];
+        if (!r || !r.alive) continue;
+        remaining++;
+        blips.push({ x: r.pos.x, y: r.pos.y, z: r.pos.z, kind: 'rock', tier: r.tier });
+      }
+      blips.push({ x: REENTRY_POS.x, y: REENTRY_POS.y, z: REENTRY_POS.z, kind: 'gate', tier: 0 });
+      return {
+        label: remaining === 0 ? '🏆 CLEARED! [4]+[SHIFT] 5s' : `ROCKS: ${remaining}`,
+        cleared: remaining === 0,
+        blips
+      };
+    }
   };
 })();
