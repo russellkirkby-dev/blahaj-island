@@ -2257,10 +2257,16 @@ window.BlahajUFO = (function () {
     const clamped = ((idx % saucerModules.length) + saucerModules.length) % saucerModules.length;
     if (clamped === activeModuleIdx) return;
     activeModuleIdx = clamped;
+    state.activeModuleIdx = clamped;
     // Enforce strict single-system exclusivity: switching away from Tractor Beam (0) immediately shuts off the beam!
     if (activeModuleIdx !== 0 && state.tractorBeam) {
       state.tractorBeam = false;
       if (tractorBeamMesh) tractorBeamMesh.visible = false;
+      updateAvionicsButtonsUI();
+    } else if (activeModuleIdx === 0 && state.inCheeseMoon && !state.tractorBeam) {
+      // On the Cheese Moon, switching to [1] Tractor Beam automatically activates the beam cone for easy Core Power-Up hauling!
+      state.tractorBeam = true;
+      if (tractorBeamMesh) tractorBeamMesh.visible = true;
       updateAvionicsButtonsUI();
     }
     broadcastState(true);
@@ -2278,6 +2284,9 @@ window.BlahajUFO = (function () {
 
   function activateActiveModule() {
     if (!state.localRole || !saucerModules.length) return;
+    if (window.BlahajGame && typeof window.BlahajGame.isCurrentInstancePaused === 'function' && window.BlahajGame.isCurrentInstancePaused()) {
+      return;
+    }
     const mod = saucerModules[activeModuleIdx];
     if (mod && typeof mod.activate === 'function') {
       mod.activate();
@@ -2397,7 +2406,10 @@ window.BlahajUFO = (function () {
     spawnRadarWave(0x38bdf8, 72);
     if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
     let pingSummary = 'All sectors calm';
-    if (window.BlahajSeam && typeof window.BlahajSeam.getNearestRift === 'function') {
+    if (state.inSpace && state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.onAethericRadarScan === 'function') {
+      spawnRadarWave(0xfacc15, 96);
+      pingSummary = window.BlahajCheeseMoon.onAethericRadarScan(state.pos) || 'Scanning Swiss Cheese Planetoid trenches…';
+    } else if (window.BlahajSeam && typeof window.BlahajSeam.getNearestRift === 'function') {
       const r = window.BlahajSeam.getNearestRift(state.pos, 'island');
       if (r && r.nearest) {
         const dx = r.nearest.pos.x - state.pos.x;
@@ -2975,10 +2987,15 @@ window.BlahajUFO = (function () {
       mod.prog += (target - mod.prog) * Math.min(1.0, dt * 7.5);
       mod.animate(mod.prog, elapsed);
     });
+    state.activeModuleIdx = activeModuleIdx;
+    if (dt <= 0) {
+      state.spaceMouseDx = 0;
+      state.spaceMouseDy = 0;
+    }
     if (state.turretFireCooldown > 0) {
       state.turretFireCooldown = Math.max(0, state.turretFireCooldown - dt);
     }
-    if (state.localRole && activeModuleIdx === 1) {
+    if (dt > 0 && state.localRole && activeModuleIdx === 1) {
       const kNow = keys || {};
       const holdingLeftTrigger = !!(camState && camState.isLeftDown && !camState.isRightDown);
       const holdingKeyTrigger = !!kNow['t'];

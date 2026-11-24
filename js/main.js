@@ -4967,18 +4967,198 @@
     window._blahajSyncCaptureUI = syncCaptureUI;
     window._blahajGetFinCursorPos = () => ({ x: finCursor.x, y: finCursor.y });
 
+    let localPilotPauseMenuOpen = false;
+    let localStoryPauseOpen = false;
+    let storyPauseOpenedAt = 0;
+    let remotePilotPauseState = { paused: false, zone: null, reason: '' };
+
+    function isUfoFlightOrSpaceInstance() {
+      const ufoSt = (window.BlahajUFO && typeof window.BlahajUFO.getState === 'function')
+        ? window.BlahajUFO.getState()
+        : null;
+      if (currentZone === 'space' || currentZone === 'cheese_moon') return true;
+      return !!(ufoSt && ufoSt.localRole);
+    }
+
+    function isLocalUfoPilot() {
+      const ufoSt = (window.BlahajUFO && typeof window.BlahajUFO.getState === 'function')
+        ? window.BlahajUFO.getState()
+        : null;
+      return !!(ufoSt && ufoSt.localRole === 'pilot');
+    }
+
+    function isCurrentInstancePaused() {
+      if (localStoryPauseOpen) return true;
+      if (localPilotPauseMenuOpen && isUfoFlightOrSpaceInstance()) return true;
+      if (remotePilotPauseState.paused) {
+        const ufoSt = (window.BlahajUFO && typeof window.BlahajUFO.getState === 'function')
+          ? window.BlahajUFO.getState()
+          : null;
+        const inSameZone = remotePilotPauseState.zone && remotePilotPauseState.zone === currentZone;
+        const isPassengerInUfo = !!(ufoSt && ufoSt.localRole === 'passenger');
+        if (inSameZone || isPassengerInUfo) return true;
+      }
+      return false;
+    }
+
+    function updateRemotePilotPauseBanner() {
+      let banner = document.getElementById('pilot-instance-pause-banner');
+      const ufoSt = (window.BlahajUFO && typeof window.BlahajUFO.getState === 'function')
+        ? window.BlahajUFO.getState()
+        : null;
+      const showRemoteFreeze = !!(
+        remotePilotPauseState.paused &&
+        !localPilotPauseMenuOpen &&
+        !localStoryPauseOpen &&
+        ((remotePilotPauseState.zone && remotePilotPauseState.zone === currentZone) ||
+          (ufoSt && ufoSt.localRole === 'passenger'))
+      );
+      if (!showRemoteFreeze) {
+        if (banner) banner.style.display = 'none';
+        return;
+      }
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'pilot-instance-pause-banner';
+        banner.style.cssText = [
+          'position:fixed',
+          'top:82px',
+          'left:50%',
+          'transform:translateX(-50%)',
+          'z-index:9600',
+          'background:rgba(15, 23, 42, 0.94)',
+          'border:2px solid #facc15',
+          'border-radius:14px',
+          'padding:12px 24px',
+          'color:#fef08a',
+          'font-family:system-ui,-apple-system,sans-serif',
+          'font-weight:800',
+          'font-size:15px',
+          'letter-spacing:0.04em',
+          'box-shadow:0 12px 32px rgba(0,0,0,0.65)',
+          'text-align:center',
+          'pointer-events:none'
+        ].join(';');
+        document.body.appendChild(banner);
+      }
+      const reasonTxt = remotePilotPauseState.reason || 'Pilot paused the instance';
+      banner.innerHTML = `⏸️ INSTANCE FROZEN BY UFO PILOT<div style="font-size:12px;font-weight:600;color:#cbd5e1;margin-top:3px;">${reasonTxt} · Waiting for Pilot to resume…</div>`;
+      banner.style.display = 'block';
+    }
+
+    function broadcastPilotInstancePause() {
+      if (!isLocalUfoPilot() && currentZone !== 'space' && currentZone !== 'cheese_moon') return;
+      const paused = !!(localPilotPauseMenuOpen || localStoryPauseOpen);
+      const reason = localStoryPauseOpen
+        ? 'Pilot is reading a discovery update'
+        : 'Pilot opened the Pause Menu';
+      if (window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+        window.BlahajNetwork.send({
+          type: 'ufo_instance_pause',
+          paused,
+          zone: currentZone,
+          reason
+        });
+      }
+    }
+
+    function showStoryPauseModal(opts = {}) {
+      let modal = document.getElementById('ufo-story-pause-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'ufo-story-pause-modal';
+        modal.style.cssText = [
+          'position:fixed',
+          'inset:0',
+          'z-index:9750',
+          'display:flex',
+          'align-items:center',
+          'justify-content:center',
+          'background:rgba(6, 10, 22, 0.72)',
+          'backdrop-filter:blur(5px)'
+        ].join(';');
+        modal.innerHTML = `
+          <div id="ufo-story-pause-card" style="max-width:560px;width:92%;background:linear-gradient(165deg, rgba(15,23,42,0.97), rgba(30,27,75,0.96));border:2px solid #facc15;border-radius:18px;padding:24px 28px;color:#f8fafc;box-shadow:0 20px 55px rgba(0,0,0,0.8), 0 0 28px rgba(250,204,21,0.22);font-family:system-ui,-apple-system,sans-serif;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+              <span id="ufo-story-pause-badge" style="background:rgba(250,204,21,0.18);border:1px solid #facc15;color:#fef08a;font-size:11px;font-weight:800;letter-spacing:0.08em;padding:4px 10px;border-radius:999px;text-transform:uppercase;">💭 INNER THOUGHT · INSTANCE PAUSED</span>
+              <span style="color:#94a3b8;font-size:11px;font-weight:700;">⏸️ SIMULATION FROZEN</span>
+            </div>
+            <h3 id="ufo-story-pause-title" style="margin:0 0 12px 0;font-size:21px;font-weight:800;color:#fef08a;line-height:1.25;"></h3>
+            <div id="ufo-story-pause-body" style="font-size:15px;line-height:1.58;color:#e2e8f0;margin-bottom:16px;"></div>
+            <div id="ufo-story-pause-hint" style="background:rgba(56,189,248,0.13);border-left:3px solid #38bdf8;padding:10px 14px;border-radius:8px;font-size:13px;color:#bae6fd;margin-bottom:18px;font-weight:600;"></div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="button" id="ufo-story-pause-btn" style="background:linear-gradient(135deg,#facc15,#eab308);color:#0f172a;border:none;border-radius:10px;padding:10px 22px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(250,204,21,0.35);">▶ Continue Flight [Space / Enter]</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+          if (performance.now() - storyPauseOpenedAt < 220) return;
+          e.stopPropagation();
+          closeStoryPauseModal();
+        });
+      }
+      const badgeEl = document.getElementById('ufo-story-pause-badge');
+      const titleEl = document.getElementById('ufo-story-pause-title');
+      const bodyEl = document.getElementById('ufo-story-pause-body');
+      const hintEl = document.getElementById('ufo-story-pause-hint');
+      const btnEl = document.getElementById('ufo-story-pause-btn');
+
+      if (badgeEl) badgeEl.textContent = opts.badge || '💭 INNER THOUGHT · INSTANCE PAUSED';
+      if (titleEl) titleEl.textContent = opts.title || 'New Discovery';
+      if (bodyEl) bodyEl.innerHTML = opts.body || '';
+      if (hintEl) {
+        hintEl.innerHTML = opts.hint || '';
+        hintEl.style.display = opts.hint ? 'block' : 'none';
+      }
+      if (btnEl) btnEl.textContent = opts.buttonText || '▶ Continue Flight [Space / Enter]';
+
+      localStoryPauseOpen = true;
+      storyPauseOpenedAt = performance.now();
+      modal.style.display = 'flex';
+      if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+      broadcastPilotInstancePause();
+    }
+
+    function closeStoryPauseModal() {
+      const modal = document.getElementById('ufo-story-pause-modal');
+      if (modal) modal.style.display = 'none';
+      if (!localStoryPauseOpen) return;
+      localStoryPauseOpen = false;
+      broadcastPilotInstancePause();
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!localStoryPauseOpen) return;
+      if (performance.now() - storyPauseOpenedAt < 220) return;
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'e' || e.key === 'E' || e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeStoryPauseModal();
+      }
+    }, true);
+
     function openPauseMenu() {
+      if (localStoryPauseOpen) {
+        closeStoryPauseModal();
+      }
       if (pauseOverlayEl) pauseOverlayEl.classList.remove('hidden');
       const leaveVbBtn = document.getElementById('btn-pause-leave-volleyball');
       const resumeBtn = document.getElementById('btn-pause-resume');
       const inVbMatch = !!(window.BlahajVolleyball && (window.BlahajVolleyball.isMatchActive() || window.BlahajVolleyball.isSpectating()));
       if (leaveVbBtn) leaveVbBtn.classList.toggle('hidden', !inVbMatch);
       if (resumeBtn) resumeBtn.textContent = inVbMatch ? '▶ Resume Match' : '▶ Resume Playing';
+      localPilotPauseMenuOpen = true;
+      broadcastPilotInstancePause();
       syncCaptureUI();
     }
 
     function closePauseMenu() {
       if (pauseOverlayEl) pauseOverlayEl.classList.add('hidden');
+      if (localPilotPauseMenuOpen) {
+        localPilotPauseMenuOpen = false;
+        broadcastPilotInstancePause();
+      }
       syncCaptureUI();
     }
 
@@ -8255,10 +8435,14 @@
           updateCoopPartnerVisibility();
 
           showToast(
-            '🧀🌑 SWISS CHEESE PLANETOID ECLIPSE!',
-            'Dive into the Swiss cheese canyons! Watch for 1980s Space Invaders emerging from the holes to grab your hull!'
+            '🧀🌑 SWISS CHEESE PLANETOID — EERIE SILENCE',
+            'The trenches are strangely quiet… Switch to [3] Aetheric Radar & Left-Click to scan the canyons!'
           );
-          addChatLog('🧀🌑 <strong>Swiss Cheese Planetoid:</strong> Entered the Pitch-Black Eclipse Canyon! Blast 2D Space Invaders with Ray Turrets or Right-Click Sonic Shockwave!', 'lore');
+          addChatLog('🧀🌑 <strong>Swiss Cheese Planetoid:</strong> The eclipsed canyons are eerily still. Select <strong>[3] Aetheric Radar</strong> and <strong>Left-Click</strong> to scan the trenches!', 'lore');
+
+          if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.onEnterZone === 'function') {
+            window.BlahajCheeseMoon.onEnterZone();
+          }
 
           if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
             window.BlahajNetwork.send({ type: 'zone_change', zone: 'cheese_moon' });
@@ -8266,6 +8450,11 @@
         }, 160);
       }
     }, 55);
+  }
+
+  function returnHomeFromCheeseMoon(broadcast = true) {
+    if (isTransitioningZone || currentZone !== 'cheese_moon') return;
+    exitSpaceMap(broadcast);
   }
 
   function exitCheeseMoon(broadcast = true) {
@@ -15184,6 +15373,11 @@
           if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.handleNetworkPacket === 'function') {
             window.BlahajCheeseMoon.handleNetworkPacket(data);
           }
+        } else if (data.type === 'ufo_instance_pause') {
+          remotePilotPauseState.paused = !!data.paused;
+          remotePilotPauseState.zone = data.zone || null;
+          remotePilotPauseState.reason = data.reason || 'Pilot paused the instance';
+          updateRemotePilotPauseBanner();
         } else if ((data.type === 'seam_rift_mended' || data.type === 'rift_mend') && (data.riftId || data.locId)) {
           const idToMend = data.riftId || data.locId;
           let mendedSuccess = false;
@@ -15617,10 +15811,14 @@
     updatePlayerShadow();
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
+    updateRemotePilotPauseBanner();
+    const instancePaused = isCurrentInstancePaused();
+    const ufoStepDt = instancePaused ? 0 : dt;
+
     // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
     if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
       try {
-        window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
+        window.BlahajUFO.update(ufoStepDt, elapsed, keys, camState, camera);
       } catch (err) {
         console.error('[Blahaj] UFO update error:', err);
       }
@@ -15674,9 +15872,13 @@
       } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
         window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
       } else if (currentZone === 'space' && window.BlahajSpace) {
-        window.BlahajSpace.update(dt, elapsed);
+        if (!instancePaused) {
+          window.BlahajSpace.update(dt, elapsed);
+        }
       } else if (currentZone === 'cheese_moon' && window.BlahajCheeseMoon) {
-        window.BlahajCheeseMoon.update(dt, elapsed);
+        if (!instancePaused) {
+          window.BlahajCheeseMoon.update(dt, elapsed);
+        }
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
         if (window.BlahajHomestead) {
@@ -18602,7 +18804,11 @@
     enterSpaceMap,
     exitSpaceMap,
     enterCheeseMoon,
-    exitCheeseMoon
+    exitCheeseMoon,
+    returnHomeFromCheeseMoon,
+    isCurrentInstancePaused,
+    showStoryPauseModal,
+    closeStoryPauseModal
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;
