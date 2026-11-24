@@ -135,6 +135,14 @@ window.BlahajUFO = (function () {
     turretShotCount: 0,
     rollRate: 0,
     pitchRate: 0,
+    spaceQuat: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0, 'YXZ')),
+    spaceThrottle: 0.35,
+    spaceMouseDx: 0,
+    spaceMouseDy: 0,
+    spaceAngVelPitch: 0,
+    spaceAngVelYaw: 0,
+    spaceAngVelRoll: 0,
+    remoteTargetQuat: new THREE.Quaternion(),
 
     // Crew & Co-op Ownership
     localRole: null, // null | 'pilot' | 'passenger'
@@ -1836,6 +1844,11 @@ window.BlahajUFO = (function () {
       passengerName: state.passengerName,
       warpChargeTimer: Number((state.warpChargeTimer || 0).toFixed(2)),
       inSpace: !!state.inSpace,
+      spaceThrottle: Number((state.spaceThrottle || 0).toFixed(2)),
+      qx: Number(state.spaceQuat.x.toFixed(4)),
+      qy: Number(state.spaceQuat.y.toFixed(4)),
+      qz: Number(state.spaceQuat.z.toFixed(4)),
+      qw: Number(state.spaceQuat.w.toFixed(4)),
       vaultSummary: getActiveVaultSummary()
     });
   }
@@ -1911,6 +1924,12 @@ window.BlahajUFO = (function () {
     if (typeof data.yaw === 'number') state.remoteTargetYaw = data.yaw;
     if (typeof data.pitch === 'number') state.remoteTargetPitch = data.pitch;
     if (typeof data.roll === 'number') state.remoteTargetRoll = data.roll;
+    if (typeof data.qx === 'number' && typeof data.qy === 'number' && typeof data.qz === 'number' && typeof data.qw === 'number') {
+      state.remoteTargetQuat.set(data.qx, data.qy, data.qz, data.qw).normalize();
+    }
+    if (typeof data.spaceThrottle === 'number') {
+      state.spaceThrottle = data.spaceThrottle;
+    }
     if (data.phase) state.phase = data.phase;
     if (typeof data.hangarTargetOpen === 'boolean') state.hangarTargetOpen = data.hangarTargetOpen;
     if (typeof data.hatchTargetOpen === 'boolean') state.hatchTargetOpen = data.hatchTargetOpen;
@@ -2390,8 +2409,26 @@ window.BlahajUFO = (function () {
   function showAvionicsHUD(visible) {
     const hud = document.getElementById('ufo-avionics-hud');
     if (hud) hud.classList.toggle('hidden', !visible);
-    if (document.body) document.body.classList.toggle('ufo-flight-mode', !!visible);
+    if (document.body) {
+      document.body.classList.toggle('ufo-flight-mode', !!visible);
+      document.body.classList.toggle('ufo-space-mode', !!(visible && state.inSpace));
+    }
     if (visible) updateAvionicsButtonsUI();
+  }
+
+  function adjustSpaceThrottle(delta) {
+    if (!state.inSpace || state.localRole !== 'pilot') return;
+    let next = Math.max(-0.30, Math.min(1.0, (state.spaceThrottle || 0) + delta));
+    // Gentle zero-detent snap so scrolling through 0% lets you easily park/hover!
+    if (Math.abs(next) < 0.045) next = 0;
+    state.spaceThrottle = next;
+    updateAvionicsHUD();
+  }
+
+  function applySpaceMouseLook(dx, dy) {
+    if (!state.inSpace || state.localRole !== 'pilot') return;
+    state.spaceMouseDx += dx;
+    state.spaceMouseDy += dy;
   }
 
   function updateAvionicsButtonsUI() {
@@ -2543,7 +2580,14 @@ window.BlahajUFO = (function () {
         : `Pilot: ${state.pilotName || 'Captain'} · Passenger Seat Open`;
       elRole.textContent = `${state.localRole === 'pilot' ? '🧑‍✈️ PILOT' : '🦈 PASSENGER'} · ${crewStr}`;
     }
-    if (elSpd) elSpd.textContent = `${speedKts} KTS`;
+    if (elSpd) {
+      if (state.inSpace) {
+        const thrPct = Math.round((state.spaceThrottle || 0) * 100);
+        elSpd.textContent = `${speedKts} KTS · ${thrPct}%`;
+      } else {
+        elSpd.textContent = `${speedKts} KTS`;
+      }
+    }
     if (elAlt) elAlt.textContent = state.inSpace ? `${Math.round(state.pos.y + 420)}km ORB` : `${Math.round(altAgl)}m AGL`;
     if (elVsi) elVsi.textContent = `${state.verticalSpeed >= 0 ? '+' : ''}${state.verticalSpeed.toFixed(1)} m/s`;
     if (elHdg) elHdg.textContent = `HDG ${String(heading).padStart(3, '0')}°`;
@@ -2556,7 +2600,8 @@ window.BlahajUFO = (function () {
         elStatus.textContent = `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${Math.max(0, 6.0 - state.warpChargeTimer).toFixed(1)}s) · HOLD [W] + [SHIFT]!`;
         elStatus.classList.remove('hidden');
       } else if (state.inSpace) {
-        elStatus.textContent = '🪐 ASTRO-FLIGHT · MOUSE = AIM 3D · W/S = THRUST · Q/E = STRAFE · A/D = BARREL ROLL · HOLD CLICK = FIRE GUNS';
+        const thrPct = Math.round((state.spaceThrottle || 0) * 100);
+        elStatus.textContent = `🪐 FLIGHT SIM (${thrPct}% THR) · WHEEL = SPEED · W/S = PITCH · A/D = ROLL · MOUSE = AIM · HOLD CLICK = FIRE`;
         elStatus.classList.remove('hidden');
       } else if (state.orbitalCeilingReached) {
         elStatus.textContent = '✨ UPPER ORBITAL BAND (145m–185m) · HOLD [SHIFT] + [W] FOR 6 SECONDS TO JUMP TO DEEP SPACE!';
@@ -3013,12 +3058,14 @@ window.BlahajUFO = (function () {
         }
       } else if (state.inSpace) {
         // ====================================================================
-        // ASTRODYNAMIC ZERO-G SPACE FLIGHT MODEL:
-        // - Space & C are reserved for planetary worlds (disabled in zero-G!)
-        // - W / S = Forward / Reverse Thrusters along true 3D ship nose vector
-        // - Q / E = Port / Starboard Lateral Thrusters along banked 3D wing vector
-        // - A / D = Continuous Aileron / Barrel Roll around ship forward axis!
-        // - Mouse Aim = Point in any 3D direction with the mouse and propel toward it!
+        // TRUE 6-DOF FLIGHT SIMULATOR IN SPACE (QUATERNION + SHIP-LOCKED CAM):
+        // - W / S = Pitch (Nose Down / Nose Up, invertable in Settings)
+        // - A / D = Roll (Aileron / Barrel Roll around ship forward axis)
+        // - Q / E = Lateral Strafe (or Rudder Yaw if configured in Settings)
+        // - Mouse Move = Smooth Pitch & Yaw flight-stick steering
+        // - Mouse Wheel = Throttle / Speed (-30% Reverse .. 0% Stop .. 100% Cruise)
+        // - Shift = Afterburner Surge
+        // - Space & C = Reserved for planetary worlds (disabled by default)
         // ====================================================================
         state.isSubmerged = false;
         state.antiGravCushionActive = false;
@@ -3029,85 +3076,91 @@ window.BlahajUFO = (function () {
         const spaceFlightStyle = gs.ufoSpaceFlightStyle || 'coupled'; // 'coupled' | 'newtonian'
         const autoLevelRoll = !!gs.ufoSpaceAutoLevelRoll;
         const allowSpaceVerticalKeys = !!gs.ufoSpaceVerticalKeys;
+        const invertSpacePitch = !!gs.ufoSpaceInvertPitch;
+        const qeMode = gs.ufoSpaceQEMode || 'strafe'; // 'strafe' | 'yaw'
+        const sens = typeof gs.mouseSens === 'number' ? gs.mouseSens : 1.0;
 
-        // 1. Steer Ship Nose (Yaw & 3D Pitch) smoothly toward Mouse Look Direction!
-        if (camState) {
-          const camDesiredYaw = Math.atan2(-Math.sin(camState.yaw), -Math.cos(camState.yaw));
-          let yDiff = camDesiredYaw - state.yaw;
-          while (yDiff > Math.PI) yDiff -= Math.PI * 2;
-          while (yDiff < -Math.PI) yDiff += Math.PI * 2;
+        // 1. Consume accumulated mouse flight-stick deltas & combine with W/S Pitch, A/D Roll, Q/E Strafe/Yaw
+        const mdx = state.spaceMouseDx || 0;
+        const mdy = state.spaceMouseDy || 0;
+        state.spaceMouseDx = 0;
+        state.spaceMouseDy = 0;
 
-          // Steer actively when thrusting (W/S/Q/E) or gently align when aiming in space
-          const isThrusting = fwdInput !== 0 || strafeInput !== 0;
-          const yawTrackRate = isThrusting ? 5.4 : 2.8;
-          state.yawRate = yDiff * yawTrackRate;
-          state.yaw += state.yawRate * Math.min(1.0, dt);
-          while (state.yaw > Math.PI) state.yaw -= Math.PI * 2;
-          while (state.yaw < -Math.PI) state.yaw += Math.PI * 2;
-
-          // 3D Vertical Pitch from mouse elevation (neutral chase elevation = 0.16 rad)
-          // Note: Under 'YXZ' Euler with +Z forward, negative state.pitch tilts nose UP (+Y)
-          const desiredPitch = Math.max(-1.22, Math.min(1.22, camState.pitch - 0.16));
-          const pitchTrackRate = isThrusting ? 5.6 : 3.0;
-          state.pitch += (desiredPitch - state.pitch) * Math.min(1.0, dt * pitchTrackRate);
+        // Pressing 'X' snaps throttle cleanly to 0% (All Stop)
+        if (k['x']) {
+          state.spaceThrottle = 0;
         }
 
-        // 2. A / D Continuous Aileron / Barrel Roll!
-        // turnInput > 0 is 'A' (Roll Left / CCW), turnInput < 0 is 'D' (Roll Right / CW)
-        const targetRollRate = -turnInput * 2.85;
-        state.rollRate += (targetRollRate - state.rollRate) * Math.min(1.0, dt * 7.5);
-        state.roll += state.rollRate * dt;
-        while (state.roll > Math.PI) state.roll -= Math.PI * 2;
-        while (state.roll < -Math.PI) state.roll += Math.PI * 2;
+        // Pitch: W/S (fwdInput: +1 = W, -1 = S). Default: W pitches nose DOWN (+X local), S pitches nose UP (-X local), invertable!
+        const pitchSign = invertSpacePitch ? -1 : 1;
+        const keyPitchRate = fwdInput * 1.55 * pitchSign;
+        const mousePitchVel = (mdy * 0.0022 * sens * (gs.invertY ? -1 : 1)) / Math.max(0.008, dt);
+        const targetPitchRate = keyPitchRate + Math.max(-2.6, Math.min(2.6, mousePitchVel));
+        state.spaceAngVelPitch += (targetPitchRate - state.spaceAngVelPitch) * Math.min(1.0, dt * 10.0);
 
-        // Optional setting for players who want their saucer to gently self-right after a barrel roll
-        if (autoLevelRoll && turnInput === 0 && Math.abs(state.rollRate) < 0.25) {
-          state.roll += (0 - state.roll) * Math.min(1.0, dt * 2.4);
+        // Yaw: Mouse X (moving mouse right turns ship right: -Y local), plus Q/E if set to 'yaw'
+        const keyYawRate = (qeMode === 'yaw') ? (-strafeInput * 1.35) : 0;
+        const mouseYawVel = (-mdx * 0.0024 * sens) / Math.max(0.008, dt);
+        const targetYawRate = keyYawRate + Math.max(-2.6, Math.min(2.6, mouseYawVel));
+        state.spaceAngVelYaw += (targetYawRate - state.spaceAngVelYaw) * Math.min(1.0, dt * 10.0);
+
+        // Roll: A / D (turnInput: +1 = A, -1 = D -> Roll Left/CCW = -Z, Roll Right/CW = +Z)
+        const targetRollRate = -turnInput * 2.45;
+        state.spaceAngVelRoll += (targetRollRate - state.spaceAngVelRoll) * Math.min(1.0, dt * 8.5);
+
+        // Apply incremental local-axis rotations to Quaternion (zero gimbal lock!)
+        const qPitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), state.spaceAngVelPitch * dt);
+        const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), state.spaceAngVelYaw * dt);
+        const qRoll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), state.spaceAngVelRoll * dt);
+        state.spaceQuat.multiply(qYaw).multiply(qPitch).multiply(qRoll).normalize();
+
+        // Sync Euler readout for Artificial Horizon & HUD Heading
+        const syncedEuler = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
+        state.pitch = syncedEuler.x;
+        state.yaw = syncedEuler.y;
+        state.roll = syncedEuler.z;
+        state.yawRate = state.spaceAngVelYaw;
+
+        if (autoLevelRoll && turnInput === 0 && Math.abs(state.spaceAngVelRoll) < 0.25) {
+          const levelEuler = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
+          levelEuler.z += (0 - levelEuler.z) * Math.min(1.0, dt * 2.2);
+          state.spaceQuat.setFromEuler(levelEuler).normalize();
         }
 
-        // 3. Compute True 3D Ship Basis Vectors (Forward, Right, Up) from (pitch, yaw, roll)
-        const shipEuler = new THREE.Euler(state.pitch, state.yaw, state.roll, 'YXZ');
-        const shipQuat = new THREE.Quaternion().setFromEuler(shipEuler);
-        const shipFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(shipQuat).normalize();
-        // Local -X is starboard/right when facing +Z
-        const shipRight = new THREE.Vector3(-1, 0, 0).applyQuaternion(shipQuat).normalize();
-        const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(shipQuat).normalize();
+        // 2. Derive True 3D Ship Basis Vectors from Quaternion
+        const shipFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(state.spaceQuat).normalize();
+        const shipRight = new THREE.Vector3(-1, 0, 0).applyQuaternion(state.spaceQuat).normalize();
+        const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(state.spaceQuat).normalize();
 
-        // 4. 3D Propulsion & Astrodynamic Momentum (Coupled Assist vs Newtonian Drift!)
+        // 3. Separate Throttle Speed (Mouse Wheel) + Afterburner (Shift) + Lateral Strafe (Q/E)
         const hyperSelected = activeModuleIdx === 3;
-        const hyperMult = ((hyperSelected && turbo) || state.hyperdriveTimer > 0) ? 1.48 : 1.0;
-        const maxSpaceSpeed = (turbo ? 74.0 : 34.0) * hyperMult;
-        const maxSpaceStrafe = (turbo ? 46.0 : 24.0) * hyperMult;
+        const boostMult = turbo ? ((hyperSelected || state.hyperdriveTimer > 0) ? 2.25 : 1.75) : 1.0;
+        const thr = state.spaceThrottle || 0;
+        const cruiseSpeed = thr * 42.0 * boostMult;
+        const strafeVel = (qeMode === 'strafe') ? (strafeInput * 26.0 * (turbo ? 1.45 : 1.0)) : 0;
 
-        const thrustVec = new THREE.Vector3();
-        if (fwdInput !== 0) {
-          thrustVec.addScaledVector(shipFwd, fwdInput * maxSpaceSpeed);
-        }
-        if (strafeInput !== 0) {
-          thrustVec.addScaledVector(shipRight, strafeInput * maxSpaceStrafe);
-        }
+        const targetVel = new THREE.Vector3();
+        targetVel.addScaledVector(shipFwd, cruiseSpeed);
+        if (strafeVel !== 0) targetVel.addScaledVector(shipRight, strafeVel);
         if (allowSpaceVerticalKeys && upInput !== 0) {
-          thrustVec.addScaledVector(shipUp, upInput * (turbo ? 28.0 : 16.0));
+          targetVel.addScaledVector(shipUp, upInput * 22.0 * (turbo ? 1.45 : 1.0));
         }
 
-        const hasThrust = fwdInput !== 0 || strafeInput !== 0 || (allowSpaceVerticalKeys && upInput !== 0);
         if (spaceFlightStyle === 'newtonian') {
-          // Pure Astrodynamic Drift: accelerate on thrust, coast smoothly through vacuum when keys released!
-          if (hasThrust) {
-            const accel = turbo ? 3.8 : 2.5;
-            state.vel.x += (thrustVec.x - state.vel.x) * Math.min(1.0, dt * accel);
-            state.vel.y += (thrustVec.y - state.vel.y) * Math.min(1.0, dt * accel);
-            state.vel.z += (thrustVec.z - state.vel.z) * Math.min(1.0, dt * accel);
+          const hasInput = Math.abs(thr) > 0.02 || strafeVel !== 0 || (allowSpaceVerticalKeys && upInput !== 0);
+          if (hasInput) {
+            state.vel.x += (targetVel.x - state.vel.x) * Math.min(1.0, dt * (turbo ? 3.8 : 2.6));
+            state.vel.y += (targetVel.y - state.vel.y) * Math.min(1.0, dt * (turbo ? 3.8 : 2.6));
+            state.vel.z += (targetVel.z - state.vel.z) * Math.min(1.0, dt * (turbo ? 3.8 : 2.6));
           } else {
-            // Very gentle micro-drag so you never drift out of the sector forever
-            state.vel.multiplyScalar(Math.max(0, 1.0 - dt * 0.22));
+            state.vel.multiplyScalar(Math.max(0, 1.0 - dt * 0.2));
           }
         } else {
-          // Coupled Flight Assist (Default): responsive 3D vector thrust + smooth inertial damper braking
-          const responseRate = hasThrust ? (turbo ? 5.2 : 3.4) : 1.85;
-          state.vel.x += (thrustVec.x - state.vel.x) * Math.min(1.0, dt * responseRate);
-          state.vel.y += (thrustVec.y - state.vel.y) * Math.min(1.0, dt * responseRate);
-          state.vel.z += (thrustVec.z - state.vel.z) * Math.min(1.0, dt * responseRate);
+          // Coupled Flight Assist: crisp aerodynamic-like tracking along your nose
+          const resp = turbo ? 5.2 : 3.6;
+          state.vel.x += (targetVel.x - state.vel.x) * Math.min(1.0, dt * resp);
+          state.vel.y += (targetVel.y - state.vel.y) * Math.min(1.0, dt * resp);
+          state.vel.z += (targetVel.z - state.vel.z) * Math.min(1.0, dt * resp);
         }
 
         state.pos.addScaledVector(state.vel, dt);
@@ -3353,15 +3406,23 @@ window.BlahajUFO = (function () {
         state.pos.z += dzE * alpha;
       }
       const rotAlpha = 1.0 - Math.exp(-16.0 * dt);
-      let yd = targetYaw - state.yaw;
-      while (yd < -Math.PI) yd += Math.PI * 2;
-      while (yd > Math.PI) yd -= Math.PI * 2;
-      state.yaw += yd * rotAlpha;
-      state.pitch += (targetPitch - state.pitch) * rotAlpha;
-      let rd = targetRoll - state.roll;
-      while (rd < -Math.PI) rd += Math.PI * 2;
-      while (rd > Math.PI) rd -= Math.PI * 2;
-      state.roll += rd * rotAlpha;
+      if (state.inSpace && state.remoteTargetQuat && state.remoteTargetQuat.lengthSq() > 0.5) {
+        state.spaceQuat.slerp(state.remoteTargetQuat, rotAlpha);
+        const remE = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
+        state.pitch = remE.x;
+        state.yaw = remE.y;
+        state.roll = remE.z;
+      } else {
+        let yd = targetYaw - state.yaw;
+        while (yd < -Math.PI) yd += Math.PI * 2;
+        while (yd > Math.PI) yd -= Math.PI * 2;
+        state.yaw += yd * rotAlpha;
+        state.pitch += (targetPitch - state.pitch) * rotAlpha;
+        let rd = targetRoll - state.roll;
+        while (rd < -Math.PI) rd += Math.PI * 2;
+        while (rd > Math.PI) rd -= Math.PI * 2;
+        state.roll += rd * rotAlpha;
+      }
       state.speed = state.remoteTargetVel.length() > 0.2
         ? state.remoteTargetVel.length()
         : errDist * 8.0;
@@ -3411,10 +3472,14 @@ window.BlahajUFO = (function () {
     }
 
     // 5. Apply Transform + Subtle Hover Bob to 3D UFO Mesh & refresh world matrix BEFORE reading seat anchors!
-    const hoverBob = state.phase === 'parked' ? 0 : Math.sin(elapsed * 2.8) * 0.14;
+    const hoverBob = (state.phase === 'parked' || state.inSpace) ? 0 : Math.sin(elapsed * 2.8) * 0.14;
     ufoGroup.position.set(state.pos.x, state.pos.y + hoverBob, state.pos.z);
-    ufoGroup.rotation.order = 'YXZ';
-    ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+    if (state.inSpace) {
+      ufoGroup.quaternion.copy(state.spaceQuat);
+    } else {
+      ufoGroup.rotation.order = 'YXZ';
+      ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+    }
     ufoGroup.updateMatrixWorld(true);
     updateWindscreenWaterEffects(dt, elapsed);
 
@@ -3467,8 +3532,12 @@ window.BlahajUFO = (function () {
         const partnerSeat = new THREE.Vector3();
         partnerAnchor.getWorldPosition(partnerSeat);
         window.coopPartner.mesh.position.copy(partnerSeat);
-        window.coopPartner.mesh.rotation.order = 'YXZ';
-        window.coopPartner.mesh.rotation.set(state.pitch, state.yaw, state.roll);
+        if (state.inSpace) {
+          window.coopPartner.mesh.quaternion.copy(ufoGroup.quaternion);
+        } else {
+          window.coopPartner.mesh.rotation.order = 'YXZ';
+          window.coopPartner.mesh.rotation.set(state.pitch, state.yaw, state.roll);
+        }
         window.coopPartner.mesh.visible = true;
         if (window.coopPartner.targetPos) window.coopPartner.targetPos.copy(partnerSeat);
         window.coopPartner.targetRotY = state.yaw;
@@ -3483,8 +3552,12 @@ window.BlahajUFO = (function () {
       window.player.pos.copy(worldSeat);
       window.player.rotY = state.yaw;
       window.player.mesh.position.copy(worldSeat);
-      window.player.mesh.rotation.order = 'YXZ';
-      window.player.mesh.rotation.set(state.pitch, state.yaw, state.roll);
+      if (state.inSpace) {
+        window.player.mesh.quaternion.copy(ufoGroup.quaternion);
+      } else {
+        window.player.mesh.rotation.order = 'YXZ';
+        window.player.mesh.rotation.set(state.pitch, state.yaw, state.roll);
+      }
       // Hide local shark mesh & glass dome overdraw in Inside Cockpit View so windshield is 100% crisp & fast!
       window.player.mesh.visible = (state.viewMode !== 'inside');
       if (canopyDomeMesh) canopyDomeMesh.visible = (state.viewMode !== 'inside');
@@ -3516,9 +3589,19 @@ window.BlahajUFO = (function () {
           const lz = 0.98 + Math.cos(state.cockpitLookYaw) * Math.cos(state.cockpitLookPitch) * lookDist;
           const lookWorld = new THREE.Vector3(lx, ly, lz);
           ufoGroup.localToWorld(lookWorld);
-          camState.customOverride = { pos: camWorld, lookAt: lookWorld };
+          const shipUpCam = new THREE.Vector3(0, 1, 0).applyQuaternion(ufoGroup.quaternion).normalize();
+          camState.customOverride = { pos: camWorld, lookAt: lookWorld, up: state.inSpace ? shipUpCam : null };
+        } else if (state.inSpace) {
+          // Ship-Locked Flight-Sim Chase Camera in Space (camera rolls, pitches & loops with the ship!)
+          ufoGroup.updateMatrixWorld(true);
+          const chasePos = new THREE.Vector3(0, 4.3, -16.8);
+          ufoGroup.localToWorld(chasePos);
+          const chaseLook = new THREE.Vector3(0, 1.4, 24.0);
+          ufoGroup.localToWorld(chaseLook);
+          const shipUpCam = new THREE.Vector3(0, 1, 0).applyQuaternion(ufoGroup.quaternion).normalize();
+          camState.customOverride = { pos: chasePos, lookAt: chaseLook, up: shipUpCam };
         } else {
-          // Exterior Chase View: turn with A/D (on worlds) and smoothly drift back behind the saucer!
+          // Exterior Chase View on Planetary Worlds: turn with A/D and smoothly drift back behind the saucer!
           camState.customOverride = null;
           if (camState.distance < 13.5) camState.distance = 15.5;
 
@@ -3626,10 +3709,18 @@ window.BlahajUFO = (function () {
       state.hatchOpenProg = 0.0;
       state.orbitalCeilingReached = true;
       state.pos.set(0, 6.0, 62.0);
-      state.vel.set(0, 0, -18.0);
+      state.vel.set(0, 0, -14.7);
       state.yaw = Math.PI;
       state.pitch = 0;
       state.roll = 0;
+      state.spaceQuat.setFromEuler(new THREE.Euler(0, Math.PI, 0, 'YXZ')).normalize();
+      state.remoteTargetQuat.copy(state.spaceQuat);
+      state.spaceThrottle = 0.35;
+      state.spaceMouseDx = 0;
+      state.spaceMouseDy = 0;
+      state.spaceAngVelPitch = 0;
+      state.spaceAngVelYaw = 0;
+      state.spaceAngVelRoll = 0;
     } else {
       state.phase = 'flying';
       state.hatchTargetOpen = false;
@@ -3643,10 +3734,17 @@ window.BlahajUFO = (function () {
 
     state.remoteTargetPos.copy(state.pos);
     state.remoteSnapshots = [];
+    if (document.body) {
+      document.body.classList.toggle('ufo-space-mode', !!(state.localRole && state.inSpace));
+    }
     if (ufoGroup) {
       ufoGroup.position.copy(state.pos);
-      ufoGroup.rotation.order = 'YXZ';
-      ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+      if (state.inSpace) {
+        ufoGroup.quaternion.copy(state.spaceQuat);
+      } else {
+        ufoGroup.rotation.order = 'YXZ';
+        ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+      }
       ufoGroup.updateMatrixWorld(true);
     }
     spawnRadarWave(state.inSpace ? 0xe879f9 : 0x38bdf8, 36);
@@ -3691,6 +3789,9 @@ window.BlahajUFO = (function () {
     updateAvionicsButtonsUI,
     playJetsonsHorn,
     handleNetworkPacket,
+    adjustSpaceThrottle,
+    applySpaceMouseLook,
+    isInSpace: () => !!state.inSpace,
     isLocalAboard: () => !!state.localRole,
     isPartnerAboard: () => Boolean(
       (state.pilotClientId && state.localRole !== 'pilot') ||

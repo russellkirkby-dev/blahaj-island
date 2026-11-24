@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15.0" />
+  <link rel="stylesheet" href="styles.css?v=15.1" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1795,6 +1795,30 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">🪐 Invert W / S Pitch in Deep Space</span>
+            <span class="setting-desc">Default: W pitches nose Down &amp; S pitches nose Up (flight stick); enable to swap W = Up / S = Down</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-ufo-space-invertpitch" />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">🪐 Deep-Space Q / E Key Function</span>
+            <span class="setting-desc">Use Q / E for Lateral Thruster Strafe (around obstacles) or Rudder Yaw (turn left/right)</span>
+          </div>
+          <div class="setting-btn-group" id="group-ufo-space-qe">
+            <button class="btn-group-item active" data-qemode="strafe">Lateral Strafe</button>
+            <button class="btn-group-item" data-qemode="yaw">Rudder Yaw</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">Invert Vertical Pitch (Y-Axis)</span>
             <span class="setting-desc">Invert vertical mouse look angle (flight-simulator controls)</span>
           </div>
@@ -2445,6 +2469,19 @@
   </div>
 
   <!-- S.S. Shonk-Saucer Mk. VII Glass-Cockpit Avionics HUD -->
+  <div id="ufo-space-reticle" aria-hidden="true" style="display:none; position:fixed; left:50%; top:50%; width:42px; height:42px; transform:translate(-50%,-50%); pointer-events:none; z-index:48;">
+    <svg viewBox="0 0 42 42" width="42" height="42">
+      <circle cx="21" cy="21" r="14" fill="none" stroke="rgba(56,189,248,0.65)" stroke-width="1.5" stroke-dasharray="5 5"/>
+      <circle cx="21" cy="21" r="2.2" fill="#f472b6"/>
+      <line x1="2" y1="21" x2="10" y2="21" stroke="rgba(125,211,252,0.85)" stroke-width="1.6"/>
+      <line x1="32" y1="21" x2="40" y2="21" stroke="rgba(125,211,252,0.85)" stroke-width="1.6"/>
+      <line x1="21" y1="2" x2="21" y2="10" stroke="rgba(125,211,252,0.85)" stroke-width="1.6"/>
+      <line x1="21" y1="32" x2="21" y2="40" stroke="rgba(125,211,252,0.85)" stroke-width="1.6"/>
+    </svg>
+  </div>
+  <style>
+    body.ufo-space-mode #ufo-space-reticle { display: block !important; }
+  </style>
   <canvas id="ufo-windscreen-rain" class="ufo-windscreen-rain hidden"></canvas>
   <div id="ufo-avionics-hud" class="ufo-avionics-hud hidden">
     <div class="ufo-top-strip">
@@ -2678,25 +2715,25 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=15.0"></script>
-  <script src="js/quests.js?v=15.0"></script>
-  <script src="js/sharks3d.js?v=15.0"></script>
-  <script src="js/space.js?v=15.0"></script>
-  <script src="js/ufo.js?v=15.0"></script>
-  <script src="js/world3d.js?v=15.0"></script>
-  <script src="js/volcano.js?v=15.0"></script>
-  <script src="js/laundromat.js?v=15.0"></script>
-  <script src="js/sphericalFoods.js?v=15.0"></script>
-  <script src="js/volleyball.js?v=15.0"></script>
-  <script src="js/spawningPits.js?v=15.0"></script>
-  <script src="js/homestead.js?v=15.0"></script>
-  <script src="js/network.js?v=15.0"></script>
-  <script src="js/inventory.js?v=15.0"></script>
-  <script src="js/enemies.js?v=15.0"></script>
-  <script src="js/seam.js?v=15.0"></script>
-  <script src="js/mmoControls.js?v=15.0"></script>
+  <script src="js/lore.js?v=15.1"></script>
+  <script src="js/quests.js?v=15.1"></script>
+  <script src="js/sharks3d.js?v=15.1"></script>
+  <script src="js/space.js?v=15.1"></script>
+  <script src="js/ufo.js?v=15.1"></script>
+  <script src="js/world3d.js?v=15.1"></script>
+  <script src="js/volcano.js?v=15.1"></script>
+  <script src="js/laundromat.js?v=15.1"></script>
+  <script src="js/sphericalFoods.js?v=15.1"></script>
+  <script src="js/volleyball.js?v=15.1"></script>
+  <script src="js/spawningPits.js?v=15.1"></script>
+  <script src="js/homestead.js?v=15.1"></script>
+  <script src="js/network.js?v=15.1"></script>
+  <script src="js/inventory.js?v=15.1"></script>
+  <script src="js/enemies.js?v=15.1"></script>
+  <script src="js/seam.js?v=15.1"></script>
+  <script src="js/mmoControls.js?v=15.1"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=15.0"></script>
-  <script src="js/main.js?v=15.0"></script>
+  <script src="js/saveSystem.js?v=15.1"></script>
+  <script src="js/main.js?v=15.1"></script>
 </body>
 </html>

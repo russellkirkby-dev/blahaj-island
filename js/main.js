@@ -30,6 +30,8 @@
     ufoSpaceFlightStyle: 'coupled',
     ufoSpaceAutoLevelRoll: false,
     ufoSpaceVerticalKeys: false,
+    ufoSpaceInvertPitch: false,
+    ufoSpaceQEMode: 'strafe',
     invertY: false,
     binocularInvertY: false,
     binocularInvertX: false,
@@ -5350,6 +5352,12 @@
         return;
       }
 
+      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Yaw directly in 3D ship space!)
+      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
+        window.BlahajUFO.applySpaceMouseLook(dx, dy);
+        return;
+      }
+
       // Sub-mode 2: Camera Orbit Mode (default IN GAME)
       const sens = (gameSettings && typeof gameSettings.mouseSens === 'number') ? gameSettings.mouseSens : 1.0;
 
@@ -5410,6 +5418,11 @@
         const step = builderState.snapGrid ? (Math.PI / 2) : (Math.PI / 4);
         builderState.rotOffset += (e.deltaY > 0 ? 1 : -1) * step;
         CozyAudio.shonk();
+        return;
+      }
+      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.adjustSpaceThrottle) {
+        e.preventDefault();
+        window.BlahajUFO.adjustSpaceThrottle(e.deltaY < 0 ? 0.08 : -0.08);
         return;
       }
       camState.distance = Math.max(4.0, Math.min(22.0, camState.distance + e.deltaY * 0.005));
@@ -10342,6 +10355,11 @@
     if (ufoAutoRollEl) ufoAutoRollEl.checked = !!gameSettings.ufoSpaceAutoLevelRoll;
     const ufoVertKeysEl = document.getElementById('set-ufo-space-vertkeys');
     if (ufoVertKeysEl) ufoVertKeysEl.checked = !!gameSettings.ufoSpaceVerticalKeys;
+    const ufoInvPitchEl = document.getElementById('set-ufo-space-invertpitch');
+    if (ufoInvPitchEl) ufoInvPitchEl.checked = !!gameSettings.ufoSpaceInvertPitch;
+    document.querySelectorAll('#group-ufo-space-qe .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.qemode === (gameSettings.ufoSpaceQEMode || 'strafe'));
+    });
     window.gameSettings = gameSettings;
     if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
       window.BlahajUFO.updateAvionicsButtonsUI();
@@ -10829,6 +10847,16 @@
     });
     document.getElementById('set-ufo-space-vertkeys')?.addEventListener('change', (e) => {
       applySetting('ufoSpaceVerticalKeys', e.target.checked);
+    });
+    document.getElementById('set-ufo-space-invertpitch')?.addEventListener('change', (e) => {
+      applySetting('ufoSpaceInvertPitch', e.target.checked);
+    });
+    document.querySelectorAll('#group-ufo-space-qe .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-ufo-space-qe .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('ufoSpaceQEMode', btn.dataset.qemode);
+      });
     });
 
     document.getElementById('set-invert-y')?.addEventListener('change', (e) => {
@@ -16716,6 +16744,11 @@
 
   function updateCamera(elapsed = 0, dt = 0.016) {
     if (camState.customOverride) {
+      if (camState.customOverride.up) {
+        camera.up.copy(camState.customOverride.up);
+      } else {
+        camera.up.set(0, 1, 0);
+      }
       camera.position.copy(camState.customOverride.pos);
       camera.lookAt(camState.customOverride.lookAt);
       if (scene && scene.fog && currentZone === 'island') {
@@ -16736,6 +16769,7 @@
       return;
     }
     const rightVec = new THREE.Vector3(Math.cos(camState.yaw), 0, -Math.sin(camState.yaw));
+    camera.up.set(0, 1, 0);
     const lookTarget = new THREE.Vector3(
       player.pos.x + rightVec.x * camState.shoulderRight,
       player.pos.y + camState.heightOffset,
