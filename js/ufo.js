@@ -129,6 +129,7 @@ window.BlahajUFO = (function () {
     orbitalCeilingReached: false,
     orbitalNoticeShown: false,
     inSpace: false,
+    inCheeseMoon: false,
     warpChargeTimer: 0,
     lastPartnerWarnAt: 0,
     turretFireCooldown: 0,
@@ -1535,6 +1536,12 @@ window.BlahajUFO = (function () {
 
   function initiateAutoLand() {
     if (state.localRole !== 'pilot') return;
+    if (state.inCheeseMoon) {
+      if (window.BlahajGame && typeof window.BlahajGame.exitCheeseMoon === 'function') {
+        window.BlahajGame.exitCheeseMoon(true);
+      }
+      return;
+    }
     if (state.inSpace) {
       if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
         window.BlahajGame.exitSpaceMap(true);
@@ -2535,7 +2542,11 @@ window.BlahajUFO = (function () {
     spawnRadarWave(0x38bdf8, 40);
     if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
 
-    if (state.inSpace && window.BlahajSpace && typeof window.BlahajSpace.triggerSonicShockwave === 'function') {
+    if (state.inSpace && state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.triggerSonicShockwave === 'function') {
+      window.BlahajCheeseMoon.triggerSonicShockwave(state.pos);
+      state.radarStatusText = '🪩💥 SONIC SHOCKWAVE! Blasted Space Invaders off the hull!';
+      state.radarStatusUntil = performance.now() + 2600;
+    } else if (state.inSpace && window.BlahajSpace && typeof window.BlahajSpace.triggerSonicShockwave === 'function') {
       window.BlahajSpace.triggerSonicShockwave(state.pos, false);
       state.radarStatusText = '🪩💥 SONIC SHOCKWAVE! Small debris vaporized · Medium rocks pushed back!';
       state.radarStatusUntil = performance.now() + 2600;
@@ -2865,7 +2876,13 @@ window.BlahajUFO = (function () {
       b.mesh.position.addScaledVector(b.vel, dt);
       let hit = b.life <= 0;
       let impactedTarget = false;
-      if (!hit && state.inSpace && window.BlahajSpace && typeof window.BlahajSpace.checkPlasmaBoltCollision === 'function') {
+      if (!hit && state.inSpace && state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.checkPlasmaBoltCollision === 'function') {
+        if (window.BlahajCheeseMoon.checkPlasmaBoltCollision(b.mesh.position)) {
+          hit = true;
+          impactedTarget = true;
+        }
+      }
+      if (!hit && state.inSpace && !state.inCheeseMoon && window.BlahajSpace && typeof window.BlahajSpace.checkPlasmaBoltCollision === 'function') {
         if (window.BlahajSpace.checkPlasmaBoltCollision(b.mesh.position, b.vel, b.colorHex)) {
           hit = true;
           impactedTarget = true;
@@ -3312,6 +3329,27 @@ window.BlahajUFO = (function () {
         state.pos.x = Math.max(-355, Math.min(355, state.pos.x));
         state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
         state.pos.y = Math.max(-165, Math.min(175, state.pos.y));
+
+        // After clearing all destructible asteroids in Deep Space, Mojo Hyperdrive [4] + [Shift] for 5s warps to the Swiss Cheese Planetoid!
+        if (!state.inCheeseMoon && window.BlahajSpace && typeof window.BlahajSpace.getSectorStatus === 'function') {
+          const secStat = window.BlahajSpace.getSectorStatus();
+          if (secStat && secStat.waveCleared && hyperSelected && turbo) {
+            const prevSec = Math.floor(state.warpChargeTimer);
+            state.warpChargeTimer += dt;
+            const curSec = Math.floor(state.warpChargeTimer);
+            if (curSec > prevSec && curSec <= 4) {
+              spawnRadarWave(0xfacc15, 24 + curSec * 4);
+            }
+            if (state.warpChargeTimer >= 5.0) {
+              state.warpChargeTimer = 0;
+              if (window.BlahajGame && typeof window.BlahajGame.enterCheeseMoon === 'function') {
+                window.BlahajGame.enterCheeseMoon(true);
+              }
+            }
+          } else {
+            state.warpChargeTimer = Math.max(0, state.warpChargeTimer - dt * 1.8);
+          }
+        }
       } else {
         // FLYING / ORBITAL CRUISE ON PLANETARY WORLDS (Smooth Flight-Sim feel, impossible to crash!)
         // When W is pressed in exterior view (and not manually holding A/D), smoothly steer toward the camera's 3D vector!
@@ -3840,8 +3878,9 @@ window.BlahajUFO = (function () {
     isBuilt = true;
   }
 
-  function setSpaceMode(inSpace, targetScene) {
+  function setSpaceMode(inSpace, targetScene, isCheeseMoon = false) {
     state.inSpace = !!inSpace;
+    state.inCheeseMoon = !!(inSpace && isCheeseMoon);
     state.warpChargeTimer = 0;
     state.hyperdriveTimer = 0;
     state.isSubmerged = false;
@@ -3866,7 +3905,25 @@ window.BlahajUFO = (function () {
       }
     }
 
-    if (state.inSpace) {
+    if (state.inCheeseMoon) {
+      state.phase = 'flying';
+      state.hatchTargetOpen = false;
+      state.hatchOpenProg = 0.0;
+      state.orbitalCeilingReached = true;
+      state.pos.set(0, 32.0, 155.0);
+      state.vel.set(0, -2.0, -14.0);
+      state.yaw = Math.PI;
+      state.pitch = 0.08;
+      state.roll = 0;
+      state.spaceQuat.setFromEuler(new THREE.Euler(0.08, Math.PI, 0, 'YXZ')).normalize();
+      state.remoteTargetQuat.copy(state.spaceQuat);
+      state.spaceThrottle = 0.35;
+      state.spaceMouseDx = 0;
+      state.spaceMouseDy = 0;
+      state.spaceAngVelPitch = 0;
+      state.spaceAngVelYaw = 0;
+      state.spaceAngVelRoll = 0;
+    } else if (state.inSpace) {
       state.phase = 'flying';
       state.hatchTargetOpen = false;
       state.hatchOpenProg = 0.0;

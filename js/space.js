@@ -101,6 +101,45 @@ window.BlahajSpace = (function () {
     return geo;
   }
 
+  let sharedAsteroidTex = null;
+  function getSharedAsteroidTexture() {
+    if (sharedAsteroidTex) return sharedAsteroidTex;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Basalt grain, mineral flecks & micro-craters (generated once locally -> 0 network latency!)
+    for (let i = 0; i < 650; i++) {
+      const x = seededRand(i * 7 + 1) * 256;
+      const y = seededRand(i * 7 + 2) * 256;
+      const r = 1 + seededRand(i * 7 + 3) * 3.5;
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(15, 23, 42, 0.32)' : (i % 3 === 1 ? 'rgba(203, 213, 225, 0.24)' : 'rgba(56, 189, 248, 0.14)');
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 18; i++) {
+      const cx = seededRand(i * 19 + 5) * 220 + 18;
+      const cy = seededRand(i * 19 + 6) * 220 + 18;
+      const cr = 8 + seededRand(i * 19 + 7) * 18;
+      const g = ctx.createRadialGradient(cx - cr * 0.25, cy - cr * 0.25, 1, cx, cy, cr);
+      g.addColorStop(0, 'rgba(15, 23, 42, 0.55)');
+      g.addColorStop(0.75, 'rgba(51, 65, 85, 0.35)');
+      g.addColorStop(1, 'rgba(148, 163, 184, 0.0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    sharedAsteroidTex = new THREE.CanvasTexture(c);
+    sharedAsteroidTex.wrapS = THREE.RepeatWrapping;
+    sharedAsteroidTex.wrapT = THREE.RepeatWrapping;
+    return sharedAsteroidTex;
+  }
+
   function buildBlahajIslandWedge() {
     const g = new THREE.Group();
     // Place the planetary wedge in the distance (-Z / -X quadrant)
@@ -311,6 +350,9 @@ window.BlahajSpace = (function () {
       color: pal.color,
       emissive: pal.emissive,
       emissiveIntensity: 0.35,
+      map: getSharedAsteroidTexture(),
+      bumpMap: getSharedAsteroidTexture(),
+      bumpScale: 0.42,
       roughness: 0.86,
       metalness: 0.18
     });
@@ -605,8 +647,8 @@ window.BlahajSpace = (function () {
         if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
         if (window.showToast) {
           window.showToast(
-            `🏆🪐 WAVE ${sectorWave} ASTEROID BELT CLEARED!`,
-            'All space rocks & fragments destroyed! Sector resets in 1 hour (future waves incoming!).'
+            '🏆✨ SPACE SECTOR CLEARED!',
+            'All destructible asteroids destroyed! Select Mojo Hyperdrive [4] + hold [Shift] for 5s to warp to the Swiss Cheese Planetoid!'
           );
         }
       } else if (!fromNetwork && window.showToast && (remaining <= 5 || rocksShatteredCount % 4 === 1)) {

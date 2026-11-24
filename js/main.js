@@ -2591,7 +2591,7 @@
   }
 
   window.addEventListener('beforeunload', () => {
-    if (currentZone === 'space') {
+    if (currentZone === 'space' || currentZone === 'cheese_moon') {
       saveUfoIslandSpawnPoint();
     } else {
       captureSavePoint(false);
@@ -2654,6 +2654,9 @@
     }
     if (currentZone === 'space' && window.BlahajSpace) {
       return window.BlahajSpace.getScene() || scene;
+    }
+    if (currentZone === 'cheese_moon' && window.BlahajCheeseMoon) {
+      return window.BlahajCheeseMoon.getScene() || scene;
     }
     return scene;
   }
@@ -5401,14 +5404,14 @@
           window.BlahajUFO.panCockpit(dx, dy);
           return;
         }
-        if (currentZone === 'space' && window.BlahajUFO.panSpaceCamera) {
+        if ((currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO.panSpaceCamera) {
           window.BlahajUFO.panSpaceCamera(dx, dy);
           return;
         }
       }
 
       // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll)
-      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
+      if ((currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
         window.BlahajUFO.applySpaceMouseLook(dx, dy);
         return;
       }
@@ -5476,7 +5479,7 @@
         CozyAudio.shonk();
         return;
       }
-      if (currentZone === 'space' && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.adjustSpaceThrottle) {
+      if ((currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.adjustSpaceThrottle) {
         e.preventDefault();
         window.BlahajUFO.adjustSpaceThrottle(e.deltaY < 0 ? 0.08 : -0.08);
         return;
@@ -8200,6 +8203,118 @@
               type: 'zone_change',
               zone: 'island'
             });
+          }
+        }, 160);
+      }
+    }, 55);
+  }
+
+  function enterCheeseMoon(broadcast = true) {
+    if (isTransitioningZone || currentZone === 'cheese_moon') return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Hyper-Warping to the Swiss Cheese Planetoid';
+    if (subEl) subEl.textContent = 'Entering Total Solar Eclipse Canyon… 🧀🌑👾';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.build === 'function') {
+            window.BlahajCheeseMoon.build();
+          }
+          const cheeseScene = window.BlahajCheeseMoon ? window.BlahajCheeseMoon.getScene() : null;
+          currentZone = 'cheese_moon';
+          if (player.mesh && cheeseScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            cheeseScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && cheeseScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            cheeseScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, cheeseScene || scene, true);
+          }
+          saveUfoIslandSpawnPoint();
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast(
+            '🧀🌑 SWISS CHEESE PLANETOID ECLIPSE!',
+            'Dive into the Swiss cheese canyons! Watch for 1980s Space Invaders emerging from the holes to grab your hull!'
+          );
+          addChatLog('🧀🌑 <strong>Swiss Cheese Planetoid:</strong> Entered the Pitch-Black Eclipse Canyon! Blast 2D Space Invaders with Ray Turrets or Right-Click Sonic Shockwave!', 'lore');
+
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'zone_change', zone: 'cheese_moon' });
+          }
+        }, 160);
+      }
+    }, 55);
+  }
+
+  function exitCheeseMoon(broadcast = true) {
+    if (isTransitioningZone || currentZone !== 'cheese_moon') return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Returning to Deep Space Orbit';
+    if (subEl) subEl.textContent = 'Clearing the Swiss Cheese Planetoid gravity well… 🛸🪐';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (window.BlahajSpace && typeof window.BlahajSpace.build === 'function') {
+            window.BlahajSpace.build();
+          }
+          const spaceScene = window.BlahajSpace ? window.BlahajSpace.getScene() : null;
+          currentZone = 'space';
+          if (player.mesh && spaceScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            spaceScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && spaceScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            spaceScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, spaceScene || scene, false);
+          }
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast('🪐 BACK IN DEEP SPACE ORBIT!', 'Returned from the Swiss Cheese Planetoid!');
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'zone_change', zone: 'space' });
           }
         }, 160);
       }
@@ -14579,7 +14694,8 @@
     sea_cave: 'Starlight Sea-Cave Grotto',
     spawning_pits: 'IKEA Spawning Pits',
     volleyball: 'Crescent Beach Volleyball',
-    space: 'Deep Space Orbit'
+    space: 'Deep Space Orbit',
+    cheese_moon: 'Swiss Cheese Planetoid'
   };
 
   function getZoneFriendlyName(z) {
@@ -15064,6 +15180,10 @@
           if (window.BlahajSpace && typeof window.BlahajSpace.handleNetworkPacket === 'function') {
             window.BlahajSpace.handleNetworkPacket(data);
           }
+        } else if (data.type === 'cheese_event') {
+          if (window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.handleNetworkPacket === 'function') {
+            window.BlahajCheeseMoon.handleNetworkPacket(data);
+          }
         } else if ((data.type === 'seam_rift_mended' || data.type === 'rift_mend') && (data.riftId || data.locId)) {
           const idToMend = data.riftId || data.locId;
           let mendedSuccess = false;
@@ -15498,7 +15618,7 @@
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
     // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
-    if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+    if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
       try {
         window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
       } catch (err) {
@@ -15555,6 +15675,8 @@
         window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
       } else if (currentZone === 'space' && window.BlahajSpace) {
         window.BlahajSpace.update(dt, elapsed);
+      } else if (currentZone === 'cheese_moon' && window.BlahajCheeseMoon) {
+        window.BlahajCheeseMoon.update(dt, elapsed);
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
         if (window.BlahajHomestead) {
@@ -16938,7 +17060,7 @@
       camY = Math.min(12.5, Math.max(floorAtCam + 0.75, camY));
     } else if (currentZone === 'volleyball') {
       camY = Math.max(0.65, camY);
-    } else if (currentZone === 'space') {
+    } else if (currentZone === 'space' || currentZone === 'cheese_moon') {
       // Unclamped 360-degree space orbit camera
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
@@ -17471,9 +17593,11 @@
     }
 
     // Inside the 3D Subterranean Bioluminescent Sea-Cave Grotto Instance
-    if (currentZone === 'space') {
+    if (currentZone === 'space' || currentZone === 'cheese_moon') {
       if (!hudZoneNameEl) hudZoneNameEl = document.getElementById('hud-zone-name');
-      const spaceTitle = 'Deep Space Orbit · Blåhaj Planetary Wedge Sector 🛸🪐';
+      const spaceTitle = currentZone === 'cheese_moon'
+        ? 'Swiss Cheese Planetoid · Eclipse Canyon 🧀🌑'
+        : 'Deep Space Orbit · Blåhaj Planetary Wedge Sector 🛸🪐';
       if (hudZoneNameEl && lastReportedZoneTitle !== spaceTitle) {
         hudZoneNameEl.textContent = spaceTitle;
         lastReportedZoneTitle = spaceTitle;
@@ -18476,7 +18600,9 @@
     getSeamState: () => window.BlahajSeam && window.BlahajSeam.getState(),
     spawnWaterBreachSplash,
     enterSpaceMap,
-    exitSpaceMap
+    exitSpaceMap,
+    enterCheeseMoon,
+    exitCheeseMoon
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;
