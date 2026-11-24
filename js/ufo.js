@@ -66,6 +66,11 @@ window.BlahajUFO = (function () {
   let mojoCoreMesh = null;
   let defaultAerialGroup = null;
   let defaultAerialProg = 1.0;
+  let warpPortalGroup = null;
+  let warpShockConeMesh = null;
+  let warpRingOuterMesh = null;
+  let warpRingInnerMesh = null;
+  let warpEngulfSphereMesh = null;
 
   // Hardpoint Sockets on UFO Hull (decouples appendages from hull geometry for future UFO upgrades!)
   const sockets = {
@@ -123,6 +128,9 @@ window.BlahajUFO = (function () {
     antiGravCushionActive: false,
     orbitalCeilingReached: false,
     orbitalNoticeShown: false,
+    inSpace: false,
+    warpChargeTimer: 0,
+    lastPartnerWarnAt: 0,
 
     // Crew & Co-op Ownership
     localRole: null, // null | 'pilot' | 'passenger'
@@ -919,6 +927,62 @@ window.BlahajUFO = (function () {
       });
     }
 
+    // 7C. 3D Orbital Hyperdrive Mach Shockwave & Warp Portal Vortex (engulfs saucer at 6s charge!)
+    warpPortalGroup = new THREE.Group();
+    warpPortalGroup.position.set(0, 0.7, 0);
+    warpPortalGroup.visible = false;
+    ufoGroup.add(warpPortalGroup);
+
+    warpShockConeMesh = new THREE.Mesh(
+      new THREE.ConeGeometry(7.2, 11.5, 28, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    warpShockConeMesh.rotation.x = Math.PI * 0.5;
+    warpShockConeMesh.position.z = 2.6;
+    warpPortalGroup.add(warpShockConeMesh);
+
+    warpRingOuterMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(6.4, 0.36, 14, 48),
+      new THREE.MeshBasicMaterial({
+        color: 0xc084fc,
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false
+      })
+    );
+    warpRingOuterMesh.position.z = 4.2;
+    warpPortalGroup.add(warpRingOuterMesh);
+
+    warpRingInnerMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(4.6, 0.24, 12, 36),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.0,
+        depthWrite: false
+      })
+    );
+    warpRingInnerMesh.position.z = 4.5;
+    warpPortalGroup.add(warpRingInnerMesh);
+
+    warpEngulfSphereMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(7.8, 24, 18),
+      new THREE.MeshBasicMaterial({
+        color: 0xe879f9,
+        transparent: true,
+        opacity: 0.0,
+        side: THREE.BackSide,
+        depthWrite: false
+      })
+    );
+    warpPortalGroup.add(warpEngulfSphereMesh);
+
     // Sleek curved chrome canopy ribs (hidden automatically when Floor Cam is active!)
     [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5].forEach((ry) => {
       const rib = new THREE.Mesh(new THREE.TorusGeometry(3.46, 0.065, 8, 28, Math.PI * 0.56), chromeMat);
@@ -1418,6 +1482,12 @@ window.BlahajUFO = (function () {
 
   function initiateAutoLand() {
     if (state.localRole !== 'pilot') return;
+    if (state.inSpace) {
+      if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
+        window.BlahajGame.exitSpaceMap(true);
+      }
+      return;
+    }
     state.phase = 'landing';
     state.phaseTimer = 0;
     state.orbitalCeilingReached = false;
@@ -1728,6 +1798,8 @@ window.BlahajUFO = (function () {
       pilotName: state.pilotName,
       passengerClientId: state.passengerClientId,
       passengerName: state.passengerName,
+      warpChargeTimer: Number((state.warpChargeTimer || 0).toFixed(2)),
+      inSpace: !!state.inSpace,
       vaultSummary: getActiveVaultSummary()
     });
   }
@@ -1820,6 +1892,7 @@ window.BlahajUFO = (function () {
     }
     if (typeof data.discoMode === 'boolean') state.discoMode = data.discoMode;
     if (typeof data.turboActive === 'boolean') state.turboActive = data.turboActive;
+    if (typeof data.warpChargeTimer === 'number') state.warpChargeTimer = data.warpChargeTimer;
     state.pilotClientId = data.pilotClientId || null;
     state.pilotName = data.pilotName || null;
     if (state.localRole !== 'passenger') {
@@ -2195,11 +2268,17 @@ window.BlahajUFO = (function () {
   }
 
   function triggerMojoHyperdrive() {
-    state.hyperdriveTimer = 4.0;
+    state.hyperdriveTimer = 9.0;
     playJetsonsHorn();
     spawnRadarWave(0xc084fc, 28);
     if (window.showToast) {
-      window.showToast('⚡ MOJO HYPERDRIVE ENGAGED!', '4s supersonic surge active! Cross Y ≥ 122m to reach the Karman Orbital Ceiling!');
+      if (state.inSpace) {
+        window.showToast('⚡ DEEP-SPACE HYPERDRIVE SURGE!', '9s orbital boost active! Fly through the Cyan Re-Entry Gate or press [L] to return to Blåhaj Island.');
+      } else if (state.orbitalCeilingReached) {
+        window.showToast('⚡ ORBITAL WARP CHARGING!', 'Hold [W] + [Shift] full booster for 6 seconds at the Karman Line to breach into Deep Space!');
+      } else {
+        window.showToast('⚡ MOJO HYPERDRIVE ENGAGED!', '9s supersonic surge! Climb to the 185m Karman Orbital Ceiling and hold full booster to jump to Space!');
+      }
     }
   }
 
@@ -2340,13 +2419,17 @@ window.BlahajUFO = (function () {
     if (elVaultSub) elVaultSub.textContent = vaultSum ? 'Press [T] to Disgorge!' : 'Beam [T] · Trunk [K]';
 
     if (elPhase) {
-      const phaseLabel = state.orbitalCeilingReached
-        ? '🌌 ORBITAL CEILING'
-        : (state.isSubmerged
-          ? '🌊 HYDRO-SUBMERGED'
-          : (state.phase === 'launching' ? '🚀 LAUNCH SEQUENCE'
-            : (state.phase === 'landing' ? '🛬 AUTO-LANDING'
-            : (state.phase === 'parked' ? '🅿️ LANDED · STAIRS DOWN' : (state.turboActive ? '⚡ HYPER-JETSONS TURBO' : '🛸 FLIGHT CRUISE')))));
+      const phaseLabel = state.inSpace
+        ? '🪐 DEEP SPACE ORBIT'
+        : (state.warpChargeTimer > 0.05
+          ? `🌀 WARP PORTAL ${Math.min(100, Math.round((state.warpChargeTimer / 6.0) * 100))}%`
+          : (state.orbitalCeilingReached
+            ? '🌌 ORBITAL CEILING'
+            : (state.isSubmerged
+              ? '🌊 HYDRO-SUBMERGED'
+              : (state.phase === 'launching' ? '🚀 LAUNCH SEQUENCE'
+                : (state.phase === 'landing' ? '🛬 AUTO-LANDING'
+                : (state.phase === 'parked' ? '🅿️ LANDED · STAIRS DOWN' : (state.turboActive ? '⚡ HYPER-JETSONS TURBO' : '🛸 FLIGHT CRUISE')))))));
       elPhase.textContent = phaseLabel;
     }
     if (elRole) {
@@ -2356,21 +2439,28 @@ window.BlahajUFO = (function () {
       elRole.textContent = `${state.localRole === 'pilot' ? '🧑‍✈️ PILOT' : '🦈 PASSENGER'} · ${crewStr}`;
     }
     if (elSpd) elSpd.textContent = `${speedKts} KTS`;
-    if (elAlt) elAlt.textContent = `${Math.round(altAgl)}m AGL`;
+    if (elAlt) elAlt.textContent = state.inSpace ? `${Math.round(state.pos.y + 420)}km ORB` : `${Math.round(altAgl)}m AGL`;
     if (elVsi) elVsi.textContent = `${state.verticalSpeed >= 0 ? '+' : ''}${state.verticalSpeed.toFixed(1)} m/s`;
     if (elHdg) elHdg.textContent = `HDG ${String(heading).padStart(3, '0')}°`;
     if (elStatus) {
       if (state.radarStatusText && performance.now() < state.radarStatusUntil) {
         elStatus.textContent = state.radarStatusText;
         elStatus.classList.remove('hidden');
+      } else if (state.warpChargeTimer > 0.05) {
+        const pct = Math.min(100, Math.round((state.warpChargeTimer / 6.0) * 100));
+        elStatus.textContent = `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${(6.0 - state.warpChargeTimer).toFixed(1)}s) · HOLD [W]+[SHIFT]!`;
+        elStatus.classList.remove('hidden');
+      } else if (state.inSpace) {
+        elStatus.textContent = '🪐 DEEP SPACE SECTOR · FIRE RAY TURRETS [1]+[T] AT ASTEROIDS · PRESS [L] OR FLY TO GATE FOR RE-ENTRY';
+        elStatus.classList.remove('hidden');
       } else if (state.hyperdriveTimer > 0) {
-        elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · WARP ACTIVE!`;
+        elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · ${state.orbitalCeilingReached ? 'HOLD [W]+[SHIFT] TO OPEN SPACE PORTAL!' : 'CLIMB TO 185m KARMAN CEILING!'}`;
         elStatus.classList.remove('hidden');
       } else if (state.antiGravCushionActive) {
         elStatus.textContent = '🛡️ ANTI-GRAV CUSHION ACTIVE';
         elStatus.classList.remove('hidden');
       } else if (state.orbitalCeilingReached) {
-        elStatus.textContent = '✨ KARMAN LINE REACHED · SPACE JUMP MODULE STAGED';
+        elStatus.textContent = '✨ KARMAN LINE (185m) · ENGAGE MOJO HYPERDRIVE [4]+[T] & HOLD [W]+[SHIFT] FOR 6s TO JUMP TO SPACE!';
         elStatus.classList.remove('hidden');
       } else {
         elStatus.classList.add('hidden');
@@ -2467,7 +2557,12 @@ window.BlahajUFO = (function () {
       b.life -= dt;
       b.mesh.position.addScaledVector(b.vel, dt);
       let hit = b.life <= 0;
-      if (!hit && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
+      if (!hit && state.inSpace && window.BlahajSpace && typeof window.BlahajSpace.checkPlasmaBoltCollision === 'function') {
+        if (window.BlahajSpace.checkPlasmaBoltCollision(b.mesh.position, b.vel)) {
+          hit = true;
+        }
+      }
+      if (!hit && !state.inSpace && window.BlahajEnemies && typeof window.BlahajEnemies.getEnemies === 'function') {
         const enemies = window.BlahajEnemies.getEnemies() || [];
         for (let ei = 0; ei < enemies.length; ei++) {
           const en = enemies[ei];
@@ -2479,7 +2574,7 @@ window.BlahajUFO = (function () {
           }
         }
       }
-      if (!hit && b.mesh.position.y < getSafeGroundHeight(b.mesh.position.x, b.mesh.position.z)) {
+      if (!hit && !state.inSpace && b.mesh.position.y < getSafeGroundHeight(b.mesh.position.x, b.mesh.position.z)) {
         hit = true;
       }
       if (hit) {
@@ -2816,30 +2911,34 @@ window.BlahajUFO = (function () {
         state.yawRate += (turnInput * 1.65 - state.yawRate) * Math.min(1.0, dt * 6.5);
         state.yaw += state.yawRate * dt;
 
-        const waterY = (window.BlahajWorld && typeof window.BlahajWorld.getWaveHeight === 'function')
-          ? window.BlahajWorld.getWaveHeight(state.pos.x, state.pos.z, elapsed)
-          : 0.22;
-        const wasSubmerged = !!state.isSubmerged;
-        state.isSubmerged = state.pos.y < waterY;
-        if (state.isSubmerged !== wasSubmerged) {
-          if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.32, 0.48);
-          if (window.BlahajGame && typeof window.BlahajGame.spawnWaterBreachSplash === 'function') {
-            window.BlahajGame.spawnWaterBreachSplash(state.pos, state.isSubmerged ? 2.0 : 2.5, waterY);
-          }
-          if (!state.isSubmerged) {
-            // Breached out of water: coat the 3D glass capsule bubble with wiggly droplets for 3 seconds!
-            state.windscreenWetTimer = 3.0;
-            seedWindscreenDroplets();
-          } else {
-            state.windscreenWetTimer = 0;
-          }
-          if (window.showToast) {
-            window.showToast(
-              state.isSubmerged ? '🌊 HYDRO-SUBMERGED!' : '🚀 BREACHED OCEAN SURFACE!',
-              state.isSubmerged
-                ? 'Cruising beneath the waves! Press [Space] to ascend or [L] to land on the seabed.'
-                : 'Back in open sky!'
-            );
+        if (state.inSpace) {
+          state.isSubmerged = false;
+        } else {
+          const waterY = (window.BlahajWorld && typeof window.BlahajWorld.getWaveHeight === 'function')
+            ? window.BlahajWorld.getWaveHeight(state.pos.x, state.pos.z, elapsed)
+            : 0.22;
+          const wasSubmerged = !!state.isSubmerged;
+          state.isSubmerged = state.pos.y < waterY;
+          if (state.isSubmerged !== wasSubmerged) {
+            if (window.CozyAudio && window.CozyAudio.waterSplash) window.CozyAudio.waterSplash(0.32, 0.48);
+            if (window.BlahajGame && typeof window.BlahajGame.spawnWaterBreachSplash === 'function') {
+              window.BlahajGame.spawnWaterBreachSplash(state.pos, state.isSubmerged ? 2.0 : 2.5, waterY);
+            }
+            if (!state.isSubmerged) {
+              // Breached out of water: coat the 3D glass capsule bubble with wiggly droplets for 3 seconds!
+              state.windscreenWetTimer = 3.0;
+              seedWindscreenDroplets();
+            } else {
+              state.windscreenWetTimer = 0;
+            }
+            if (window.showToast) {
+              window.showToast(
+                state.isSubmerged ? '🌊 HYDRO-SUBMERGED!' : '🚀 BREACHED OCEAN SURFACE!',
+                state.isSubmerged
+                  ? 'Cruising beneath the waves! Press [Space] to ascend or [L] to land on the seabed.'
+                  : 'Back in open sky!'
+              );
+            }
           }
         }
 
@@ -2869,32 +2968,80 @@ window.BlahajUFO = (function () {
         state.pos.x = Math.max(-355, Math.min(355, state.pos.x));
         state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
 
-        // ANTI-CRASH TERRAIN & OCEAN CUSHION (Smooth, zero-bounce glide!)
-        const minSafeY = getSafeGroundHeight(state.pos.x, state.pos.z) + 2.6;
-        if (state.pos.y < minSafeY) {
-          state.pos.y = minSafeY;
-          if (state.vel.y < 0) state.vel.y = 0;
-          state.antiGravCushionActive = true;
-        }
-
-        // KARMAN ORBITAL CEILING (Space Transition Threshold at Y = 122m!)
-        if (state.pos.y >= KARMAN_CEILING_Y) {
-          state.pos.y = KARMAN_CEILING_Y;
-          if (state.vel.y > 0) state.vel.y = 0;
+        if (state.inSpace) {
+          state.pos.y = Math.max(-135, Math.min(145, state.pos.y));
+          state.antiGravCushionActive = false;
           state.orbitalCeilingReached = true;
-          if (!state.orbitalNoticeShown) {
-            state.orbitalNoticeShown = true;
-            playJetsonsHorn();
-            if (window.showToast) {
-              window.showToast(
-                '🌌 KARMAN ORBITAL CEILING REACHED!',
-                'Space Flight & Alien Planets Module is staged right above this threshold! Press [C] to descend or cruise in orbit!'
-              );
-            }
+          state.warpChargeTimer = 0;
+        } else {
+          // ANTI-CRASH TERRAIN & OCEAN CUSHION (Smooth, zero-bounce glide!)
+          const minSafeY = getSafeGroundHeight(state.pos.x, state.pos.z) + 2.6;
+          if (state.pos.y < minSafeY) {
+            state.pos.y = minSafeY;
+            if (state.vel.y < 0) state.vel.y = 0;
+            state.antiGravCushionActive = true;
           }
-        } else if (state.pos.y < KARMAN_CEILING_Y - 10.0) {
-          state.orbitalCeilingReached = false;
-          state.orbitalNoticeShown = false;
+
+          // KARMAN ORBITAL CEILING (Space Transition Threshold at Y = 185m!)
+          if (state.pos.y >= KARMAN_CEILING_Y) {
+            state.pos.y = KARMAN_CEILING_Y;
+            if (state.vel.y > 0) state.vel.y = 0;
+            state.orbitalCeilingReached = true;
+            if (!state.orbitalNoticeShown) {
+              state.orbitalNoticeShown = true;
+              playJetsonsHorn();
+              if (window.showToast) {
+                window.showToast(
+                  '🌌 KARMAN ORBITAL CEILING REACHED (185m)!',
+                  'Engage Mojo Hyperdrive [4]+[T] & hold full booster [W]+[Shift] for 6s to open a Space Warp Portal!'
+                );
+              }
+            }
+          } else if (state.pos.y < KARMAN_CEILING_Y - 10.0) {
+            state.orbitalCeilingReached = false;
+            state.orbitalNoticeShown = false;
+          }
+
+          // 6-SECOND MOJO HYPERDRIVE ORBITAL WARP PORTAL SEQUENCE
+          const atKarman = state.orbitalCeilingReached || state.pos.y >= KARMAN_CEILING_Y - 8.5;
+          const fullSpeedBoost = state.hyperdriveTimer > 0 && turbo && (fwdInput > 0 || Math.hypot(state.vel.x, state.vel.z) > 42.0);
+          if (atKarman && fullSpeedBoost) {
+            const partnerActiveOnIsland = Boolean(
+              window.coopPartner &&
+              window.coopPartner.active &&
+              (!window.coopPartner.zone || window.coopPartner.zone === 'island' || window.coopPartner.zone === 'overworld')
+            );
+            const partnerSeated = Boolean(state.passengerClientId);
+            if (partnerActiveOnIsland && !partnerSeated) {
+              state.warpChargeTimer = Math.max(0, state.warpChargeTimer - dt * 2.0);
+              const nowMs = performance.now();
+              if (nowMs - state.lastPartnerWarnAt > 4200) {
+                state.lastPartnerWarnAt = nowMs;
+                if (window.showToast) {
+                  window.showToast(
+                    '🦈 CO-OP PARTNER REQUIRED ABOARD!',
+                    `Pick up ${window.coopPartner.name || 'your partner'} in the Passenger Seat before jumping to Deep Space!`
+                  );
+                }
+              }
+            } else {
+              const prevSec = Math.floor(state.warpChargeTimer);
+              state.warpChargeTimer += dt;
+              const curSec = Math.floor(state.warpChargeTimer);
+              if (curSec > prevSec && curSec <= 5) {
+                spawnRadarWave(curSec >= 4 ? 0xe879f9 : 0x38bdf8, 22 + curSec * 4);
+              }
+              if (state.warpChargeTimer >= 6.0) {
+                state.warpChargeTimer = 0;
+                state.hyperdriveTimer = 0;
+                if (window.BlahajGame && typeof window.BlahajGame.enterSpaceMap === 'function') {
+                  window.BlahajGame.enterSpaceMap(true);
+                }
+              }
+            }
+          } else {
+            state.warpChargeTimer = Math.max(0, state.warpChargeTimer - dt * 1.8);
+          }
         }
 
         // Auto-leveling flight-sim pitch & bank (combines A/D turn bank + Q/E strafe bank + camera-vector steering)
@@ -3038,6 +3185,39 @@ window.BlahajUFO = (function () {
       tc.mat.color.setHex(state.turboActive ? 0xf472b6 : (state.orbitalCeilingReached ? 0xc084fc : 0x38bdf8));
     });
 
+    // 5a. Animate 3D Orbital Mach Shockwave & Warp Portal Vortex during 6-second Hyperdrive Charge!
+    if (warpPortalGroup) {
+      const wpProg = Math.max(0, Math.min(1.0, (state.warpChargeTimer || 0) / 6.0));
+      warpPortalGroup.visible = wpProg > 0.02;
+      if (warpPortalGroup.visible) {
+        if (warpShockConeMesh) {
+          warpShockConeMesh.material.opacity = Math.min(0.62, wpProg * 0.72) * (0.8 + 0.2 * Math.sin(elapsed * 24.0));
+          const coneScale = 0.65 + wpProg * 0.65;
+          warpShockConeMesh.scale.set(coneScale, 0.8 + wpProg * 0.5, coneScale);
+          warpShockConeMesh.rotation.y = elapsed * 4.5;
+        }
+        if (warpRingOuterMesh) {
+          const ringAppear = Math.max(0, (wpProg - 0.18) / 0.82);
+          warpRingOuterMesh.material.opacity = ringAppear * 0.85;
+          warpRingOuterMesh.scale.setScalar(0.35 + ringAppear * 1.15);
+          warpRingOuterMesh.position.z = 5.4 - ringAppear * 5.2;
+          warpRingOuterMesh.rotation.z = elapsed * 5.2;
+        }
+        if (warpRingInnerMesh) {
+          const innerAppear = Math.max(0, (wpProg - 0.28) / 0.72);
+          warpRingInnerMesh.material.opacity = innerAppear * 0.9;
+          warpRingInnerMesh.scale.setScalar(0.25 + innerAppear * 1.25);
+          warpRingInnerMesh.position.z = 5.8 - innerAppear * 5.6;
+          warpRingInnerMesh.rotation.z = -elapsed * 7.4;
+        }
+        if (warpEngulfSphereMesh) {
+          const engulf = Math.max(0, (wpProg - 0.62) / 0.38);
+          warpEngulfSphereMesh.material.opacity = engulf * engulf * 0.88;
+          warpEngulfSphereMesh.scale.setScalar(0.55 + engulf * 0.75);
+        }
+      }
+    }
+
     // 5b. Lock Remote Co-op Partner Shark directly into their UFO seat (prevents floating in the sky!)
     if (window.coopPartner && window.coopPartner.active && window.coopPartner.mesh) {
       const partnerIsPilot = !!(state.pilotClientId && state.localRole !== 'pilot');
@@ -3173,8 +3353,73 @@ window.BlahajUFO = (function () {
     isBuilt = true;
   }
 
+  function setSpaceMode(inSpace, targetScene) {
+    state.inSpace = !!inSpace;
+    state.warpChargeTimer = 0;
+    state.hyperdriveTimer = 0;
+    state.isSubmerged = false;
+    if (warpPortalGroup) warpPortalGroup.visible = false;
+
+    for (let i = ufoPlasmaBolts.length - 1; i >= 0; i--) {
+      const b = ufoPlasmaBolts[i];
+      if (b.mesh && b.mesh.parent) b.mesh.parent.remove(b.mesh);
+      ufoPlasmaBolts.splice(i, 1);
+    }
+    for (let i = ufoRadarWaves.length - 1; i >= 0; i--) {
+      const w = ufoRadarWaves[i];
+      if (w.mesh && w.mesh.parent) w.mesh.parent.remove(w.mesh);
+      ufoRadarWaves.splice(i, 1);
+    }
+
+    if (targetScene) {
+      sceneRef = targetScene;
+      if (ufoGroup && ufoGroup.parent !== targetScene) {
+        if (ufoGroup.parent) ufoGroup.parent.remove(ufoGroup);
+        targetScene.add(ufoGroup);
+      }
+    }
+
+    if (state.inSpace) {
+      state.phase = 'flying';
+      state.hatchTargetOpen = false;
+      state.hatchOpenProg = 0.0;
+      state.orbitalCeilingReached = true;
+      state.pos.set(0, 6.0, 62.0);
+      state.vel.set(0, 0, -18.0);
+      state.yaw = Math.PI;
+      state.pitch = 0;
+      state.roll = 0;
+    } else {
+      state.phase = 'flying';
+      state.hatchTargetOpen = false;
+      state.orbitalCeilingReached = false;
+      state.orbitalNoticeShown = false;
+      state.pos.set(ISLE_X, 148.0, ISLE_Z + 18.0);
+      state.vel.set(0, -4.0, -10.0);
+      state.pitch = 0;
+      state.roll = 0;
+    }
+
+    state.remoteTargetPos.copy(state.pos);
+    state.remoteSnapshots = [];
+    if (ufoGroup) {
+      ufoGroup.position.copy(state.pos);
+      ufoGroup.rotation.order = 'YXZ';
+      ufoGroup.rotation.set(state.pitch, state.yaw, state.roll);
+      ufoGroup.updateMatrixWorld(true);
+    }
+    spawnRadarWave(state.inSpace ? 0xe879f9 : 0x38bdf8, 36);
+    playJetsonsHorn();
+    updateAvionicsButtonsUI();
+    updateAvionicsHUD();
+    if (state.localRole === 'pilot') {
+      broadcastState(true);
+    }
+  }
+
   return {
     build,
+    setSpaceMode,
     update,
     getSurfaceHeight,
     resolveCollision,

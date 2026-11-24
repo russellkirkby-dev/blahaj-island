@@ -2625,6 +2625,9 @@
     if (currentZone === 'sea_cave' && window.BlahajHomestead) {
       return window.BlahajHomestead.getScene() || scene;
     }
+    if (currentZone === 'space' && window.BlahajSpace) {
+      return window.BlahajSpace.getScene() || scene;
+    }
     return scene;
   }
 
@@ -8005,6 +8008,129 @@
         }, 180);
       }
     }, 70);
+  }
+
+  function enterSpaceMap(broadcast = true) {
+    if (isTransitioningZone || currentZone === 'space') return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Breaching the Karman Orbital Portal';
+    if (subEl) subEl.textContent = 'Rematerializing S.S. Shonk-Saucer in Deep Space Orbit… 🛸🪐🦈';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (window.BlahajSpace && typeof window.BlahajSpace.build === 'function') {
+            window.BlahajSpace.build();
+          }
+          const spaceScene = window.BlahajSpace ? window.BlahajSpace.getScene() : null;
+          currentZone = 'space';
+          if (player.mesh && spaceScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            spaceScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && spaceScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            spaceScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, spaceScene || scene);
+          }
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast(
+            '🪐 REMATERIALIZED IN DEEP SPACE ORBIT!',
+            'Fire Ray Turrets [1]+[T] to shatter space rocks! Spot the flat-top Blåhaj Island planetary wedge in the distance!'
+          );
+          addChatLog('🛸🪐 <strong>Orbital Portal Breach:</strong> S.S. Shonk-Saucer rematerialized in <strong>Deep Space Orbit</strong>! Blast tumbling asteroids with your Ray Turrets or fly through the Cyan Re-Entry Gate to return!', 'lore');
+
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({
+              type: 'space_event',
+              action: 'warp_to_space'
+            });
+            window.BlahajNetwork.send({
+              type: 'zone_change',
+              zone: 'space'
+            });
+          }
+        }, 160);
+      }
+    }, 55);
+  }
+
+  function exitSpaceMap(broadcast = true) {
+    if (isTransitioningZone || currentZone !== 'space') return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Atmospheric Re-Entry to Blåhaj Island';
+    if (subEl) subEl.textContent = 'Diving through the turquoise Atmosphere Dome… 🛸🌤️🏝️';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 25;
+      if (barEl) barEl.style.width = `${p}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          currentZone = 'island';
+          if (player.mesh) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            scene.add(player.mesh);
+          }
+          if (coopPartner.mesh) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            scene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(false, scene);
+          }
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          showToast('🏝️ ATMOSPHERIC RE-ENTRY COMPLETE!', 'Cruising in Blåhaj Island upper sky (148m AGL)!');
+          addChatLog('🛸🏝️ <strong>Atmospheric Re-Entry:</strong> S.S. Shonk-Saucer returned from Deep Space to Blåhaj Island sky!', 'lore');
+
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({
+              type: 'space_event',
+              action: 'return_to_island'
+            });
+            window.BlahajNetwork.send({
+              type: 'zone_change',
+              zone: 'island'
+            });
+          }
+        }, 160);
+      }
+    }, 55);
   }
 
   function syncHomesteadCommissionsUI() {
@@ -14328,7 +14454,8 @@
     volcano: 'Mount Blåhaj Volcano',
     sea_cave: 'Starlight Sea-Cave Grotto',
     spawning_pits: 'IKEA Spawning Pits',
-    volleyball: 'Crescent Beach Volleyball'
+    volleyball: 'Crescent Beach Volleyball',
+    space: 'Deep Space Orbit'
   };
 
   function getZoneFriendlyName(z) {
@@ -14809,6 +14936,10 @@
           if (window.BlahajUFO && typeof window.BlahajUFO.handleNetworkPacket === 'function') {
             window.BlahajUFO.handleNetworkPacket(data);
           }
+        } else if (data.type === 'space_event') {
+          if (window.BlahajSpace && typeof window.BlahajSpace.handleNetworkPacket === 'function') {
+            window.BlahajSpace.handleNetworkPacket(data);
+          }
         } else if ((data.type === 'seam_rift_mended' || data.type === 'rift_mend') && (data.riftId || data.locId)) {
           const idToMend = data.riftId || data.locId;
           let mendedSuccess = false;
@@ -15243,7 +15374,7 @@
     updateBuilderPreview(elapsed);
     updateDynamicCollisions(dt);
     // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
-    if ((currentZone === 'island' || currentZone === 'overworld') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+    if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
       try {
         window.BlahajUFO.update(dt, elapsed, keys, camState, camera);
       } catch (err) {
@@ -15298,6 +15429,8 @@
         window.BlahajSphericalFoods.update(dt, elapsed, player.pos, player.mesh);
       } else if (currentZone === 'volleyball' && window.BlahajVolleyball) {
         window.BlahajVolleyball.update(dt, player, keys['f'] || keys[' '] || keys['space']);
+      } else if (currentZone === 'space' && window.BlahajSpace) {
+        window.BlahajSpace.update(dt, elapsed);
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
         if (window.BlahajHomestead) {
@@ -16675,6 +16808,8 @@
       camY = Math.min(12.5, Math.max(floorAtCam + 0.75, camY));
     } else if (currentZone === 'volleyball') {
       camY = Math.max(0.65, camY);
+    } else if (currentZone === 'space') {
+      // Unclamped 360-degree space orbit camera
     } else {
       const minGround = worldApi.getGroundAndStructureHeight(camX, camZ, player.pos.y + 1.2, true) + 0.95;
       camY = Math.max(minGround, camY);
@@ -17206,6 +17341,20 @@
     }
 
     // Inside the 3D Subterranean Bioluminescent Sea-Cave Grotto Instance
+    if (currentZone === 'space') {
+      if (!hudZoneNameEl) hudZoneNameEl = document.getElementById('hud-zone-name');
+      const spaceTitle = 'Deep Space Orbit · Blåhaj Planetary Wedge Sector 🛸🪐';
+      if (hudZoneNameEl && lastReportedZoneTitle !== spaceTitle) {
+        hudZoneNameEl.textContent = spaceTitle;
+        lastReportedZoneTitle = spaceTitle;
+      }
+      const promptEl = document.getElementById('interaction-prompt');
+      if (promptEl && !promptEl.classList.contains('hidden')) {
+        promptEl.classList.add('hidden');
+      }
+      return;
+    }
+
     if (currentZone === 'sea_cave' && window.BlahajHomestead) {
       document.getElementById('hud-zone-name').textContent = 'Starlight Sea-Cave Grotto · Subterranean Lagoon 💎🌊';
       const scItems = window.BlahajHomestead.getCaveInteractables(player.pos);
@@ -18195,7 +18344,9 @@
     instaMendAllSeams: () => window.BlahajSeam && window.BlahajSeam.instaMendAll(),
     banishAllInvaders: () => window.BlahajSeam && window.BlahajSeam.banishAllInvaders(),
     getSeamState: () => window.BlahajSeam && window.BlahajSeam.getState(),
-    spawnWaterBreachSplash
+    spawnWaterBreachSplash,
+    enterSpaceMap,
+    exitSpaceMap
   };
   window.BlahajGame = window.__DEBUG__;
   window.camState = camState;
