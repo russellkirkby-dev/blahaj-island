@@ -36,6 +36,9 @@ window.BlahajSpace = (function () {
   const spaceBursts = [];
   let nextFragmentId = 500;
   let rocksShatteredCount = 0;
+  let sectorWave = 1;
+  let waveCleared = false;
+  const ASTEROID_RESPAWN_SECONDS = 3600.0; // 1-hour sector reset timer for escalating waves
 
   const REENTRY_POS = new THREE.Vector3(0, -18, 145);
   const REENTRY_RADIUS = 19.0;
@@ -584,19 +587,33 @@ window.BlahajSpace = (function () {
           respawnTimer: 0
         });
       }
-      rock.respawnTimer = 32.0; // Original medium rock regenerates in outer orbit after 32s
+      rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Regenerates in 1 hour
+      const remAfterFrac = breakableRocks.filter((x) => x.alive).length;
       if (!fromNetwork && window.showToast) {
-        window.showToast('💥🪨 ASTEROID FRACTURED!', 'Shattered into 3 spinning space rock fragments!');
+        window.showToast('💥🪨 ASTEROID FRACTURED!', `Split into 3 fragments! (${remAfterFrac} space rocks remaining in Wave ${sectorWave})`);
       }
     } else {
       // Tier 1 rock vaporized completely
       if (rock.isFragment) {
         if (rock.mesh && rock.mesh.parent) rock.mesh.parent.remove(rock.mesh);
       } else {
-        rock.respawnTimer = 24.0;
+        rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Regenerates in 1 hour
       }
-      if (!fromNetwork && window.showToast && rocksShatteredCount % 3 === 1) {
-        window.showToast('✨🪨 SPACE ROCK VAPORIZED!', `Stardust harvested! (${rocksShatteredCount} rocks cleared)`);
+      const remaining = breakableRocks.filter((x) => x.alive).length;
+      if (remaining === 0 && !waveCleared) {
+        waveCleared = true;
+        if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+        if (window.showToast) {
+          window.showToast(
+            `🏆🪐 WAVE ${sectorWave} ASTEROID BELT CLEARED!`,
+            'All space rocks & fragments destroyed! Sector resets in 1 hour (future waves incoming!).'
+          );
+        }
+      } else if (!fromNetwork && window.showToast && (remaining <= 5 || rocksShatteredCount % 4 === 1)) {
+        window.showToast(
+          '✨🪨 SPACE ROCK VAPORIZED!',
+          `${remaining} rock${remaining === 1 ? '' : 's'} remaining in Wave ${sectorWave} · 1-hour respawn timer`
+        );
       }
     }
 
@@ -753,6 +770,7 @@ window.BlahajSpace = (function () {
           if (r.respawnTimer <= 0) {
             r.alive = true;
             r.hp = r.maxHp;
+            waveCleared = false;
             const ang = Math.random() * Math.PI * 2;
             const dist = 75 + Math.random() * 55;
             r.pos.set(Math.cos(ang) * dist, (Math.random() - 0.5) * 50, Math.sin(ang) * dist - 20);
@@ -893,6 +911,13 @@ window.BlahajSpace = (function () {
     getScene: () => (isBuilt ? spaceScene : build()),
     checkPlasmaBoltCollision,
     handleNetworkPacket,
-    getReentryPos: () => REENTRY_POS
+    getReentryPos: () => REENTRY_POS,
+    getSectorStatus: () => ({
+      wave: sectorWave,
+      waveCleared,
+      remainingRocks: breakableRocks.filter((x) => x.alive).length,
+      shatteredCount: rocksShatteredCount,
+      respawnSeconds: ASTEROID_RESPAWN_SECONDS
+    })
   };
 })();
