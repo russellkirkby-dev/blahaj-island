@@ -10,11 +10,12 @@ window.BlahajHyperspace = (function () {
   let hyperScene = null;
   let isBuilt = false;
 
-  // Vast, non-claustrophobic cathedral scale (nearly 3x wider, 750m visible depth!)
+  // Vast, non-claustrophobic cathedral scale spanning both ahead (-500m) AND behind (+360m) the ship!
   const TUNNEL_RADIUS = 68.0;
-  const RING_COUNT = 42;
+  const RING_COUNT = 48;
   const RING_SPACING = 18.0;
   const TUNNEL_SPEED = 92.0;
+  const Z_BEHIND_MAX = 360.0;
 
   const tunnelRings = [];
   const volumetricBolts = [];
@@ -60,10 +61,10 @@ window.BlahajHyperspace = (function () {
   let transitionTriggered = false;
   let bounceCooldown = 0;
 
-  // Slow, majestic, non-nauseating galactic curve (very low temporal frequency & long spatial wavelength)
+  // Slow, majestic, non-nauseating galactic curve both ahead (-Z) AND receding behind (+Z) the ship!
   function getTunnelCenterAt(z, elapsed) {
-    const distAhead = Math.max(0, -z - 15.0);
-    const bendWeight = Math.min(1.0, (distAhead / 260.0) * (distAhead / 260.0));
+    const distFromShip = Math.max(0, Math.abs(z) - 18.0);
+    const bendWeight = Math.min(1.0, (distFromShip / 260.0) * (distFromShip / 260.0));
     const cx =
       (Math.sin(z * 0.0042 + elapsed * 0.26) * 34.0 +
         Math.cos(z * 0.0024 - elapsed * 0.17) * 18.0) *
@@ -334,7 +335,7 @@ window.BlahajHyperspace = (function () {
         depthWrite: false
       });
       const rMesh = new THREE.Mesh(rGeo, rMat);
-      rMesh.position.z = 35.0 - i * RING_SPACING;
+      rMesh.position.z = Z_BEHIND_MAX - i * RING_SPACING;
       rMesh.rotation.z = i * 0.16;
       hyperScene.add(rMesh);
       tunnelRings.push({
@@ -365,7 +366,7 @@ window.BlahajHyperspace = (function () {
       const cMesh = new THREE.Mesh(cloudPlaneGeo, cMat);
       const ang = (i * 1.37) % (Math.PI * 2);
       const rad = TUNNEL_RADIUS * (0.42 + (i % 5) * 0.22);
-      const cz = 30.0 - (i / 54) * totalLen;
+      const cz = Z_BEHIND_MAX - (i / 54) * totalLen;
       cMesh.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad, cz);
       cMesh.rotation.z = Math.random() * Math.PI * 2;
       const sc = 0.85 + (i % 4) * 0.38;
@@ -394,7 +395,7 @@ window.BlahajHyperspace = (function () {
       });
       const slab = new THREE.Mesh(slabGeo, sMat);
       const side = i % 2 === 0 ? -1 : 1;
-      const sz = 20.0 - (i / 16) * totalLen;
+      const sz = Z_BEHIND_MAX - (i / 16) * totalLen;
       slab.position.set(side * (TUNNEL_RADIUS * 1.18), (i % 4 - 1.5) * 24.0, sz);
       slab.rotation.y = side * Math.PI * 0.46;
       hyperScene.add(slab);
@@ -447,7 +448,7 @@ window.BlahajHyperspace = (function () {
         sharkGroup.add(auraSphere);
         mats.push(auraMat);
 
-        sharkGroup.scale.setScalar(26.0);
+        sharkGroup.scale.setScalar(48.0);
         sharkGroup.visible = false;
         hyperScene.add(sharkGroup);
         founderSharkModels.push({ group: sharkGroup, mats, auraMat, tint: fDef.tint });
@@ -508,7 +509,7 @@ window.BlahajHyperspace = (function () {
     for (let i = 0; i < pCount; i++) {
       const ang = Math.random() * Math.PI * 2;
       const rad = 8.0 + Math.random() * (TUNNEL_RADIUS * 1.15);
-      const pz = 35.0 - Math.random() * totalLen;
+      const pz = Z_BEHIND_MAX - Math.random() * totalLen;
       particleAngles[i] = ang;
       particleRadii[i] = rad;
       pPositions[i * 3] = Math.cos(ang) * rad;
@@ -548,7 +549,7 @@ window.BlahajHyperspace = (function () {
       const sMesh = new THREE.Mesh(streakGeo, sMat);
       const ang = (i / 24) * Math.PI * 2;
       const rad = TUNNEL_RADIUS * (0.55 + (i % 4) * 0.16);
-      const sz = 25.0 - Math.random() * totalLen;
+      const sz = Z_BEHIND_MAX - Math.random() * totalLen;
       sMesh.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad, sz);
       hyperScene.add(sMesh);
       plasmaStreaks.push({ mesh: sMesh, ang, rad, speedMult: 1.45 + (i % 4) * 0.25 });
@@ -883,11 +884,11 @@ window.BlahajHyperspace = (function () {
       tunnelGlowLight.color.lerp(rampCol, Math.min(1.0, dt * 3.0));
     }
 
-    // 1. Animate vast cathedral wormhole rings (slow, majestic undulation)
+    // 1. Animate vast cathedral wormhole rings (both ahead AND receding infinitely behind the ship!)
     for (let i = 0; i < tunnelRings.length; i++) {
       const r = tunnelRings[i];
       r.mesh.position.z += TUNNEL_SPEED * dt;
-      if (r.mesh.position.z > 35.0) {
+      if (r.mesh.position.z > Z_BEHIND_MAX) {
         r.mesh.position.z -= totalLen;
       }
       const center = getTunnelCenterAt(r.mesh.position.z, elapsed);
@@ -906,7 +907,7 @@ window.BlahajHyperspace = (function () {
     for (let i = 0; i < nebulaClouds.length; i++) {
       const nc = nebulaClouds[i];
       let cz = nc.mesh.position.z + TUNNEL_SPEED * 0.82 * dt;
-      if (cz > 40.0) cz -= totalLen;
+      if (cz > Z_BEHIND_MAX) cz -= totalLen;
       const center = getTunnelCenterAt(cz, elapsed);
       nc.ang += dt * 0.06 * (i % 2 === 0 ? 1 : -1);
       nc.mesh.position.set(
@@ -921,7 +922,7 @@ window.BlahajHyperspace = (function () {
     for (let i = 0; i < stargateSlabs.length; i++) {
       const sl = stargateSlabs[i];
       let sz = sl.mesh.position.z + TUNNEL_SPEED * 1.15 * dt;
-      if (sz > 40.0) sz -= totalLen;
+      if (sz > Z_BEHIND_MAX) sz -= totalLen;
       const center = getTunnelCenterAt(sz, elapsed);
       sl.mesh.position.set(
         center.x + sl.side * (TUNNEL_RADIUS * 1.18),
@@ -934,7 +935,7 @@ window.BlahajHyperspace = (function () {
     for (let i = 0; i < godlikeApparitions.length; i++) {
       const ga = godlikeApparitions[i];
       let az = ga.group.position.z + TUNNEL_SPEED * 0.48 * dt;
-      if (az > 55.0) az -= totalLen;
+      if (az > Z_BEHIND_MAX) az -= totalLen;
       const center = getTunnelCenterAt(az, elapsed);
       ga.group.position.set(
         center.x + Math.cos(ga.ang) * ga.rad,
@@ -951,44 +952,44 @@ window.BlahajHyperspace = (function () {
       }
     }
 
-    // 4B. Occasional Colossal 3D Founder Blåhaj Models staring in through the tunnel wall before being whisked away by lightning!
+    // 4B. Occasional Colossal 3D Founder Blåhaj Models (48x scale!) pressing their faces right against the tunnel wall staring in!
     if (activePeeringShark) {
       const ps = activePeeringShark;
-      ps.z += TUNNEL_SPEED * (ps.whisking ? 1.35 : 0.36) * dt;
+      ps.z += TUNNEL_SPEED * (ps.whisking ? 1.35 : 0.34) * dt;
       const center = getTunnelCenterAt(ps.z, elapsed);
       ps.model.group.position.set(
         center.x + Math.cos(ps.ang) * ps.rad,
-        center.y + Math.sin(ps.ang) * ps.rad * 0.68,
+        center.y + Math.sin(ps.ang) * ps.rad * 0.55,
         ps.z
       );
 
-      // Face directly inward toward the tunnel interior & rotate slowly in a godlike trance
-      ps.model.group.lookAt(new THREE.Vector3(center.x, center.y, ps.z + 14.0));
-      ps.spinAngle += dt * 0.28;
-      ps.model.group.rotateZ(Math.sin(ps.spinAngle) * 0.22);
+      // Aim snout & eyes straight inward at the ship's lane so you only see the colossal godlike face staring in!
+      ps.model.group.lookAt(new THREE.Vector3(center.x, center.y, ps.z + 6.0));
+      ps.spinAngle += dt * 0.24;
+      ps.model.group.rotateZ(Math.sin(ps.spinAngle) * 0.16);
 
       if (!ps.whisking) {
-        const fadeIn = Math.min(1.0, (ps.z + 250.0) / 80.0);
-        const targetOp = 0.56 * Math.max(0.05, fadeIn);
+        const fadeIn = Math.min(1.0, (ps.z + 250.0) / 75.0);
+        const targetOp = 0.62 * Math.max(0.05, fadeIn);
         ps.model.mats.forEach((m) => {
-          m.opacity = m === ps.model.auraMat ? targetOp * 0.24 : targetOp;
+          m.opacity = m === ps.model.auraMat ? targetOp * 0.22 : targetOp;
         });
-        if (ps.z >= -44.0) {
+        if (ps.z >= -40.0) {
           ps.whisking = true;
           spawnCrossSectionLightning(elapsed, true);
         }
       } else {
         ps.whiskProg += dt * 1.6;
-        const fadeOp = Math.max(0, 0.56 * (1.0 - ps.whiskProg));
+        const fadeOp = Math.max(0, 0.62 * (1.0 - ps.whiskProg));
         ps.model.mats.forEach((m) => {
-          m.opacity = m === ps.model.auraMat ? fadeOp * 0.28 : fadeOp;
+          m.opacity = m === ps.model.auraMat ? fadeOp * 0.25 : fadeOp;
         });
-        const stretch = 26.0 * (1.0 + ps.whiskProg * 0.9);
-        ps.model.group.scale.set(26.0 / (1.0 + ps.whiskProg * 0.5), 26.0 / (1.0 + ps.whiskProg * 0.5), stretch);
-        ps.rad += dt * 44.0;
+        const stretch = 48.0 * (1.0 + ps.whiskProg * 0.85);
+        ps.model.group.scale.set(48.0 / (1.0 + ps.whiskProg * 0.45), 48.0 / (1.0 + ps.whiskProg * 0.45), stretch);
+        ps.rad += dt * 48.0;
         if (ps.whiskProg >= 1.0) {
           ps.model.group.visible = false;
-          ps.model.group.scale.setScalar(26.0);
+          ps.model.group.scale.setScalar(48.0);
           activePeeringShark = null;
           peeringSharkTimer = 6.5 + Math.random() * 5.0;
         }
@@ -998,12 +999,13 @@ window.BlahajHyperspace = (function () {
       if (peeringSharkTimer <= 0) {
         const model = founderSharkModels[nextFounderSharkIdx % founderSharkModels.length];
         nextFounderSharkIdx = (nextFounderSharkIdx + 1) % founderSharkModels.length;
-        const sideAng = (Math.random() > 0.5 ? 0.25 : Math.PI - 0.25) + (Math.random() - 0.5) * 0.65;
+        const sideAng = (Math.random() > 0.5 ? 0.18 : Math.PI - 0.18) + (Math.random() - 0.5) * 0.55;
         const startZ = -250.0;
-        const rad = TUNNEL_RADIUS * 1.18; // Right up against the outside of the 68m tunnel wall!
+        // At 48x scale, the shark's snout/face is ~38m forward of its origin—so rad = 104m presses its face right against the 68m tunnel wall!
+        const rad = TUNNEL_RADIUS + 36.0;
         const center = getTunnelCenterAt(startZ, elapsed);
-        model.group.position.set(center.x + Math.cos(sideAng) * rad, center.y + Math.sin(sideAng) * rad * 0.68, startZ);
-        model.group.scale.setScalar(26.0);
+        model.group.position.set(center.x + Math.cos(sideAng) * rad, center.y + Math.sin(sideAng) * rad * 0.55, startZ);
+        model.group.scale.setScalar(48.0);
         model.group.visible = true;
         activePeeringShark = {
           model,
@@ -1022,7 +1024,7 @@ window.BlahajHyperspace = (function () {
       const posArr = particlePoints.geometry.attributes.position.array;
       for (let i = 0; i < particleAngles.length; i++) {
         let pz = posArr[i * 3 + 2] + TUNNEL_SPEED * 1.55 * dt;
-        if (pz > 35.0) pz -= totalLen;
+        if (pz > Z_BEHIND_MAX) pz -= totalLen;
         particleAngles[i] += dt * (i % 2 === 0 ? 0.35 : -0.28);
         const center = getTunnelCenterAt(pz, elapsed);
         const rad = particleRadii[i];
@@ -1037,7 +1039,7 @@ window.BlahajHyperspace = (function () {
     for (let i = 0; i < plasmaStreaks.length; i++) {
       const s = plasmaStreaks[i];
       let sz = s.mesh.position.z + TUNNEL_SPEED * s.speedMult * dt;
-      if (sz > 35.0) sz -= totalLen;
+      if (sz > Z_BEHIND_MAX) sz -= totalLen;
       s.ang += dt * 0.18;
       const center = getTunnelCenterAt(sz, elapsed);
       s.mesh.position.set(center.x + Math.cos(s.ang) * s.rad, center.y + Math.sin(s.ang) * s.rad, sz);
