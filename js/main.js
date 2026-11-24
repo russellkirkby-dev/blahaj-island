@@ -14660,7 +14660,8 @@
           coopPartner.isSeatedInBooth = !!data.isSeatedInBooth;
           coopPartner.isPlayingPlushie = !!data.isPlayingPlushie;
 
-          if (coopPartner.mesh && (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20)) {
+          const partnerInUFO = !!(window.BlahajUFO && typeof window.BlahajUFO.isPartnerAboard === 'function' && window.BlahajUFO.isPartnerAboard());
+          if (!partnerInUFO && coopPartner.mesh && (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20)) {
             coopPartner.mesh.position.copy(coopPartner.targetPos);
             coopPartner.mesh.rotation.y = coopPartner.targetRotY || 0;
           }
@@ -14804,7 +14805,7 @@
               completeQuest('q-sw-seam');
             }
           }
-        } else if (data.type === 'ufo_state') {
+        } else if (data.type === 'ufo_state' || data.type === 'ufo_crew') {
           if (window.BlahajUFO && typeof window.BlahajUFO.handleNetworkPacket === 'function') {
             window.BlahajUFO.handleNetworkPacket(data);
           }
@@ -17808,6 +17809,11 @@
 
     if (!coopPartner.active || !coopPartner.mesh) return;
     updateCoopPartnerVisibility();
+
+    // If co-op partner is seated inside the UFO, ufo.js owns their exact seat transform (prevents floating in sky!)
+    if (window.BlahajUFO && typeof window.BlahajUFO.isPartnerAboard === 'function' && window.BlahajUFO.isPartnerAboard()) {
+      return;
+    }
 
     // 1. Smooth Yaw Slerp with shortest-arc angular wrap (eliminates visual snapping & 360-degree spin flips)
     let rotDiff = coopPartner.targetRotY - coopPartner.mesh.rotation.y;
