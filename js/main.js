@@ -2558,6 +2558,24 @@
       z: Number((isle.z - 7.5).toFixed(2)),
       rotY: 0.9,
       ufoIsleSpawn: true,
+      hyperspaceCheckpoint: false,
+      savedAt: Date.now()
+    };
+    hasStoredSavePoint = true;
+    try { localStorage.setItem(SAVE_POINT_KEY, JSON.stringify(lastSavePoint)); } catch (e) {}
+  }
+
+  function saveHyperspaceCheckpoint() {
+    const isle = (window.BlahajUFO && typeof window.BlahajUFO.getIslandCoords === 'function')
+      ? window.BlahajUFO.getIslandCoords()
+      : { x: 128.0, z: -88.0, deckY: 5.4 };
+    lastSavePoint = {
+      x: Number((isle.x - 10.5).toFixed(2)),
+      y: Number((isle.deckY + 0.5).toFixed(2)),
+      z: Number((isle.z - 7.5).toFixed(2)),
+      rotY: 0.9,
+      ufoIsleSpawn: true,
+      hyperspaceCheckpoint: true,
       savedAt: Date.now()
     };
     hasStoredSavePoint = true;
@@ -2591,8 +2609,14 @@
   }
 
   window.addEventListener('beforeunload', () => {
-    if (currentZone === 'space' || currentZone === 'cheese_moon') {
-      saveUfoIslandSpawnPoint();
+    if (currentZone === 'hyperspace') {
+      saveHyperspaceCheckpoint();
+    } else if (currentZone === 'space' || currentZone === 'cheese_moon') {
+      if (lastSavePoint && lastSavePoint.hyperspaceCheckpoint) {
+        saveHyperspaceCheckpoint();
+      } else {
+        saveUfoIslandSpawnPoint();
+      }
     } else {
       captureSavePoint(false);
     }
@@ -3218,6 +3242,41 @@
 
     setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
     finishLoadingScreen();
+
+    // If player checkpointed in Mojo Hyperspace, restore them directly inside their UFO in the Hyperspace Crossroads on refresh!
+    if (hasStoredSavePoint && lastSavePoint && lastSavePoint.hyperspaceCheckpoint) {
+      setTimeout(() => {
+        if (window.BlahajUFO && typeof window.BlahajUFO.boardUFO === 'function') {
+          if (!window.BlahajUFO.isLocalAboard()) {
+            window.BlahajUFO.boardUFO(player, 'pilot');
+          }
+        }
+        if (window.BlahajHyperspace && typeof window.BlahajHyperspace.build === 'function') {
+          window.BlahajHyperspace.build();
+        }
+        const hyperScene = window.BlahajHyperspace ? window.BlahajHyperspace.getScene() : null;
+        currentZone = 'hyperspace';
+        if (player.mesh && hyperScene) {
+          if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+          hyperScene.add(player.mesh);
+        }
+        if (coopPartner.mesh && hyperScene) {
+          if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+          hyperScene.add(coopPartner.mesh);
+        }
+        if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+          window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
+        }
+        if (window.BlahajHyperspace && typeof window.BlahajHyperspace.onEnterZone === 'function') {
+          window.BlahajHyperspace.onEnterZone();
+        }
+        updateCoopPartnerVisibility();
+        showToast(
+          '⚡🌀 HYPERSPACE CHECKPOINT RESTORED!',
+          'Resumed aboard S.S. Shonk-Saucer inside the Mojo Hyperspace Crossroads!'
+        );
+      }, 120);
+    }
   }
 
   function canUseBuilderMode() {
@@ -8510,7 +8569,7 @@
           if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
             window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
           }
-          saveUfoIslandSpawnPoint();
+          saveHyperspaceCheckpoint();
 
           if (overlay) overlay.classList.add('hidden');
           isTransitioningZone = false;
