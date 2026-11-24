@@ -2731,8 +2731,11 @@ window.BlahajUFO = (function () {
         elStatus.textContent = state.radarStatusText;
         elStatus.classList.remove('hidden');
       } else if (state.warpChargeTimer > 0.05) {
-        const pct = Math.min(100, Math.round((state.warpChargeTimer / 6.0) * 100));
-        elStatus.textContent = `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${Math.max(0, 6.0 - state.warpChargeTimer).toFixed(1)}s) · HOLD [W] + [SHIFT]!`;
+        const targetTime = state.inSpace ? 5.0 : 6.0;
+        const pct = Math.min(100, Math.round((state.warpChargeTimer / targetTime) * 100));
+        elStatus.textContent = state.inSpace
+          ? `🧀🌀 HYPER-WARP TO SWISS CHEESE PLANETOID: ${pct}% (${Math.max(0, targetTime - state.warpChargeTimer).toFixed(1)}s) · HOLD [SHIFT]!`
+          : `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${Math.max(0, targetTime - state.warpChargeTimer).toFixed(1)}s) · HOLD [W] + [SHIFT]!`;
         elStatus.classList.remove('hidden');
       } else if (state.inSpace) {
         const thrPct = Math.round((state.spaceThrottle || 0) * 100);
@@ -2836,11 +2839,11 @@ window.BlahajUFO = (function () {
         const by = cy - nz * rad;
         const elevPx = Math.max(-10, Math.min(10, (rel.y / maxRange) * 28));
 
-        if (b.kind === 'gate') {
-          ctx.strokeStyle = state.inCheeseMoon ? '#facc15' : '#38bdf8';
-          ctx.lineWidth = 2;
+        if (b.kind === 'gate' || b.kind === 'cheese_gate') {
+          ctx.strokeStyle = (b.kind === 'cheese_gate' || state.inCheeseMoon) ? '#facc15' : '#38bdf8';
+          ctx.lineWidth = 2.2;
           ctx.beginPath();
-          ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
+          ctx.arc(bx, by, 4.8, 0, Math.PI * 2);
           ctx.stroke();
         } else if (b.kind === 'monolith') {
           ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
@@ -3346,7 +3349,6 @@ window.BlahajUFO = (function () {
         state.isSubmerged = false;
         state.antiGravCushionActive = false;
         state.orbitalCeilingReached = true;
-        state.warpChargeTimer = 0;
 
         const gs = window.gameSettings || {};
         const spaceFlightStyle = gs.ufoSpaceFlightStyle || 'coupled'; // 'coupled' | 'newtonian'
@@ -3443,11 +3445,11 @@ window.BlahajUFO = (function () {
         state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
         state.pos.y = Math.max(-165, Math.min(175, state.pos.y));
 
-        // After clearing all destructible asteroids in Deep Space, Mojo Hyperdrive [4] + [Shift] (or Hyperdrive surge) for 5s warps to the Swiss Cheese Planetoid!
+        // After clearing all destructible asteroids in Deep Space, holding [Shift] (or Mojo Hyperdrive) for 5s warps to the Swiss Cheese Planetoid!
         if (!state.inCheeseMoon && window.BlahajSpace && typeof window.BlahajSpace.getSectorStatus === 'function') {
           const secStat = window.BlahajSpace.getSectorStatus();
           const sectorCleared = !!(secStat && (secStat.waveCleared || secStat.remainingRocks === 0));
-          if (sectorCleared && (hyperSelected || state.hyperdriveTimer > 0) && (turbo || state.hyperdriveTimer > 0)) {
+          if (sectorCleared && turbo) {
             const prevSec = Math.floor(state.warpChargeTimer);
             state.warpChargeTimer += dt;
             const curSec = Math.floor(state.warpChargeTimer);
@@ -3462,12 +3464,6 @@ window.BlahajUFO = (function () {
               }
             }
           } else {
-            if (sectorCleared && turbo && !hyperSelected && !state._cheeseHintShown) {
-              state._cheeseHintShown = true;
-              if (window.showToast) {
-                window.showToast('⚡ SWITCH TO MOJO HYPERDRIVE [4]!', 'Select Mojo Hyperdrive [4] & hold [Shift] for 5s to warp to the Swiss Cheese Planetoid!');
-              }
-            }
             state.warpChargeTimer = Math.max(0, state.warpChargeTimer - dt * 1.8);
           }
         }

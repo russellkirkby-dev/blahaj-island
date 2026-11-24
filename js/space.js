@@ -30,6 +30,10 @@ window.BlahajSpace = (function () {
   let teacupSatellite = null;
   let reentryGateGroup = null;
   let reentryRingMesh = null;
+  let cheeseGateGroup = null;
+  let cheeseRingMesh = null;
+  const CHEESE_GATE_POS = new THREE.Vector3(0, 12, -105);
+  const CHEESE_GATE_RADIUS = 19.0;
 
   const monolithRocks = [];
   const breakableRocks = [];
@@ -528,6 +532,22 @@ window.BlahajSpace = (function () {
     reentryGateGroup.add(reentryRingMesh, innerPortalDisc);
     spaceScene.add(reentryGateGroup);
 
+    // 4B. Golden Swiss Cheese Planetoid Warp Gate (becomes visible once all destructible asteroids are cleared!)
+    cheeseGateGroup = new THREE.Group();
+    cheeseGateGroup.position.copy(CHEESE_GATE_POS);
+    cheeseGateGroup.lookAt(new THREE.Vector3(0, 6, 62));
+    cheeseRingMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(CHEESE_GATE_RADIUS, 1.0, 12, 48),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+    );
+    const cheeseDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(CHEESE_GATE_RADIUS - 0.8, 36),
+      new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })
+    );
+    cheeseGateGroup.add(cheeseRingMesh, cheeseDisc);
+    cheeseGateGroup.visible = false;
+    spaceScene.add(cheeseGateGroup);
+
     // 5. Six Massive Landmark Monolith Asteroids (give a grand sense of 3D space)
     monolithRocks.length = 0;
     const monolithSpecs = [
@@ -856,6 +876,12 @@ window.BlahajSpace = (function () {
     if (reentryRingMesh) {
       reentryRingMesh.rotation.z = elapsed * 0.85;
     }
+    if (cheeseGateGroup) {
+      cheeseGateGroup.visible = !!waveCleared;
+      if (cheeseRingMesh && cheeseGateGroup.visible) {
+        cheeseRingMesh.rotation.z = -elapsed * 1.1;
+      }
+    }
 
     // 2. Update particle bursts
     for (let i = spaceBursts.length - 1; i >= 0; i--) {
@@ -1046,10 +1072,15 @@ window.BlahajSpace = (function () {
         }
       }
 
-      // Check if pilot flew through the Atmospheric Re-Entry Gate
+      // Check if pilot flew through the Atmospheric Re-Entry Gate OR the Golden Cheese Moon Gate
       if (ufoState.localRole === 'pilot' && ufoState.pos.distanceTo(REENTRY_POS) < REENTRY_RADIUS) {
         if (window.BlahajGame && typeof window.BlahajGame.exitSpaceMap === 'function') {
           window.BlahajGame.exitSpaceMap(true);
+        }
+      }
+      if (waveCleared && ufoState.localRole === 'pilot' && ufoState.pos.distanceTo(CHEESE_GATE_POS) < CHEESE_GATE_RADIUS) {
+        if (window.BlahajGame && typeof window.BlahajGame.enterCheeseMoon === 'function') {
+          window.BlahajGame.enterCheeseMoon(true);
         }
       }
     }
@@ -1084,8 +1115,11 @@ window.BlahajSpace = (function () {
         blips.push({ x: r.pos.x, y: r.pos.y, z: r.pos.z, kind: 'rock', tier: r.tier });
       }
       blips.push({ x: REENTRY_POS.x, y: REENTRY_POS.y, z: REENTRY_POS.z, kind: 'gate', tier: 0 });
+      if (waveCleared) {
+        blips.push({ x: CHEESE_GATE_POS.x, y: CHEESE_GATE_POS.y, z: CHEESE_GATE_POS.z, kind: 'cheese_gate', tier: 0 });
+      }
       return {
-        label: remaining === 0 ? '🏆 CLEARED! [4]+[SHIFT] 5s' : `ROCKS: ${remaining}`,
+        label: remaining === 0 ? '🏆 CLEARED! HOLD [SHIFT] 5s' : `ROCKS: ${remaining}`,
         cleared: remaining === 0,
         blips
       };
