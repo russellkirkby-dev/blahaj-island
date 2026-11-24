@@ -1536,7 +1536,12 @@ window.BlahajUFO = (function () {
 
   function initiateAutoLand() {
     if (state.localRole !== 'pilot') return;
-    if (state.inCheeseMoon) {
+    if (state.inHyperspace) {
+      if (window.BlahajGame && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
+        window.BlahajGame.exitHyperspaceTo('island', true);
+      }
+      return;
+    } else if (state.inCheeseMoon) {
       if (window.BlahajGame && typeof window.BlahajGame.exitCheeseMoon === 'function') {
         window.BlahajGame.exitCheeseMoon(true);
       }
@@ -2426,14 +2431,21 @@ window.BlahajUFO = (function () {
   }
 
   function triggerMojoHyperdrive() {
+    if (state.inHyperspace) return;
+    if (state.inSpace && (state.inCheeseMoon || (window.BlahajSpace && window.BlahajSpace.getSectorStatus && (window.BlahajSpace.getSectorStatus().waveCleared || window.BlahajSpace.getSectorStatus().remainingRocks === 0)))) {
+      if (window.BlahajGame && typeof window.BlahajGame.enterHyperspace === 'function') {
+        window.BlahajGame.enterHyperspace(true);
+        return;
+      }
+    }
     state.hyperdriveTimer = 9.0;
     playJetsonsHorn();
     spawnRadarWave(0xc084fc, 28);
     if (window.showToast) {
       if (state.inSpace) {
-        window.showToast('⚡ DEEP-SPACE HYPERDRIVE SURGE!', '9s orbital boost active! Fly through the Cyan Re-Entry Gate or press [L] to return to Blåhaj Island.');
+        window.showToast('⚡ DEEP-SPACE HYPERDRIVE SURGE!', '9s orbital boost active! Clear all asteroids to unlock Mojo Hyperspace Crossroads!');
       } else {
-        window.showToast('⚡ MOJO HYPERDRIVE READY!', 'Climb into the upper atmosphere (145m–185m) and hold [Shift] + [W] for 6 seconds to open a Space Warp Portal!');
+        window.showToast('⚡ MOJO HYPERDRIVE READY!', 'Climb into the upper atmosphere (145m–185m) and hold [Shift] + [W] for 6 seconds to jump to Deep Space!');
       }
     }
   }
@@ -3457,7 +3469,30 @@ window.BlahajUFO = (function () {
           state.vel.z += (targetVel.z - state.vel.z) * Math.min(1.0, dt * resp);
         }
 
-        if (state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getPlanetCenter === 'function') {
+        if (state.inHyperspace) {
+          // MOJO HYPERSPACE CROSSROADS STEERING:
+          // Stay centered to loop seamlessly; steer Left/Right (A/D, Q/E, or Mouse X) to enter staggered Off-Ramps!
+          const steerX = turnInput * 28.0 + strafeInput * 22.0 + Math.max(-24, Math.min(24, mdx * 0.65));
+          const steerY = fwdInput * 16.0 - Math.max(-16, Math.min(16, mdy * 0.45));
+          const hasSteerX = Math.abs(steerX) > 0.5;
+          const targetVx = hasSteerX ? steerX : -state.pos.x * 2.2;
+          const targetVy = Math.abs(steerY) > 0.5 ? steerY : -state.pos.y * 2.2;
+
+          state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 6.5);
+          state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 6.5);
+          state.vel.z = 0;
+
+          state.pos.x = Math.max(-16.5, Math.min(16.5, state.pos.x + state.vel.x * dt));
+          state.pos.y = Math.max(-9.0, Math.min(9.0, state.pos.y + state.vel.y * dt));
+          state.pos.z = 0;
+
+          const bankRoll = Math.max(-0.55, Math.min(0.55, -state.vel.x * 0.024));
+          const bankPitch = Math.max(-0.32, Math.min(0.32, state.vel.y * 0.018));
+          state.spaceQuat.setFromEuler(new THREE.Euler(bankPitch, Math.PI, bankRoll, 'YXZ')).normalize();
+          state.pitch = bankPitch;
+          state.yaw = Math.PI;
+          state.roll = bankRoll;
+        } else if (state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getPlanetCenter === 'function') {
           const pCenter = window.BlahajCheeseMoon.getPlanetCenter();
           const oldRadial = new THREE.Vector3().subVectors(state.pos, pCenter);
           const oldDist = oldRadial.length() || 1;
@@ -3504,7 +3539,9 @@ window.BlahajUFO = (function () {
             if (state.warpChargeTimer >= 5.0) {
               state.warpChargeTimer = 0;
               state.hyperdriveTimer = 0;
-              if (window.BlahajGame && typeof window.BlahajGame.enterCheeseMoon === 'function') {
+              if (window.BlahajGame && typeof window.BlahajGame.enterHyperspace === 'function') {
+                window.BlahajGame.enterHyperspace(true);
+              } else if (window.BlahajGame && typeof window.BlahajGame.enterCheeseMoon === 'function') {
                 window.BlahajGame.enterCheeseMoon(true);
               }
             }
@@ -4040,9 +4077,10 @@ window.BlahajUFO = (function () {
     isBuilt = true;
   }
 
-  function setSpaceMode(inSpace, targetScene, isCheeseMoon = false) {
+  function setSpaceMode(inSpace, targetScene, isCheeseMoon = false, isHyperspace = false) {
     state.inSpace = !!inSpace;
-    state.inCheeseMoon = !!(inSpace && isCheeseMoon);
+    state.inCheeseMoon = !!(inSpace && isCheeseMoon && !isHyperspace);
+    state.inHyperspace = !!(inSpace && isHyperspace);
     state.warpChargeTimer = 0;
     state.hyperdriveTimer = 0;
     state.isSubmerged = false;
@@ -4067,7 +4105,12 @@ window.BlahajUFO = (function () {
       }
     }
 
-    if (state.inCheeseMoon) {
+    if (state.inHyperspace) {
+      if (window.BlahajGame && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
+        window.BlahajGame.exitHyperspaceTo('island', true);
+      }
+      return;
+    } else if (state.inCheeseMoon) {
       state.phase = 'flying';
       state.hatchTargetOpen = false;
       state.hatchOpenProg = 0.0;

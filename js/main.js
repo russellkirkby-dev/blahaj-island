@@ -2658,6 +2658,9 @@
     if (currentZone === 'cheese_moon' && window.BlahajCheeseMoon) {
       return window.BlahajCheeseMoon.getScene() || scene;
     }
+    if (currentZone === 'hyperspace' && window.BlahajHyperspace) {
+      return window.BlahajHyperspace.getScene() || scene;
+    }
     return scene;
   }
 
@@ -8227,7 +8230,7 @@
     const ufoSt = (window.BlahajUFO && typeof window.BlahajUFO.getState === 'function')
       ? window.BlahajUFO.getState()
       : null;
-    if (currentZone === 'space' || currentZone === 'cheese_moon') return true;
+    if (currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') return true;
     return !!(ufoSt && ufoSt.localRole);
   }
 
@@ -8426,8 +8429,11 @@
             cheeseScene.add(coopPartner.mesh);
           }
           if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
-            window.BlahajUFO.setSpaceMode(true, cheeseScene || scene, true);
+            window.BlahajUFO.setSpaceMode(true, cheeseScene || scene, true, false);
           }
+          try {
+            localStorage.setItem('blahaj_cheese_moon_unlocked_v1', 'true');
+          } catch (e) {}
           saveUfoIslandSpawnPoint();
 
           if (overlay) overlay.classList.add('hidden');
@@ -8455,6 +8461,126 @@
   function returnHomeFromCheeseMoon(broadcast = true) {
     if (isTransitioningZone || currentZone !== 'cheese_moon') return;
     exitSpaceMap(broadcast);
+  }
+
+  function enterHyperspace(broadcast = true) {
+    if (isTransitioningZone || currentZone === 'hyperspace') return;
+    isTransitioningZone = true;
+
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Engaging Mojo Hyperdrive';
+    if (subEl) subEl.textContent = 'Tearing into the Hyperspace Crossroads… ⚡🌀';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 34;
+      if (barEl) barEl.style.width = `${Math.min(100, p)}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.build === 'function') {
+            window.BlahajHyperspace.build();
+          }
+          const hyperScene = window.BlahajHyperspace ? window.BlahajHyperspace.getScene() : null;
+          currentZone = 'hyperspace';
+          if (player.mesh && hyperScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            hyperScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && hyperScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            hyperScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
+          }
+          saveUfoIslandSpawnPoint();
+
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+
+          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.onEnterZone === 'function') {
+            window.BlahajHyperspace.onEnterZone();
+          }
+
+          showToast(
+            '⚡🌀 MOJO HYPERSPACE CROSSROADS!',
+            'Steer Left/Right [A/D or Mouse] into an Off-Ramp, stay centered to keep looping, or press [R] to rewind to #1!'
+          );
+
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'zone_change', zone: 'hyperspace' });
+          }
+        }, 120);
+      }
+    }, 45);
+  }
+
+  function exitHyperspaceTo(targetZone, broadcast = true) {
+    if (isTransitioningZone || currentZone !== 'hyperspace') return;
+    if (targetZone === 'island' || targetZone === 'overworld') {
+      exitSpaceMap(broadcast);
+      return;
+    }
+    if (targetZone === 'cheese_moon') {
+      enterCheeseMoon(broadcast);
+      return;
+    }
+    // Default: Deep Space Orbit ('space')
+    isTransitioningZone = true;
+    const overlay = document.getElementById('instance-loading');
+    const titleEl = document.getElementById('instance-loading-title');
+    const subEl = document.getElementById('instance-loading-sub');
+    const barEl = document.getElementById('instance-progress-fill');
+
+    if (titleEl) titleEl.textContent = 'Exiting Hyperspace Slipstream';
+    if (subEl) subEl.textContent = 'Dropping into Deep Space Orbit… 🪐✨';
+    if (barEl) barEl.style.width = '0%';
+    if (overlay) overlay.classList.remove('hidden');
+
+    CozyAudio.portalChime();
+    let p = 0;
+    const interval = setInterval(() => {
+      p += 34;
+      if (barEl) barEl.style.width = `${Math.min(100, p)}%`;
+      if (p >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          if (window.BlahajSpace && typeof window.BlahajSpace.build === 'function') {
+            window.BlahajSpace.build();
+          }
+          const spaceScene = window.BlahajSpace ? window.BlahajSpace.getScene() : null;
+          currentZone = 'space';
+          if (player.mesh && spaceScene) {
+            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
+            spaceScene.add(player.mesh);
+          }
+          if (coopPartner.mesh && spaceScene) {
+            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
+            spaceScene.add(coopPartner.mesh);
+          }
+          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
+            window.BlahajUFO.setSpaceMode(true, spaceScene || scene, false, false);
+          }
+          if (overlay) overlay.classList.add('hidden');
+          isTransitioningZone = false;
+          updateCoopPartnerVisibility();
+          showToast('🪐 DEEP SPACE ORBIT', 'Emerged from the Mojo Hyperspace Crossroads!');
+          if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+            window.BlahajNetwork.send({ type: 'zone_change', zone: 'space' });
+          }
+        }, 120);
+      }
+    }, 45);
   }
 
   function exitCheeseMoon(broadcast = true) {
@@ -15816,7 +15942,7 @@
     const ufoStepDt = instancePaused ? 0 : dt;
 
     // Update UFO physics & cockpit camera anchor BEFORE updateCamera() so Interior & Exterior views have zero 1-frame jitter!
-    if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space' || currentZone === 'cheese_moon') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
+    if ((currentZone === 'island' || currentZone === 'overworld' || currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
       try {
         window.BlahajUFO.update(ufoStepDt, elapsed, keys, camState, camera);
       } catch (err) {
@@ -15880,6 +16006,12 @@
           window.BlahajCheeseMoon.update(dt, elapsed, camera);
         } else if (typeof window.BlahajCheeseMoon.updateWaypointsOnly === 'function') {
           window.BlahajCheeseMoon.updateWaypointsOnly(camera);
+        }
+      } else if (currentZone === 'hyperspace' && window.BlahajHyperspace) {
+        if (!instancePaused) {
+          window.BlahajHyperspace.update(dt, elapsed, camera);
+        } else if (typeof window.BlahajHyperspace.updateWaypointsOnly === 'function') {
+          window.BlahajHyperspace.updateWaypointsOnly(camera);
         }
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);
@@ -18808,6 +18940,8 @@
     enterCheeseMoon,
     exitCheeseMoon,
     returnHomeFromCheeseMoon,
+    enterHyperspace,
+    exitHyperspaceTo,
     isCurrentInstancePaused,
     showStoryPauseModal,
     closeStoryPauseModal
