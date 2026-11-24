@@ -3470,36 +3470,56 @@ window.BlahajUFO = (function () {
         }
 
         if (state.inHyperspace) {
-          // MOJO HYPERSPACE CROSSROADS STEERING (A/D, Q/E, Arrows, AND Mouse all steer Left/Right consistently!):
-          // Screen-Left is -X, Screen-Right is +X when facing -Z down the tunnel!
+          // MOJO HYPERSPACE CROSSROADS — FULL 6-DOF SPACE FLIGHT + GENTLE SLIPSTREAM GUIDANCE:
+          // You keep full 360° barrel rolls (A/D or Mouse), Rudder Yaw (Q/E), and Pitch (W/S or Mouse) from spaceQuat above!
           const keySteerX = Math.max(-1, Math.min(1, -turnInput + strafeInput));
-          const mouseSteerX = Math.max(-1.2, Math.min(1.2, mdx * 0.055 * sens));
-          const combinedX = Math.max(-1.25, Math.min(1.25, keySteerX + mouseSteerX));
-
           const keySteerY = fwdInput;
-          const mouseSteerY = Math.max(-1.0, Math.min(1.0, -mdy * 0.045 * sens));
-          const combinedY = Math.max(-1.1, Math.min(1.1, keySteerY + mouseSteerY));
 
-          // Responsive lateral movement + gentle auto-center drift only when hands-off so last-minute pull-aways are super snappy!
-          const targetVx = Math.abs(combinedX) > 0.06 ? combinedX * 34.0 : -state.pos.x * 1.45;
-          const targetVy = Math.abs(combinedY) > 0.06 ? combinedY * 20.0 : -state.pos.y * 1.65;
+          // Combine nose-pointed 3D space flight vector with direct lateral/vertical maneuver authority inside the vast 68m wormhole
+          const noseLatX = shipFwd.x * 38.0;
+          const noseLatY = shipFwd.y * 32.0;
+          const desiredVx = noseLatX + keySteerX * 26.0;
+          const desiredVy = noseLatY + keySteerY * 20.0;
+          const desiredVz = (shipFwd.z + 1.0) * 18.0 - state.pos.z * 1.8;
 
-          state.vel.x += (targetVx - state.vel.x) * Math.min(1.0, dt * 9.5);
-          state.vel.y += (targetVy - state.vel.y) * Math.min(1.0, dt * 8.5);
-          state.vel.z = 0;
+          const handsOff =
+            Math.abs(keySteerX) < 0.05 &&
+            Math.abs(keySteerY) < 0.05 &&
+            Math.abs(mdx) < 0.5 &&
+            Math.abs(mdy) < 0.5;
 
-          state.pos.x = Math.max(-17.5, Math.min(17.5, state.pos.x + state.vel.x * dt));
-          state.pos.y = Math.max(-9.5, Math.min(9.5, state.pos.y + state.vel.y * dt));
-          state.pos.z = 0;
+          // Gentle slipstream current pulls you softly toward the middle cruising lane when hands-off,
+          // so you must deliberately fly out to the outer doorway wall (|x| >= 30m) to exit!
+          const centerPullX = handsOff ? -state.pos.x * 0.65 : -state.pos.x * 0.15;
+          const centerPullY = handsOff ? -state.pos.y * 0.65 : -state.pos.y * 0.15;
 
-          // Expressive banking roll + subtle nose-yaw into the turn so both Roll & Yaw feel natural!
-          const bankRoll = Math.max(-0.62, Math.min(0.62, -state.vel.x * 0.020));
-          const turnYaw = Math.PI + Math.max(-0.28, Math.min(0.28, -state.vel.x * 0.009));
-          const bankPitch = Math.max(-0.34, Math.min(0.34, state.vel.y * 0.016));
-          state.spaceQuat.setFromEuler(new THREE.Euler(bankPitch, turnYaw, bankRoll, 'YXZ')).normalize();
-          state.pitch = bankPitch;
-          state.yaw = turnYaw;
-          state.roll = bankRoll;
+          state.vel.x += (desiredVx + centerPullX - state.vel.x) * Math.min(1.0, dt * 5.5);
+          state.vel.y += (desiredVy + centerPullY - state.vel.y) * Math.min(1.0, dt * 5.5);
+          state.vel.z += (desiredVz - state.vel.z) * Math.min(1.0, dt * 4.5);
+
+          state.pos.addScaledVector(state.vel, dt);
+
+          // Cushion softly inside the vast 68m wormhole cylinder (max flyable radius 54m)
+          const rXY = Math.hypot(state.pos.x, state.pos.y);
+          if (rXY > 54.0) {
+            const scale = 54.0 / rXY;
+            state.pos.x *= scale;
+            state.pos.y *= scale;
+          }
+          state.pos.z = Math.max(-42.0, Math.min(14.0, state.pos.z));
+
+          // Gentle downstream nose-alignment magnet (keeps you pointed generally down the wormhole while leaving 360° Barrel Roll completely free!)
+          const downstreamDir = new THREE.Vector3(0, 0, -1);
+          const curFwd = new THREE.Vector3(0, 0, 1).applyQuaternion(state.spaceQuat).normalize();
+          const alignQuat = new THREE.Quaternion().setFromUnitVectors(curFwd, downstreamDir);
+          const slerpStrength = handsOff ? Math.min(1.0, dt * 1.8) : Math.min(1.0, dt * 0.75);
+          const stepAlign = new THREE.Quaternion().slerp(alignQuat, slerpStrength);
+          state.spaceQuat.premultiply(stepAlign).normalize();
+
+          const syncedH = new THREE.Euler().setFromQuaternion(state.spaceQuat, 'YXZ');
+          state.pitch = syncedH.x;
+          state.yaw = syncedH.y;
+          state.roll = syncedH.z;
         } else if (state.inCheeseMoon && window.BlahajCheeseMoon && typeof window.BlahajCheeseMoon.getPlanetCenter === 'function') {
           const pCenter = window.BlahajCheeseMoon.getPlanetCenter();
           const oldRadial = new THREE.Vector3().subVectors(state.pos, pCenter);

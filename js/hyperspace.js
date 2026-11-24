@@ -1,23 +1,28 @@
 // ============================================================================
 // BLÅHAJ ISLAND — MOJO HYPERSPACE CROSSROADS (js/hyperspace.js)
-// v17.0: Showcase Edition — Undulating Organic Wormhole Tunnel, Thick Volumetric
-//        Forked Lightning Bolts, Multicolored Warp Particle Streams & Plasma
-//        Speed Ribbons, 3-Ring Branching Off-Ramp Tunnels, Last-Second Split-
-//        Decision Abort Window, and Seamless [R] Loop Re-Index!
+// v17.1: "Beyond the Great Seam" Showcase — Vast Cathedral Wormhole (68m radius),
+//        Slow Majestic Undulation, Diagonal Cross-Section Lightning Strikes,
+//        Volumetric Nebula Gas Clouds, 2001 Slit-Scan Stargate Curtains,
+//        and Colossal Blurred Godlike Character Apparitions & Frozen Relics!
 // ============================================================================
 
 window.BlahajHyperspace = (function () {
   let hyperScene = null;
   let isBuilt = false;
 
-  const TUNNEL_RADIUS = 25.0;
-  const RING_COUNT = 32;
-  const RING_SPACING = 12.0;
-  const TUNNEL_SPEED = 84.0;
+  // Vast, non-claustrophobic cathedral scale (nearly 3x wider, 750m visible depth!)
+  const TUNNEL_RADIUS = 68.0;
+  const RING_COUNT = 42;
+  const RING_SPACING = 18.0;
+  const TUNNEL_SPEED = 92.0;
 
   const tunnelRings = [];
   const volumetricBolts = [];
   const plasmaStreaks = [];
+  const nebulaClouds = [];
+  const stargateSlabs = [];
+  const godlikeApparitions = [];
+
   let particlePoints = null;
   let particleAngles = null;
   let particleRadii = null;
@@ -26,7 +31,7 @@ window.BlahajHyperspace = (function () {
   let flashIntensity = 0;
   let lightningTimer = 0;
 
-  // 12 Staggered Off-Ramps (alternating Left & Right along the undulating wormhole)
+  // 12 Staggered Off-Ramps (alternating Left & Right inside the vast cathedral wormhole)
   const BRANCH_DEFS = [
     { id: 'branch_island', index: 1, name: 'Blåhaj Island (Homeward)', zone: 'island', side: -1, color: '#38bdf8', hex: 0x38bdf8, locked: false },
     { id: 'branch_space', index: 2, name: 'Deep Space Orbit', zone: 'space', side: 1, color: '#a855f7', hex: 0xa855f7, locked: false },
@@ -51,12 +56,18 @@ window.BlahajHyperspace = (function () {
   let transitionTriggered = false;
   let bounceCooldown = 0;
 
-  // Smooth undulating wormhole spine (stays centered at z = 0 around the UFO, snakes organically ahead!)
+  // Slow, majestic, non-nauseating galactic curve (very low temporal frequency & long spatial wavelength)
   function getTunnelCenterAt(z, elapsed) {
-    const distAhead = Math.max(0, -z - 6.0);
-    const bendWeight = Math.min(1.0, (distAhead / 120.0) * (distAhead / 120.0));
-    const cx = (Math.sin(z * 0.017 + elapsed * 1.45) * 26.0 + Math.cos(z * 0.009 - elapsed * 0.85) * 14.0) * bendWeight;
-    const cy = (Math.cos(z * 0.015 - elapsed * 1.2) * 18.0 + Math.sin(z * 0.011 + elapsed * 0.95) * 9.0) * bendWeight;
+    const distAhead = Math.max(0, -z - 15.0);
+    const bendWeight = Math.min(1.0, (distAhead / 260.0) * (distAhead / 260.0));
+    const cx =
+      (Math.sin(z * 0.0042 + elapsed * 0.26) * 34.0 +
+        Math.cos(z * 0.0024 - elapsed * 0.17) * 18.0) *
+      bendWeight;
+    const cy =
+      (Math.cos(z * 0.0038 - elapsed * 0.22) * 22.0 +
+        Math.sin(z * 0.0021 + elapsed * 0.15) * 11.0) *
+      bendWeight;
     return { x: cx, y: cy };
   }
 
@@ -77,67 +88,397 @@ window.BlahajHyperspace = (function () {
     return !!branch.locked;
   }
 
+  // Procedural Soft Volumetric Nebula / Gas Cloud Texture
+  function createNebulaCloudTexture(c1, c2, c3) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 256);
+
+    // Layer multiple off-center soft radial puffs for an organic swirling gas cloud
+    const puffs = [
+      { x: 128, y: 128, r: 122, col: c1 },
+      { x: 96, y: 112, r: 88, col: c2 },
+      { x: 158, y: 142, r: 92, col: c3 },
+      { x: 118, y: 156, r: 78, col: c2 },
+      { x: 144, y: 98, r: 74, col: c1 }
+    ];
+    puffs.forEach((p) => {
+      const grad = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, p.r);
+      grad.addColorStop(0.0, p.col);
+      grad.addColorStop(0.55, p.col.replace(/[\d.]+\)$/, '0.18)'));
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  // 2001: A Space Odyssey Slit-Scan Stargate Horizon Texture
+  function createStargateSlitScanTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 256);
+
+    const streakColors = [
+      'rgba(56, 189, 248, 0.55)',
+      'rgba(244, 114, 182, 0.48)',
+      'rgba(250, 204, 21, 0.42)',
+      'rgba(192, 132, 252, 0.52)',
+      'rgba(255, 255, 255, 0.65)',
+      'rgba(45, 212, 191, 0.45)'
+    ];
+
+    for (let y = 0; y < 256; y += 3) {
+      if (Math.random() < 0.25) continue;
+      const col = streakColors[Math.floor(Math.random() * streakColors.length)];
+      const h = 1 + Math.floor(Math.random() * 4);
+      const grad = ctx.createLinearGradient(0, y, 256, y);
+      grad.addColorStop(0.0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.2, col);
+      grad.addColorStop(0.8, col);
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, y, 256, h);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+
+  // Dreamlike Blurred Godlike Portrait Texture Loader (turns character portraits into colossal surreal cosmic apparitions!)
+  function createGodlikePortraitTexture(imageUrl, tintHex, fallbackTitle) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const tintColor = new THREE.Color(tintHex);
+    const r = Math.round(tintColor.r * 255);
+    const g = Math.round(tintColor.g * 255);
+    const b = Math.round(tintColor.b * 255);
+
+    function drawSurrealFrame(img) {
+      ctx.clearRect(0, 0, 256, 256);
+
+      // Outer ethereal aura glow
+      const aura = ctx.createRadialGradient(128, 128, 16, 128, 128, 124);
+      aura.addColorStop(0.0, `rgba(${r}, ${g}, ${b}, 0.55)`);
+      aura.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, 0.18)`);
+      aura.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = aura;
+      ctx.fillRect(0, 0, 256, 256);
+
+      if (img) {
+        ctx.save();
+        // Clip to soft circular cosmic lens
+        ctx.beginPath();
+        ctx.arc(128, 128, 102, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Draw multi-pass offset ghosting + soft blur for that surreal, frozen-in-time godlike look
+        ctx.globalAlpha = 0.35;
+        ctx.filter = 'blur(8px) saturate(160%) brightness(125%)';
+        ctx.drawImage(img, 10, 10, 236, 236);
+
+        ctx.globalAlpha = 0.62;
+        ctx.filter = 'blur(2.5px) contrast(120%) brightness(115%)';
+        ctx.drawImage(img, 22, 22, 212, 212);
+
+        // Chromatic / divine color wash
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.42)`;
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.restore();
+
+        // Radial vignette feather so edges dissolve seamlessly into the nebula
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-in';
+        const mask = ctx.createRadialGradient(128, 128, 35, 128, 128, 114);
+        mask.addColorStop(0.0, 'rgba(255,255,255,1)');
+        mask.addColorStop(0.68, 'rgba(255,255,255,0.82)');
+        mask.addColorStop(1.0, 'rgba(255,255,255,0)');
+        ctx.fillStyle = mask;
+        ctx.fillRect(0, 0, 256, 256);
+        ctx.restore();
+      } else {
+        // Fallback celestial glyph while image loads
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.7)`;
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(fallbackTitle || '✦', 128, 136);
+      }
+
+      tex.needsUpdate = true;
+    }
+
+    drawSurrealFrame(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => drawSurrealFrame(img);
+    img.src = imageUrl;
+
+    return tex;
+  }
+
+  // Colossal 3D Ghostly Relics Frozen in Time Outside the Wormhole
+  function buildColossalFrozenRelic(kind, tintHex) {
+    const group = new THREE.Group();
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: tintHex,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const ghostMat = new THREE.MeshBasicMaterial({
+      color: tintHex,
+      transparent: true,
+      opacity: 0.14,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    if (kind === 'shark') {
+      // Colossal 70-meter Ghostly Blåhaj Leviathan frozen mid-swim
+      const body = new THREE.Mesh(new THREE.ConeGeometry(16, 62, 12), ghostMat);
+      body.rotation.x = Math.PI / 2;
+      const bodyWire = new THREE.Mesh(new THREE.ConeGeometry(16.4, 62.5, 12), wireMat);
+      bodyWire.rotation.x = Math.PI / 2;
+      const dorsal = new THREE.Mesh(new THREE.ConeGeometry(8, 22, 6), wireMat);
+      dorsal.position.set(0, 14, -4);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(14, 24, 5), wireMat);
+      tail.position.set(0, 4, 34);
+      tail.rotation.x = -Math.PI * 0.35;
+      group.add(body, bodyWire, dorsal, tail);
+    } else if (kind === 'teapot') {
+      // Colossal Sacred Tea Service of Solomon
+      const potBody = new THREE.Mesh(new THREE.SphereGeometry(22, 18, 14), ghostMat);
+      const potWire = new THREE.Mesh(new THREE.SphereGeometry(22.4, 16, 12), wireMat);
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(8, 12, 6, 14), wireMat);
+      lid.position.y = 21;
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 5, 22, 10), wireMat);
+      spout.position.set(22, 4, 0);
+      spout.rotation.z = -0.7;
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(11, 2.2, 8, 20), wireMat);
+      handle.position.set(-20, 2, 0);
+      group.add(potBody, potWire, lid, spout, handle);
+    } else if (kind === 'allen_key') {
+      // Colossal Sacred Allen Key & Geode of Hiram
+      const longArm = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 58, 6), wireMat);
+      const shortArm = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 26, 6), wireMat);
+      shortArm.rotation.z = Math.PI / 2;
+      shortArm.position.set(11, 27, 0);
+      const geode = new THREE.Mesh(new THREE.OctahedronGeometry(18, 1), ghostMat);
+      geode.position.set(-16, -6, 8);
+      group.add(longArm, shortArm, geode);
+    } else {
+      // Colossal Celestial Astrolabe / Lantern of Nimue & Hermes
+      const r1 = new THREE.Mesh(new THREE.TorusGeometry(28, 1.4, 10, 36), wireMat);
+      const r2 = new THREE.Mesh(new THREE.TorusGeometry(22, 1.2, 10, 32), wireMat);
+      r2.rotation.x = Math.PI / 3;
+      const r3 = new THREE.Mesh(new THREE.TorusGeometry(16, 1.0, 10, 28), wireMat);
+      r3.rotation.y = Math.PI / 3;
+      const core = new THREE.Mesh(new THREE.OctahedronGeometry(9, 0), ghostMat);
+      group.add(r1, r2, r3, core);
+    }
+
+    return group;
+  }
+
   function build() {
     if (isBuilt && hyperScene) return hyperScene;
 
     hyperScene = new THREE.Scene();
-    hyperScene.background = new THREE.Color(0x04010c);
-    hyperScene.fog = new THREE.FogExp2(0x09021a, 0.0048);
+    hyperScene.background = new THREE.Color(0x03010a);
+    // Light, deep-space fog so you can see 750+ meters down the vast cathedral wormhole!
+    hyperScene.fog = new THREE.FogExp2(0x060114, 0.00145);
 
-    const amb = new THREE.AmbientLight(0x5b21b6, 1.45);
+    const amb = new THREE.AmbientLight(0x5b21b6, 1.55);
     hyperScene.add(amb);
 
-    ambientFlashLight = new THREE.PointLight(0x7dd3fc, 0.0, 280);
-    ambientFlashLight.position.set(0, 10, -45);
+    ambientFlashLight = new THREE.PointLight(0x7dd3fc, 0.0, 480);
+    ambientFlashLight.position.set(0, 16, -55);
     hyperScene.add(ambientFlashLight);
 
-    tunnelGlowLight = new THREE.PointLight(0xc084fc, 2.2, 220);
-    tunnelGlowLight.position.set(0, 0, -90);
+    tunnelGlowLight = new THREE.PointLight(0xc084fc, 2.5, 420);
+    tunnelGlowLight.position.set(0, 0, -140);
     hyperScene.add(tunnelGlowLight);
 
-    // 1. Undulating Surreal Octagonal Wormhole Rings
+    const totalLen = RING_COUNT * RING_SPACING;
+
+    // 1. Vast Cathedral Wormhole Rings (68m radius, translucent & wide-spaced)
     tunnelRings.length = 0;
-    const ringPalette = [0xc084fc, 0x38bdf8, 0xf472b6, 0x818cf8, 0x2dd4bf];
+    const ringPalette = [0xc084fc, 0x38bdf8, 0xf472b6, 0x818cf8, 0x2dd4bf, 0xfacc15];
     for (let i = 0; i < RING_COUNT; i++) {
-      const rGeo = new THREE.TorusGeometry(TUNNEL_RADIUS, 0.52, 7, 10);
+      const rGeo = new THREE.TorusGeometry(TUNNEL_RADIUS, 0.65, 8, 16);
       const baseHex = ringPalette[i % ringPalette.length];
       const rMat = new THREE.MeshBasicMaterial({
         color: baseHex,
         transparent: true,
-        opacity: 0.78
+        opacity: 0.46,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
       });
       const rMesh = new THREE.Mesh(rGeo, rMat);
-      rMesh.position.z = 22.0 - i * RING_SPACING;
-      rMesh.rotation.z = i * 0.22;
+      rMesh.position.z = 35.0 - i * RING_SPACING;
+      rMesh.rotation.z = i * 0.16;
       hyperScene.add(rMesh);
       tunnelRings.push({
         mesh: rMesh,
         mat: rMat,
         baseColor: new THREE.Color(baseHex),
-        phase: i * 0.42
+        phase: i * 0.35
       });
     }
 
-    // 2. High-Speed Multicolored Warp Particle Stream (650 glowing motes swirling along the undulating tunnel!)
-    const pCount = 650;
+    // 2. Volumetric Gas, Smoke & Nebula Clouds swirling inside and around the wormhole
+    nebulaClouds.length = 0;
+    const nebTextures = [
+      createNebulaCloudTexture('rgba(192, 132, 252, 0.42)', 'rgba(56, 189, 248, 0.35)', 'rgba(244, 114, 182, 0.32)'),
+      createNebulaCloudTexture('rgba(56, 189, 248, 0.40)', 'rgba(45, 212, 191, 0.32)', 'rgba(129, 140, 248, 0.36)'),
+      createNebulaCloudTexture('rgba(244, 114, 182, 0.38)', 'rgba(250, 204, 21, 0.28)', 'rgba(168, 85, 247, 0.36)')
+    ];
+    const cloudPlaneGeo = new THREE.PlaneGeometry(76, 76);
+    for (let i = 0; i < 54; i++) {
+      const cMat = new THREE.MeshBasicMaterial({
+        map: nebTextures[i % nebTextures.length],
+        transparent: true,
+        opacity: 0.36 + (i % 4) * 0.08,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const cMesh = new THREE.Mesh(cloudPlaneGeo, cMat);
+      const ang = (i * 1.37) % (Math.PI * 2);
+      const rad = TUNNEL_RADIUS * (0.42 + (i % 5) * 0.22);
+      const cz = 30.0 - (i / 54) * totalLen;
+      cMesh.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad, cz);
+      cMesh.rotation.z = Math.random() * Math.PI * 2;
+      const sc = 0.85 + (i % 4) * 0.38;
+      cMesh.scale.set(sc, sc, 1);
+      hyperScene.add(cMesh);
+      nebulaClouds.push({
+        mesh: cMesh,
+        ang,
+        rad,
+        rotSpeed: (i % 2 === 0 ? 1 : -1) * (0.08 + (i % 3) * 0.05)
+      });
+    }
+
+    // 3. 2001: A Space Odyssey Slit-Scan Stargate Light Curtains on the outer horizon
+    stargateSlabs.length = 0;
+    const slitTex = createStargateSlitScanTexture();
+    const slabGeo = new THREE.PlaneGeometry(140, 85);
+    for (let i = 0; i < 16; i++) {
+      const sMat = new THREE.MeshBasicMaterial({
+        map: slitTex,
+        transparent: true,
+        opacity: 0.32,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const slab = new THREE.Mesh(slabGeo, sMat);
+      const side = i % 2 === 0 ? -1 : 1;
+      const sz = 20.0 - (i / 16) * totalLen;
+      slab.position.set(side * (TUNNEL_RADIUS * 1.18), (i % 4 - 1.5) * 24.0, sz);
+      slab.rotation.y = side * Math.PI * 0.46;
+      hyperScene.add(slab);
+      stargateSlabs.push({ mesh: slab, side, yOffset: (i % 4 - 1.5) * 24.0 });
+    }
+
+    // 4. Colossal Blurred Godlike Character Apparitions & Frozen-in-Time Relics outside the wormhole!
+    godlikeApparitions.length = 0;
+    const apparitionDefs = [
+      { img: 'assets/gallery/Hermes.png', tint: 0x38bdf8, title: 'HERMES', relic: 'astrolabe', ang: 0.35 },
+      { img: 'assets/gallery/Solomon.png', tint: 0xfacc15, title: 'SOLOMON', relic: 'teapot', ang: 2.65 },
+      { img: 'assets/gallery/Hiram.png', tint: 0xf59e0b, title: 'HIRAM', relic: 'allen_key', ang: -0.55 },
+      { img: 'assets/gallery/Nimue.png', tint: 0xc084fc, title: 'NIMUE', relic: 'shark', ang: -2.45 },
+      { img: 'assets/gallery/Spherical-Foods.png', tint: 0xf472b6, title: 'BOMBE', relic: 'teapot', ang: 1.45 },
+      { img: 'assets/gallery/Volcano-temple.png', tint: 0x34d399, title: 'TEMPLE', relic: 'shark', ang: -1.45 }
+    ];
+
+    apparitionDefs.forEach((aDef, idx) => {
+      const appGroup = new THREE.Group();
+
+      // Massive 95m x 95m blurred holographic portrait floating like a cosmic deity
+      const pTex = createGodlikePortraitTexture(aDef.img, aDef.tint, aDef.title);
+      const pMat = new THREE.MeshBasicMaterial({
+        map: pTex,
+        transparent: true,
+        opacity: 0.62,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const portraitPlane = new THREE.Mesh(new THREE.PlaneGeometry(96, 96), pMat);
+      appGroup.add(portraitPlane);
+
+      // Slow-spinning divine halo ring behind the portrait
+      const haloRing = new THREE.Mesh(
+        new THREE.TorusGeometry(52, 0.7, 10, 48),
+        new THREE.MeshBasicMaterial({
+          color: aDef.tint,
+          transparent: true,
+          opacity: 0.28,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        })
+      );
+      appGroup.add(haloRing);
+
+      // Accompanying Colossal Frozen-in-Time 3D Relic drifting beside the portrait
+      const relicMesh = buildColossalFrozenRelic(aDef.relic, aDef.tint);
+      relicMesh.position.set(idx % 2 === 0 ? 44 : -44, -12, 16);
+      appGroup.add(relicMesh);
+
+      const az = -60.0 - idx * (totalLen / apparitionDefs.length);
+      const rad = TUNNEL_RADIUS * 1.48;
+      appGroup.position.set(Math.cos(aDef.ang) * rad, Math.sin(aDef.ang) * rad * 0.65, az);
+      // Angle gently inward toward the flight path
+      appGroup.lookAt(new THREE.Vector3(0, 0, az + 65.0));
+
+      hyperScene.add(appGroup);
+      godlikeApparitions.push({
+        group: appGroup,
+        haloRing,
+        relicMesh,
+        ang: aDef.ang,
+        rad
+      });
+    });
+
+    // 5. High-Speed Multicolored Warp Particle Stream (1100 motes across the vast interior!)
+    const pCount = 1100;
     const pPositions = new Float32Array(pCount * 3);
     const pColors = new Float32Array(pCount * 3);
     particleAngles = new Float32Array(pCount);
     particleRadii = new Float32Array(pCount);
 
     const colChoices = [
-      new THREE.Color(0x38bdf8), // Electric Cyan
-      new THREE.Color(0xf472b6), // Neon Magenta
-      new THREE.Color(0xfacc15), // Solar Gold
-      new THREE.Color(0xc084fc), // Hyper Violet
-      new THREE.Color(0xffffff)  // Pure Starlight
+      new THREE.Color(0x38bdf8),
+      new THREE.Color(0xf472b6),
+      new THREE.Color(0xfacc15),
+      new THREE.Color(0xc084fc),
+      new THREE.Color(0x2dd4bf),
+      new THREE.Color(0xffffff)
     ];
-    const totalLen = RING_COUNT * RING_SPACING;
 
     for (let i = 0; i < pCount; i++) {
       const ang = Math.random() * Math.PI * 2;
-      const rad = TUNNEL_RADIUS * (0.58 + Math.random() * 0.62);
-      const pz = 28.0 - Math.random() * totalLen;
+      const rad = 8.0 + Math.random() * (TUNNEL_RADIUS * 1.15);
+      const pz = 35.0 - Math.random() * totalLen;
       particleAngles[i] = ang;
       particleRadii[i] = rad;
       pPositions[i * 3] = Math.cos(ang) * rad;
@@ -154,34 +495,36 @@ window.BlahajHyperspace = (function () {
     pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
     pGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
     const pMat = new THREE.PointsMaterial({
-      size: 2.6,
+      size: 2.5,
       sizeAttenuation: false,
       vertexColors: true,
       transparent: true,
-      opacity: 0.92
+      opacity: 0.88,
+      blending: THREE.AdditiveBlending
     });
     particlePoints = new THREE.Points(pGeo, pMat);
     hyperScene.add(particlePoints);
 
-    // 3. Longitudinal Glowing Plasma Speed Ribbons zipping past the hull
+    // 6. Longitudinal Glowing Plasma Speed Ribbons
     plasmaStreaks.length = 0;
-    const streakGeo = new THREE.BoxGeometry(0.24, 0.24, 24.0);
-    for (let i = 0; i < 18; i++) {
+    const streakGeo = new THREE.BoxGeometry(0.32, 0.32, 32.0);
+    for (let i = 0; i < 24; i++) {
       const sMat = new THREE.MeshBasicMaterial({
         color: ringPalette[i % ringPalette.length],
         transparent: true,
-        opacity: 0.68
+        opacity: 0.58,
+        blending: THREE.AdditiveBlending
       });
       const sMesh = new THREE.Mesh(streakGeo, sMat);
-      const ang = (i / 18) * Math.PI * 2;
-      const rad = TUNNEL_RADIUS * (0.82 + (i % 3) * 0.08);
-      const sz = 20.0 - Math.random() * totalLen;
+      const ang = (i / 24) * Math.PI * 2;
+      const rad = TUNNEL_RADIUS * (0.55 + (i % 4) * 0.16);
+      const sz = 25.0 - Math.random() * totalLen;
       sMesh.position.set(Math.cos(ang) * rad, Math.sin(ang) * rad, sz);
       hyperScene.add(sMesh);
       plasmaStreaks.push({ mesh: sMesh, ang, rad, speedMult: 1.45 + (i % 4) * 0.25 });
     }
 
-    // 4. Reusable 3-Ring Branching Off-Ramp Tunnel Mouth (looks like a real curving side-tunnel!)
+    // 7. Reusable 3-Ring Branching Off-Ramp Tunnel Mouth (scaled up for the vast cathedral tunnel!)
     rampMeshGroup = new THREE.Group();
     rampRingMats = [];
     for (let ri = 0; ri < 3; ri++) {
@@ -190,20 +533,20 @@ window.BlahajHyperspace = (function () {
         transparent: true,
         opacity: 0.96 - ri * 0.22
       });
-      const rMesh = new THREE.Mesh(new THREE.TorusGeometry(8.8 - ri * 1.15, 0.78 - ri * 0.12, 12, 32), rMat);
-      rMesh.position.z = -ri * 5.8;
+      const rMesh = new THREE.Mesh(new THREE.TorusGeometry(13.5 - ri * 1.8, 1.05 - ri * 0.15, 12, 36), rMat);
+      rMesh.position.z = -ri * 7.5;
       rampMeshGroup.add(rMesh);
       rampRingMats.push(rMat);
     }
     rampDiscMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.36,
+      opacity: 0.38,
       side: THREE.DoubleSide,
       depthWrite: false
     });
-    const rampDisc = new THREE.Mesh(new THREE.CircleGeometry(7.2, 28), rampDiscMat);
-    rampDisc.position.z = -11.5;
+    const rampDisc = new THREE.Mesh(new THREE.CircleGeometry(11.2, 32), rampDiscMat);
+    rampDisc.position.z = -15.0;
     rampMeshGroup.add(rampDisc);
     rampMeshGroup.visible = false;
     hyperScene.add(rampMeshGroup);
@@ -212,7 +555,6 @@ window.BlahajHyperspace = (function () {
     return hyperScene;
   }
 
-  // Thick Volumetric Glowing Lightning Segment Helper (impossible to miss on WebGL!)
   function addVolumetricSegment(group, p1, p2, coreRad, haloRad, haloHex) {
     const dir = new THREE.Vector3().subVectors(p2, p1);
     const len = dir.length();
@@ -232,7 +574,8 @@ window.BlahajHyperspace = (function () {
       new THREE.MeshBasicMaterial({
         color: haloHex,
         transparent: true,
-        opacity: 0.58,
+        opacity: 0.65,
+        blending: THREE.AdditiveBlending,
         depthWrite: false
       })
     );
@@ -242,47 +585,72 @@ window.BlahajHyperspace = (function () {
     group.add(coreMesh, haloMesh);
   }
 
-  function spawnVolumetricLightning(elapsed, forceForeground = false) {
+  // Diagonal Cross-Section Lightning Strikes shooting from the tunnel sides right across the open interior!
+  function spawnCrossSectionLightning(elapsed, nearShip = false) {
     if (!hyperScene) return;
     const boltGroup = new THREE.Group();
-    const isCyan = Math.random() > 0.42;
-    const haloHex = isCyan ? 0x38bdf8 : 0xf472b6;
+    const palette = [0x38bdf8, 0xf472b6, 0xc084fc, 0xfacc15];
+    const haloHex = palette[Math.floor(Math.random() * palette.length)];
 
-    const zStart = forceForeground ? (-35 - Math.random() * 55) : (-20 - Math.random() * 145);
+    // Erupt from one side of the wormhole wall and slice diagonally through the interior cross-section!
+    const zStart = nearShip ? (-18 - Math.random() * 55) : (-25 - Math.random() * 210);
+    const zEnd = zStart + (Math.random() - 0.5) * 65.0;
     const startAng = Math.random() * Math.PI * 2;
-    // Arc either across the tunnel ceiling/sides OR longitudinally down the wall!
-    const crossArc = Math.random() > 0.35;
-    const endAng = crossArc ? startAng + (Math.random() > 0.5 ? 1 : -1) * (1.2 + Math.random() * 1.4) : startAng + (Math.random() - 0.5) * 0.7;
-    const zSpan = crossArc ? (18 + Math.random() * 24) : (48 + Math.random() * 38);
+    // Strike diagonally across to an opposite/diagonal wall quadrant (or terminate mid-air near the flight path!)
+    const endAng = startAng + Math.PI * (0.55 + Math.random() * 0.9);
+    const endRadMult = Math.random() > 0.25 ? (0.85 + Math.random() * 0.25) : (0.18 + Math.random() * 0.35);
 
-    const segs = 7;
+    const cStart = getTunnelCenterAt(zStart, elapsed);
+    const cEnd = getTunnelCenterAt(zEnd, elapsed);
+
+    const pStart = new THREE.Vector3(
+      cStart.x + Math.cos(startAng) * TUNNEL_RADIUS * 1.05,
+      cStart.y + Math.sin(startAng) * TUNNEL_RADIUS * 1.05,
+      zStart
+    );
+    const pEnd = new THREE.Vector3(
+      cEnd.x + Math.cos(endAng) * TUNNEL_RADIUS * endRadMult,
+      cEnd.y + Math.sin(endAng) * TUNNEL_RADIUS * endRadMult,
+      zEnd
+    );
+
+    const segs = 8;
     const pts = [];
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
-      const z = zStart - t * zSpan;
-      const center = getTunnelCenterAt(z, elapsed);
-      const ang = startAng + (endAng - startAng) * t;
-      const r = TUNNEL_RADIUS * (i === 0 || i === segs ? 0.96 : (0.64 + Math.random() * 0.3));
-      const jitterX = (i === 0 || i === segs) ? 0 : (Math.random() - 0.5) * 4.2;
-      const jitterY = (i === 0 || i === segs) ? 0 : (Math.random() - 0.5) * 4.2;
-      pts.push(new THREE.Vector3(center.x + Math.cos(ang) * r + jitterX, center.y + Math.sin(ang) * r + jitterY, z));
+      const pt = new THREE.Vector3().lerpVectors(pStart, pEnd, t);
+      if (i > 0 && i < segs) {
+        pt.x += (Math.random() - 0.5) * 11.5;
+        pt.y += (Math.random() - 0.5) * 11.5;
+        pt.z += (Math.random() - 0.5) * 8.0;
+      }
+      pts.push(pt);
     }
 
     for (let i = 0; i < segs; i++) {
-      addVolumetricSegment(boltGroup, pts[i], pts[i + 1], 0.24, 0.82, haloHex);
+      addVolumetricSegment(boltGroup, pts[i], pts[i + 1], 0.32, 1.15, haloHex);
     }
 
-    // Add a crackling secondary fork branch off the middle!
-    const forkStart = pts[Math.floor(segs * 0.45)].clone();
-    const forkMid = forkStart.clone().add(new THREE.Vector3((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, -8));
-    const forkEnd = forkMid.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, -10));
-    addVolumetricSegment(boltGroup, forkStart, forkMid, 0.15, 0.52, haloHex);
-    addVolumetricSegment(boltGroup, forkMid, forkEnd, 0.11, 0.38, haloHex);
+    // Add 2 diagonal forks branching out into the open cross-section!
+    for (let f = 0; f < 2; f++) {
+      const forkIdx = 2 + f * 3;
+      if (pts[forkIdx]) {
+        const fStart = pts[forkIdx].clone();
+        const fMid = fStart.clone().add(
+          new THREE.Vector3((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 16)
+        );
+        const fEnd = fMid.clone().add(
+          new THREE.Vector3((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 24, (Math.random() - 0.5) * 18)
+        );
+        addVolumetricSegment(boltGroup, fStart, fMid, 0.20, 0.72, haloHex);
+        addVolumetricSegment(boltGroup, fMid, fEnd, 0.12, 0.48, haloHex);
+      }
+    }
 
     hyperScene.add(boltGroup);
-    volumetricBolts.push({ group: boltGroup, life: 0.24 + Math.random() * 0.18, maxLife: 0.36 });
+    volumetricBolts.push({ group: boltGroup, life: 0.26 + Math.random() * 0.22 });
 
-    flashIntensity = 4.6;
+    flashIntensity = 5.2;
     if (ambientFlashLight) ambientFlashLight.color.setHex(haloHex);
   }
 
@@ -292,18 +660,19 @@ window.BlahajHyperspace = (function () {
     }
     const branch = BRANCH_DEFS[nextBranchIdx];
     const locked = isBranchLocked(branch);
+    // Position Off-Ramp Doorways far out on the outer wormhole wall (±38m) so the entire 60m central cylinder is free for barrel rolls & aerobatics!
     activeRamp = {
       branch,
       locked,
-      z: -255.0,
-      sideX: branch.side * 13.8,
-      x: branch.side * 13.8,
+      z: -310.0,
+      sideX: branch.side * 38.0,
+      x: branch.side * 38.0,
       y: 0.0
     };
     if (rampMeshGroup) {
       rampMeshGroup.visible = true;
       rampMeshGroup.position.set(activeRamp.x, activeRamp.y, activeRamp.z);
-      rampMeshGroup.rotation.y = branch.side * -0.44;
+      rampMeshGroup.rotation.y = branch.side * -0.48;
       const colHex = locked ? 0xf43f5e : branch.hex;
       rampRingMats.forEach((m) => m.color.setHex(colHex));
       if (rampDiscMat) {
@@ -323,21 +692,20 @@ window.BlahajHyperspace = (function () {
     activeRamp = null;
     if (rampMeshGroup) rampMeshGroup.visible = false;
     spawnNextOffRamp(0);
-    spawnVolumetricLightning(0, true);
+    spawnCrossSectionLightning(0, true);
     updateObjectiveHUD();
   }
 
   function reindexLoopToStart() {
     nextBranchIdx = 0;
-    spawnVolumetricLightning(performance.now() * 0.001, true);
-    spawnVolumetricLightning(performance.now() * 0.001 + 1.2, true);
+    spawnCrossSectionLightning(performance.now() * 0.001, true);
+    spawnCrossSectionLightning(performance.now() * 0.001 + 1.2, true);
     if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
 
-    // Seamlessly re-index without ever moving the UFO!
-    if (!activeRamp || activeRamp.z < -45.0) {
+    if (!activeRamp || activeRamp.z < -55.0) {
       spawnNextOffRamp(0);
     } else {
-      nextBranchIdx = BRANCH_DEFS.length - 1; // Wraps cleanly to 0 (#1 Blåhaj Island) right after current ramp passes
+      nextBranchIdx = BRANCH_DEFS.length - 1;
     }
 
     if (window.showToast) {
@@ -430,17 +798,18 @@ window.BlahajHyperspace = (function () {
     sy = Math.max(108, Math.min(h - 112, sy));
 
     const b = activeRamp.branch;
-    const aligned =
-      ufoState.pos &&
-      ((b.side < 0 && ufoState.pos.x <= -8.8) || (b.side > 0 && ufoState.pos.x >= 8.8));
+    const distToDoorXY = ufoState.pos
+      ? Math.hypot(ufoState.pos.x - activeRamp.x, ufoState.pos.y - activeRamp.y)
+      : 999;
+    const aligned = distToDoorXY <= 15.5;
     const color = activeRamp.locked ? '#f43f5e' : (aligned ? '#4ade80' : b.color);
     const dirHint = activeRamp.locked
       ? 'SEALED BARRIER'
       : aligned
-      ? '✓ ALIGNED — HOLD TO ENTER · PULL CENTER TO ABORT'
+      ? '✓ IN DOORWAY LANE — FLY THROUGH TO EXIT · BANK CENTER TO ABORT'
       : b.side < 0
-      ? '← STEER LEFT (A / Q / MOUSE)'
-      : 'STEER RIGHT (D / E / MOUSE) →';
+      ? '← FLY TO OUTER LEFT WALL DOORWAY'
+      : 'FLY TO OUTER RIGHT WALL DOORWAY →';
     const title = activeRamp.locked
       ? `#${b.index} ??? [LOCKED]`
       : `#${b.index} ${b.name.toUpperCase()}`;
@@ -478,38 +847,87 @@ window.BlahajHyperspace = (function () {
 
     const totalLen = RING_COUNT * RING_SPACING;
     const rampCol = activeRamp ? new THREE.Color(activeRamp.locked ? 0xf43f5e : activeRamp.branch.hex) : null;
-    const rampProximity = activeRamp ? Math.max(0, Math.min(1, (activeRamp.z + 170) / 170)) : 0;
+    const rampProximity = activeRamp ? Math.max(0, Math.min(1, (activeRamp.z + 200) / 200)) : 0;
 
     if (tunnelGlowLight && rampCol) {
       tunnelGlowLight.color.lerp(rampCol, Math.min(1.0, dt * 3.0));
     }
 
-    // 1. Animate undulating, breathing wormhole rings!
+    // 1. Animate vast cathedral wormhole rings (slow, majestic undulation)
     for (let i = 0; i < tunnelRings.length; i++) {
       const r = tunnelRings[i];
       r.mesh.position.z += TUNNEL_SPEED * dt;
-      if (r.mesh.position.z > 24.0) {
+      if (r.mesh.position.z > 35.0) {
         r.mesh.position.z -= totalLen;
       }
       const center = getTunnelCenterAt(r.mesh.position.z, elapsed);
       r.mesh.position.x = center.x;
       r.mesh.position.y = center.y;
-      r.mesh.rotation.z += dt * 0.55 * (i % 2 === 0 ? 1 : -1);
-      const breathe = 1.0 + Math.sin(elapsed * 3.2 + r.phase) * 0.085;
+      r.mesh.rotation.z += dt * 0.22 * (i % 2 === 0 ? 1 : -1);
+      const breathe = 1.0 + Math.sin(elapsed * 1.1 + r.phase) * 0.05;
       r.mesh.scale.setScalar(breathe);
 
       if (rampCol) {
-        r.mat.color.copy(r.baseColor).lerp(rampCol, rampProximity * 0.45);
+        r.mat.color.copy(r.baseColor).lerp(rampCol, rampProximity * 0.42);
       }
     }
 
-    // 2. Animate high-speed multicolored warp particle stream along the undulating wormhole!
+    // 2. Animate Volumetric Nebula & Smoke Clouds drifting past and around the ship
+    for (let i = 0; i < nebulaClouds.length; i++) {
+      const nc = nebulaClouds[i];
+      let cz = nc.mesh.position.z + TUNNEL_SPEED * 0.82 * dt;
+      if (cz > 40.0) cz -= totalLen;
+      const center = getTunnelCenterAt(cz, elapsed);
+      nc.ang += dt * 0.06 * (i % 2 === 0 ? 1 : -1);
+      nc.mesh.position.set(
+        center.x + Math.cos(nc.ang) * nc.rad,
+        center.y + Math.sin(nc.ang) * nc.rad,
+        cz
+      );
+      nc.mesh.rotation.z += nc.rotSpeed * dt;
+    }
+
+    // 3. Animate 2001 Stargate Slit-Scan Light Curtains on the outer horizon
+    for (let i = 0; i < stargateSlabs.length; i++) {
+      const sl = stargateSlabs[i];
+      let sz = sl.mesh.position.z + TUNNEL_SPEED * 1.15 * dt;
+      if (sz > 40.0) sz -= totalLen;
+      const center = getTunnelCenterAt(sz, elapsed);
+      sl.mesh.position.set(
+        center.x + sl.side * (TUNNEL_RADIUS * 1.18),
+        center.y + sl.yOffset,
+        sz
+      );
+    }
+
+    // 4. Animate Colossal Blurred Godlike Character Apparitions & Frozen Relics outside the wormhole
+    for (let i = 0; i < godlikeApparitions.length; i++) {
+      const ga = godlikeApparitions[i];
+      let az = ga.group.position.z + TUNNEL_SPEED * 0.48 * dt;
+      if (az > 55.0) az -= totalLen;
+      const center = getTunnelCenterAt(az, elapsed);
+      ga.group.position.set(
+        center.x + Math.cos(ga.ang) * ga.rad,
+        center.y + Math.sin(ga.ang) * ga.rad * 0.65,
+        az
+      );
+      if (ga.haloRing) {
+        ga.haloRing.rotation.z = elapsed * 0.18 * (i % 2 === 0 ? 1 : -1);
+      }
+      if (ga.relicMesh) {
+        // Frozen-in-time ultra-slow godlike rotation
+        ga.relicMesh.rotation.y = elapsed * 0.14 + i;
+        ga.relicMesh.rotation.x = Math.sin(elapsed * 0.22 + i) * 0.25;
+      }
+    }
+
+    // 5. Animate high-speed multicolored warp particle stream
     if (particlePoints && particlePoints.geometry && particlePoints.geometry.attributes.position) {
       const posArr = particlePoints.geometry.attributes.position.array;
       for (let i = 0; i < particleAngles.length; i++) {
         let pz = posArr[i * 3 + 2] + TUNNEL_SPEED * 1.55 * dt;
-        if (pz > 28.0) pz -= totalLen;
-        particleAngles[i] += dt * (i % 2 === 0 ? 0.85 : -0.65);
+        if (pz > 35.0) pz -= totalLen;
+        particleAngles[i] += dt * (i % 2 === 0 ? 0.35 : -0.28);
         const center = getTunnelCenterAt(pz, elapsed);
         const rad = particleRadii[i];
         posArr[i * 3] = center.x + Math.cos(particleAngles[i]) * rad;
@@ -519,30 +937,30 @@ window.BlahajHyperspace = (function () {
       particlePoints.geometry.attributes.position.needsUpdate = true;
     }
 
-    // 3. Animate longitudinal plasma speed ribbons!
+    // 6. Animate longitudinal plasma speed ribbons
     for (let i = 0; i < plasmaStreaks.length; i++) {
       const s = plasmaStreaks[i];
       let sz = s.mesh.position.z + TUNNEL_SPEED * s.speedMult * dt;
-      if (sz > 30.0) sz -= totalLen;
-      s.ang += dt * 0.4;
+      if (sz > 35.0) sz -= totalLen;
+      s.ang += dt * 0.18;
       const center = getTunnelCenterAt(sz, elapsed);
       s.mesh.position.set(center.x + Math.cos(s.ang) * s.rad, center.y + Math.sin(s.ang) * s.rad, sz);
     }
 
-    // 4. Bold Volumetric Forked Lightning Bolts + Interior Strobe Flash!
+    // 7. Diagonal Cross-Section Lightning Strikes shooting from the tunnel walls across the interior!
     lightningTimer -= dt;
     if (lightningTimer <= 0) {
-      lightningTimer = 0.22 + Math.random() * 0.34;
-      spawnVolumetricLightning(elapsed, Math.random() > 0.45);
+      lightningTimer = 0.18 + Math.random() * 0.28;
+      spawnCrossSectionLightning(elapsed, Math.random() > 0.38);
     }
     if (ambientFlashLight) {
-      flashIntensity = Math.max(0, flashIntensity - dt * 14.0);
+      flashIntensity = Math.max(0, flashIntensity - dt * 13.0);
       ambientFlashLight.intensity = flashIntensity;
     }
     for (let i = volumetricBolts.length - 1; i >= 0; i--) {
       const vb = volumetricBolts[i];
       vb.life -= dt;
-      vb.group.position.z += TUNNEL_SPEED * 0.42 * dt;
+      vb.group.position.z += TUNNEL_SPEED * 0.45 * dt;
       if (vb.life <= 0) {
         if (vb.group.parent) vb.group.parent.remove(vb.group);
         vb.group.traverse((child) => {
@@ -555,56 +973,52 @@ window.BlahajHyperspace = (function () {
 
     if (bounceCooldown > 0) bounceCooldown = Math.max(0, bounceCooldown - dt);
 
-    // 5. Advance Staggered Off-Ramp Queue (with Last-Second Split-Decision Pull-Away!)
+    // 8. Advance Staggered Off-Ramp Queue (with Last-Second Split-Decision Pull-Away!)
     if (activeRamp) {
       activeRamp.z += TUNNEL_SPEED * 0.62 * dt;
       const center = getTunnelCenterAt(activeRamp.z, elapsed);
       activeRamp.x = center.x + activeRamp.sideX;
       activeRamp.y = center.y;
 
+      const distToDoorXY = ufoState.pos
+        ? Math.hypot(ufoState.pos.x - activeRamp.x, ufoState.pos.y - activeRamp.y)
+        : 999;
+      const alignedNow = distToDoorXY <= 15.5;
+
       if (rampMeshGroup) {
         rampMeshGroup.position.set(activeRamp.x, activeRamp.y, activeRamp.z);
-        rampMeshGroup.rotation.z = elapsed * 2.6;
-        // Pulse the 3-ring tunnel mouth bigger when the pilot is aligned to enter!
-        const alignedNow =
-          ufoState.pos &&
-          ((activeRamp.branch.side < 0 && ufoState.pos.x <= -8.8) ||
-            (activeRamp.branch.side > 0 && ufoState.pos.x >= 8.8));
-        const pulseScale = alignedNow && !activeRamp.locked ? 1.12 + Math.sin(elapsed * 14) * 0.06 : 1.0;
+        rampMeshGroup.rotation.z = elapsed * 2.2;
+        const pulseScale = alignedNow && !activeRamp.locked ? 1.15 + Math.sin(elapsed * 14) * 0.06 : 1.0;
         rampMeshGroup.scale.setScalar(pulseScale);
       }
 
-      // Tight threshold window (-3.5..+4.5m) right at the mouth so you can pull back to center at the last split-second!
-      if (!transitionTriggered && ufoState.pos && activeRamp.z >= -3.5 && activeRamp.z <= 4.5) {
-        const hitLeft = activeRamp.branch.side < 0 && ufoState.pos.x <= -9.2;
-        const hitRight = activeRamp.branch.side > 0 && ufoState.pos.x >= 9.2;
-        if (hitLeft || hitRight) {
-          if (activeRamp.locked) {
-            if (bounceCooldown <= 0) {
-              bounceCooldown = 0.9;
-              ufoState.pos.x = 0;
-              if (ufoState.vel) ufoState.vel.x = -activeRamp.branch.side * 24.0;
-              spawnVolumetricLightning(elapsed, true);
-              if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
-              if (window.showToast) {
-                window.showToast(
-                  '🔒 UNCHARTED BRANCH SEALED!',
-                  'This reality tunnel requires a Star-Chart or Key to unseal!'
-                );
-              }
+      const shipZ = ufoState.pos ? ufoState.pos.z : 0;
+      if (!transitionTriggered && ufoState.pos && Math.abs(activeRamp.z - shipZ) <= 7.5 && alignedNow) {
+        if (activeRamp.locked) {
+          if (bounceCooldown <= 0) {
+            bounceCooldown = 0.9;
+            ufoState.pos.x *= 0.35;
+            if (ufoState.vel) ufoState.vel.x = -activeRamp.branch.side * 34.0;
+            spawnCrossSectionLightning(elapsed, true);
+            if (window.CozyAudio && window.CozyAudio.trapHit) window.CozyAudio.trapHit();
+            if (window.showToast) {
+              window.showToast(
+                '🔒 UNCHARTED BRANCH SEALED!',
+                'This reality doorway requires a Star-Chart or Key to unseal!'
+              );
             }
-          } else {
-            transitionTriggered = true;
-            const destZone = activeRamp.branch.zone;
-            if (window.BlahajGame && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
-              window.BlahajGame.exitHyperspaceTo(destZone, true);
-            }
-            return;
           }
+        } else {
+          transitionTriggered = true;
+          const destZone = activeRamp.branch.zone;
+          if (window.BlahajGame && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
+            window.BlahajGame.exitHyperspaceTo(destZone, true);
+          }
+          return;
         }
       }
 
-      if (activeRamp.z > 20.0) {
+      if (activeRamp.z > 24.0) {
         activeRamp = null;
         if (rampMeshGroup) rampMeshGroup.visible = false;
         nextBranchIdx = (nextBranchIdx + 1) % BRANCH_DEFS.length;
