@@ -3443,10 +3443,11 @@ window.BlahajUFO = (function () {
         state.pos.z = Math.max(-355, Math.min(355, state.pos.z));
         state.pos.y = Math.max(-165, Math.min(175, state.pos.y));
 
-        // After clearing all destructible asteroids in Deep Space, Mojo Hyperdrive [4] + [Shift] for 5s warps to the Swiss Cheese Planetoid!
+        // After clearing all destructible asteroids in Deep Space, Mojo Hyperdrive [4] + [Shift] (or Hyperdrive surge) for 5s warps to the Swiss Cheese Planetoid!
         if (!state.inCheeseMoon && window.BlahajSpace && typeof window.BlahajSpace.getSectorStatus === 'function') {
           const secStat = window.BlahajSpace.getSectorStatus();
-          if (secStat && secStat.waveCleared && hyperSelected && turbo) {
+          const sectorCleared = !!(secStat && (secStat.waveCleared || secStat.remainingRocks === 0));
+          if (sectorCleared && (hyperSelected || state.hyperdriveTimer > 0) && (turbo || state.hyperdriveTimer > 0)) {
             const prevSec = Math.floor(state.warpChargeTimer);
             state.warpChargeTimer += dt;
             const curSec = Math.floor(state.warpChargeTimer);
@@ -3455,11 +3456,18 @@ window.BlahajUFO = (function () {
             }
             if (state.warpChargeTimer >= 5.0) {
               state.warpChargeTimer = 0;
+              state.hyperdriveTimer = 0;
               if (window.BlahajGame && typeof window.BlahajGame.enterCheeseMoon === 'function') {
                 window.BlahajGame.enterCheeseMoon(true);
               }
             }
           } else {
+            if (sectorCleared && turbo && !hyperSelected && !state._cheeseHintShown) {
+              state._cheeseHintShown = true;
+              if (window.showToast) {
+                window.showToast('⚡ SWITCH TO MOJO HYPERDRIVE [4]!', 'Select Mojo Hyperdrive [4] & hold [Shift] for 5s to warp to the Swiss Cheese Planetoid!');
+              }
+            }
             state.warpChargeTimer = Math.max(0, state.warpChargeTimer - dt * 1.8);
           }
         }

@@ -38,7 +38,46 @@ window.BlahajSpace = (function () {
   let rocksShatteredCount = 0;
   let sectorWave = 1;
   let waveCleared = false;
-  const ASTEROID_RESPAWN_SECONDS = 3600.0; // 1-hour sector reset timer for escalating waves
+  const ASTEROID_RESPAWN_SECONDS = 900.0; // 15-minute persistent clear timer across exits & reloads
+  const DESTROYED_ROCKS_STORAGE_KEY = 'blahaj_space_destroyed_rocks_v1';
+
+  function loadDestroyedRocksMap() {
+    try {
+      const raw = localStorage.getItem(DESTROYED_ROCKS_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return {};
+      const now = Date.now();
+      const cleaned = {};
+      Object.keys(parsed).forEach((id) => {
+        const ts = Number(parsed[id]);
+        if (Number.isFinite(ts) && (now - ts) < ASTEROID_RESPAWN_SECONDS * 1000) {
+          cleaned[id] = ts;
+        }
+      });
+      return cleaned;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveDestroyedRock(rockId) {
+    try {
+      const map = loadDestroyedRocksMap();
+      map[rockId] = Date.now();
+      localStorage.setItem(DESTROYED_ROCKS_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {}
+  }
+
+  function clearDestroyedRock(rockId) {
+    try {
+      const map = loadDestroyedRocksMap();
+      if (map[rockId]) {
+        delete map[rockId];
+        localStorage.setItem(DESTROYED_ROCKS_STORAGE_KEY, JSON.stringify(map));
+      }
+    } catch (e) {}
+  }
 
   const REENTRY_POS = new THREE.Vector3(0, -18, 145);
   const REENTRY_RADIUS = 19.0;
@@ -518,7 +557,10 @@ window.BlahajSpace = (function () {
 
     // 6. Breakable, Orbiting, Bouncing & Fragmenting Space Rocks (24 initial medium & small rocks)
     breakableRocks.length = 0;
+    const destroyedMap = loadDestroyedRocksMap();
+    const nowMs = Date.now();
     for (let i = 0; i < 24; i++) {
+      const rockId = `rock_${i + 1}`;
       const tier = (i % 3 !== 0) ? 2 : 1; // 16 medium fragmentable rocks + 8 small rocks
       const radius = tier === 2 ? (4.0 + seededRand(i * 11 + 1) * 1.8) : (2.1 + seededRand(i * 11 + 2) * 0.9);
       const ang = (i / 24) * Math.PI * 2 + seededRand(i * 11 + 3) * 0.3;
@@ -537,8 +579,15 @@ window.BlahajSpace = (function () {
       const vy = (seededRand(i * 11 + 8) - 0.5) * 1.8;
       const vz = Math.cos(ang) * orbSpeed + (seededRand(i * 11 + 9) - 0.5) * 2.2;
 
+      const killedAt = destroyedMap[rockId];
+      const stillDead = !!(killedAt && (nowMs - killedAt) < ASTEROID_RESPAWN_SECONDS * 1000);
+      if (stillDead) {
+        mesh.visible = false;
+        rocksShatteredCount++;
+      }
+
       breakableRocks.push({
-        id: `rock_${i + 1}`,
+        id: rockId,
         tier,
         radius,
         hp: tier === 2 ? 2 : 1,
@@ -551,9 +600,12 @@ window.BlahajSpace = (function () {
           (seededRand(i * 13 + 3) - 0.5) * 1.8
         ),
         mesh,
-        alive: true,
-        respawnTimer: 0
+        alive: !stillDead,
+        respawnTimer: stillDead ? Math.max(1.0, ASTEROID_RESPAWN_SECONDS - (nowMs - killedAt) / 1000) : 0
       });
+    }
+    if (breakableRocks.every((r) => !r.alive)) {
+      waveCleared = true;
     }
 
     isBuilt = true;
@@ -629,7 +681,8 @@ window.BlahajSpace = (function () {
           respawnTimer: 0
         });
       }
-      rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Regenerates in 1 hour
+      rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Stays destroyed for 15 minutes
+      saveDestroyedRock(rock.id);
       const remAfterFrac = breakableRocks.filter((x) => x.alive).length;
       if (!fromNetwork && window.showToast) {
         window.showToast('💥🪨 ASTEROID FRACTURED!', `Split into 3 fragments! (${remAfterFrac} space rocks remaining in Wave ${sectorWave})`);
@@ -639,7 +692,8 @@ window.BlahajSpace = (function () {
       if (rock.isFragment) {
         if (rock.mesh && rock.mesh.parent) rock.mesh.parent.remove(rock.mesh);
       } else {
-        rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Regenerates in 1 hour
+        rock.respawnTimer = ASTEROID_RESPAWN_SECONDS; // Stays destroyed for 15 minutes
+        saveDestroyedRock(rock.id);
       }
       const remaining = breakableRocks.filter((x) => x.alive).length;
       if (remaining === 0 && !waveCleared) {
@@ -654,7 +708,7 @@ window.BlahajSpace = (function () {
       } else if (!fromNetwork && window.showToast && (remaining <= 5 || rocksShatteredCount % 4 === 1)) {
         window.showToast(
           '✨🪨 SPACE ROCK VAPORIZED!',
-          `${remaining} rock${remaining === 1 ? '' : 's'} remaining in Wave ${sectorWave} · 1-hour respawn timer`
+          `${remaining} rock${remaining === 1 ? '' : 's'} remaining in Wave ${sectorWave} · 15-min persistence`
         );
       }
     }
@@ -849,6 +903,7 @@ window.BlahajSpace = (function () {
             r.alive = true;
             r.hp = r.maxHp;
             waveCleared = false;
+            clearDestroyedRock(r.id);
             const ang = Math.random() * Math.PI * 2;
             const dist = 75 + Math.random() * 55;
             r.pos.set(Math.cos(ang) * dist, (Math.random() - 0.5) * 50, Math.sin(ang) * dist - 20);
