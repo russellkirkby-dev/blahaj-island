@@ -22,6 +22,10 @@ window.BlahajHyperspace = (function () {
   const nebulaClouds = [];
   const stargateSlabs = [];
   const godlikeApparitions = [];
+  const founderFaceTextures = [];
+  let activePeeringFace = null;
+  let peeringFaceTimer = 3.5;
+  let nextFounderFaceIdx = 0;
 
   let particlePoints = null;
   let particleAngles = null;
@@ -185,27 +189,27 @@ window.BlahajHyperspace = (function () {
         ctx.arc(128, 128, 102, 0, Math.PI * 2);
         ctx.clip();
 
-        // Draw multi-pass offset ghosting + soft blur for that surreal, frozen-in-time godlike look
-        ctx.globalAlpha = 0.35;
-        ctx.filter = 'blur(8px) saturate(160%) brightness(125%)';
-        ctx.drawImage(img, 10, 10, 236, 236);
+        // Draw soft glowing portrait + subtle cosmic dream-blur
+        ctx.globalAlpha = 0.42;
+        ctx.filter = 'blur(6px) saturate(145%) brightness(120%)';
+        ctx.drawImage(img, 8, 8, 240, 240);
 
-        ctx.globalAlpha = 0.62;
-        ctx.filter = 'blur(2.5px) contrast(120%) brightness(115%)';
-        ctx.drawImage(img, 22, 22, 212, 212);
+        ctx.globalAlpha = 0.88;
+        ctx.filter = 'blur(1.2px) contrast(115%) brightness(115%)';
+        ctx.drawImage(img, 18, 18, 220, 220);
 
-        // Chromatic / divine color wash
+        // Subtle ethereal blue-tint screen wash
         ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.42)`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.24)`;
         ctx.fillRect(0, 0, 256, 256);
         ctx.restore();
 
         // Radial vignette feather so edges dissolve seamlessly into the nebula
         ctx.save();
         ctx.globalCompositeOperation = 'destination-in';
-        const mask = ctx.createRadialGradient(128, 128, 35, 128, 128, 114);
+        const mask = ctx.createRadialGradient(128, 128, 42, 128, 128, 118);
         mask.addColorStop(0.0, 'rgba(255,255,255,1)');
-        mask.addColorStop(0.68, 'rgba(255,255,255,0.82)');
+        mask.addColorStop(0.70, 'rgba(255,255,255,0.88)');
         mask.addColorStop(1.0, 'rgba(255,255,255,0)');
         ctx.fillStyle = mask;
         ctx.fillRect(0, 0, 256, 256);
@@ -223,7 +227,6 @@ window.BlahajHyperspace = (function () {
 
     drawSurrealFrame(null);
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => drawSurrealFrame(img);
     img.src = imageUrl;
 
@@ -398,55 +401,46 @@ window.BlahajHyperspace = (function () {
       stargateSlabs.push({ mesh: slab, side, yOffset: (i % 4 - 1.5) * 24.0 });
     }
 
-    // 4. Colossal Blurred Godlike Character Apparitions & Frozen-in-Time Relics outside the wormhole!
+    // 4. Colossal Frozen-in-Time Wireframe Relics + Occasional Peering Founder Blåhaj Faces!
     godlikeApparitions.length = 0;
-    const apparitionDefs = [
+    founderFaceTextures.length = 0;
+    const founderFaceDefs = [
       { img: 'assets/gallery/Hermes.png', tint: 0x38bdf8, title: 'HERMES', relic: 'astrolabe', ang: 0.35 },
       { img: 'assets/gallery/Solomon.png', tint: 0xfacc15, title: 'SOLOMON', relic: 'teapot', ang: 2.65 },
       { img: 'assets/gallery/Hiram.png', tint: 0xf59e0b, title: 'HIRAM', relic: 'allen_key', ang: -0.55 },
-      { img: 'assets/gallery/Nimue.png', tint: 0xc084fc, title: 'NIMUE', relic: 'shark', ang: -2.45 },
-      { img: 'assets/gallery/Spherical-Foods.png', tint: 0xf472b6, title: 'BOMBE', relic: 'teapot', ang: 1.45 },
-      { img: 'assets/gallery/Volcano-temple.png', tint: 0x34d399, title: 'TEMPLE', relic: 'shark', ang: -1.45 }
+      { img: 'assets/gallery/Nimue.png', tint: 0xc084fc, title: 'NIMUE', relic: 'shark', ang: -2.45 }
     ];
 
-    apparitionDefs.forEach((aDef, idx) => {
+    founderFaceDefs.forEach((fDef) => {
+      founderFaceTextures.push({
+        tex: createGodlikePortraitTexture(fDef.img, fDef.tint, fDef.title),
+        tint: fDef.tint
+      });
+    });
+
+    founderFaceDefs.forEach((aDef, idx) => {
       const appGroup = new THREE.Group();
 
-      // Massive 95m x 95m blurred holographic portrait floating like a cosmic deity
-      const pTex = createGodlikePortraitTexture(aDef.img, aDef.tint, aDef.title);
-      const pMat = new THREE.MeshBasicMaterial({
-        map: pTex,
-        transparent: true,
-        opacity: 0.62,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      });
-      const portraitPlane = new THREE.Mesh(new THREE.PlaneGeometry(96, 96), pMat);
-      appGroup.add(portraitPlane);
-
-      // Slow-spinning divine halo ring behind the portrait
+      // Slow-spinning divine halo ring
       const haloRing = new THREE.Mesh(
-        new THREE.TorusGeometry(52, 0.7, 10, 48),
+        new THREE.TorusGeometry(46, 0.7, 10, 48),
         new THREE.MeshBasicMaterial({
           color: aDef.tint,
           transparent: true,
-          opacity: 0.28,
+          opacity: 0.25,
           blending: THREE.AdditiveBlending,
           depthWrite: false
         })
       );
       appGroup.add(haloRing);
 
-      // Accompanying Colossal Frozen-in-Time 3D Relic drifting beside the portrait
+      // Colossal Frozen-in-Time 3D Wireframe Relic
       const relicMesh = buildColossalFrozenRelic(aDef.relic, aDef.tint);
-      relicMesh.position.set(idx % 2 === 0 ? 44 : -44, -12, 16);
       appGroup.add(relicMesh);
 
-      const az = -60.0 - idx * (totalLen / apparitionDefs.length);
+      const az = -80.0 - idx * (totalLen / founderFaceDefs.length);
       const rad = TUNNEL_RADIUS * 1.48;
       appGroup.position.set(Math.cos(aDef.ang) * rad, Math.sin(aDef.ang) * rad * 0.65, az);
-      // Angle gently inward toward the flight path
       appGroup.lookAt(new THREE.Vector3(0, 0, az + 65.0));
 
       hyperScene.add(appGroup);
@@ -918,6 +912,71 @@ window.BlahajHyperspace = (function () {
         // Frozen-in-time ultra-slow godlike rotation
         ga.relicMesh.rotation.y = elapsed * 0.14 + i;
         ga.relicMesh.rotation.x = Math.sin(elapsed * 0.22 + i) * 0.25;
+      }
+    }
+
+    // 4B. Occasional Colossal Founder Blue Blåhaj Faces peering into the tunnel before being whisked away by lightning!
+    if (activePeeringFace) {
+      const pf = activePeeringFace;
+      pf.z += TUNNEL_SPEED * (pf.whisking ? 1.35 : 0.44) * dt;
+      const center = getTunnelCenterAt(pf.z, elapsed);
+      pf.sprite.position.set(
+        center.x + Math.cos(pf.ang) * pf.rad,
+        center.y + Math.sin(pf.ang) * pf.rad * 0.72,
+        pf.z
+      );
+
+      if (!pf.whisking) {
+        // Fade in as the colossal face peers through the outer mist
+        const fadeIn = Math.min(1.0, (pf.z + 245.0) / 75.0);
+        pf.mat.opacity = 0.86 * Math.max(0.05, fadeIn);
+        if (pf.z >= -48.0) {
+          pf.whisking = true;
+          spawnCrossSectionLightning(elapsed, true);
+        }
+      } else {
+        // Whisked away into spacetime mojo magic!
+        pf.whiskProg += dt * 1.65;
+        pf.mat.opacity = Math.max(0, 0.86 * (1.0 - pf.whiskProg));
+        const stretch = 1.0 + pf.whiskProg * 1.2;
+        pf.sprite.scale.set(145 * stretch, 145 / stretch, 1);
+        pf.rad += dt * 42.0;
+        if (pf.whiskProg >= 1.0) {
+          if (pf.sprite.parent) pf.sprite.parent.remove(pf.sprite);
+          pf.mat.dispose();
+          activePeeringFace = null;
+          peeringFaceTimer = 6.5 + Math.random() * 5.0;
+        }
+      }
+    } else if (founderFaceTextures.length > 0) {
+      peeringFaceTimer -= dt;
+      if (peeringFaceTimer <= 0) {
+        const fInfo = founderFaceTextures[nextFounderFaceIdx % founderFaceTextures.length];
+        nextFounderFaceIdx = (nextFounderFaceIdx + 1) % founderFaceTextures.length;
+        const sMat = new THREE.SpriteMaterial({
+          map: fInfo.tex,
+          transparent: true,
+          opacity: 0.05,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false
+        });
+        const sprite = new THREE.Sprite(sMat);
+        sprite.scale.set(145, 145, 1);
+        const sideAng = (Math.random() > 0.5 ? 0.32 : Math.PI - 0.32) + (Math.random() - 0.5) * 0.55;
+        const startZ = -245.0;
+        const center = getTunnelCenterAt(startZ, elapsed);
+        const rad = TUNNEL_RADIUS * 1.24;
+        sprite.position.set(center.x + Math.cos(sideAng) * rad, center.y + Math.sin(sideAng) * rad * 0.72, startZ);
+        hyperScene.add(sprite);
+        activePeeringFace = {
+          sprite,
+          mat: sMat,
+          ang: sideAng,
+          rad,
+          z: startZ,
+          whisking: false,
+          whiskProg: 0
+        };
       }
     }
 
