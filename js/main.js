@@ -15877,7 +15877,9 @@
         }
       } else if (currentZone === 'cheese_moon' && window.BlahajCheeseMoon) {
         if (!instancePaused) {
-          window.BlahajCheeseMoon.update(dt, elapsed);
+          window.BlahajCheeseMoon.update(dt, elapsed, camera);
+        } else if (typeof window.BlahajCheeseMoon.updateWaypointsOnly === 'function') {
+          window.BlahajCheeseMoon.updateWaypointsOnly(camera);
         }
       } else {
         window.BlahajWorld.updateWorld(elapsed, dt, scene, camera);

@@ -367,20 +367,7 @@ window.BlahajCheeseMoon = (function () {
         .copy(PLANET_CENTER)
         .addScaledVector(sDef.normal, TRENCH_FLOOR_RADIUS + 3.2);
 
-      // Scan Beacon Pillar (lights up when sector is revealed by Aetheric Radar)
-      const beaconMat = new THREE.MeshBasicMaterial({
-        color: 0x38bdf8,
-        transparent: true,
-        opacity: 0.45,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      });
-      const beaconBeam = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 3.8, 48.0, 16, 1, true), beaconMat);
-      beaconBeam.position.copy(centerPos).addScaledVector(sDef.normal, 22.0);
-      beaconBeam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sDef.normal);
-      secGroup.add(beaconBeam);
-
-      // Dark Swiss-Cheese Cave Holes on either side of the trench where bugs sleep until irritated by scan!
+      // Spawn coordinates on either side of the trench (no floating black disc meshes!)
       const tangent = new THREE.Vector3(1, 0, 0);
       if (Math.abs(sDef.normal.x) > 0.7) tangent.set(0, 0, 1);
       const sideDir = new THREE.Vector3().crossVectors(sDef.normal, tangent).normalize();
@@ -391,11 +378,7 @@ window.BlahajCheeseMoon = (function () {
         const holePos = centerPos.clone()
           .addScaledVector(sideDir, sideSign * 14.0)
           .addScaledVector(sDef.normal, 6.5);
-        const holeMesh = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 3.6, 14), holeMat);
-        holeMesh.position.copy(holePos);
         const inwardDir = sideDir.clone().multiplyScalar(-sideSign);
-        holeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), inwardDir);
-        planetoidGroup.add(holeMesh);
         sectorHoles.push({ pos: holePos, normal: inwardDir });
       });
 
@@ -466,7 +449,7 @@ window.BlahajCheeseMoon = (function () {
         centerPos,
         bugCount: sDef.bugCount,
         group: secGroup,
-        beaconBeam,
+        beaconBeam: null,
         holes: sectorHoles,
         bunkers: sectorBunkers,
         revealed: false,
@@ -569,20 +552,8 @@ window.BlahajCheeseMoon = (function () {
       caveCoreSocketMeshes.push(sock);
     }
 
-    // Tall Violet-Gold Anomaly Beacon Beam (appears once scanned!)
-    caveBeaconMesh = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.0, 5.5, 58.0, 20, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0xc084fc,
-        transparent: true,
-        opacity: 0.38,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      })
-    );
-    caveBeaconMesh.position.y = 29.0;
-    caveBeaconMesh.visible = false;
-    caveAnomalyGroup.add(caveBeaconMesh);
+    // Surface Anomalous Cave Entrance uses HUD Diamond Waypoint + Radar Blip (no 3D light cone!)
+    caveBeaconMesh = null;
 
     planetoidGroup.add(caveAnomalyGroup);
 
@@ -811,18 +782,7 @@ window.BlahajCheeseMoon = (function () {
       new THREE.TorusGeometry(3.1, 0.25, 10, 28),
       new THREE.MeshBasicMaterial({ color: 0xc084fc })
     );
-    const verticalBeam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.55, 1.4, 34.0, 14, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0xfde047,
-        transparent: true,
-        opacity: 0.42,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      })
-    );
-    verticalBeam.position.y = 16.0;
-    orbGroup.add(coreSphere, outerHalo, verticalBeam);
+    orbGroup.add(coreSphere, outerHalo);
     orbGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), sector.normal);
     cheeseScene.add(orbGroup);
 
@@ -1351,10 +1311,129 @@ window.BlahajCheeseMoon = (function () {
     }
   }
 
-  function update(dt, elapsed) {
+  function updateWaypointsOnly(camera) {
+    let layer = document.getElementById('cheese-moon-hud-waypoints');
+    const ufoState =
+      window.BlahajUFO && typeof window.BlahajUFO.getState === 'function'
+        ? window.BlahajUFO.getState()
+        : null;
+
+    if (!ufoState || !ufoState.inCheeseMoon || !camera) {
+      if (layer) layer.style.display = 'none';
+      return;
+    }
+
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'cheese-moon-hud-waypoints';
+      layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:8800;overflow:hidden;';
+      document.body.appendChild(layer);
+    }
+    layer.style.display = 'block';
+
+    const targets = [];
+
+    // 1. Revealed Active Sectors (not yet cleared)
+    for (let i = 0; i < cheeseSectors.length; i++) {
+      const sec = cheeseSectors[i];
+      if (!sec.revealed || sec.cleared) continue;
+      targets.push({
+        pos: sec.centerPos,
+        label: sec.name.toUpperCase(),
+        color: '#38bdf8',
+        icon: '◆'
+      });
+    }
+
+    // 2. Exposed Uncollected Core Power-Ups
+    for (let i = 0; i < coreOrbs.length; i++) {
+      const c = coreOrbs[i];
+      if (!c || c.collected) continue;
+      targets.push({
+        pos: c.pos,
+        label: 'CORE POWER-UP',
+        color: '#facc15',
+        icon: '◆'
+      });
+    }
+
+    // 3. Revealed Anomalous Cave Entrance / Interior Crater Focal Point / Hermes Portal
+    if (caveRevealed) {
+      if (!caveBreached) {
+        targets.push({
+          pos: CAVE_SURFACE_POS,
+          label: coresInHole >= CORES_REQUIRED ? 'SHOOT CAVE PIT!' : `CAVE PIT (${coresInHole}/${CORES_REQUIRED})`,
+          color: coresInHole >= CORES_REQUIRED ? '#f43f5e' : '#c084fc',
+          icon: '◈'
+        });
+      } else if (!relayDeployed) {
+        targets.push({
+          pos: INTERIOR_FOCAL_POS,
+          label: 'CRATER FOCAL RING [E]',
+          color: '#38bdf8',
+          icon: '◈'
+        });
+      } else if (hermesPortalGroup) {
+        const portalWorldPos = new THREE.Vector3().copy(INTERIOR_CRATER_CENTER).add(hermesPortalGroup.position);
+        targets.push({
+          pos: portalWorldPos,
+          label: 'HERMES PORTAL HOME [E]',
+          color: '#c084fc',
+          icon: '◈'
+        });
+      }
+    }
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const padX = 64;
+    const padY = 92;
+    const proj = new THREE.Vector3();
+    let html = '';
+
+    for (let i = 0; i < targets.length; i++) {
+      const t = targets[i];
+      const dist = ufoState.pos ? Math.round(ufoState.pos.distanceTo(t.pos)) : 0;
+      proj.copy(t.pos).project(camera);
+
+      const behind = proj.z > 1.0;
+      let sx = (proj.x * 0.5 + 0.5) * w;
+      let sy = (-proj.y * 0.5 + 0.5) * h;
+
+      if (behind) {
+        sx = w - sx;
+        sy = h - sy;
+        // Push toward screen border when behind camera
+        const dx = sx - w * 0.5;
+        const dy = sy - h * 0.5;
+        const mag = Math.hypot(dx, dy) || 1;
+        sx = w * 0.5 + (dx / mag) * (w * 0.5);
+        sy = h * 0.5 + (dy / mag) * (h * 0.5);
+      }
+
+      const clamped = sx < padX || sx > w - padX || sy < padY || sy > h - padY || behind;
+      sx = Math.max(padX, Math.min(w - padX, sx));
+      sy = Math.max(padY, Math.min(h - padY, sy));
+
+      html += `
+        <div style="position:absolute;left:${sx.toFixed(1)}px;top:${sy.toFixed(1)}px;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;font-family:system-ui,-apple-system,sans-serif;opacity:${clamped ? '0.82' : '0.96'};">
+          <div style="width:18px;height:18px;transform:rotate(45deg);border:2px solid ${t.color};background:rgba(15,23,42,0.75);box-shadow:0 0 12px ${t.color};display:flex;align-items:center;justify-content:center;">
+            <div style="width:6px;height:6px;background:${t.color};"></div>
+          </div>
+          <div style="margin-top:4px;background:rgba(15,23,42,0.84);border:1px solid ${t.color};border-radius:6px;padding:2px 6px;color:#f8fafc;font-size:10px;font-weight:800;letter-spacing:0.04em;white-space:nowrap;text-shadow:0 1px 2px #000;">
+            ${t.label} · ${dist}m
+          </div>
+        </div>
+      `;
+    }
+
+    layer.innerHTML = html;
+  }
+
+  function update(dt, elapsed, camera) {
     if (!isBuilt) build();
 
-    // Hide banner automatically if player left the Cheese Moon
+    // Hide banner & waypoints automatically if player left the Cheese Moon
     const ufoState =
       window.BlahajUFO && typeof window.BlahajUFO.getState === 'function'
         ? window.BlahajUFO.getState()
@@ -1362,10 +1441,13 @@ window.BlahajCheeseMoon = (function () {
     if (!ufoState || !ufoState.inCheeseMoon) {
       const banner = document.getElementById('cheese-moon-objective-banner');
       if (banner) banner.style.display = 'none';
+      const wpLayer = document.getElementById('cheese-moon-hud-waypoints');
+      if (wpLayer) wpLayer.style.display = 'none';
       return;
     }
 
     updateObjectiveHUD();
+    updateWaypointsOnly(camera);
 
     if (eclipseGroup) {
       eclipseGroup.lookAt(0, -40, 0);
@@ -1722,6 +1804,7 @@ window.BlahajCheeseMoon = (function () {
   return {
     build,
     update,
+    updateWaypointsOnly,
     onEnterZone,
     onAethericRadarScan,
     getScene: () => (isBuilt ? cheeseScene : build()),
