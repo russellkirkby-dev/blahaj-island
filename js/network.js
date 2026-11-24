@@ -938,18 +938,26 @@ window.BlahajNetwork = (function () {
       outgoingEvents.push(payload);
     }
 
-    // 1. Publish to Cloud WebSocket Pub/Sub Bus (rate-limited for high-freq move & ufo_state!)
+    const verifiedConns = getVerifiedConns();
     const isStreamPacket = payload.type === 'move' || (payload.type === 'ufo_state' && !payload._force);
-    publishWssPayload(payload, !isStreamPacket);
 
-    // 2. Send to any direct WebRTC peers
-    getVerifiedConns().forEach((c) => {
+    // 1. Send to any direct WebRTC peers first (lowest latency!)
+    let sentOverDirectP2P = false;
+    verifiedConns.forEach((c) => {
       if (c && c.open) {
         try {
           c.send(payload);
+          sentOverDirectP2P = true;
         } catch (e) {}
       }
     });
+
+    // 2. Publish to Cloud WebSocket Pub/Sub Bus:
+    // Skip redundant slow MQTT WSS fanout for high-freq move/ufo_state streams when direct P2P is active
+    // (prevents delayed MQTT bursts from causing rough banding!), while always sending reliable events.
+    if (!isStreamPacket || !sentOverDirectP2P) {
+      publishWssPayload(payload, !isStreamPacket);
+    }
   }
 
   function init(cbMap) {

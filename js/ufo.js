@@ -131,7 +131,8 @@ window.BlahajUFO = (function () {
     passengerClientId: null,
     passengerName: null,
 
-    // Remote Sync Interpolation
+    // Remote Sync Snapshot Interpolation Buffer (eliminates jitter & rubberbanding!)
+    remoteSnapshots: [],
     remoteTargetPos: new THREE.Vector3(ISLE_X, HANGAR_LOWER_Y + 1.5, ISLE_Z),
     remoteTargetVel: new THREE.Vector3(),
     remoteTargetYaw: -Math.PI * 0.72,
@@ -1712,6 +1713,7 @@ window.BlahajUFO = (function () {
       hangarTargetOpen: state.hangarTargetOpen,
       hatchTargetOpen: state.hatchTargetOpen,
       tractorBeam: state.tractorBeam,
+      activeModuleIdx,
       discoMode: state.discoMode,
       turboActive: state.turboActive,
       pilotClientId: state.pilotClientId,
@@ -1772,6 +1774,18 @@ window.BlahajUFO = (function () {
 
     if (typeof data.x === 'number' && typeof data.y === 'number' && typeof data.z === 'number') {
       state.remoteTargetPos.set(data.x, data.y, data.z);
+      state.remoteSnapshots.push({
+        t: performance.now(),
+        x: data.x,
+        y: data.y,
+        z: data.z,
+        yaw: typeof data.yaw === 'number' ? data.yaw : state.remoteTargetYaw,
+        pitch: typeof data.pitch === 'number' ? data.pitch : state.remoteTargetPitch,
+        roll: typeof data.roll === 'number' ? data.roll : state.remoteTargetRoll
+      });
+      if (state.remoteSnapshots.length > 12) {
+        state.remoteSnapshots.splice(0, state.remoteSnapshots.length - 12);
+      }
     }
     if (typeof data.vx === 'number' && typeof data.vy === 'number' && typeof data.vz === 'number') {
       state.remoteTargetVel.set(data.vx, data.vy, data.vz);
@@ -1784,6 +1798,14 @@ window.BlahajUFO = (function () {
     if (data.phase) state.phase = data.phase;
     if (typeof data.hangarTargetOpen === 'boolean') state.hangarTargetOpen = data.hangarTargetOpen;
     if (typeof data.hatchTargetOpen === 'boolean') state.hatchTargetOpen = data.hatchTargetOpen;
+    if (typeof data.activeModuleIdx === 'number' && saucerModules.length) {
+      const clampedMod = ((data.activeModuleIdx % saucerModules.length) + saucerModules.length) % saucerModules.length;
+      if (clampedMod !== activeModuleIdx) {
+        activeModuleIdx = clampedMod;
+        if (typeof renderModuleBelt === 'function') renderModuleBelt();
+        updateAvionicsButtonsUI();
+      }
+    }
     if (typeof data.tractorBeam === 'boolean') {
       state.tractorBeam = data.tractorBeam;
       if (tractorBeamMesh) tractorBeamMesh.visible = state.tractorBeam;
@@ -2084,8 +2106,8 @@ window.BlahajUFO = (function () {
       state.tractorBeam = false;
       if (tractorBeamMesh) tractorBeamMesh.visible = false;
       updateAvionicsButtonsUI();
-      broadcastState(true);
     }
+    broadcastState(true);
     renderModuleBelt();
     if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
     const mod = saucerModules[activeModuleIdx];
@@ -2885,30 +2907,66 @@ window.BlahajUFO = (function () {
       );
       broadcastState(false);
     } else if (state.hasRemoteSync && (state.pilotClientId || Date.now() - state.lastRemotePacketAt < 12000)) {
-      // Smooth non-overshooting interpolation with tiny bounded velocity lead (0.08s max)
-      const packetAgeSec = Math.min(0.08, Math.max(0, (Date.now() - state.lastRemotePacketAt) * 0.001));
-      const desiredX = state.remoteTargetPos.x + state.remoteTargetVel.x * packetAgeSec;
-      const desiredY = state.remoteTargetPos.y + state.remoteTargetVel.y * packetAgeSec;
-      const desiredZ = state.remoteTargetPos.z + state.remoteTargetVel.z * packetAgeSec;
-      const dxE = desiredX - state.pos.x;
-      const dyE = desiredY - state.pos.y;
-      const dzE = desiredZ - state.pos.z;
+      // Smooth 115ms Snapshot Buffer Interpolation (absorbs Wi-Fi & cross-ocean packet jitter cleanly!)
+      const snaps = state.remoteSnapshots;
+      const renderTime = performance.now() - 115;
+      let targetX = state.remoteTargetPos.x;
+      let targetY = state.remoteTargetPos.y;
+      let targetZ = state.remoteTargetPos.z;
+      let targetYaw = state.remoteTargetYaw;
+      let targetPitch = state.remoteTargetPitch;
+      let targetRoll = state.remoteTargetRoll;
+
+      if (snaps.length >= 2) {
+        // Trim snapshots older than needed while keeping one just before renderTime
+        while (snaps.length > 2 && snaps[1].t <= renderTime) {
+          snaps.shift();
+        }
+        const a = snaps[0];
+        const b = snaps[1];
+        if (renderTime >= a.t && renderTime <= b.t && b.t > a.t) {
+          const u = (renderTime - a.t) / (b.t - a.t);
+          targetX = a.x + (b.x - a.x) * u;
+          targetY = a.y + (b.y - a.y) * u;
+          targetZ = a.z + (b.z - a.z) * u;
+          let dyaw = b.yaw - a.yaw;
+          while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+          while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+          targetYaw = a.yaw + dyaw * u;
+          targetPitch = a.pitch + (b.pitch - a.pitch) * u;
+          targetRoll = a.roll + (b.roll - a.roll) * u;
+        } else {
+          // Slightly ahead of latest snapshot: gently cap lead to 0.06s
+          const latest = snaps[snaps.length - 1];
+          const extra = Math.min(0.06, Math.max(0, (renderTime - latest.t) * 0.001));
+          targetX = latest.x + state.remoteTargetVel.x * extra;
+          targetY = latest.y + state.remoteTargetVel.y * extra;
+          targetZ = latest.z + state.remoteTargetVel.z * extra;
+          targetYaw = latest.yaw;
+          targetPitch = latest.pitch;
+          targetRoll = latest.roll;
+        }
+      }
+
+      const dxE = targetX - state.pos.x;
+      const dyE = targetY - state.pos.y;
+      const dzE = targetZ - state.pos.z;
       const errDist = Math.hypot(dxE, dyE, dzE);
       if (errDist > 60.0) {
-        state.pos.set(desiredX, desiredY, desiredZ);
+        state.pos.set(targetX, targetY, targetZ);
       } else {
-        const alpha = 1.0 - Math.exp(-10.0 * dt);
+        const alpha = 1.0 - Math.exp(-16.0 * dt);
         state.pos.x += dxE * alpha;
         state.pos.y += dyE * alpha;
         state.pos.z += dzE * alpha;
       }
-      const rotAlpha = 1.0 - Math.exp(-11.0 * dt);
-      let yd = state.remoteTargetYaw - state.yaw;
+      const rotAlpha = 1.0 - Math.exp(-16.0 * dt);
+      let yd = targetYaw - state.yaw;
       while (yd < -Math.PI) yd += Math.PI * 2;
       while (yd > Math.PI) yd -= Math.PI * 2;
       state.yaw += yd * rotAlpha;
-      state.pitch += (state.remoteTargetPitch - state.pitch) * rotAlpha;
-      state.roll += (state.remoteTargetRoll - state.roll) * rotAlpha;
+      state.pitch += (targetPitch - state.pitch) * rotAlpha;
+      state.roll += (targetRoll - state.roll) * rotAlpha;
       state.speed = state.remoteTargetVel.length() > 0.2
         ? Math.hypot(state.remoteTargetVel.x, state.remoteTargetVel.z)
         : errDist * 8.0;
