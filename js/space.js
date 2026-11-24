@@ -517,12 +517,14 @@ window.BlahajSpace = (function () {
 
   function spawnSpaceBurst(pos, colorHex = 0x38bdf8, count = 16, scale = 1.0) {
     if (!spaceScene || !pos) return;
-    const geo = new THREE.OctahedronGeometry(0.35 * scale, 0);
-    const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.95 });
+    const geo = new THREE.OctahedronGeometry(0.42 * scale, 0);
+    const palette = [colorHex, 0xffffff, 0xfacc15, 0xf472b6, 0x38bdf8];
     for (let i = 0; i < count; i++) {
+      const cHex = palette[i % palette.length];
+      const mat = new THREE.MeshBasicMaterial({ color: cHex, transparent: true, opacity: 0.98 });
       const m = new THREE.Mesh(geo, mat);
       m.position.copy(pos);
-      const spd = (5.0 + Math.random() * 14.0) * scale;
+      const spd = (7.0 + Math.random() * 20.0) * scale;
       const th = Math.random() * Math.PI * 2;
       const ph = Math.acos(2 * Math.random() - 1);
       spaceScene.add(m);
@@ -533,7 +535,7 @@ window.BlahajSpace = (function () {
           spd * Math.cos(ph),
           spd * Math.sin(ph) * Math.sin(th)
         ),
-        life: 0.65 + Math.random() * 0.45
+        life: 0.75 + Math.random() * 0.55
       });
     }
   }
@@ -608,7 +610,7 @@ window.BlahajSpace = (function () {
   }
 
   // Called by ufo.js for each active Ray Turret plasma bolt when currentZone === 'space'
-  function checkPlasmaBoltCollision(boltPos, boltVel) {
+  function checkPlasmaBoltCollision(boltPos, boltVel, boltColor = 0x38bdf8) {
     if (!isBuilt || !boltPos) return false;
 
     // 1. Check breakable rocks first
@@ -616,36 +618,36 @@ window.BlahajSpace = (function () {
       const r = breakableRocks[i];
       if (!r.alive || !r.mesh || !r.mesh.visible) continue;
       const d = r.pos.distanceTo(boltPos);
-      if (d <= r.radius + 1.15) {
+      if (d <= r.radius + 1.35) {
         r.hp -= 1;
         // Impart laser momentum impulse
         if (boltVel) {
-          r.vel.addScaledVector(boltVel, 0.08 / Math.max(1, r.tier));
+          r.vel.addScaledVector(boltVel, 0.09 / Math.max(1, r.tier));
         }
-        spawnSpaceBurst(boltPos, 0x38bdf8, 8, 0.7);
+        spawnSpaceBurst(boltPos, boltColor || 0x38bdf8, 14, 1.05);
         if (r.hp <= 0) {
           shatterRock(r, boltVel, false);
         } else {
-          // Flash rock white on hit
+          // Flash rock brightly on hit
           if (r.mesh.material && r.mesh.material.emissive) {
             const prevEm = r.mesh.material.emissive.getHex();
-            r.mesh.material.emissive.setHex(0x38bdf8);
+            r.mesh.material.emissive.setHex(boltColor || 0x38bdf8);
             setTimeout(() => {
               if (r.mesh && r.mesh.material && r.mesh.material.emissive) {
                 r.mesh.material.emissive.setHex(prevEm);
               }
-            }, 110);
+            }, 125);
           }
         }
         return true;
       }
     }
 
-    // 2. Check giant indestructible monoliths (deflect laser bolt with sparks)
+    // 2. Check giant indestructible monoliths (deflect laser bolt with colorful sparks)
     for (let i = 0; i < monolithRocks.length; i++) {
       const m = monolithRocks[i];
-      if (m.pos.distanceTo(boltPos) <= m.r + 0.8) {
-        spawnSpaceBurst(boltPos, 0xc084fc, 10, 0.85);
+      if (m.pos.distanceTo(boltPos) <= m.r + 1.0) {
+        spawnSpaceBurst(boltPos, boltColor || 0xc084fc, 16, 1.15);
         return true;
       }
     }

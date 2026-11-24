@@ -27,6 +27,9 @@
     adTurnMode: 'strafe',
     finModeStyle: 'smart',
     ufoAutoChaseCam: true,
+    ufoSpaceFlightStyle: 'coupled',
+    ufoSpaceAutoLevelRoll: false,
+    ufoSpaceVerticalKeys: false,
     invertY: false,
     binocularInvertY: false,
     binocularInvertX: false,
@@ -10332,6 +10335,13 @@
 
     const ufoChaseEl = document.getElementById('set-ufo-chase-cam');
     if (ufoChaseEl) ufoChaseEl.checked = gameSettings.ufoAutoChaseCam !== false;
+    document.querySelectorAll('#group-ufo-space-style .btn-group-item').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.spacestyle === (gameSettings.ufoSpaceFlightStyle || 'coupled'));
+    });
+    const ufoAutoRollEl = document.getElementById('set-ufo-space-autolevel');
+    if (ufoAutoRollEl) ufoAutoRollEl.checked = !!gameSettings.ufoSpaceAutoLevelRoll;
+    const ufoVertKeysEl = document.getElementById('set-ufo-space-vertkeys');
+    if (ufoVertKeysEl) ufoVertKeysEl.checked = !!gameSettings.ufoSpaceVerticalKeys;
     window.gameSettings = gameSettings;
     if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
       window.BlahajUFO.updateAvionicsButtonsUI();
@@ -10800,6 +10810,25 @@
       if (window.BlahajUFO && typeof window.BlahajUFO.updateAvionicsButtonsUI === 'function') {
         window.BlahajUFO.updateAvionicsButtonsUI();
       }
+    });
+    document.querySelectorAll('#group-ufo-space-style .btn-group-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#group-ufo-space-style .btn-group-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applySetting('ufoSpaceFlightStyle', btn.dataset.spacestyle);
+        showToast(
+          btn.dataset.spacestyle === 'newtonian' ? '🪐 SPACE FLIGHT: NEWTONIAN DRIFT' : '🛸 SPACE FLIGHT: COUPLED ASSIST',
+          btn.dataset.spacestyle === 'newtonian'
+            ? 'Zero-G momentum drift active! Thrust with W/S/Q/E and coast through vacuum.'
+            : 'Inertial dampers active! Smoothly stabilizes velocity when thrusters are released.'
+        );
+      });
+    });
+    document.getElementById('set-ufo-space-autolevel')?.addEventListener('change', (e) => {
+      applySetting('ufoSpaceAutoLevelRoll', e.target.checked);
+    });
+    document.getElementById('set-ufo-space-vertkeys')?.addEventListener('change', (e) => {
+      applySetting('ufoSpaceVerticalKeys', e.target.checked);
     });
 
     document.getElementById('set-invert-y')?.addEventListener('change', (e) => {

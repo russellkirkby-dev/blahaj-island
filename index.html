@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=14.9" />
+  <link rel="stylesheet" href="styles.css?v=15.0" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -1758,6 +1758,43 @@
 
         <div class="setting-row">
           <div class="setting-info">
+            <span class="setting-title">🪐 Deep-Space Astrodynamic Flight Mode</span>
+            <span class="setting-desc">Coupled Assist (inertial dampers smooth stops) or Newtonian Drift (pure zero-G momentum coasting)</span>
+          </div>
+          <div class="setting-btn-group" id="group-ufo-space-style">
+            <button class="btn-group-item active" data-spacestyle="coupled">Coupled Assist</button>
+            <button class="btn-group-item" data-spacestyle="newtonian">Newtonian Drift</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">🪐 Deep-Space Auto-Level Barrel Roll</span>
+            <span class="setting-desc">Gently level the saucer’s A / D aileron roll back to horizontal when roll keys are released</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-ufo-space-autolevel" />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">🪐 Enable Space / C Vertical Thrusters in Space</span>
+            <span class="setting-desc">Off by default (Space &amp; C are reserved for planetary gravity; enable for extra 6-DOF vertical thrust)</span>
+          </div>
+          <div class="setting-control-group">
+            <label class="cozy-switch">
+              <input type="checkbox" id="set-ufo-space-vertkeys" />
+              <span class="switch-slider round"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
             <span class="setting-title">Invert Vertical Pitch (Y-Axis)</span>
             <span class="setting-desc">Invert vertical mouse look angle (flight-simulator controls)</span>
           </div>
@@ -2641,25 +2678,25 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=14.9"></script>
-  <script src="js/quests.js?v=14.9"></script>
-  <script src="js/sharks3d.js?v=14.9"></script>
-  <script src="js/space.js?v=14.9"></script>
-  <script src="js/ufo.js?v=14.9"></script>
-  <script src="js/world3d.js?v=14.9"></script>
-  <script src="js/volcano.js?v=14.9"></script>
-  <script src="js/laundromat.js?v=14.9"></script>
-  <script src="js/sphericalFoods.js?v=14.9"></script>
-  <script src="js/volleyball.js?v=14.9"></script>
-  <script src="js/spawningPits.js?v=14.9"></script>
-  <script src="js/homestead.js?v=14.9"></script>
-  <script src="js/network.js?v=14.9"></script>
-  <script src="js/inventory.js?v=14.9"></script>
-  <script src="js/enemies.js?v=14.9"></script>
-  <script src="js/seam.js?v=14.9"></script>
-  <script src="js/mmoControls.js?v=14.9"></script>
+  <script src="js/lore.js?v=15.0"></script>
+  <script src="js/quests.js?v=15.0"></script>
+  <script src="js/sharks3d.js?v=15.0"></script>
+  <script src="js/space.js?v=15.0"></script>
+  <script src="js/ufo.js?v=15.0"></script>
+  <script src="js/world3d.js?v=15.0"></script>
+  <script src="js/volcano.js?v=15.0"></script>
+  <script src="js/laundromat.js?v=15.0"></script>
+  <script src="js/sphericalFoods.js?v=15.0"></script>
+  <script src="js/volleyball.js?v=15.0"></script>
+  <script src="js/spawningPits.js?v=15.0"></script>
+  <script src="js/homestead.js?v=15.0"></script>
+  <script src="js/network.js?v=15.0"></script>
+  <script src="js/inventory.js?v=15.0"></script>
+  <script src="js/enemies.js?v=15.0"></script>
+  <script src="js/seam.js?v=15.0"></script>
+  <script src="js/mmoControls.js?v=15.0"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=14.9"></script>
-  <script src="js/main.js?v=14.9"></script>
+  <script src="js/saveSystem.js?v=15.0"></script>
+  <script src="js/main.js?v=15.0"></script>
 </body>
 </html>
