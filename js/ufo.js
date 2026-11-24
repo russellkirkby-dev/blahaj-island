@@ -2274,10 +2274,8 @@ window.BlahajUFO = (function () {
     if (window.showToast) {
       if (state.inSpace) {
         window.showToast('⚡ DEEP-SPACE HYPERDRIVE SURGE!', '9s orbital boost active! Fly through the Cyan Re-Entry Gate or press [L] to return to Blåhaj Island.');
-      } else if (state.orbitalCeilingReached) {
-        window.showToast('⚡ ORBITAL WARP CHARGING!', 'Hold [W] + [Shift] full booster for 6 seconds at the Karman Line to breach into Deep Space!');
       } else {
-        window.showToast('⚡ MOJO HYPERDRIVE ENGAGED!', '9s supersonic surge! Climb to the 185m Karman Orbital Ceiling and hold full booster to jump to Space!');
+        window.showToast('⚡ MOJO HYPERDRIVE READY!', 'Climb into the upper atmosphere (145m–185m) and hold [Shift] + [W] for 6 seconds to open a Space Warp Portal!');
       }
     }
   }
@@ -2448,19 +2446,19 @@ window.BlahajUFO = (function () {
         elStatus.classList.remove('hidden');
       } else if (state.warpChargeTimer > 0.05) {
         const pct = Math.min(100, Math.round((state.warpChargeTimer / 6.0) * 100));
-        elStatus.textContent = `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${(6.0 - state.warpChargeTimer).toFixed(1)}s) · HOLD [W]+[SHIFT]!`;
+        elStatus.textContent = `🌀 MACH SHOCKWAVE & PORTAL BREACH: ${pct}% (${Math.max(0, 6.0 - state.warpChargeTimer).toFixed(1)}s) · HOLD [W] + [SHIFT]!`;
         elStatus.classList.remove('hidden');
       } else if (state.inSpace) {
-        elStatus.textContent = '🪐 DEEP SPACE SECTOR · FIRE RAY TURRETS [1]+[T] AT ASTEROIDS · PRESS [L] OR FLY TO GATE FOR RE-ENTRY';
+        elStatus.textContent = '🪐 DEEP SPACE SECTOR · SWITCH TO RAY TURRETS & CLICK TO FIRE · PRESS [L] OR FLY TO GATE FOR RE-ENTRY';
+        elStatus.classList.remove('hidden');
+      } else if (state.orbitalCeilingReached) {
+        elStatus.textContent = '✨ UPPER ORBITAL BAND (145m–185m) · HOLD [SHIFT] + [W] FOR 6 SECONDS TO JUMP TO DEEP SPACE!';
         elStatus.classList.remove('hidden');
       } else if (state.hyperdriveTimer > 0) {
-        elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · ${state.orbitalCeilingReached ? 'HOLD [W]+[SHIFT] TO OPEN SPACE PORTAL!' : 'CLIMB TO 185m KARMAN CEILING!'}`;
+        elStatus.textContent = `⚡ MOJO HYPERDRIVE SURGE (${state.hyperdriveTimer.toFixed(1)}s) · CLIMB ABOVE 145m & HOLD [SHIFT]!`;
         elStatus.classList.remove('hidden');
       } else if (state.antiGravCushionActive) {
         elStatus.textContent = '🛡️ ANTI-GRAV CUSHION ACTIVE';
-        elStatus.classList.remove('hidden');
-      } else if (state.orbitalCeilingReached) {
-        elStatus.textContent = '✨ KARMAN LINE (185m) · ENGAGE MOJO HYPERDRIVE [4]+[T] & HOLD [W]+[SHIFT] FOR 6s TO JUMP TO SPACE!';
         elStatus.classList.remove('hidden');
       } else {
         elStatus.classList.add('hidden');
@@ -2942,7 +2940,8 @@ window.BlahajUFO = (function () {
           }
         }
 
-        const hyperMult = state.hyperdriveTimer > 0 ? 1.48 : 1.0;
+        const hyperSelected = activeModuleIdx === 3;
+        const hyperMult = ((hyperSelected && turbo) || state.hyperdriveTimer > 0) ? 1.48 : 1.0;
         const hydroScale = state.isSubmerged ? 0.72 : 1.0;
         const maxHorizSpeed = (turbo ? 64.0 : 28.0) * hydroScale * hyperMult;
         const maxStrafeSpeed = (turbo ? 40.0 : 22.0) * hydroScale * hyperMult;
@@ -2982,30 +2981,33 @@ window.BlahajUFO = (function () {
             state.antiGravCushionActive = true;
           }
 
-          // KARMAN ORBITAL CEILING (Space Transition Threshold at Y = 185m!)
+          // KARMAN ORBITAL BAND (145m up to the 185m Service Ceiling!)
+          const ORBITAL_WARP_MIN_Y = KARMAN_CEILING_Y - 40.0; // 145m to 185m
           if (state.pos.y >= KARMAN_CEILING_Y) {
             state.pos.y = KARMAN_CEILING_Y;
             if (state.vel.y > 0) state.vel.y = 0;
+          }
+          if (state.pos.y >= ORBITAL_WARP_MIN_Y) {
             state.orbitalCeilingReached = true;
             if (!state.orbitalNoticeShown) {
               state.orbitalNoticeShown = true;
               playJetsonsHorn();
               if (window.showToast) {
                 window.showToast(
-                  '🌌 KARMAN ORBITAL CEILING REACHED (185m)!',
-                  'Engage Mojo Hyperdrive [4]+[T] & hold full booster [W]+[Shift] for 6s to open a Space Warp Portal!'
+                  '🌌 ENTERED UPPER ORBITAL BAND (145m–185m)!',
+                  'Hold [Shift] + [W] steady for 6 seconds to open a Warp Portal into Deep Space!'
                 );
               }
             }
-          } else if (state.pos.y < KARMAN_CEILING_Y - 10.0) {
+          } else if (state.pos.y < ORBITAL_WARP_MIN_Y - 6.0) {
             state.orbitalCeilingReached = false;
             state.orbitalNoticeShown = false;
           }
 
-          // 6-SECOND MOJO HYPERDRIVE ORBITAL WARP PORTAL SEQUENCE
-          const atKarman = state.orbitalCeilingReached || state.pos.y >= KARMAN_CEILING_Y - 8.5;
-          const fullSpeedBoost = state.hyperdriveTimer > 0 && turbo && (fwdInput > 0 || Math.hypot(state.vel.x, state.vel.z) > 42.0);
-          if (atKarman && fullSpeedBoost) {
+          // 6-SECOND ORBITAL TURBO WARP PORTAL SEQUENCE (No extra steps—just fly in the 145m–185m band with Shift + W held!)
+          const inOrbitalBand = state.pos.y >= ORBITAL_WARP_MIN_Y;
+          const holdingTurboFlight = turbo && (fwdInput > 0 || Math.hypot(state.vel.x, state.vel.z) > 36.0);
+          if (inOrbitalBand && holdingTurboFlight) {
             const partnerActiveOnIsland = Boolean(
               window.coopPartner &&
               window.coopPartner.active &&
@@ -3394,7 +3396,7 @@ window.BlahajUFO = (function () {
       state.hatchTargetOpen = false;
       state.orbitalCeilingReached = false;
       state.orbitalNoticeShown = false;
-      state.pos.set(ISLE_X, 148.0, ISLE_Z + 18.0);
+      state.pos.set(ISLE_X, 130.0, ISLE_Z + 18.0);
       state.vel.set(0, -4.0, -10.0);
       state.pitch = 0;
       state.roll = 0;

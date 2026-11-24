@@ -8056,7 +8056,7 @@
 
           showToast(
             '🪐 REMATERIALIZED IN DEEP SPACE ORBIT!',
-            'Fire Ray Turrets [1]+[T] to shatter space rocks! Spot the flat-top Blåhaj Island planetary wedge in the distance!'
+            'Switch to Ray Turrets and Left-Click to shatter space rocks! Spot the flat-top Blåhaj Island planetary wedge in the distance!'
           );
           addChatLog('🛸🪐 <strong>Orbital Portal Breach:</strong> S.S. Shonk-Saucer rematerialized in <strong>Deep Space Orbit</strong>! Blast tumbling asteroids with your Ray Turrets or fly through the Cyan Re-Entry Gate to return!', 'lore');
 
@@ -8115,7 +8115,7 @@
           isTransitioningZone = false;
           updateCoopPartnerVisibility();
 
-          showToast('🏝️ ATMOSPHERIC RE-ENTRY COMPLETE!', 'Cruising in Blåhaj Island upper sky (148m AGL)!');
+          showToast('🏝️ ATMOSPHERIC RE-ENTRY COMPLETE!', 'Cruising in Blåhaj Island upper sky (130m AGL)!');
           addChatLog('🛸🏝️ <strong>Atmospheric Re-Entry:</strong> S.S. Shonk-Saucer returned from Deep Space to Blåhaj Island sky!', 'lore');
 
           if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
