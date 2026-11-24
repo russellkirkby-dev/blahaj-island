@@ -140,6 +140,7 @@ window.BlahajUFO = (function () {
     hasRemoteSync: false,
     netSeq: 0,
     lastRemoteSeq: -1,
+    lastRemoteSenderId: null,
     lastNetSendAt: 0,
     lastRemotePacketAt: 0,
 
@@ -1691,17 +1692,19 @@ window.BlahajUFO = (function () {
     if (!force && now - state.lastNetSendAt < 50) return;
     state.lastNetSendAt = now;
 
+    const isParked = state.phase === 'parked';
     window.BlahajNetwork.send({
       type: 'ufo_state',
+      _force: !!force,
       senderId: myId,
       seq: ++state.netSeq,
       isPilotAuth: state.localRole === 'pilot',
       x: Number(state.pos.x.toFixed(2)),
       y: Number(state.pos.y.toFixed(2)),
       z: Number(state.pos.z.toFixed(2)),
-      vx: Number(state.vel.x.toFixed(2)),
-      vy: Number(state.vel.y.toFixed(2)),
-      vz: Number(state.vel.z.toFixed(2)),
+      vx: isParked ? 0 : Number(state.vel.x.toFixed(2)),
+      vy: isParked ? 0 : Number(state.vel.y.toFixed(2)),
+      vz: isParked ? 0 : Number(state.vel.z.toFixed(2)),
       yaw: Number(state.yaw.toFixed(3)),
       pitch: Number(state.pitch.toFixed(3)),
       roll: Number(state.roll.toFixed(3)),
@@ -1752,11 +1755,16 @@ window.BlahajUFO = (function () {
       return;
     }
 
-    // Drop stale out-of-order packets from the same sender
-    if (typeof data.seq === 'number' && data.pilotClientId === state.pilotClientId && data.seq < state.lastRemoteSeq && (Date.now() - state.lastRemotePacketAt) < 2000) {
-      return;
+    // Strictly drop any out-of-order or duplicate packets from the same sender (prevents delayed MQTT broker bursts from snapping UFO backwards!)
+    const pktSender = data.senderId || data.clientId || null;
+    if (pktSender && pktSender !== state.lastRemoteSenderId) {
+      state.lastRemoteSenderId = pktSender;
+      state.lastRemoteSeq = -1;
     }
-    if (typeof data.seq === 'number') state.lastRemoteSeq = data.seq;
+    if (typeof data.seq === 'number') {
+      if (data.seq <= state.lastRemoteSeq) return;
+      state.lastRemoteSeq = data.seq;
+    }
 
     state.lastRemotePacketAt = Date.now();
     state.hasRemoteSync = true;
@@ -2877,26 +2885,33 @@ window.BlahajUFO = (function () {
       );
       broadcastState(false);
     } else if (state.hasRemoteSync && (state.pilotClientId || Date.now() - state.lastRemotePacketAt < 12000)) {
-      // Smoothly dead-reckon & interpolate remote UFO (works both while piloted AND when remotely summoned/landed!)
-      const packetAgeSec = (Date.now() - state.lastRemotePacketAt) * 0.001;
-      if (packetAgeSec < 0.25 && state.remoteTargetVel.lengthSq() > 0.01) {
-        state.remoteTargetPos.addScaledVector(state.remoteTargetVel, dt);
-      }
-      const errDist = state.pos.distanceTo(state.remoteTargetPos);
+      // Smooth non-overshooting interpolation with tiny bounded velocity lead (0.08s max)
+      const packetAgeSec = Math.min(0.08, Math.max(0, (Date.now() - state.lastRemotePacketAt) * 0.001));
+      const desiredX = state.remoteTargetPos.x + state.remoteTargetVel.x * packetAgeSec;
+      const desiredY = state.remoteTargetPos.y + state.remoteTargetVel.y * packetAgeSec;
+      const desiredZ = state.remoteTargetPos.z + state.remoteTargetVel.z * packetAgeSec;
+      const dxE = desiredX - state.pos.x;
+      const dyE = desiredY - state.pos.y;
+      const dzE = desiredZ - state.pos.z;
+      const errDist = Math.hypot(dxE, dyE, dzE);
       if (errDist > 60.0) {
-        state.pos.copy(state.remoteTargetPos);
+        state.pos.set(desiredX, desiredY, desiredZ);
       } else {
-        state.pos.lerp(state.remoteTargetPos, Math.min(1.0, dt * 14.0));
+        const alpha = 1.0 - Math.exp(-10.0 * dt);
+        state.pos.x += dxE * alpha;
+        state.pos.y += dyE * alpha;
+        state.pos.z += dzE * alpha;
       }
+      const rotAlpha = 1.0 - Math.exp(-11.0 * dt);
       let yd = state.remoteTargetYaw - state.yaw;
       while (yd < -Math.PI) yd += Math.PI * 2;
       while (yd > Math.PI) yd -= Math.PI * 2;
-      state.yaw += yd * Math.min(1.0, dt * 14.0);
-      state.pitch += (state.remoteTargetPitch - state.pitch) * Math.min(1.0, dt * 14.0);
-      state.roll += (state.remoteTargetRoll - state.roll) * Math.min(1.0, dt * 14.0);
+      state.yaw += yd * rotAlpha;
+      state.pitch += (state.remoteTargetPitch - state.pitch) * rotAlpha;
+      state.roll += (state.remoteTargetRoll - state.roll) * rotAlpha;
       state.speed = state.remoteTargetVel.length() > 0.2
         ? Math.hypot(state.remoteTargetVel.x, state.remoteTargetVel.z)
-        : errDist * 10.0;
+        : errDist * 8.0;
       state.verticalSpeed = state.remoteTargetVel.y || 0;
       state.orbitalCeilingReached = state.pos.y >= KARMAN_CEILING_Y - 4.0;
       updateJetsonsEngineHum(state.localRole === 'passenger' && state.phase !== 'parked', Math.min(1, state.speed / 35), Math.min(1, state.pos.y / KARMAN_CEILING_Y), state.turboActive);

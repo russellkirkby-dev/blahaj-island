@@ -467,18 +467,24 @@ window.BlahajNetwork = (function () {
     });
   }
 
+  let lastWssUfoSentAt = 0;
+
   function publishWssPayload(payload, forceImmediate = false) {
     if (!payload) return;
     const now = Date.now();
-    // Rate-limit high-frequency move packets over WSS to ~10Hz (100ms) while letting events go immediately
+    // Rate-limit high-frequency move & ufo_state packets over WSS to ~10Hz (95ms)
+    // so public MQTT brokers never throttle/buffer-burst them into rubberbanding!
     if (payload.type === 'move' && !forceImmediate) {
       if (now - lastWssMoveSentAt < 95) return;
       lastWssMoveSentAt = now;
+    } else if (payload.type === 'ufo_state' && !forceImmediate && !payload._force) {
+      if (now - lastWssUfoSentAt < 95) return;
+      lastWssUfoSentAt = now;
     }
 
     const topic = getRealmTopic(currentRoom);
     let packetBinary = null;
-    const isHighFreq = payload.type === 'move' || payload.type === '__presence__';
+    const isHighFreq = payload.type === 'move' || payload.type === 'ufo_state' || payload.type === '__presence__';
     let sentToPrimary = false;
 
     wssClients.forEach((st) => {
@@ -932,8 +938,9 @@ window.BlahajNetwork = (function () {
       outgoingEvents.push(payload);
     }
 
-    // 1. Publish to Cloud WebSocket Pub/Sub Bus (works through all NATs/CGNATs!)
-    publishWssPayload(payload, payload.type !== 'move');
+    // 1. Publish to Cloud WebSocket Pub/Sub Bus (rate-limited for high-freq move & ufo_state!)
+    const isStreamPacket = payload.type === 'move' || (payload.type === 'ufo_state' && !payload._force);
+    publishWssPayload(payload, !isStreamPacket);
 
     // 2. Send to any direct WebRTC peers
     getVerifiedConns().forEach((c) => {
