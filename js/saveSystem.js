@@ -1498,6 +1498,7 @@
     const gAcc = currentSaveState?.profile?.googleAccount;
     const isFounder = isFounderArchodect();
     const cs = ensureCustomSharkDefaults();
+    const roster = ensureCharacterRoster();
     const activePick = getSelectedLobbySharkId();
 
     // 0. Network & 360° Camera Buffer Readiness Pill
@@ -1580,26 +1581,29 @@
 
     // 4. Primary Embark Button Text (Reflects Selected Character!)
     if (embarkText) {
+      const progApi = window.BlahajProgression;
       if (activePick === 'custom') {
         if (!cs.detagged) {
           embarkText.textContent = `✂️ CREATE YOUR BLÅHAJ & ENTER SPAWNING PITS`;
-          if (embarkSub) embarkSub.textContent = `Lv. 1 Probationer (0°=0□) · Choose Guiding Mentor & 3 Starter Arts · Spawns in Wire Bin #303 🦈✨`;
+          if (embarkSub) embarkSub.textContent = `0°=0□ Probationer (Plushiah) · Choose Guiding Mentor & 2–3 Starter Arts · Wire Bin #303 🦈✨`;
         } else {
           const customRec = roster.custom || {};
-          const customLv = customRec.level || 1;
-          const mCur = window.BlahajProgression?.getMentorCurrent(customRec.mentorId || cs.mentorId || 'hermes');
+          const wInfo = progApi ? progApi.getWorldInfo(customRec.world || 1) : { icon: '🧶', name: 'Plushiah' };
+          const deg = progApi ? progApi.getDegreeInfo(customRec.level ?? 0) : { cipher: '0°=0□' };
+          const mCur = progApi ? progApi.getMentorCurrent(customRec.mentorId || cs.mentorId || 'hermes') : null;
           embarkText.textContent = `🦈 ENTER WORLD AS ${cs.name.toUpperCase()}`;
-          if (embarkSub) embarkSub.textContent = `Lv.${customLv} · ${mCur ? `Mentor: ${mCur.mentorName} (${mCur.shortLabel})` : (cs.title || 'Custom Blåhaj')} · Personal Bag & Skills`;
+          if (embarkSub) embarkSub.textContent = `${wInfo.icon} ${deg.cipher} · ${wInfo.name} · ${mCur ? `Mentor: ${mCur.mentorName} (${mCur.shortLabel})` : (cs.title || 'Custom Blåhaj')}`;
         }
       } else {
         const sCfg = window.BLAHAJ_LORE?.sharks?.[activePick];
         const fRec = roster[activePick] || {};
-        const fLv = fRec.level || 7;
-        const deg = window.BlahajProgression?.getDegreeInfo(fLv);
+        const wInfo = progApi ? progApi.getWorldInfo(fRec.world || 1) : { icon: '🧶', name: 'Plushiah' };
+        const deg = progApi ? progApi.getDegreeInfo(typeof fRec.level === 'number' ? fRec.level : 5) : { cipher: '5°=6□' };
+        const artsCount = Array.isArray(fRec.learnedAbilities) ? fRec.learnedAbilities.length : 7;
         const sName = sCfg ? sCfg.name.toUpperCase() : activePick.toUpperCase();
         const sTitle = sCfg ? sCfg.title : 'Sacred Founder of Blåhaj Island';
         embarkText.textContent = `🦈 ENTER WORLD AS ${sName}`;
-        if (embarkSub) embarkSub.textContent = `Lv.${fLv} (${deg ? deg.cipher : '5°=6□'}) · ${sTitle} · ${sCfg ? sCfg.name : activePick}’s Personal Bag & 7 Specialty Arts`;
+        if (embarkSub) embarkSub.textContent = `${wInfo.icon} ${deg.cipher} · ${wInfo.name} · ${sTitle} · ${artsCount} Known Arts`;
       }
     }
 
