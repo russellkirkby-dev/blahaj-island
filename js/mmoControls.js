@@ -610,108 +610,108 @@
   // Ordered list of action bar slots
   const SLOT_KEYS = ['1', '2', '3', '4', '5', '6', 'q', 'e', 'r', 'f', 'shift+1', 'shift+2'];
 
-  // Distinct base ability mixes per character (and all 12 can be learned!)
+  // Distinct base ability mixes per character (Founders start at Lv.7 with 7 specialty arts; Custom starts at Lv.1 with 3 chosen starter arts!)
   const CHARACTER_BASE_MIXES = {
     hermes: {
-      archetype: 'Wayfarer Skirmisher & Portal Guide',
+      archetype: 'Lv.7 Adept · Current of the Liminal Lantern (5°=6□)',
       baseLearned: [
-        'poky_fin_strike', 'single_fin_lunge', 'tail_spin', 'fin_deflection',
-        'breb_volley', 'founder_signature', 'snoot_boop', 'hydro_tail_launch', 'plush_groom'
+        'poky_fin_strike', 'single_fin_lunge', 'fin_deflection',
+        'breb_volley', 'hydro_tail_launch', 'snoot_boop', 'founder_signature'
       ],
       defaultBar: {
         '1': 'poky_fin_strike',
         '2': 'single_fin_lunge',
-        '3': 'tail_spin',
-        '4': 'breb_volley',
-        '5': 'plush_groom',
-        '6': 'founder_signature',
-        'q': 'hydro_tail_launch',
+        '3': 'breb_volley',
+        '4': 'hydro_tail_launch',
+        '5': 'founder_signature',
+        '6': null,
+        'q': null,
         'e': 'fin_deflection',
-        'r': 'double_fin_defense',
+        'r': null,
         'f': 'snoot_boop',
-        'shift+1': 'plush_groom',
-        'shift+2': 'hydro_tail_launch'
+        'shift+1': null,
+        'shift+2': null
       }
     },
     solomon: {
-      archetype: 'Star-Chef Guardian & Tea Alchemist',
+      archetype: 'Lv.7 Adept · Current of the Star-Cup & Loaf (5°=6□)',
       baseLearned: [
-        'poky_fin_strike', 'tail_swipe', 'breb_volley', 'soothing_tea_pulse',
-        'double_fin_defense', 'fin_deflection', 'founder_signature', 'snoot_boop', 'plush_groom'
+        'poky_fin_strike', 'tail_swipe', 'breb_volley',
+        'soothing_tea_pulse', 'double_fin_defense', 'plush_groom', 'founder_signature'
       ],
       defaultBar: {
         '1': 'poky_fin_strike',
         '2': 'tail_swipe',
         '3': 'breb_volley',
         '4': 'soothing_tea_pulse',
-        '5': 'plush_groom',
-        '6': 'founder_signature',
-        'q': 'tail_spin',
-        'e': 'fin_deflection',
+        '5': 'founder_signature',
+        '6': null,
+        'q': 'plush_groom',
+        'e': null,
         'r': 'double_fin_defense',
-        'f': 'snoot_boop',
-        'shift+1': 'plush_groom',
-        'shift+2': 'hydro_tail_launch'
+        'f': null,
+        'shift+1': null,
+        'shift+2': null
       }
     },
     hiram: {
-      archetype: 'Master Builder Vanguard & Hex-Templar',
+      archetype: 'Lv.7 Adept · Current of the Brass Hex & Ashlar (5°=6□)',
       baseLearned: [
-        'poky_fin_strike', 'single_fin_lunge', 'tail_swipe', 'tail_spin',
-        'double_fin_defense', 'fin_deflection', 'founder_signature', 'snoot_boop', 'hydro_tail_launch'
+        'poky_fin_strike', 'single_fin_lunge', 'tail_swipe',
+        'tail_spin', 'fin_deflection', 'double_fin_defense', 'founder_signature'
       ],
       defaultBar: {
         '1': 'poky_fin_strike',
         '2': 'single_fin_lunge',
         '3': 'tail_swipe',
-        '4': 'breb_volley',
-        '5': 'soothing_tea_pulse',
-        '6': 'founder_signature',
+        '4': 'founder_signature',
+        '5': null,
+        '6': null,
         'q': 'tail_spin',
         'e': 'fin_deflection',
         'r': 'double_fin_defense',
-        'f': 'snoot_boop',
-        'shift+1': 'plush_groom',
-        'shift+2': 'hydro_tail_launch'
+        'f': null,
+        'shift+1': null,
+        'shift+2': null
       }
     },
     nimue: {
-      archetype: 'Astral Seam Weaver & Duelist',
+      archetype: 'Lv.7 Adept · Current of the Silver Star & Seam (5°=6□)',
       baseLearned: [
-        'poky_fin_strike', 'single_fin_lunge', 'fin_deflection', 'double_fin_defense',
-        'breb_volley', 'soothing_tea_pulse', 'founder_signature', 'snoot_boop', 'plush_groom'
+        'poky_fin_strike', 'single_fin_lunge', 'fin_deflection',
+        'soothing_tea_pulse', 'plush_groom', 'snoot_boop', 'founder_signature'
       ],
       defaultBar: {
         '1': 'poky_fin_strike',
         '2': 'single_fin_lunge',
-        '3': 'tail_swipe',
-        '4': 'breb_volley',
-        '5': 'soothing_tea_pulse',
-        '6': 'founder_signature',
-        'q': 'tail_spin',
+        '3': 'soothing_tea_pulse',
+        '4': 'founder_signature',
+        '5': null,
+        '6': null,
+        'q': 'plush_groom',
         'e': 'fin_deflection',
-        'r': 'double_fin_defense',
+        'r': null,
         'f': 'snoot_boop',
-        'shift+1': 'plush_groom',
-        'shift+2': 'hydro_tail_launch'
+        'shift+1': null,
+        'shift+2': null
       }
     },
     custom: {
-      archetype: 'Liberated Spawning-Pit Adventurer (All-Rounder)',
-      baseLearned: Object.keys(ABILITIES),
+      archetype: 'Lv.1 Probationer · Initiate of the Sacred Scissors (0°=0□)',
+      baseLearned: ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop'],
       defaultBar: {
         '1': 'poky_fin_strike',
         '2': 'single_fin_lunge',
-        '3': 'tail_swipe',
-        '4': 'breb_volley',
-        '5': 'soothing_tea_pulse',
-        '6': 'founder_signature',
-        'q': 'tail_spin',
-        'e': 'fin_deflection',
-        'r': 'double_fin_defense',
-        'f': 'snoot_boop',
-        'shift+1': 'plush_groom',
-        'shift+2': 'hydro_tail_launch'
+        '3': 'snoot_boop',
+        '4': null,
+        '5': null,
+        '6': null,
+        'q': null,
+        'e': null,
+        'r': null,
+        'f': null,
+        'shift+1': null,
+        'shift+2': null
       }
     }
   };
@@ -733,7 +733,8 @@
     projectiles: [],      // Flying ranged Breb loaves
     vfxMeshes: [],        // Temporary 3D slashes, rings, grapnel lines, and shockwaves
     fctItems: [],         // 3D-projected Floating Combat Text items
-    assigningAbilityId: null // For Spellbook slot assignment
+    assigningAbilityId: null, // For Spellbook slot assignment
+    spellbookMentorFilter: 'all'
   };
 
   let targetRingGroup = null;
@@ -744,49 +745,62 @@
   let fctContainerEl = null;
 
   function loadPersistedState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') {
-          state.learnedByShark = parsed.learnedByShark || {};
-          state.barsByShark = parsed.barsByShark || {};
-        }
-      }
-    } catch (e) {
-      console.warn('BlahajMMO load state warning:', e);
-    }
-
+    const progApi = window.BlahajProgression;
+    const saveSys = window.BlahajSaveSystem;
     ['hermes', 'solomon', 'hiram', 'nimue', 'custom'].forEach((sId) => {
-      const mix = CHARACTER_BASE_MIXES[sId] || CHARACTER_BASE_MIXES.custom;
-      if (!Array.isArray(state.learnedByShark[sId])) {
+      const rec = (saveSys && typeof saveSys.getCharacterProgressionRecord === 'function')
+        ? saveSys.getCharacterProgressionRecord(sId)
+        : null;
+      if (rec && Array.isArray(rec.learnedAbilities)) {
+        state.learnedByShark[sId] = rec.learnedAbilities.filter((abId) => !!ABILITIES[abId]);
+        state.barsByShark[sId] = progApi
+          ? progApi.buildActionBarFromSkills(state.learnedByShark[sId], rec.actionBar)
+          : Object.assign({}, CHARACTER_BASE_MIXES[sId].defaultBar);
+      } else {
+        const mix = CHARACTER_BASE_MIXES[sId] || CHARACTER_BASE_MIXES.custom;
         state.learnedByShark[sId] = [...mix.baseLearned];
-      } else {
-        mix.baseLearned.forEach((abId) => {
-          if (!state.learnedByShark[sId].includes(abId)) {
-            state.learnedByShark[sId].push(abId);
-          }
-        });
-      }
-      if (!state.barsByShark[sId] || typeof state.barsByShark[sId] !== 'object') {
         state.barsByShark[sId] = Object.assign({}, mix.defaultBar);
-      } else {
-        SLOT_KEYS.forEach((k) => {
-          if (!state.barsByShark[sId][k]) {
-            state.barsByShark[sId][k] = mix.defaultBar[k];
-          }
-        });
       }
     });
   }
 
-  function savePersistedState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        learnedByShark: state.learnedByShark,
-        barsByShark: state.barsByShark
-      }));
-    } catch (e) {}
+  function savePersistedState(targetSharkId = null) {
+    const saveSys = window.BlahajSaveSystem;
+    const sharksToPersist = targetSharkId ? [targetSharkId] : ['hermes', 'solomon', 'hiram', 'nimue', 'custom'];
+    if (saveSys && typeof saveSys.updateCharacterProgressionRecord === 'function') {
+      sharksToPersist.forEach((sId) => {
+        if (!Array.isArray(state.learnedByShark[sId])) return;
+        saveSys.updateCharacterProgressionRecord(sId, (rec) => {
+          rec.learnedAbilities = [...state.learnedByShark[sId]];
+          rec.actionBar = Object.assign({}, state.barsByShark[sId] || {});
+        });
+      });
+    }
+  }
+
+  function syncSharkFromProgression(sharkId, rec = null) {
+    const sId = CHARACTER_BASE_MIXES[sharkId] ? sharkId : 'hermes';
+    const progApi = window.BlahajProgression;
+    const sourceRec = rec || (window.BlahajSaveSystem?.getCharacterProgressionRecord?.(sId));
+    if (sourceRec && Array.isArray(sourceRec.learnedAbilities)) {
+      state.learnedByShark[sId] = sourceRec.learnedAbilities.filter((abId) => !!ABILITIES[abId]);
+      state.barsByShark[sId] = progApi
+        ? progApi.buildActionBarFromSkills(state.learnedByShark[sId], sourceRec.actionBar)
+        : Object.assign({}, CHARACTER_BASE_MIXES[sId].defaultBar);
+    } else {
+      state.learnedByShark[sId] = [...CHARACTER_BASE_MIXES[sId].baseLearned];
+      state.barsByShark[sId] = Object.assign({}, CHARACTER_BASE_MIXES[sId].defaultBar);
+    }
+    renderActionBarUI();
+    renderSpellbookModal();
+  }
+
+  function exportSharkLoadout(sharkId) {
+    const sId = CHARACTER_BASE_MIXES[sharkId] ? sharkId : getActiveSharkId();
+    return {
+      learnedAbilities: Array.isArray(state.learnedByShark[sId]) ? [...state.learnedByShark[sId]] : [...CHARACTER_BASE_MIXES[sId].baseLearned],
+      actionBar: Object.assign({}, state.barsByShark[sId] || CHARACTER_BASE_MIXES[sId].defaultBar)
+    };
   }
 
   function getActiveSharkId() {
@@ -824,15 +838,34 @@
 
   function getPassiveDamageMultiplier() {
     const finMod = getActiveFinModifier();
-    if (finMod && typeof finMod.passiveArmorMult === 'number') {
-      return finMod.passiveArmorMult;
-    }
-    return 1.0;
+    const baseArmor = (finMod && typeof finMod.passiveArmorMult === 'number') ? finMod.passiveArmorMult : 1.0;
+    const sId = getActiveSharkId();
+    const prog = window.BlahajProgression?.getCharacterProgression?.(sId);
+    const deg = window.BlahajProgression?.getDegreeInfo?.(prog?.level || 1);
+    const resilienceReduction = deg ? Math.min(0.28, (deg.maxStuffingBonus || 0) * 0.004) : 0;
+    return baseArmor * (1.0 - resilienceReduction);
   }
 
   function isAbilityLearned(sharkId, abilityId) {
+    if (!Array.isArray(state.learnedByShark[sharkId])) {
+      syncSharkFromProgression(sharkId);
+    }
     const list = state.learnedByShark[sharkId] || [];
     return list.includes(abilityId);
+  }
+
+  function placeAbilityOnFirstEmptySlot(sharkId, abilityId) {
+    if (!state.barsByShark[sharkId]) {
+      state.barsByShark[sharkId] = window.BlahajProgression
+        ? window.BlahajProgression.buildEmptyActionBar()
+        : {};
+    }
+    const bar = state.barsByShark[sharkId];
+    const alreadyBound = SLOT_KEYS.some((k) => bar[k] === abilityId);
+    if (!alreadyBound) {
+      const openKey = SLOT_KEYS.find((k) => !bar[k] || !isAbilityLearned(sharkId, bar[k]));
+      if (openKey) bar[openKey] = abilityId;
+    }
   }
 
   function learnAbility(sharkId, abilityId, silent = false) {
@@ -842,13 +875,41 @@
     }
     if (!state.learnedByShark[sharkId].includes(abilityId)) {
       state.learnedByShark[sharkId].push(abilityId);
-      savePersistedState();
+      placeAbilityOnFirstEmptySlot(sharkId, abilityId);
+      savePersistedState(sharkId);
       if (!silent && window.CozyAudio) window.CozyAudio.portalChime();
       renderActionBarUI();
       renderSpellbookModal();
       return true;
     }
     return false;
+  }
+
+  function unlockAbilityWithSkillPoint(sharkId, abilityId) {
+    const progApi = window.BlahajProgression;
+    const saveSys = window.BlahajSaveSystem;
+    if (!progApi || !ABILITIES[abilityId]) return false;
+
+    const elig = progApi.evaluateSkillEligibility(sharkId, abilityId);
+    if (!elig.canLearn) {
+      if (window.showToast) {
+        window.showToast('🔒 INITIATIC REQUIREMENT NOT MET', elig.reason || 'Requires higher Initiatic Degree or Skill Point.');
+      }
+      return false;
+    }
+
+    const cost = elig.node?.skillPointCost || 1;
+    if (saveSys && typeof saveSys.updateCharacterProgressionRecord === 'function') {
+      saveSys.updateCharacterProgressionRecord(sharkId, (rec) => {
+        rec.skillPoints = Math.max(0, (rec.skillPoints || 0) - cost);
+      });
+    }
+    const learnedOk = learnAbility(sharkId, abilityId, false);
+    if (learnedOk && window.showToast) {
+      const ab = ABILITIES[abilityId];
+      window.showToast(`✨ INITIATED IN ${ab.name.toUpperCase()}!`, `${ab.icon} Added to your Action Bar! (${cost} Skill Point spent)`);
+    }
+    return learnedOk;
   }
 
   function learnAllAbilitiesForActiveShark() {
@@ -862,12 +923,19 @@
   function assignSlot(sharkId, slotKey, abilityId) {
     const normSlot = String(slotKey).toLowerCase();
     if (!SLOT_KEYS.includes(normSlot) || !ABILITIES[abilityId]) return false;
-    learnAbility(sharkId, abilityId, true);
+    if (!isAbilityLearned(sharkId, abilityId)) return false;
     if (!state.barsByShark[sharkId]) {
-      state.barsByShark[sharkId] = Object.assign({}, CHARACTER_BASE_MIXES[sharkId]?.defaultBar || CHARACTER_BASE_MIXES.custom.defaultBar);
+      state.barsByShark[sharkId] = window.BlahajProgression
+        ? window.BlahajProgression.buildActionBarFromSkills(state.learnedByShark[sharkId] || [])
+        : Object.assign({}, CHARACTER_BASE_MIXES[sharkId]?.defaultBar || CHARACTER_BASE_MIXES.custom.defaultBar);
     }
+    SLOT_KEYS.forEach((k) => {
+      if (state.barsByShark[sharkId][k] === abilityId) {
+        state.barsByShark[sharkId][k] = null;
+      }
+    });
     state.barsByShark[sharkId][normSlot] = abilityId;
-    savePersistedState();
+    savePersistedState(sharkId);
     renderActionBarUI();
     renderSpellbookModal();
     return true;
@@ -1871,7 +1939,7 @@
 
     const sId = getActiveSharkId();
     if (!isAbilityLearned(sId, abilityId)) {
-      learnAbility(sId, abilityId, true);
+      return false;
     }
 
     const remCd = state.cooldowns[abilityId] || 0;
@@ -2278,9 +2346,10 @@
   function triggerSlot(slotKey) {
     const normSlot = String(slotKey).toLowerCase();
     const sId = getActiveSharkId();
-    const bar = state.barsByShark[sId] || CHARACTER_BASE_MIXES[sId]?.defaultBar || CHARACTER_BASE_MIXES.custom.defaultBar;
+    if (!state.barsByShark[sId]) syncSharkFromProgression(sId);
+    const bar = state.barsByShark[sId] || {};
     const abilityId = bar[normSlot];
-    if (!abilityId) return false;
+    if (!abilityId || !isAbilityLearned(sId, abilityId)) return false;
     return executeAbility(abilityId);
   }
 
@@ -2432,7 +2501,10 @@
 
   function renderActionBarUI() {
     const sId = getActiveSharkId();
-    const bar = state.barsByShark[sId] || CHARACTER_BASE_MIXES[sId]?.defaultBar || CHARACTER_BASE_MIXES.custom.defaultBar;
+    if (!Array.isArray(state.learnedByShark[sId]) || !state.barsByShark[sId]) {
+      loadPersistedState();
+    }
+    const bar = state.barsByShark[sId] || {};
     const finMod = getActiveFinModifier();
     const p = window.player;
     const isAutoRunning = !!(window.camState && window.camState.isAutoRunning);
@@ -2466,12 +2538,24 @@
       }
     }
 
+    let visibleNumCount = 0;
+    let visibleLetterCount = 0;
+
     SLOT_KEYS.forEach((slotKey) => {
       const btn = document.querySelector(`.mmo-ability-slot[data-mmo-slot="${slotKey}"]`);
       if (!btn) return;
       const abId = bar[slotKey];
       const ab = ABILITIES[abId];
-      if (!ab) return;
+
+      // Clean Dynamic Action Bar: ONLY display buttons for skills the active character actually knows!
+      if (!abId || !ab || !isAbilityLearned(sId, abId)) {
+        btn.style.display = 'none';
+        return;
+      }
+
+      btn.style.display = '';
+      if (['1', '2', '3', '4', '5', '6'].includes(slotKey)) visibleNumCount++;
+      if (['q', 'e', 'r', 'f'].includes(slotKey)) visibleLetterCount++;
 
       const iconEl = btn.querySelector('.slot-emoji');
       const nameEl = btn.querySelector('.slot-name');
@@ -2582,6 +2666,11 @@
       }
     });
 
+    // Hide redundant dividers when a slot group has 0 visible skills
+    const dividers = document.querySelectorAll('#mmo-action-bar .bar-divider');
+    if (dividers[0]) dividers[0].style.display = (visibleNumCount > 0 && visibleLetterCount > 0) ? '' : 'none';
+    if (dividers[1]) dividers[1].style.display = (visibleNumCount > 0 || visibleLetterCount > 0) ? '' : 'none';
+
     // Sync F1-F5 Shark Switcher Portraits
     document.querySelectorAll('.shark-switcher-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.shark === sId);
@@ -2595,11 +2684,29 @@
     const sId = getActiveSharkId();
     const sCfg = (window.LORE && window.LORE.sharks && window.LORE.sharks[sId]) || { name: 'Blåhaj' };
     const mix = CHARACTER_BASE_MIXES[sId] || CHARACTER_BASE_MIXES.custom;
+    const progApi = window.BlahajProgression;
+    const prog = progApi ? progApi.getCharacterProgression(sId) : { level: sId === 'custom' ? 1 : 7, skillPoints: 0, mentorId: sId === 'custom' ? 'hermes' : sId };
+    const degInfo = progApi ? progApi.getDegreeInfo(prog.level || 1) : { level: prog.level || 1, cipher: '0°=0□', title: 'Initiate', triad: 'Archipelago' };
+    const myMentor = progApi ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
     const finMod = getActiveFinModifier();
 
     const headerTitle = document.getElementById('sb-shark-header');
     if (headerTitle) {
-      headerTitle.textContent = `${sCfg.name} · ${mix.archetype}`;
+      headerTitle.textContent = `${sCfg.name} · Lv.${degInfo.level} ${degInfo.title} (${degInfo.cipher})`;
+    }
+
+    const progBanner = document.getElementById('sb-progression-banner');
+    const totalCount = Object.keys(ABILITIES).length;
+    const learnedCount = Object.keys(ABILITIES).filter((k) => isAbilityLearned(sId, k)).length;
+    if (progBanner) {
+      const sp = prog.skillPoints || 0;
+      const mentorText = myMentor
+        ? `${myMentor.icon} <strong>${myMentor.currentName}</strong> (Mentor: ${myMentor.mentorName})`
+        : mix.archetype;
+      progBanner.innerHTML = `
+        <div>🕯️ ${mentorText} · <span style="color:#93c5fd;">Known Arts: <strong>${learnedCount} / ${totalCount}</strong></span></div>
+        <span class="sb-sp-pill ${sp > 0 ? '' : 'zero'}">✨ ${sp} Skill Point${sp === 1 ? '' : 's'} Available</span>
+      `;
     }
 
     const finBanner = document.getElementById('sb-fin-mod-banner');
@@ -2607,19 +2714,75 @@
       if (finMod) {
         finBanner.innerHTML = `${finMod.icon} <strong>Active Fin-Slot Stance: ${finMod.stanceName || finMod.tag}</strong> — ${finMod.desc}`;
       } else {
-        finBanner.innerHTML = `🐾 <strong>Active Fin-Slot Item: Empty Fin</strong> — Equip any tool, snack, or relic in your Fin <strong>[H]</strong> (e.g. Sacred Allen Key, Scissors, Measuring Tape, Warm Breb, Sacred Tea) to dynamically transform your Fin Strikes, Passive Stance &amp; Deflections!`;
+        finBanner.innerHTML = `🐾 <strong>Active Fin-Slot Instrument: Empty Fin</strong> — Equip any Sacred Instrument, tool, or loaf in your Fin <strong>[H]</strong> (Hex Key, Scissors, Measuring Tape, Warm Breb, Sacred Tea) to transform your Fin Strikes &amp; Parries!`;
       }
+    }
+
+    // Mentor Current Filter Tabs
+    const tabsEl = document.getElementById('sb-mentor-tabs');
+    if (tabsEl && progApi) {
+      const activeTab = state.spellbookMentorFilter || 'all';
+      const currents = progApi.getAllMentorCurrents();
+      tabsEl.innerHTML = [
+        `<button type="button" class="sb-mentor-tab ${activeTab === 'all' ? 'active' : ''}" data-sb-mentor="all">🌟 All Four Currents (${totalCount})</button>`,
+        ...currents.map((mc) => {
+          const isMine = mc.id === prog.mentorId;
+          return `<button type="button" class="sb-mentor-tab ${activeTab === mc.id ? 'active' : ''}" data-sb-mentor="${mc.id}">${mc.icon} ${mc.mentorName} · ${mc.shortLabel}${isMine ? ' ★' : ''}</button>`;
+        })
+      ].join('');
+
+      tabsEl.querySelectorAll('[data-sb-mentor]').forEach((tBtn) => {
+        tBtn.addEventListener('click', () => {
+          state.spellbookMentorFilter = tBtn.dataset.sbMentor;
+          renderSpellbookModal();
+        });
+      });
     }
 
     const grid = document.getElementById('spellbook-abilities-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    const bar = state.barsByShark[sId] || mix.defaultBar;
+    const bar = state.barsByShark[sId] || {};
+    const activeFilter = state.spellbookMentorFilter || 'all';
 
-    Object.values(ABILITIES).forEach((ab) => {
+    // Show Current Maxim Banner when filtering to a single Mentor Current
+    if (progApi && activeFilter !== 'all') {
+      const curObj = progApi.getMentorCurrent(activeFilter);
+      const repPts = (prog.mentorRep && prog.mentorRep[activeFilter]) || 0;
+      const repTier = progApi.getReputationTier(repPts);
+      const curHeader = document.createElement('div');
+      curHeader.style.cssText = 'grid-column: 1 / -1; padding: 9px 12px; border-radius: 10px; background: rgba(15,23,42,0.82); border-left: 3px solid #fbbf24; font-size: 0.78rem; color: #e2e8f0;';
+      curHeader.innerHTML = `
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+          <strong>${curObj.icon} ${curObj.currentName} — ${curObj.mentorName} (${curObj.mentorSubtitle})</strong>
+          <span style="color:#fde68a; font-weight:800;">Standing: ${repTier.badge} (${repPts} Rep)</span>
+        </div>
+        <div style="color:#94a3b8; margin-top:2px;">Sacred Instrument: ${curObj.instrument}</div>
+        <div style="color:#93c5fd; font-style:italic; margin-top:2px;">${curObj.maxim}</div>
+      `;
+      grid.appendChild(curHeader);
+    }
+
+    const sortedAbilities = Object.values(ABILITIES)
+      .filter((ab) => {
+        if (activeFilter === 'all' || !progApi) return true;
+        return progApi.getSkillNode(ab.id).mentorId === activeFilter;
+      })
+      .sort((a, b) => {
+        if (!progApi) return 0;
+        const na = progApi.getSkillNode(a.id);
+        const nb = progApi.getSkillNode(b.id);
+        return (na.minDegree - nb.minDegree) || (na.tier - nb.tier);
+      });
+
+    sortedAbilities.forEach((ab) => {
       const learned = isAbilityLearned(sId, ab.id);
-      const assignedSlot = Object.keys(bar).find((k) => bar[k] === ab.id);
+      const assignedSlot = learned ? Object.keys(bar).find((k) => bar[k] === ab.id) : null;
+      const node = progApi ? progApi.getSkillNode(ab.id) : { mentorId: 'hermes', minDegree: 1, initiaticNote: '' };
+      const mCur = progApi ? progApi.getMentorCurrent(node.mentorId) : { icon: '🕯️', mentorName: 'Archipelago', shortLabel: 'Tradition' };
+      const elig = progApi ? progApi.evaluateSkillEligibility(sId, ab.id) : { canLearn: false, reason: 'Research in Codex' };
+
       const card = document.createElement('div');
       card.className = `sb-ability-card ${learned ? 'learned' : 'unlearned'} ${state.assigningAbilityId === ab.id ? 'assigning' : ''}`;
 
@@ -2635,24 +2798,37 @@
         ? ` · 🧵 +${Math.round(ab.mangeCost * 100)}% Fray`
         : (ab.mangeCost < 0 ? ` · 🍵 -${Math.round(-ab.mangeCost * 100)}% Mange` : '');
 
+      let unlearnedActionHtml = '';
+      if (!learned) {
+        if (elig.canLearn) {
+          unlearnedActionHtml = `<button type="button" class="btn-accent sb-btn-learn" data-ab="${ab.id}">✨ Initiate Art (${node.skillPointCost || 1} Skill Point)</button>`;
+        } else {
+          unlearnedActionHtml = `<span class="sb-req-pill">🔒 ${elig.reason}</span>`;
+        }
+      }
+
       card.innerHTML = `
         <div class="sb-card-top">
           <span class="sb-card-icon">${ab.icon}</span>
           <div class="sb-card-titles">
             <h4>${displayName}</h4>
             <span class="sb-card-cat">${ab.category} · Range: ${ab.range}m · CD: ${ab.cooldown}s${frayPill}</span>
+            <div>
+              <span class="sb-mentor-tag">${mCur.icon} ${mCur.mentorName} · Lv.${node.minDegree}+</span>
+            </div>
           </div>
-          <span class="sb-slot-pill">${assignedSlot ? `Key [${assignedSlot.toUpperCase()}]` : (learned ? 'Learned' : 'Learnable')}</span>
+          <span class="sb-slot-pill">${assignedSlot ? `Key [${assignedSlot.toUpperCase()}]` : (learned ? 'Known' : 'Unlearned')}</span>
         </div>
+        ${node.initiaticNote ? `<div class="sb-initiatic-note">${node.initiaticNote}</div>` : ''}
         <p class="sb-card-desc">${ab.desc}</p>
         <div class="sb-card-actions">
           ${learned
             ? `<button type="button" class="btn-primary sb-btn-cast" data-ab="${ab.id}">⚡ Cast Now</button>
-               <button type="button" class="btn-secondary sb-btn-bind" data-ab="${ab.id}">⌨️ Bind to Slot (1–6 / Q / E / R / F)</button>`
-            : `<button type="button" class="btn-accent sb-btn-learn" data-ab="${ab.id}">📖 Learn Martial Art</button>`
+               <button type="button" class="btn-secondary sb-btn-bind" data-ab="${ab.id}">⌨️ Bind to Key (1–6 / Q / E / R / F)</button>`
+            : unlearnedActionHtml
           }
         </div>
-        ${state.assigningAbilityId === ab.id ? `
+        ${learned && state.assigningAbilityId === ab.id ? `
           <div class="sb-slot-picker-row">
             <span>Choose Key:</span>
             ${['1', '2', '3', '4', '5', '6', 'q', 'e', 'r', 'f'].map((k) =>
@@ -2667,7 +2843,7 @@
 
     grid.querySelectorAll('.sb-btn-learn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        learnAbility(sId, btn.dataset.ab, false);
+        unlockAbilityWithSkillPoint(sId, btn.dataset.ab);
       });
     });
 
@@ -3093,9 +3269,12 @@
     executeAbility,
     triggerSlot,
     learnAbility,
+    unlockAbilityWithSkillPoint,
     learnAllAbilitiesForActiveShark,
     isAbilityLearned,
     assignSlot,
+    syncSharkFromProgression,
+    exportSharkLoadout,
     getActiveFinModifier,
     getPassiveDamageMultiplier,
     getComboProcs: () => state.comboProcs,

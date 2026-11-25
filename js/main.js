@@ -3510,11 +3510,34 @@
       renderCharacterSheet(selectedCSShark);
     }
 
+    function refreshCharacterProgressionHUD(targetSharkId = sharkId) {
+      const tCfg = LORE.sharks[targetSharkId] || cfg;
+      const progApi = window.BlahajProgression;
+      const prog = progApi ? progApi.getCharacterProgression(targetSharkId) : null;
+      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level || 1) : null;
+      const mCur = (progApi && prog) ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
+
+      const keyEl = document.getElementById('hud-shark-key');
+      const nameEl = document.getElementById('hud-shark-name');
+      const titleEl = document.getElementById('hud-shark-title');
+      if (keyEl) {
+        keyEl.textContent = deg ? `Lv.${deg.level}` : tCfg.key;
+        if (deg) keyEl.title = `${deg.cipher} · ${deg.title}`;
+      }
+      if (nameEl) nameEl.textContent = tCfg.name;
+      if (titleEl) {
+        titleEl.textContent = (deg && mCur)
+          ? `${deg.cipher} · ${mCur.icon} ${mCur.shortLabel}`
+          : tCfg.title;
+      }
+    }
+
     document.getElementById('hud-shark-portrait').src = cfg.portrait;
-    document.getElementById('hud-shark-key').textContent = cfg.key;
-    document.getElementById('hud-shark-name').textContent = cfg.name;
-    document.getElementById('hud-shark-title').textContent = cfg.title;
+    refreshCharacterProgressionHUD(sharkId);
     document.getElementById('hud-shark-quote').textContent = cfg.quote;
+    if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+      window.BlahajMMO.syncSharkFromProgression(sharkId);
+    }
     document.getElementById('ability-icon').textContent = cfg.abilityIcon;
     document.getElementById('ability-name').textContent = cfg.abilityName;
 
@@ -6530,13 +6553,23 @@
       switchBtn.style.opacity = '1.0';
     }
 
-    // 3. Avatar card details
+    // 3. Avatar card details + Initiatic Degree & Mentor Current
     const portraitEl = document.getElementById('cs-portrait');
     if (portraitEl) portraitEl.src = cfg.portrait;
     const nameEl = document.getElementById('cs-shark-name');
-    if (nameEl) nameEl.textContent = cfg.name;
+    const progApi = window.BlahajProgression;
+    const charProg = progApi ? progApi.getCharacterProgression(selectedCSShark) : null;
+    const degInfo = (progApi && charProg) ? progApi.getDegreeInfo(charProg.level || 1) : null;
+    const mentorInfo = (progApi && charProg) ? progApi.getMentorCurrent(charProg.mentorId || 'hermes') : null;
+    if (nameEl) {
+      nameEl.textContent = degInfo ? `${cfg.name} · Lv.${degInfo.level}` : cfg.name;
+    }
     const titleEl = document.getElementById('cs-shark-title');
-    if (titleEl) titleEl.textContent = cfg.title;
+    if (titleEl) {
+      titleEl.textContent = (degInfo && mentorInfo)
+        ? `${degInfo.title} (${degInfo.cipher}) · ${mentorInfo.icon} ${mentorInfo.currentName}`
+        : cfg.title;
+    }
     const quoteEl = document.getElementById('cs-shark-quote');
     if (quoteEl) quoteEl.textContent = cfg.quote;
 
@@ -19456,6 +19489,28 @@
     closeIslandMap,
     toggleIslandMap,
     renderCharacterSheet,
+    refreshCharacterProgressionHUD: (targetSharkId) => {
+      const sId = targetSharkId || player.sharkId || 'hermes';
+      const tCfg = LORE.sharks[sId] || LORE.sharks.hermes;
+      const progApi = window.BlahajProgression;
+      const prog = progApi ? progApi.getCharacterProgression(sId) : null;
+      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level || 1) : null;
+      const mCur = (progApi && prog) ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
+
+      const keyEl = document.getElementById('hud-shark-key');
+      const nameEl = document.getElementById('hud-shark-name');
+      const titleEl = document.getElementById('hud-shark-title');
+      if (keyEl) {
+        keyEl.textContent = deg ? `Lv.${deg.level}` : tCfg.key;
+        if (deg) keyEl.title = `${deg.cipher} · ${deg.title}`;
+      }
+      if (nameEl) nameEl.textContent = tCfg.name;
+      if (titleEl) {
+        titleEl.textContent = (deg && mCur)
+          ? `${deg.cipher} · ${mCur.icon} ${mCur.shortLabel}`
+          : tCfg.title;
+      }
+    },
     isGameLoaded: () => isGameLoaded,
     getRenderer: () => renderer,
     getCamera: () => camera,

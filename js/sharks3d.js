@@ -947,10 +947,14 @@ window.BlahajModels = (function () {
 
     function attachForeheadGoggles(lensColorHex) {
       const goggleGroup = new THREE.Group();
-      goggleGroup.position.set(0, 2.33, 0.56 + (plump - 1.0) * 0.22);
-      goggleGroup.rotation.x = -0.40;
       goggleGroup.userData.accessoryType = 'headgear';
       goggleGroup.visible = showHeadgear;
+
+      // Sample exact plush forehead geometry so goggles & strap never clip into the snout at any plumpness or mange!
+      const sMid = 0.895;
+      const stMid = evalUprightSharkStation(sMid, plump, mange);
+      const stLo = evalUprightSharkStation(sMid - 0.035, plump, mange);
+      const stHi = evalUprightSharkStation(sMid + 0.035, plump, mange);
 
       const lensMat = new THREE.MeshStandardMaterial({
         color: lensColorHex,
@@ -959,33 +963,96 @@ window.BlahajModels = (function () {
         side: THREE.DoubleSide
       });
 
-      [-1, 1].forEach((side) => {
-        const cup = new THREE.Group();
-        cup.position.set(side * 0.16 * plump, 0, -0.03);
-        cup.rotation.y = side * 0.38;
+      const cupSinT = 0.38;
+      const cupCosT = Math.sqrt(1.0 - cupSinT * cupSinT);
+      const zLo = stLo.centerZ + cupCosT * stLo.depthFrontZ;
+      const zHi = stHi.centerZ + cupCosT * stHi.depthFrontZ;
+      const slopeLen = Math.hypot(stHi.y - stLo.y, zLo - zHi) || 1.0;
+      // Outward forehead normal components in YZ plane
+      const ny = (zLo - zHi) / slopeLen;
+      const nz = (stHi.y - stLo.y) / slopeLen;
 
-        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.026, 12, 24), brassMat);
+      const cupPositions = [];
+      [-1, 1].forEach((side) => {
+        const surfX = side * cupSinT * stMid.widthX;
+        const surfY = stMid.y;
+        const surfZ = stMid.centerZ + cupCosT * stMid.depthFrontZ;
+
+        // Lateral outward component on ellipsoid
+        const nxRaw = side * cupSinT * 0.55;
+        const nNorm = Math.hypot(nxRaw, ny, nz) || 1.0;
+        const ux = nxRaw / nNorm;
+        const uy = ny / nNorm;
+        const uz = nz / nNorm;
+
+        // Offset cup cleanly outside the plush pile (+0.042m clearance > frame tube 0.024m + curvature)
+        const clearance = 0.042;
+        const cx = surfX + ux * clearance;
+        const cy = surfY + uy * clearance;
+        const cz = surfZ + uz * clearance;
+        cupPositions.push(new THREE.Vector3(cx, cy, cz));
+
+        const cup = new THREE.Group();
+        cup.position.set(cx, cy, cz);
+        cup.lookAt(cx + ux, cy + uy, cz + uz);
+
+        // Soft dark leather/rubber gasket backing flush against plush forehead
+        const gasketMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.88 });
+        const gasket = new THREE.Mesh(new THREE.CylinderGeometry(0.116, 0.124, 0.036, 22, 1, true), gasketMat);
+        gasket.rotation.x = Math.PI / 2;
+        gasket.position.z = -0.016;
+        cup.add(gasket);
+
+        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.112, 0.024, 12, 24), brassMat);
         cup.add(gFrame);
 
-        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.102, 20), lensMat);
-        lens.position.z = 0.008;
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.10, 20), lensMat);
+        lens.position.z = 0.006;
         cup.add(lens);
+
+        // Specular glass highlight crescent
+        const glint = new THREE.Mesh(
+          new THREE.CircleGeometry(0.026, 12),
+          new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.75 })
+        );
+        glint.position.set(-0.032 * side, 0.032, 0.012);
+        cup.add(glint);
 
         goggleGroup.add(cup);
       });
 
-      // Brass nose bridge connecting the two goggle frames
-      const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.14 * plump, 8), brassMat);
-      bridge.rotation.z = Math.PI / 2;
-      bridge.position.set(0, 0, 0.015);
+      // Curved brass nose bridge arching cleanly outside the center forehead ridge
+      const centerFrontZ = stMid.centerZ + stMid.depthFrontZ;
+      const bridgeCurve = new THREE.QuadraticBezierCurve3(
+        new THREE.Vector3(cupPositions[0].x + 0.085, cupPositions[0].y, cupPositions[0].z),
+        new THREE.Vector3(0, stMid.y + ny * 0.052, centerFrontZ + nz * 0.052 + 0.018),
+        new THREE.Vector3(cupPositions[1].x - 0.085, cupPositions[1].y, cupPositions[1].z)
+      );
+      const bridge = new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 12, 0.016, 8, false), brassMat);
       goggleGroup.add(bridge);
 
-      // Elastic strap wrapping cleanly around the forehead
+      // 360-degree contour-hugging elastic strap wrapping around the exact plush head cross-section
+      const strapPts = [];
+      const strapSegs = 28;
+      const startAng = Math.asin(cupSinT) + 0.16;
+      const endAng = Math.PI * 2 - startAng;
+      for (let k = 0; k <= strapSegs; k++) {
+        const theta = startAng + (endAng - startAng) * (k / strapSegs);
+        const sinA = Math.sin(theta);
+        const cosA = Math.cos(theta);
+        // Slightly lower toward the back of the skull so the strap grips securely
+        const backDip = (1.0 - cosA) * 0.5; // 0 in front, 1 in back
+        const stBand = evalUprightSharkStation(sMid - backDip * 0.028, plump, mange);
+        const radZ = cosA >= 0 ? stBand.depthFrontZ : stBand.depthBackZ;
+        const pad = 0.016;
+        const sx = sinA * (stBand.widthX + pad);
+        const sy = stBand.y;
+        const sz = stBand.centerZ + cosA * (radZ + pad);
+        strapPts.push(new THREE.Vector3(sx, sy, sz));
+      }
+      const strapCurve = new THREE.CatmullRomCurve3(strapPts, false);
       const strapMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
-      const strap = new THREE.Mesh(new THREE.TorusGeometry(0.32 * plump, 0.024, 8, 28), strapMat);
-      strap.rotation.x = Math.PI / 2;
-      strap.scale.set(0.95, 1.18, 1.0);
-      strap.position.set(0, -0.02, -0.28);
+      const strap = new THREE.Mesh(new THREE.TubeGeometry(strapCurve, 32, 0.020, 8, false), strapMat);
       goggleGroup.add(strap);
 
       rig.add(goggleGroup);

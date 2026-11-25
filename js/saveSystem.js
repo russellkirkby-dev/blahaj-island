@@ -943,7 +943,71 @@
         };
       }
     });
+
+    // v19.0 Initiatic Progression Migration:
+    // Founders start at Lv.7 (5°=6□) with 7 specialty powers; Custom starts at Lv.1 (0°=0□) with chosen Mentor & 3 starter arts!
+    const progApi = window.BlahajProgression;
+    if (progApi && !roster._initiaticProgressionV19) {
+      roster._initiaticProgressionV19 = true;
+      const cs = currentSaveState?.profile?.customShark || {};
+      ALL_ROSTER_IDS.forEach((id) => {
+        const defProg = progApi.buildDefaultProgressionForShark(id, {
+          mentorId: cs.mentorId || 'hermes',
+          starterSkills: cs.starterSkills
+        });
+        const rec = roster[id];
+        rec.level = defProg.level;
+        rec.skillPoints = defProg.skillPoints;
+        rec.mentorId = defProg.mentorId;
+        rec.mentorRep = { ...defProg.mentorRep };
+        rec.clearedTrials = Array.isArray(rec.clearedTrials) ? rec.clearedTrials : [];
+        rec.learnedAbilities = [...defProg.learnedAbilities];
+        rec.actionBar = { ...defProg.actionBar };
+      });
+      try {
+        localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+      } catch (e) {}
+    } else if (progApi) {
+      const cs = currentSaveState?.profile?.customShark || {};
+      ALL_ROSTER_IDS.forEach((id) => {
+        const rec = roster[id];
+        if (!Array.isArray(rec.learnedAbilities) || typeof rec.level !== 'number') {
+          const defProg = progApi.buildDefaultProgressionForShark(id, {
+            mentorId: cs.mentorId || 'hermes',
+            starterSkills: cs.starterSkills
+          });
+          if (typeof rec.level !== 'number') rec.level = defProg.level;
+          if (typeof rec.skillPoints !== 'number') rec.skillPoints = defProg.skillPoints;
+          if (!rec.mentorId) rec.mentorId = defProg.mentorId;
+          if (!rec.mentorRep || typeof rec.mentorRep !== 'object') rec.mentorRep = { ...defProg.mentorRep };
+          if (!Array.isArray(rec.clearedTrials)) rec.clearedTrials = [];
+          if (!Array.isArray(rec.learnedAbilities)) rec.learnedAbilities = [...defProg.learnedAbilities];
+          if (!rec.actionBar || typeof rec.actionBar !== 'object') rec.actionBar = { ...defProg.actionBar };
+        }
+      });
+    }
     return roster;
+  }
+
+  function getCharacterProgressionRecord(sharkId) {
+    const id = ALL_ROSTER_IDS.includes(sharkId) ? sharkId : 'hermes';
+    const roster = ensureCharacterRoster();
+    return roster[id] || null;
+  }
+
+  function updateCharacterProgressionRecord(sharkId, mutator) {
+    const id = ALL_ROSTER_IDS.includes(sharkId) ? sharkId : 'hermes';
+    const roster = ensureCharacterRoster();
+    const rec = roster[id];
+    if (!rec) return null;
+    if (typeof mutator === 'function') {
+      mutator(rec);
+    } else if (mutator && typeof mutator === 'object') {
+      Object.assign(rec, mutator);
+    }
+    rec.updatedAt = Date.now();
+    persistRosterToStorage();
+    return rec;
   }
 
   function persistRosterToStorage() {
@@ -1017,6 +1081,13 @@
     }
     if (game.getSharkAccessories) {
       rec.accessories = game.getSharkAccessories(sharkId);
+    }
+    if (window.BlahajMMO && typeof window.BlahajMMO.exportSharkLoadout === 'function') {
+      const loadout = window.BlahajMMO.exportSharkLoadout(sharkId);
+      if (loadout) {
+        rec.learnedAbilities = loadout.learnedAbilities;
+        rec.actionBar = loadout.actionBar;
+      }
     }
     const zoneNow = (game.getZone && game.getZone()) || 'island';
     if (zoneNow === 'island' && player.pos && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z)) {
@@ -1109,6 +1180,10 @@
     }
 
     if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+    if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+      window.BlahajMMO.syncSharkFromProgression(sharkId, rec);
+    }
+    if (game.refreshCharacterProgressionHUD) game.refreshCharacterProgressionHUD(sharkId);
     if (game.updateMetersUI) game.updateMetersUI();
   }
 
@@ -1122,9 +1197,28 @@
       const localRec = roster[sId];
       const mergedSlots = mergeInventorySlotArrays(inc.inventorySlots, localRec.inventorySlots);
       const mergedUpgrades = Array.from(new Set([...(localRec.unlockedUpgrades || []), ...(inc.unlockedUpgrades || [])]));
+      const mergedLearned = Array.from(new Set([...(localRec.learnedAbilities || []), ...(inc.learnedAbilities || [])]));
+      const mergedTrials = Array.from(new Set([...(localRec.clearedTrials || []), ...(inc.clearedTrials || [])]));
+      const mergedRep = { ...(localRec.mentorRep || {}) };
+      if (inc.mentorRep && typeof inc.mentorRep === 'object') {
+        Object.keys(inc.mentorRep).forEach((mKey) => {
+          mergedRep[mKey] = Math.max(mergedRep[mKey] || 0, inc.mentorRep[mKey] || 0);
+        });
+      }
+      const mergedBar = (window.BlahajProgression && typeof window.BlahajProgression.buildActionBarFromSkills === 'function')
+        ? window.BlahajProgression.buildActionBarFromSkills(mergedLearned, inc.actionBar || localRec.actionBar)
+        : (inc.actionBar || localRec.actionBar);
+
       roster[sId] = {
         ...localRec,
         ...inc,
+        level: Math.max(localRec.level || 1, inc.level || 1),
+        skillPoints: Math.max(localRec.skillPoints || 0, inc.skillPoints || 0),
+        mentorId: inc.mentorId || localRec.mentorId || (sId === 'custom' ? 'hermes' : sId),
+        mentorRep: mergedRep,
+        clearedTrials: mergedTrials,
+        learnedAbilities: mergedLearned,
+        actionBar: mergedBar,
         inventorySlots: mergedSlots,
         unlockedUpgrades: mergedUpgrades,
         birbsFedCount: Math.max(localRec.birbsFedCount || 0, inc.birbsFedCount || 0),
@@ -1300,7 +1394,13 @@
       const rec = roster[c.id] || {};
       const slots = Array.isArray(rec.inventorySlots) ? rec.inventorySlots : [];
       const itemCount = slots.filter(Boolean).reduce((acc, s) => acc + (s.qty || 1), 0);
-      const skillCount = (rec.unlockedUpgrades || []).length;
+      const progApi = window.BlahajProgression;
+      const charLevel = rec.level || (c.id === 'custom' ? 1 : 7);
+      const degInfo = progApi ? progApi.getDegreeInfo(charLevel) : { level: charLevel, cipher: charLevel >= 7 ? '5°=6□' : '0°=0□', title: 'Initiate' };
+      const mentorCur = progApi ? progApi.getMentorCurrent(rec.mentorId || (c.id === 'custom' ? (cs.mentorId || 'hermes') : c.id)) : null;
+      const knownArtsCount = Array.isArray(rec.learnedAbilities)
+        ? rec.learnedAbilities.length
+        : (c.id === 'custom' ? (Array.isArray(cs.starterSkills) ? cs.starterSkills.length : 3) : 7);
       const mangePct = Math.round(((typeof rec.mange === 'number' ? rec.mange : (loreSharks[c.id]?.mange ?? 0.45))) * 100);
 
       const lock = getActiveLockForShark(c.id);
@@ -1312,7 +1412,7 @@
       if (lockedByPartner) {
         statusPillHtml = `<span class="char-card-status status-inworld">🔒 IN WORLD · Played by ${escapeHtml(lock.playerName)}</span>`;
       } else if (lockedByFounderGate) {
-        statusPillHtml = `<span class="char-card-status status-founder-locked">👑 Founder NPC (Russell &amp; Helen)</span>`;
+        statusPillHtml = `<span class="char-card-status status-founder-locked">👑 Founder Mentor NPC</span>`;
       } else if (c.id === 'custom' && !cs.detagged) {
         statusPillHtml = `<span class="char-card-status status-create">✂️ Click to Create Character</span>`;
       } else if (isSelected) {
@@ -1321,11 +1421,15 @@
         statusPillHtml = `<span class="char-card-status status-ready">🟢 Available</span>`;
       }
 
+      const currentSubtitle = mentorCur
+        ? `${mentorCur.icon} ${c.isFounderOnly ? mentorCur.currentName : `Mentor: ${mentorCur.mentorName} (${mentorCur.shortLabel})`}`
+        : c.spec;
+
       return `
         <div class="lobby-char-card ${isSelected ? 'selected' : ''} ${lockedByPartner ? 'locked-inworld' : ''} ${lockedByFounderGate ? 'locked-founder' : ''}"
              data-shark-card="${c.id}" role="button" tabindex="0">
           <div class="char-card-top">
-            <span class="char-role-badge">${c.roleBadge}</span>
+            <span class="char-degree-pill" title="${escapeHtml(degInfo.title)}">Lv.${degInfo.level} · ${escapeHtml(degInfo.cipher)}</span>
             ${statusPillHtml}
           </div>
           <div class="char-card-hero">
@@ -1336,17 +1440,17 @@
             <div class="char-card-identity">
               <h3 class="char-card-name">${escapeHtml(c.name)}</h3>
               <div class="char-card-title">${escapeHtml(c.title)}</div>
-              <div class="char-card-spec">${escapeHtml(c.spec)}</div>
+              <div class="char-card-spec">${escapeHtml(currentSubtitle)}</div>
             </div>
           </div>
           <div class="char-card-stats">
-            <span title="This Character's Personal Satchel Items">🎒 Bag: <strong>${itemCount} items</strong></span>
-            <span title="This Character's Unlocked Upgrades &amp; Skills">⚡ Skills: <strong>${skillCount + 6}</strong></span>
+            <span title="This Character's Personal 36-Slot Satchel">🎒 Bag: <strong>${itemCount}</strong></span>
+            <span title="Known Fin &amp; Tail Martial Arts (of 12)">⚡ Arts: <strong>${knownArtsCount}/12</strong></span>
             <span title="Plush Coat Mange Factor">🧵 Coat: <strong>${mangePct}%</strong></span>
           </div>
           ${c.id === 'custom' ? `
-            <button type="button" class="btn-char-card-customize" data-customize-custom="true" title="Customize Name, Plush Dye & Scarf">
-              ✂️ ${cs.detagged ? 'Edit Appearance & Name' : 'Create & Name Your Blåhaj'}
+            <button type="button" class="btn-char-card-customize" data-customize-custom="true" title="Choose Mentor Current, Starter Arts, Name & Plush Dye">
+              ✂️ ${cs.detagged ? 'Edit Name, Mentor & Appearance' : 'Create & Name Your Blåhaj'}
             </button>
           ` : ''}
         </div>
@@ -1476,17 +1580,23 @@
       if (activePick === 'custom') {
         if (!cs.detagged) {
           embarkText.textContent = `✂️ CREATE YOUR BLÅHAJ & ENTER SPAWNING PITS`;
-          if (embarkSub) embarkSub.textContent = `Step 1: Customize & Name Your Shark · Spawns in IKEA Wire Bin #303 🦈✨`;
+          if (embarkSub) embarkSub.textContent = `Lv. 1 Probationer (0°=0□) · Choose Guiding Mentor & 3 Starter Arts · Spawns in Wire Bin #303 🦈✨`;
         } else {
+          const customRec = roster.custom || {};
+          const customLv = customRec.level || 1;
+          const mCur = window.BlahajProgression?.getMentorCurrent(customRec.mentorId || cs.mentorId || 'hermes');
           embarkText.textContent = `🦈 ENTER WORLD AS ${cs.name.toUpperCase()}`;
-          if (embarkSub) embarkSub.textContent = `${cs.title || 'Custom Blåhaj'} · Click to Enter World`;
+          if (embarkSub) embarkSub.textContent = `Lv.${customLv} · ${mCur ? `Mentor: ${mCur.mentorName} (${mCur.shortLabel})` : (cs.title || 'Custom Blåhaj')} · Personal Bag & Skills`;
         }
       } else {
         const sCfg = window.BLAHAJ_LORE?.sharks?.[activePick];
+        const fRec = roster[activePick] || {};
+        const fLv = fRec.level || 7;
+        const deg = window.BlahajProgression?.getDegreeInfo(fLv);
         const sName = sCfg ? sCfg.name.toUpperCase() : activePick.toUpperCase();
         const sTitle = sCfg ? sCfg.title : 'Sacred Founder of Blåhaj Island';
         embarkText.textContent = `🦈 ENTER WORLD AS ${sName}`;
-        if (embarkSub) embarkSub.textContent = `${sTitle} · Shared Founder Inventory & Skills Active`;
+        if (embarkSub) embarkSub.textContent = `Lv.${fLv} (${deg ? deg.cipher : '5°=6□'}) · ${sTitle} · ${sCfg ? sCfg.name : activePick}’s Personal Bag & 7 Specialty Arts`;
       }
     }
 
@@ -1610,10 +1720,19 @@
         scarfColor: 0xd97706,
         plumpness: 1.05,
         keepsake: 'flatpack_hat',
+        mentorId: 'hermes',
+        starterSkills: ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop'],
         detagged: false,
         detaggedAt: null,
         tagSerial: 'ART. 303.735.88'
       };
+    } else {
+      const csRef = currentSaveState.profile.customShark;
+      if (!csRef.mentorId) csRef.mentorId = 'hermes';
+      if (!Array.isArray(csRef.starterSkills) || csRef.starterSkills.length === 0) {
+        const defCur = window.BlahajProgression?.getMentorCurrent(csRef.mentorId);
+        csRef.starterSkills = defCur ? [...defCur.recommendedStarters] : ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop'];
+      }
     }
     if (!Array.isArray(currentSaveState.profile.bookOfNamedSharks)) {
       currentSaveState.profile.bookOfNamedSharks = [
@@ -1699,6 +1818,35 @@
     currentSaveState.profile.displayName = cs.name;
     syncCustomSharkToLore();
 
+    // Sync Custom Shark's Initiatic Progression Record (Mentor Current & Chosen Starter Arts)
+    const roster = ensureCharacterRoster();
+    const progApi = window.BlahajProgression;
+    if (roster.custom && progApi) {
+      const chosenMentor = cs.mentorId || 'hermes';
+      const chosenStarters = (Array.isArray(cs.starterSkills) && cs.starterSkills.length >= 1)
+        ? cs.starterSkills.slice(0, 3)
+        : [...progApi.getMentorCurrent(chosenMentor).recommendedStarters];
+      cs.mentorId = chosenMentor;
+      cs.starterSkills = chosenStarters;
+
+      // Apply fresh Level 1 starter loadout if newly created or still at Level 1 Probationer
+      if ((roster.custom.level || 1) <= 1) {
+        const freshProg = progApi.buildDefaultProgressionForShark('custom', {
+          mentorId: chosenMentor,
+          starterSkills: chosenStarters
+        });
+        roster.custom.level = 1;
+        roster.custom.mentorId = chosenMentor;
+        roster.custom.mentorRep = { ...freshProg.mentorRep };
+        roster.custom.learnedAbilities = [...freshProg.learnedAbilities];
+        roster.custom.actionBar = { ...freshProg.actionBar };
+      }
+      persistRosterToStorage();
+      if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+        window.BlahajMMO.syncSharkFromProgression('custom', roster.custom);
+      }
+    }
+
     // Grant Retired Spawning-Pit Tag, Apprentice Hex Key & Ingvar's Measuring Tape into player satchel
     const game = window.BlahajGame;
     if (game && typeof game.getPlayerInventory === 'function') {
@@ -1750,10 +1898,29 @@
       scarfColor: 0xd97706,
       plumpness: 1.05,
       keepsake: 'tag_unclipped',
+      mentorId: 'hermes',
+      starterSkills: ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop'],
       detagged: false,
       detaggedAt: null,
       tagSerial: 'ART. 303.735.88'
     };
+
+    // Reset Custom Shark's progression back to Level 1 Probationer on Rebirth
+    const roster = ensureCharacterRoster();
+    if (roster.custom && window.BlahajProgression) {
+      const freshProg = window.BlahajProgression.buildDefaultProgressionForShark('custom', {
+        mentorId: 'hermes',
+        starterSkills: ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop']
+      });
+      Object.assign(roster.custom, freshProg, {
+        inventorySlots: buildStarterSlotsForShark('custom'),
+        heldItemId: null
+      });
+      persistRosterToStorage();
+      if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+        window.BlahajMMO.syncSharkFromProgression('custom', roster.custom);
+      }
+    }
 
     // Clear the active custom-player inscription in the Book of Newly Named Sharks so their reborn name can be freshly written
     if (Array.isArray(currentSaveState.profile.bookOfNamedSharks)) {
@@ -1867,6 +2034,136 @@
       btnSnip.innerHTML = cs.detagged
         ? `✨ Update True Name &amp; Plush Form (${escapeHtml(cs.name)})`
         : `✂️ Snip Factory Tag &amp; Inscribe True Name!`;
+    }
+
+    // Render Guiding Mentor Current cards & Starter Skill Picker (v19.0)
+    const progApi = window.BlahajProgression;
+    const mentorGrid = document.getElementById('detag-mentor-grid');
+    const mentorSummary = document.getElementById('detag-mentor-summary');
+    const starterGrid = document.getElementById('detag-starter-skills-grid');
+    const starterCountPill = document.getElementById('detag-starter-count-pill');
+    const customRec = ensureCharacterRoster().custom || { level: 1 };
+    const isHigherDegree = (customRec.level || 1) > 1;
+
+    if (progApi && mentorGrid) {
+      const activeMentorId = cs.mentorId || 'hermes';
+      const activeCur = progApi.getMentorCurrent(activeMentorId);
+      mentorGrid.innerHTML = progApi.getAllMentorCurrents().map((mc) => `
+        <button type="button" class="detag-mentor-card ${mc.id === activeMentorId ? 'active' : ''}" data-mentor-pick="${mc.id}" ${isHigherDegree && mc.id !== activeMentorId ? 'title="Already ascended past Lv.1 — Mentor Re-Dedication unlocked via Mentor NPC Rite"' : ''}>
+          <div class="detag-mentor-card-head">
+            <span>${mc.icon}</span>
+            <span>${escapeHtml(mc.mentorName)}</span>
+          </div>
+          <div class="detag-mentor-card-sub">${escapeHtml(mc.shortLabel)}</div>
+        </button>
+      `).join('');
+
+      if (mentorSummary && activeCur) {
+        mentorSummary.innerHTML = `
+          <div><strong>${activeCur.icon} ${escapeHtml(activeCur.currentName)}</strong> · <span style="color:#fde68a;">${escapeHtml(activeCur.instrument)}</span></div>
+          <div style="margin-top:3px;">${escapeHtml(activeCur.summary)}</div>
+          <div style="margin-top:4px; font-style:italic; color:#93c5fd;">${escapeHtml(activeCur.maxim)}</div>
+        `;
+      }
+
+      mentorGrid.querySelectorAll('[data-mentor-pick]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const picked = btn.dataset.mentorPick;
+          if (isHigherDegree && picked !== cs.mentorId) {
+            if (window.showToast) {
+              window.showToast('🕯️ MENTOR OATH SWORN', 'Once past Lv.1, changing Currents requires performing a Rite of Re-Dedication with a Founder Mentor NPC!');
+            }
+            return;
+          }
+          const nextCur = progApi.getMentorCurrent(picked);
+          cs.mentorId = picked;
+          cs.starterSkills = [...nextCur.recommendedStarters];
+          saveCustomSharkConfig({ mentorId: cs.mentorId, starterSkills: cs.starterSkills });
+          if ((customRec.level || 1) <= 1) {
+            const fresh = progApi.buildDefaultProgressionForShark('custom', {
+              mentorId: cs.mentorId,
+              starterSkills: cs.starterSkills
+            });
+            Object.assign(customRec, fresh);
+            persistRosterToStorage();
+            if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+              window.BlahajMMO.syncSharkFromProgression('custom', customRec);
+            }
+          }
+          if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
+          renderRiteOfDetaggingModalState();
+          updateLaunchGatewayUI();
+        });
+      });
+    }
+
+    if (progApi && starterGrid) {
+      const mmoAbs = window.BlahajMMO?.ABILITIES || {};
+      const selectedStarters = Array.isArray(cs.starterSkills) ? cs.starterSkills : ['poky_fin_strike', 'single_fin_lunge', 'snoot_boop'];
+      if (starterCountPill) {
+        starterCountPill.textContent = isHigherDegree
+          ? `Lv.${customRec.level} · ${(customRec.learnedAbilities || []).length} Arts Known`
+          : `${selectedStarters.length} / 3 Chosen`;
+      }
+
+      const starterPoolIds = Object.keys(progApi.SKILL_NODES).filter((abId) => progApi.SKILL_NODES[abId].sharedStarter && mmoAbs[abId]);
+      starterGrid.innerHTML = starterPoolIds.map((abId) => {
+        const ab = mmoAbs[abId];
+        const node = progApi.getSkillNode(abId);
+        const mCur = progApi.getMentorCurrent(node.mentorId);
+        const isPicked = selectedStarters.includes(abId);
+        return `
+          <button type="button" class="detag-starter-chip ${isPicked ? 'selected' : ''}" data-starter-ab="${abId}" title="${escapeHtml(ab.desc)}">
+            <span class="chip-icon">${ab.icon}</span>
+            <span class="chip-text">
+              <span class="chip-name">${isPicked ? '✓ ' : ''}${escapeHtml(ab.name)}</span>
+              <span class="chip-sub">${mCur.icon} ${escapeHtml(mCur.mentorName)} · ${escapeHtml(ab.shortSub)}</span>
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      starterGrid.querySelectorAll('[data-starter-ab]').forEach((chip) => {
+        chip.addEventListener('click', () => {
+          if (isHigherDegree) {
+            if (window.showToast) {
+              window.showToast('📖 OPEN SPELLBOOK [I]', 'Starter arts are locked in after ascending past Lv.1—study new arts in your Spellbook [I]!');
+            }
+            return;
+          }
+          const abId = chip.dataset.starterAb;
+          let nextList = [...selectedStarters];
+          if (nextList.includes(abId)) {
+            if (nextList.length <= 2) {
+              if (window.showToast) {
+                window.showToast('⚡ CHOOSE 2 OR 3 STARTER ARTS', 'Select at least 2 starter arts so your new Blåhaj is ready for the Spawning Pits!');
+              }
+              return;
+            }
+            nextList = nextList.filter((x) => x !== abId);
+          } else {
+            if (nextList.length >= 3) {
+              // Smoothly swap the oldest non-locked choice (keep poky_fin_strike if first, replace last)
+              nextList.pop();
+            }
+            nextList.push(abId);
+          }
+          cs.starterSkills = nextList;
+          saveCustomSharkConfig({ starterSkills: nextList });
+          const fresh = progApi.buildDefaultProgressionForShark('custom', {
+            mentorId: cs.mentorId || 'hermes',
+            starterSkills: nextList
+          });
+          Object.assign(customRec, fresh);
+          persistRosterToStorage();
+          if (window.BlahajMMO && typeof window.BlahajMMO.syncSharkFromProgression === 'function') {
+            window.BlahajMMO.syncSharkFromProgression('custom', customRec);
+          }
+          if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
+          renderRiteOfDetaggingModalState();
+          updateLaunchGatewayUI();
+        });
+      });
     }
 
     // Render Book of Newly Named Sharks
@@ -2162,6 +2459,8 @@
     syncFounderAndCustomSharkUI,
     getMyAccountDisplayName,
     ensureCharacterRoster,
+    getCharacterProgressionRecord,
+    updateCharacterProgressionRecord,
     captureActiveCharacterToRoster,
     applyCharacterFromRoster,
     handleIncomingRosterSync,
