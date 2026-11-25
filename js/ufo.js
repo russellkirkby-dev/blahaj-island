@@ -1874,6 +1874,8 @@ window.BlahajUFO = (function () {
       passengerName: state.passengerName,
       warpChargeTimer: Number((state.warpChargeTimer || 0).toFixed(2)),
       inSpace: !!state.inSpace,
+      inCheeseMoon: !!state.inCheeseMoon,
+      inHyperspace: !!state.inHyperspace,
       spaceThrottle: Number((state.spaceThrottle || 0).toFixed(2)),
       hullHp: Math.round(state.hullHp ?? 100),
       shieldHp: Math.round(state.shieldHp ?? 100),
@@ -1987,6 +1989,32 @@ window.BlahajUFO = (function () {
     if (state.localRole !== 'passenger') {
       state.passengerClientId = data.passengerClientId || null;
       state.passengerName = data.passengerName || null;
+    }
+
+    // Continuous self-healing dimension sync for a co-pilot Passenger riding aboard the UFO:
+    // If a zone_change packet was dropped or arrived mid-transition, the pilot's authoritative ufo_state
+    // immediately pulls the passenger into the exact same dimension (Hyperspace, Cheese Moon, Deep Space, or Island)!
+    if (state.localRole === 'passenger' && data.isPilotAuth && window.BlahajGame) {
+      const pilotInHyper = !!data.inHyperspace;
+      const pilotInCheese = !!(data.inCheeseMoon && !pilotInHyper);
+      const pilotInDeepSpace = !!(data.inSpace && !pilotInHyper && !pilotInCheese);
+      const pilotOnIsland = !data.inSpace;
+
+      if (pilotInHyper && !state.inHyperspace && typeof window.BlahajGame.enterHyperspace === 'function') {
+        window.BlahajGame.enterHyperspace(false);
+      } else if (pilotInCheese && !state.inCheeseMoon && typeof window.BlahajGame.enterCheeseMoon === 'function') {
+        window.BlahajGame.enterCheeseMoon(false);
+      } else if (pilotInDeepSpace && (!state.inSpace || state.inCheeseMoon || state.inHyperspace)) {
+        if (state.inCheeseMoon && typeof window.BlahajGame.exitCheeseMoon === 'function') {
+          window.BlahajGame.exitCheeseMoon(false);
+        } else if (state.inHyperspace && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
+          window.BlahajGame.exitHyperspaceTo('space', false);
+        } else if (typeof window.BlahajGame.enterSpaceMap === 'function') {
+          window.BlahajGame.enterSpaceMap(false);
+        }
+      } else if (pilotOnIsland && state.inSpace && typeof window.BlahajGame.exitSpaceMap === 'function') {
+        window.BlahajGame.exitSpaceMap(false);
+      }
     }
   }
 

@@ -15472,6 +15472,33 @@
             }
           }
           updateCoopPartnerVisibility();
+
+          // If local player is riding aboard the UFO as Passenger, automatically warp with the Pilot across Space, Hyperspace, Cheese Moon & Island!
+          if (
+            window.BlahajUFO &&
+            typeof window.BlahajUFO.getLocalRole === 'function' &&
+            window.BlahajUFO.getLocalRole() === 'passenger' &&
+            coopPartner.zone !== currentZone
+          ) {
+            if (coopPartner.zone === 'hyperspace') {
+              enterHyperspace(false);
+            } else if (coopPartner.zone === 'cheese_moon') {
+              enterCheeseMoon(false);
+            } else if (coopPartner.zone === 'space') {
+              if (currentZone === 'cheese_moon') {
+                exitCheeseMoon(false);
+              } else if (currentZone === 'hyperspace') {
+                exitHyperspaceTo('space', false);
+              } else {
+                enterSpaceMap(false);
+              }
+            } else if (
+              coopPartner.zone === 'island' &&
+              (currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace')
+            ) {
+              exitSpaceMap(false);
+            }
+          }
         } else if (data.type === 'volcano_carrot_knock') {
           if (window.BlahajVolcano) {
             window.BlahajVolcano.knockCarrot(data.idx, data.vx || 0, data.vy || 8, data.vz || -12);
