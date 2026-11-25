@@ -945,6 +945,52 @@ window.BlahajModels = (function () {
     const showRelic = accessorySettings.showRelic !== false;
     const showHeadgear = accessorySettings.showHeadgear !== false;
 
+    function attachForeheadGoggles(lensColorHex) {
+      const goggleGroup = new THREE.Group();
+      goggleGroup.position.set(0, 2.33, 0.56 + (plump - 1.0) * 0.22);
+      goggleGroup.rotation.x = -0.40;
+      goggleGroup.userData.accessoryType = 'headgear';
+      goggleGroup.visible = showHeadgear;
+
+      const lensMat = new THREE.MeshStandardMaterial({
+        color: lensColorHex,
+        roughness: 0.12,
+        metalness: 0.65,
+        side: THREE.DoubleSide
+      });
+
+      [-1, 1].forEach((side) => {
+        const cup = new THREE.Group();
+        cup.position.set(side * 0.16 * plump, 0, -0.03);
+        cup.rotation.y = side * 0.38;
+
+        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.026, 12, 24), brassMat);
+        cup.add(gFrame);
+
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.102, 20), lensMat);
+        lens.position.z = 0.008;
+        cup.add(lens);
+
+        goggleGroup.add(cup);
+      });
+
+      // Brass nose bridge connecting the two goggle frames
+      const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.14 * plump, 8), brassMat);
+      bridge.rotation.z = Math.PI / 2;
+      bridge.position.set(0, 0, 0.015);
+      goggleGroup.add(bridge);
+
+      // Elastic strap wrapping cleanly around the forehead
+      const strapMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
+      const strap = new THREE.Mesh(new THREE.TorusGeometry(0.32 * plump, 0.024, 8, 28), strapMat);
+      strap.rotation.x = Math.PI / 2;
+      strap.scale.set(0.95, 1.18, 1.0);
+      strap.position.set(0, -0.02, -0.28);
+      goggleGroup.add(strap);
+
+      rig.add(goggleGroup);
+    }
+
     if (config.id === 'hermes') {
       // Ornate Brass Between Lantern on left fin
       const lanternGroup = new THREE.Group();
@@ -993,22 +1039,8 @@ window.BlahajModels = (function () {
       trayGroup.add(potBody);
       leftFinPivot.add(trayGroup);
     } else if (config.id === 'hiram') {
-      // Builder Goggles on Forehead
-      const lensMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.1, metalness: 0.6 });
-      [-0.22, 0.22].forEach((gx) => {
-        const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 12, 24), brassMat);
-        gFrame.position.set(gx, 2.22, 0.78);
-        gFrame.rotation.x = -0.25;
-        gFrame.userData.accessoryType = 'headgear';
-        gFrame.visible = showHeadgear;
-        rig.add(gFrame);
-        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.115, 20), lensMat);
-        lens.position.copy(gFrame.position);
-        lens.rotation.copy(gFrame.rotation);
-        lens.userData.accessoryType = 'headgear';
-        lens.visible = showHeadgear;
-        rig.add(lens);
-      });
+      // Builder Goggles on Forehead (cleanly seated above eyes with brass bridge & strap)
+      attachForeheadGoggles(0x7dd3fc);
 
       // Sacred Allen Key on Left Fin
       const allenGroup = new THREE.Group();
@@ -1181,22 +1213,8 @@ window.BlahajModels = (function () {
         });
         leftFinPivot.add(scisGroup);
       } else if (keepsake === 'grotto_goggles') {
-        // Sea-Cave Diver Goggles on forehead
-        const lensMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.6 });
-        [-0.22, 0.22].forEach((gx) => {
-          const gFrame = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.03, 12, 24), brassMat);
-          gFrame.position.set(gx, 2.22, 0.78);
-          gFrame.rotation.x = -0.25;
-          gFrame.userData.accessoryType = 'headgear';
-          gFrame.visible = showHeadgear;
-          rig.add(gFrame);
-          const lens = new THREE.Mesh(new THREE.CircleGeometry(0.115, 20), lensMat);
-          lens.position.copy(gFrame.position);
-          lens.rotation.copy(gFrame.rotation);
-          lens.userData.accessoryType = 'headgear';
-          lens.visible = showHeadgear;
-          rig.add(lens);
-        });
+        // Sea-Cave Diver Goggles on forehead (cleanly seated above eyes with brass bridge & strap)
+        attachForeheadGoggles(0x38bdf8);
 
         // Glowing Pearl Lantern on left fin
         const pearlGroup = new THREE.Group();
