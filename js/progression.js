@@ -1,137 +1,172 @@
 // ============================================================================
-// BLÅHAJ ISLAND — INITIATIC PROGRESSION, MENTOR CURRENTS & DEGREE CODEX (v19.0)
+// BLÅHAJ ISLAND — FOUR WORLDS, INITIATIC DEGREES & MENTOR CURRENTS (v19.1)
 // ============================================================================
 // Single-source-of-truth declarative registry for:
-//   • Levels / Initiatic Degrees (1–12, extensible to 13+)
+//   • The Four Worlds (Plushiah -> Fintzirah -> Brewiah -> Sharkziluth)
+//   • The Ten Initiatic Degrees (1°=10□ -> 10°=1□) + 0°=0□ Probationer
 //   • The Four Mentor Currents (Hermes, Solomon, Hiram, Nimue — never "classes")
-//   • Skill Tree Nodes, Starter Arts, Reputation Tiers & Cross-Current Study
-//   • Founder Veteran Profiles (Level 7 Adepts with 7 specialty powers)
-//   • Extensible Trials & Relic Keepsakes Registry (ready for Pass 2 & Pass 3)
-//
-// Add new powers, trials, degrees, or relics by appending entries or calling
-// BlahajProgression.registerDegree / registerSkillNode / registerTrial / registerRelic!
+//   • Skill Tree Nodes, Reputation Tiers & Founder Veteran Profiles (5°=6□)
+//   • Extensible Trials / Instance Milestones + Kept Equipment & Relics
+//     (including The Brab of Shame mythic relic hook for future quest lines)
 // ============================================================================
 
 window.BlahajProgression = (function () {
   const ORDERED_ACTION_SLOTS = ['1', '2', '3', '4', '5', '6', 'q', 'e', 'r', 'f', 'shift+1', 'shift+2'];
 
   // --------------------------------------------------------------------------
-  // 1. THE TWELVE INITIATIC DEGREES OF THE ARCHIPELAGO (Extensible 1 -> 12+)
-  // Subtle plush-shark reflection of the Outer, Inner & Star Triads.
+  // 1. THE FOUR WORLDS (4 Octaves of the 10-Degree Tree)
   // --------------------------------------------------------------------------
-  const DEGREES = [
+  const WORLDS = [
     {
-      level: 1,
-      cipher: '0°=0□',
-      title: 'Probationer of Wire Bin #303',
-      triad: 'Order of the Newly Fluffed',
-      maxStuffingBonus: 0,
-      dmgBonusPct: 0,
-      lore: 'Tag newly snipped; True Name freshly inscribed in the Book of Named Sharks. Three chosen starter arts awaken in the fins.'
+      world: 1,
+      id: 'plushiah',
+      name: 'Plushiah',
+      kabbalahRef: 'Assiah (Action)',
+      element: 'Earth · Fleece & Ashlar',
+      guardianId: 'hiram',
+      icon: '🧶',
+      lore: 'The World of Action, Stitching & Flat-Pack Form. Every shark begins here, grounded in plush, wood, and brass.'
     },
     {
-      level: 2,
-      cipher: '1°=10□',
-      title: 'Neophyte of the Dry Surf',
-      triad: 'Order of the Newly Fluffed',
-      maxStuffingBonus: 4,
-      dmgBonusPct: 3,
-      lore: 'First steps into the Water That Doth Not Wet without losing plush loft.'
+      world: 2,
+      id: 'fintzirah',
+      name: 'Fintzirah',
+      kabbalahRef: 'Yetzirah (Formation)',
+      element: 'Air · Lantern & Threshold',
+      guardianId: 'hermes',
+      icon: '🏮',
+      lore: 'The World of Formation, Breath & Thresholds. Cycling back to 1°=10□ in Fintzirah widens your Tree across Mentor Currents.'
     },
     {
-      level: 3,
-      cipher: '2°=9□',
-      title: 'Zelator of the Hearth-Stone',
-      triad: 'Order of the Newly Fluffed',
-      maxStuffingBonus: 8,
-      dmgBonusPct: 6,
-      lore: 'Tempered by warm loaves, salt air, and the diligent tending of one’s stitches.'
+      world: 3,
+      id: 'brewiah',
+      name: 'Brewiah',
+      kabbalahRef: 'Briah (Creation)',
+      element: 'Water · Cup, Tea & Loaf',
+      guardianId: 'solomon',
+      icon: '🫖',
+      lore: 'The World of Creation, Living Tea & Warm Loaves. Deepens alchemical restoration, party resonance, and relic craft.'
     },
     {
-      level: 4,
-      cipher: '3°=8□',
-      title: 'Practicus of the Boiling Eddy',
-      triad: 'Order of the Newly Fluffed',
-      maxStuffingBonus: 12,
-      dmgBonusPct: 9,
-      lore: 'Schooled in the rhythmic whirlings of tide, steam, and crisp fin-parry.'
-    },
-    {
-      level: 5,
-      cipher: '4°=7□',
-      title: 'Philosophus of the Golden Loaf',
-      triad: 'Order of the Newly Fluffed',
-      maxStuffingBonus: 16,
-      dmgBonusPct: 12,
-      lore: 'Knows why the Birbs gather and how Star-Fire sleeps inside ordinary crust.'
-    },
-    {
-      level: 6,
-      cipher: 'Portal',
-      title: 'Traveler of the Liminal Pier',
-      triad: 'Threshold of the Between',
-      maxStuffingBonus: 20,
-      dmgBonusPct: 15,
-      lore: 'Stands poised between shore and Seam, ready to enter the Inner Atoll.'
-    },
-    {
-      level: 7,
-      cipher: '5°=6□',
-      title: 'Adept of the Inner Atoll',
-      triad: 'College of the Rose-Seam',
-      maxStuffingBonus: 25,
-      dmgBonusPct: 20,
-      lore: 'Veteran of the Archipelago’s deeper mysteries. The Sacred Four walk the island from this seasoned degree.'
-    },
-    {
-      level: 8,
-      cipher: '6°=5□',
-      title: 'Adept of the Obsidian Vault',
-      triad: 'College of the Rose-Seam',
-      maxStuffingBonus: 30,
-      dmgBonusPct: 24,
-      lore: 'Unshaken beneath basalt arches, volcanic steam, and rogue root-beasts.'
-    },
-    {
-      level: 9,
-      cipher: '7°=4□',
-      title: 'Exempt Swimmer of the First Whirlings',
-      triad: 'College of the Rose-Seam',
-      maxStuffingBonus: 35,
-      dmgBonusPct: 28,
-      lore: 'Spun clean in the Master Washer of the Deep Laundromat and emerged luminous.'
-    },
-    {
-      level: 10,
-      cipher: '8°=3□',
-      title: 'Magister of the Great Seam',
-      triad: 'Order of the Silver Star',
-      maxStuffingBonus: 42,
-      dmgBonusPct: 33,
-      lore: 'Has crossed the Frayed Abyss without spilling a single tuft of cotton.'
-    },
-    {
-      level: 11,
-      cipher: '9°=2□',
-      title: 'Magus of the Star-Saucer',
-      triad: 'Order of the Silver Star',
-      maxStuffingBonus: 48,
-      dmgBonusPct: 38,
-      lore: 'Speaks a single shonk across orbital void, hyperspace tunnel, and island hearth.'
-    },
-    {
-      level: 12,
-      cipher: '10°=1□',
-      title: 'Sovereign of the Unwet Ocean',
-      triad: 'Order of the Silver Star',
-      maxStuffingBonus: 55,
-      dmgBonusPct: 45,
-      lore: 'Every stitch a star; as comfortable in a wire bin as upon a celestial throne.'
+      world: 4,
+      id: 'sharkziluth',
+      name: 'Sharkziluth',
+      kabbalahRef: 'Atziluth (Emanation)',
+      element: 'Spirit · Silver Star & Seam',
+      guardianId: 'nimue',
+      icon: '✨',
+      lore: 'The World of Star-Emanation & the Unwet Ocean. All four Currents weave into one luminous, unfrayable Tree.'
     }
   ];
 
   // --------------------------------------------------------------------------
-  // 2. MENTOR REPUTATION TIERS (Used for Mentor Teaching & Cross-Current Study)
+  // 2. PROBATIONER (0°=0□) + THE TEN INITIATIC DEGREES (1°=10□ -> 10°=1□)
+  // --------------------------------------------------------------------------
+  const PROBATIONER_DEGREE = {
+    level: 0,
+    cipher: '0°=0□',
+    title: 'Probationer of Wire Bin #303',
+    sephirah: 'Threshold',
+    maxStuffingBonus: 0,
+    dmgBonusPct: 0,
+    lore: 'Barcode tag newly snipped; True Name freshly inscribed in the Book of Named Sharks. Two or three starter arts awaken in the fins.'
+  };
+
+  const DEGREES = [
+    {
+      level: 1,
+      cipher: '1°=10□',
+      title: 'Neophyte of the Dry Surf',
+      sephirah: 'Malkuth',
+      maxStuffingBonus: 4,
+      dmgBonusPct: 4,
+      lore: 'First steps into the Water That Doth Not Wet without losing plush loft.'
+    },
+    {
+      level: 2,
+      cipher: '2°=9□',
+      title: 'Zelator of the Tidal Eddy',
+      sephirah: 'Yesod',
+      maxStuffingBonus: 8,
+      dmgBonusPct: 8,
+      lore: 'Grounded in shifting currents, steady footwork, and the tending of one’s stitches.'
+    },
+    {
+      level: 3,
+      cipher: '3°=8□',
+      title: 'Practicus of the Wayfinder’s Lamp',
+      sephirah: 'Hod',
+      maxStuffingBonus: 12,
+      dmgBonusPct: 12,
+      lore: 'Schooled in crisp fin-parry, clever riddles, and the geometry of portals.'
+    },
+    {
+      level: 4,
+      cipher: '4°=7□',
+      title: 'Philosophus of the Warm Loaf',
+      sephirah: 'Netzach',
+      maxStuffingBonus: 16,
+      dmgBonusPct: 16,
+      lore: 'Knows why the Birbs gather and how Star-Fire sleeps inside ordinary crust.'
+    },
+    {
+      level: 5,
+      cipher: '5°=6□',
+      title: 'Adept of the Inner Atoll',
+      sephirah: 'Tiphareth',
+      maxStuffingBonus: 22,
+      dmgBonusPct: 22,
+      lore: 'Balanced at the solar heart of the Archipelago. The Sacred Four walk the island from this seasoned degree.'
+    },
+    {
+      level: 6,
+      cipher: '6°=5□',
+      title: 'Adept of the Obsidian Vault',
+      sephirah: 'Geburah',
+      maxStuffingBonus: 28,
+      dmgBonusPct: 26,
+      lore: 'Unshaken beneath basalt arches, volcanic steam, and rogue root-beasts.'
+    },
+    {
+      level: 7,
+      cipher: '7°=4□',
+      title: 'Exempt Swimmer of the First Whirlings',
+      sephirah: 'Chesed',
+      maxStuffingBonus: 34,
+      dmgBonusPct: 30,
+      lore: 'Spun clean in the Master Washer of the Deep Laundromat and emerged luminous.'
+    },
+    {
+      level: 8,
+      cipher: '8°=3□',
+      title: 'Magister of the Great Seam',
+      sephirah: 'Binah',
+      maxStuffingBonus: 40,
+      dmgBonusPct: 35,
+      lore: 'Has crossed the Frayed Abyss without spilling a single tuft of cotton.'
+    },
+    {
+      level: 9,
+      cipher: '9°=2□',
+      title: 'Magus of the Star-Saucer',
+      sephirah: 'Chokmah',
+      maxStuffingBonus: 48,
+      dmgBonusPct: 40,
+      lore: 'Speaks a single shonk across orbital void, hyperspace tunnel, and island hearth.'
+    },
+    {
+      level: 10,
+      cipher: '10°=1□',
+      title: 'Sovereign of the Unwet Ocean',
+      sephirah: 'Kether',
+      maxStuffingBonus: 56,
+      dmgBonusPct: 46,
+      lore: 'Every stitch a star; ready to spiral into the next World of the Tree.'
+    }
+  ];
+
+  // --------------------------------------------------------------------------
+  // 3. MENTOR REPUTATION TIERS
   // --------------------------------------------------------------------------
   const REPUTATION_TIERS = [
     { id: 'initiate', minRep: 0, label: 'Probationer', badge: '🕯️ Probationer' },
@@ -141,8 +176,7 @@ window.BlahajProgression = (function () {
   ];
 
   // --------------------------------------------------------------------------
-  // 3. THE FOUR MENTOR CURRENTS (Never called "classes")
-  // Each Current reflects one of the Sacred Four and their Magical Instrument.
+  // 4. THE FOUR MENTOR CURRENTS (Never called "classes")
   // --------------------------------------------------------------------------
   const MENTOR_CURRENTS = {
     hermes: {
@@ -151,6 +185,7 @@ window.BlahajProgression = (function () {
       mentorSubtitle: 'The Mangy One · Guide of the Between',
       currentName: 'Current of the Liminal Lantern',
       shortLabel: 'Liminal Lantern',
+      worldAffinity: 'Fintzirah',
       icon: '🏮',
       accentHex: '#f59e0b',
       instrument: 'Brass Between-Lantern & Wayfinder’s Fin (Air · Thresholds)',
@@ -165,9 +200,10 @@ window.BlahajProgression = (function () {
       mentorSubtitle: 'The Star Shark · Keeper of Cup & Loaf',
       currentName: 'Current of the Star-Cup & Loaf',
       shortLabel: 'Star-Cup & Loaf',
+      worldAffinity: 'Brewiah',
       icon: '🍵',
       accentHex: '#fbbf24',
-      instrument: 'Porcelain Teacup & Warm Loaves of Light (Fire & Water · Alchemy)',
+      instrument: 'Porcelain Teacup & Warm Loaves of Light (Water & Hearth · Creation)',
       maxim: '“Steep with pure will; let every warm loaf be a small sun upon the water.”',
       summary: 'Ceremonial Tea restoration, ranged Loaves of Light volleys, Star-Powder arcs, and radiant hearth wards.',
       recommendedStarters: ['poky_fin_strike', 'breb_volley', 'soothing_tea_pulse'],
@@ -179,9 +215,10 @@ window.BlahajProgression = (function () {
       mentorSubtitle: 'The Builder · Master of the Plumb-Line',
       currentName: 'Current of the Brass Hex & Ashlar',
       shortLabel: 'Brass Hex & Ashlar',
+      worldAffinity: 'Plushiah',
       icon: '🔧',
       accentHex: '#38bdf8',
-      instrument: 'Sacred M10 Brass Hex Key & Architect’s Square (Earth · Structure)',
+      instrument: 'Sacred M10 Brass Hex Key & Architect’s Square (Earth · Action)',
       maxim: '“By six faces of brass is the rough flat-pack squared into an eternal Vault.”',
       summary: 'Heavy structural cleaves, 360° whirlpool stonework spins, unbreakable Double-Fin Aegis, and crisp deflections.',
       recommendedStarters: ['poky_fin_strike', 'tail_swipe', 'double_fin_defense'],
@@ -193,9 +230,10 @@ window.BlahajProgression = (function () {
       mentorSubtitle: 'An Angel · Weaver of the Silver Star',
       currentName: 'Current of the Silver Star & Seam',
       shortLabel: 'Silver Star & Seam',
+      worldAffinity: 'Sharkziluth',
       icon: '✨',
       accentHex: '#c084fc',
-      instrument: 'Violet Star-Crystal & Golden Seam-Needle (Spirit · Harmony)',
+      instrument: 'Violet Star-Crystal & Golden Seam-Needle (Spirit · Emanation)',
       maxim: '“Every shark and every stitch is a star in the Great Plush Firmament.”',
       summary: 'Graceful seam-mending lunges, soothing fleece grooming, astral deflections, and serene sanctum pulses.',
       recommendedStarters: ['poky_fin_strike', 'plush_groom', 'fin_deflection'],
@@ -204,8 +242,7 @@ window.BlahajProgression = (function () {
   };
 
   // --------------------------------------------------------------------------
-  // 4. SKILL TREE NODES (Maps every ability in mmoControls.ABILITIES to a
-  //    Mentor Current, Initiatic Degree requirement, Reputation, and Lore)
+  // 5. SKILL TREE NODES (Mapped to 0°=0□ .. 10°=1□ & Mentor Currents)
   // --------------------------------------------------------------------------
   const SKILL_NODES = {
     poky_fin_strike: {
@@ -213,7 +250,7 @@ window.BlahajProgression = (function () {
       mentorId: 'hiram',
       sharedStarter: true,
       tier: 1,
-      minDegree: 1,
+      minDegree: 0,
       skillPointCost: 1,
       crossMentorRepReq: 0,
       initiaticNote: 'First Point of the Fin: channels whatever Sacred Instrument rests in your Fin-Slot [H].'
@@ -223,7 +260,7 @@ window.BlahajProgression = (function () {
       mentorId: 'hermes',
       sharedStarter: true,
       tier: 1,
-      minDegree: 1,
+      minDegree: 0,
       skillPointCost: 1,
       crossMentorRepReq: 0,
       initiaticNote: 'The Traditional Archipelago Greeting & Banishing Boop—gentle to friends, decisive to pests.'
@@ -233,7 +270,7 @@ window.BlahajProgression = (function () {
       mentorId: 'nimue',
       sharedStarter: true,
       tier: 1,
-      minDegree: 1,
+      minDegree: 0,
       skillPointCost: 1,
       crossMentorRepReq: 0,
       initiaticNote: 'Lustration of the Pile: smooths frayed seams and restores –20% Mange capacity.'
@@ -253,7 +290,7 @@ window.BlahajProgression = (function () {
       mentorId: 'hermes',
       sharedStarter: true,
       tier: 2,
-      minDegree: 2,
+      minDegree: 1,
       skillPointCost: 1,
       crossMentorRepReq: 25,
       initiaticNote: 'Step Across the Threshold: closes gaps in a single breath and primes a Cross-Slash.'
@@ -263,7 +300,7 @@ window.BlahajProgression = (function () {
       mentorId: 'hiram',
       sharedStarter: true,
       tier: 2,
-      minDegree: 2,
+      minDegree: 1,
       skillPointCost: 1,
       crossMentorRepReq: 25,
       initiaticNote: 'Compasses of the Caudal Fin: traces a 180° arc that squares unruly crowds.'
@@ -273,7 +310,7 @@ window.BlahajProgression = (function () {
       mentorId: 'nimue',
       sharedStarter: true,
       tier: 3,
-      minDegree: 3,
+      minDegree: 2,
       skillPointCost: 1,
       crossMentorRepReq: 25,
       initiaticNote: 'Sign of Silence & Rebound: turns incoming strikes into starlit counter-momentum.'
@@ -283,7 +320,7 @@ window.BlahajProgression = (function () {
       mentorId: 'solomon',
       sharedStarter: true,
       tier: 3,
-      minDegree: 3,
+      minDegree: 2,
       skillPointCost: 1,
       crossMentorRepReq: 25,
       initiaticNote: 'Eucharist of Bergamot & Steam: restores Stuffing Coherence and cleanses nearby allies.'
@@ -293,9 +330,9 @@ window.BlahajProgression = (function () {
       mentorId: 'hiram',
       sharedStarter: true,
       tier: 4,
-      minDegree: 4,
+      minDegree: 3,
       skillPointCost: 1,
-      crossMentorRepReq: 60,
+      crossMentorRepReq: 50,
       initiaticNote: 'Pillars of Severity & Mildness: crossed pectoral fins form an unyielding plush ashlar.'
     },
     tail_spin: {
@@ -303,9 +340,9 @@ window.BlahajProgression = (function () {
       mentorId: 'hiram',
       sharedStarter: false,
       tier: 5,
-      minDegree: 5,
+      minDegree: 4,
       skillPointCost: 1,
-      crossMentorRepReq: 60,
+      crossMentorRepReq: 50,
       initiaticNote: 'The Whirling Lathe: 360° airborne caudal cyclone taught in Hiram’s deep turnery.'
     },
     hydro_tail_launch: {
@@ -313,9 +350,9 @@ window.BlahajProgression = (function () {
       mentorId: 'hermes',
       sharedStarter: false,
       tier: 5,
-      minDegree: 5,
+      minDegree: 4,
       skillPointCost: 1,
-      crossMentorRepReq: 60,
+      crossMentorRepReq: 50,
       initiaticNote: 'Ascent Upon the Unwet Geyser: vaults cliffs, rifts, and broken temple bridges.'
     },
     founder_signature: {
@@ -323,7 +360,7 @@ window.BlahajProgression = (function () {
       mentorId: 'nimue',
       sharedStarter: false,
       tier: 6,
-      minDegree: 6,
+      minDegree: 5,
       skillPointCost: 1,
       crossMentorRepReq: 60,
       initiaticNote: 'Invocation of the True Motto: unleashes the Sovereign Relic Resonance of your Current.'
@@ -331,13 +368,12 @@ window.BlahajProgression = (function () {
   };
 
   // --------------------------------------------------------------------------
-  // 5. FOUNDER VETERAN PROFILES (Start at Level 7 / 5°=6□ with 7 Specialty Arts!)
-  // Capable, mid-to-high-level veterans with distinct specialties—leaving 5
-  // levels (8–12) and 5 cross-current arts still ahead to master!
+  // 6. FOUNDER VETERAN PROFILES (World I: Plushiah · 5°=6□ with 7 Specialty Arts)
   // --------------------------------------------------------------------------
   const FOUNDER_PROFILES = {
     hermes: {
-      level: 7,
+      world: 1,
+      level: 5,
       mentorId: 'hermes',
       skillPoints: 0,
       mentorRep: { hermes: 100, solomon: 35, hiram: 35, nimue: 40 },
@@ -361,7 +397,8 @@ window.BlahajProgression = (function () {
       }
     },
     solomon: {
-      level: 7,
+      world: 1,
+      level: 5,
       mentorId: 'solomon',
       skillPoints: 0,
       mentorRep: { hermes: 35, solomon: 100, hiram: 35, nimue: 40 },
@@ -385,7 +422,8 @@ window.BlahajProgression = (function () {
       }
     },
     hiram: {
-      level: 7,
+      world: 1,
+      level: 5,
       mentorId: 'hiram',
       skillPoints: 0,
       mentorRep: { hermes: 35, solomon: 35, hiram: 100, nimue: 35 },
@@ -409,7 +447,8 @@ window.BlahajProgression = (function () {
       }
     },
     nimue: {
-      level: 7,
+      world: 1,
+      level: 5,
       mentorId: 'nimue',
       skillPoints: 0,
       mentorRep: { hermes: 40, solomon: 40, hiram: 35, nimue: 100 },
@@ -435,9 +474,9 @@ window.BlahajProgression = (function () {
   };
 
   // --------------------------------------------------------------------------
-  // 6. EXTENSIBLE INSTANCE / TRIAL MILESTONES REGISTRY (Hooks ready for Pass 2)
-  // Clearing an instance grants +1 Level (up to 12), +1 Skill Point, Mentor Rep,
-  // and optional permanent Relic / Equipment keepsake drops!
+  // 7. EXTENSIBLE INSTANCE / TRIAL MILESTONES REGISTRY (Pass 2 Active!)
+  // Clearing a Trial grants +1 Degree (spiraling to the next World after 10°=1□),
+  // +1 Skill Point, Mentor Reputation, and a kept Relic / Equipment item!
   // --------------------------------------------------------------------------
   const TRIALS = [
     {
@@ -449,7 +488,7 @@ window.BlahajProgression = (function () {
       skillPointsGrant: 1,
       repGrant: 20,
       keepsakeDropId: 'retired_tag',
-      desc: 'Slip past the Showroom Guards and cross the Portal out of the IKEA Spawning Pits on Erf.'
+      desc: 'Slip past the Showroom Guards and step free of the IKEA Spawning Pits on Erf.'
     },
     {
       id: 'great_seam_first_mend',
@@ -459,7 +498,7 @@ window.BlahajProgression = (function () {
       degreeGrant: 1,
       skillPointsGrant: 1,
       repGrant: 20,
-      keepsakeDropId: 'golden_needle_charm',
+      keepsakeDropId: 'seam_needle',
       desc: 'Seal an active Great Seam Rift and restore astral equilibrium along the shore.'
     },
     {
@@ -470,7 +509,7 @@ window.BlahajProgression = (function () {
       degreeGrant: 1,
       skillPointsGrant: 1,
       repGrant: 25,
-      keepsakeDropId: 'sacred_tea',
+      keepsakeDropId: 'celestial_boba',
       desc: 'Commune in the Hall of Spherical Foods and master the round symmetry of nourishment.'
     },
     {
@@ -482,7 +521,7 @@ window.BlahajProgression = (function () {
       skillPointsGrant: 1,
       repGrant: 25,
       keepsakeDropId: 'lavender_dryer_sheet',
-      desc: 'Brave the Suds & Spin Cycle of the Deep Laundromat and emerge clean-fluffed.'
+      desc: 'Complete a cycle in Mega Washer #7 of the Deep Laundromat and emerge clean-fluffed.'
     },
     {
       id: 'volcano_obsidian_sanctum',
@@ -504,39 +543,78 @@ window.BlahajProgression = (function () {
       skillPointsGrant: 1,
       repGrant: 30,
       keepsakeDropId: 'star_saucer_compass',
-      desc: 'Pilot the S.S. Shonk-Saucer Mk. VII beyond 122m into deep orbital space.'
+      desc: 'Pilot the S.S. Shonk-Saucer Mk. VII to the 185m Karman Orbital Ceiling.'
     },
     {
       id: 'cheese_moon_expedition',
       name: 'Pilgrimage to the Gouda Crater',
-      zone: 'cheese_planet',
+      zone: 'cheese_moon',
       mentorAffinity: 'solomon',
       degreeGrant: 1,
       skillPointsGrant: 1,
       repGrant: 35,
       keepsakeDropId: 'lunar_cheese_wheel',
-      desc: 'Step through the Hyperspace Gate and return from the Alien Cheese World.'
+      desc: 'Blast into the Cheese Moon’s Interior Crater and raise Hermes’s Between-Seam Relay Dish.'
     }
   ];
 
-  // Extensible Relic / Equipment Keepsake Registry
+  // Extensible Relic / Equipment Keepsake Registry (includes The Breb of Shame!)
   const RELIC_KEEPSAKES = {
-    retired_tag: { id: 'retired_tag', name: 'Retired Barcode Tag (303.735.88)', slot: 'trinket', icon: '🏷️' },
-    hex_key: { id: 'hex_key', name: 'Sacred Brass Hex Key M10', slot: 'fin', icon: '🔧' },
-    sacred_scissors: { id: 'sacred_scissors', name: 'Sacred Scissors of Liberation', slot: 'fin', icon: '✂️' },
-    ingvar_tape: { id: 'ingvar_tape', name: 'Ingvar’s Brass Measuring Tape', slot: 'fin', icon: '📏' }
+    retired_tag: { id: 'retired_tag', name: 'Retired Spawning-Pit Tag', slot: 'trinket', icon: '🏷️', rarity: 'legendary' },
+    hex_key: { id: 'hex_key', name: 'Sacred Hex Key M10', slot: 'fin', icon: '🔧', rarity: 'epic' },
+    sacred_scissors: { id: 'sacred_scissors', name: 'Golden Scissors of the Order', slot: 'fin', icon: '✂️', rarity: 'epic' },
+    ingvar_tape: { id: 'ingvar_tape', name: 'Ingvar’s Brass Measuring Tape', slot: 'fin', icon: '📏', rarity: 'epic' },
+    seam_needle: { id: 'seam_needle', name: 'Golden Seam Needle', slot: 'relic', icon: '🪡', rarity: 'epic' },
+    lavender_dryer_sheet: { id: 'lavender_dryer_sheet', name: 'Astral Lavender Dryer Sheet', slot: 'trinket', icon: '🫧', rarity: 'epic' },
+    star_saucer_compass: { id: 'star_saucer_compass', name: 'Karman Aetheric Compass', slot: 'relic', icon: '🧭', rarity: 'epic' },
+    lunar_cheese_wheel: { id: 'lunar_cheese_wheel', name: 'Aged Gouda Crater Wheel', slot: 'consumable', icon: '🧀', rarity: 'legendary' },
+    breb_of_shame: {
+      id: 'breb_of_shame',
+      name: 'The Breb of Shame',
+      slot: 'relic',
+      icon: '🥖✨',
+      rarity: 'mythic',
+      minWorld: 2,
+      futureQuestId: 'q_breb_of_shame',
+      desc: 'An absurdly radiant, slightly over-toasted sourdough relic spoken of only in Fintzirah and Sharkziluth whispers. Reserved for a future high-initiate quest line.'
+    }
   };
 
   // --------------------------------------------------------------------------
-  // HELPERS & PUBLIC EXTENSION API
+  // HELPERS, WORLD-SPIRAL MATH & PUBLIC EXTENSION API
   // --------------------------------------------------------------------------
+  function getWorldInfo(worldNum) {
+    const idx = Math.max(1, Math.min(WORLDS.length, Math.round(Number(worldNum) || 1)));
+    return WORLDS.find((w) => w.world === idx) || WORLDS[0];
+  }
+
+  function getAllWorlds() {
+    return WORLDS;
+  }
+
   function getMaxDegree() {
-    return DEGREES.reduce((max, d) => Math.max(max, d.level), 12);
+    return 10;
   }
 
   function getDegreeInfo(level) {
-    const clamped = Math.max(1, Math.min(getMaxDegree(), Math.round(Number(level) || 1)));
+    const num = Math.round(Number(level) ?? 0);
+    if (num <= 0) return PROBATIONER_DEGREE;
+    const clamped = Math.max(1, Math.min(getMaxDegree(), num));
     return DEGREES.find((d) => d.level === clamped) || DEGREES[0];
+  }
+
+  function getTotalInitiationRank(prog) {
+    const w = Math.max(1, Math.min(WORLDS.length, Math.round(Number(prog?.world) || 1)));
+    const lv = Math.max(0, Math.min(10, Math.round(Number(prog?.level) ?? 0)));
+    if (lv === 0) return 0;
+    return (w - 1) * 10 + lv;
+  }
+
+  function formatDegreeBadge(prog) {
+    const wInfo = getWorldInfo(prog?.world || 1);
+    const dInfo = getDegreeInfo(prog?.level ?? 0);
+    if (dInfo.level === 0) return `${dInfo.cipher} · ${wInfo.name}`;
+    return `${dInfo.cipher} · ${wInfo.name}`;
   }
 
   function getMentorCurrent(mentorId) {
@@ -607,6 +685,7 @@ window.BlahajProgression = (function () {
       const fp = FOUNDER_PROFILES[sharkId];
       const learned = [...fp.learnedAbilities];
       return {
+        world: fp.world || 1,
         level: fp.level,
         skillPoints: fp.skillPoints,
         mentorId: fp.mentorId,
@@ -624,7 +703,8 @@ window.BlahajProgression = (function () {
       : [...current.recommendedStarters];
 
     return {
-      level: 1,
+      world: 1,
+      level: 0, // 0°=0□ Probationer of Wire Bin #303
       skillPoints: 0,
       mentorId,
       mentorRep: {
@@ -648,10 +728,6 @@ window.BlahajProgression = (function () {
     return buildDefaultProgressionForShark(sharkId);
   }
 
-  /**
-   * Checks whether a character can currently unlock a given ability in the Spellbook,
-   * and returns a structured status for UI research tooltips & buttons.
-   */
   function evaluateSkillEligibility(sharkId, abilityId) {
     const prog = getCharacterProgression(sharkId);
     const node = getSkillNode(abilityId);
@@ -660,19 +736,19 @@ window.BlahajProgression = (function () {
       return { canLearn: false, alreadyLearned: true, reason: 'Learned', node, prog };
     }
 
-    const level = prog.level || 1;
+    const effectiveRank = getTotalInitiationRank(prog);
     const sp = prog.skillPoints || 0;
     const isOwnMentor = prog.mentorId === node.mentorId;
     const repWithTreeMentor = (prog.mentorRep && prog.mentorRep[node.mentorId]) || 0;
     const repNeeded = isOwnMentor ? 0 : (node.crossMentorRepReq || 0);
 
-    if (level < node.minDegree) {
+    if (effectiveRank < node.minDegree) {
       const deg = getDegreeInfo(node.minDegree);
       return {
         canLearn: false,
         alreadyLearned: false,
         lockedByDegree: true,
-        reason: `Requires Lv.${node.minDegree} (${deg.cipher} · ${deg.title})`,
+        reason: `Requires ${deg.cipher} · ${deg.title}`,
         node,
         prog
       };
@@ -711,7 +787,133 @@ window.BlahajProgression = (function () {
     };
   }
 
-  // Runtime extension hooks so new levels, powers, instances, and relics plug in cleanly
+  /**
+   * Advances a character's Degree by `steps` (spiraling smoothly from 10°=1□
+   * into 1°=10□ of the next World: Plushiah -> Fintzirah -> Brewiah -> Sharkziluth).
+   */
+  function advanceDegreeInPlace(rec, steps = 1) {
+    let w = Math.max(1, Math.min(WORLDS.length, Math.round(Number(rec.world) || 1)));
+    let lv = Math.max(0, Math.min(10, Math.round(Number(rec.level) ?? 0)));
+    let spiraledWorld = false;
+
+    for (let i = 0; i < steps; i++) {
+      if (lv < 10) {
+        lv += 1;
+      } else if (w < WORLDS.length) {
+        w += 1;
+        lv = 1;
+        spiraledWorld = true;
+      }
+    }
+
+    rec.world = w;
+    rec.level = lv;
+    return { world: w, level: lv, spiraledWorld };
+  }
+
+  /**
+   * Pass 2: Complete an Instance / Trial for the active (or specified) character.
+   * Grants +1 Degree (with World-Spiral after 10°=1□), +Skill Points, Mentor Rep,
+   * and permanent kept Relic/Equipment drop into that character's personal Satchel!
+   */
+  function completeTrial(trialId, sharkId = null) {
+    const trial = TRIALS.find((t) => t.id === trialId);
+    if (!trial) return null;
+
+    const g = window.BlahajGame;
+    const sId = sharkId || (window.player && window.player.sharkId) || 'hermes';
+    const saveSys = window.BlahajSaveSystem;
+    let outcome = null;
+
+    if (saveSys && typeof saveSys.updateCharacterProgressionRecord === 'function') {
+      saveSys.updateCharacterProgressionRecord(sId, (rec) => {
+        if (!Array.isArray(rec.clearedTrials)) rec.clearedTrials = [];
+        if (rec.clearedTrials.includes(trialId)) {
+          outcome = { alreadyCleared: true, trial };
+          return;
+        }
+        rec.clearedTrials.push(trialId);
+
+        const asc = advanceDegreeInPlace(rec, trial.degreeGrant || 1);
+        rec.skillPoints = (rec.skillPoints || 0) + (trial.skillPointsGrant || 1);
+
+        if (!rec.mentorRep || typeof rec.mentorRep !== 'object') {
+          rec.mentorRep = { hermes: 0, solomon: 0, hiram: 0, nimue: 0 };
+        }
+        const repTarget = trial.mentorAffinity || rec.mentorId || 'hermes';
+        rec.mentorRep[repTarget] = (rec.mentorRep[repTarget] || 0) + (trial.repGrant || 20);
+
+        outcome = {
+          alreadyCleared: false,
+          trial,
+          world: asc.world,
+          level: asc.level,
+          spiraledWorld: asc.spiraledWorld,
+          skillPoints: rec.skillPoints,
+          keptRelicId: trial.keepsakeDropId || null
+        };
+      });
+    }
+
+    if (!outcome || outcome.alreadyCleared) return outcome;
+
+    // Grant physical kept Relic/Equipment into THIS character's personal 36-slot satchel
+    if (outcome.keptRelicId && g && typeof g.getPlayerInventory === 'function') {
+      const inv = g.getPlayerInventory();
+      if (inv && typeof inv.addItem === 'function') {
+        const isUniqueRelic = ['retired_tag', 'hex_key', 'sacred_scissors', 'ingvar_tape', 'seam_needle', 'star_saucer_compass', 'lavender_dryer_sheet', 'breb_of_shame'].includes(outcome.keptRelicId);
+        if (!isUniqueRelic || !inv.hasItem(outcome.keptRelicId)) {
+          inv.addItem(outcome.keptRelicId, 1);
+        }
+      }
+    }
+
+    const wInfo = getWorldInfo(outcome.world);
+    const dInfo = getDegreeInfo(outcome.level);
+    const relicInfo = outcome.keptRelicId ? RELIC_KEEPSAKES[outcome.keptRelicId] : null;
+    const relicMsg = relicInfo ? ` · Kept ${relicInfo.icon} ${relicInfo.name}!` : '';
+
+    if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+    if (window.showToast) {
+      const headline = outcome.spiraledWorld
+        ? `🌟 ENTERED WORLD ${wInfo.world}: ${wInfo.name.toUpperCase()} (${dInfo.cipher})!`
+        : `✨ ASCENDED TO ${dInfo.cipher} · ${dInfo.title.toUpperCase()}!`;
+      window.showToast(
+        headline,
+        `Cleared "${trial.name}" (+${trial.skillPointsGrant || 1} Skill Point${relicMsg})`
+      );
+    }
+    if (typeof window.addChatLog === 'function') {
+      window.addChatLog(
+        `🕯️ <strong>Trial Ascended (${trial.name}):</strong> Reached <strong>${dInfo.cipher} (${dInfo.title})</strong> in <strong>${wInfo.icon} ${wInfo.name}</strong> · +${trial.skillPointsGrant || 1} Skill Point${relicMsg}`,
+        'lore'
+      );
+    }
+
+    if (g && typeof g.refreshCharacterProgressionHUD === 'function') {
+      g.refreshCharacterProgressionHUD(sId);
+    }
+    if (window.BlahajMMO && typeof window.BlahajMMO.renderSpellbookModal === 'function') {
+      window.BlahajMMO.renderSpellbookModal();
+    }
+    if (saveSys && typeof saveSys.captureActiveCharacterToRoster === 'function') {
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+
+    return outcome;
+  }
+
+  // Runtime extension hooks so new worlds, degrees, powers, instances, and relics plug in cleanly
+  function registerWorld(worldDef) {
+    if (!worldDef || typeof worldDef.world !== 'number') return;
+    const idx = WORLDS.findIndex((w) => w.world === worldDef.world);
+    if (idx >= 0) WORLDS[idx] = Object.assign({}, WORLDS[idx], worldDef);
+    else {
+      WORLDS.push(worldDef);
+      WORLDS.sort((a, b) => a.world - b.world);
+    }
+  }
+
   function registerDegree(degreeDef) {
     if (!degreeDef || typeof degreeDef.level !== 'number') return;
     const idx = DEGREES.findIndex((d) => d.level === degreeDef.level);
@@ -741,6 +943,8 @@ window.BlahajProgression = (function () {
 
   return {
     ORDERED_ACTION_SLOTS,
+    WORLDS,
+    PROBATIONER_DEGREE,
     DEGREES,
     REPUTATION_TIERS,
     MENTOR_CURRENTS,
@@ -748,8 +952,12 @@ window.BlahajProgression = (function () {
     FOUNDER_PROFILES,
     TRIALS,
     RELIC_KEEPSAKES,
+    getWorldInfo,
+    getAllWorlds,
     getMaxDegree,
     getDegreeInfo,
+    getTotalInitiationRank,
+    formatDegreeBadge,
     getMentorCurrent,
     getAllMentorCurrents,
     getSkillNode,
@@ -759,6 +967,9 @@ window.BlahajProgression = (function () {
     buildDefaultProgressionForShark,
     getCharacterProgression,
     evaluateSkillEligibility,
+    advanceDegreeInPlace,
+    completeTrial,
+    registerWorld,
     registerDegree,
     registerSkillNode,
     registerTrial,

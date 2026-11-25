@@ -2685,14 +2685,15 @@
     const sCfg = (window.LORE && window.LORE.sharks && window.LORE.sharks[sId]) || { name: 'Blåhaj' };
     const mix = CHARACTER_BASE_MIXES[sId] || CHARACTER_BASE_MIXES.custom;
     const progApi = window.BlahajProgression;
-    const prog = progApi ? progApi.getCharacterProgression(sId) : { level: sId === 'custom' ? 1 : 7, skillPoints: 0, mentorId: sId === 'custom' ? 'hermes' : sId };
-    const degInfo = progApi ? progApi.getDegreeInfo(prog.level || 1) : { level: prog.level || 1, cipher: '0°=0□', title: 'Initiate', triad: 'Archipelago' };
+    const prog = progApi ? progApi.getCharacterProgression(sId) : { world: 1, level: sId === 'custom' ? 0 : 5, skillPoints: 0, mentorId: sId === 'custom' ? 'hermes' : sId };
+    const worldInfo = progApi ? progApi.getWorldInfo(prog.world || 1) : { world: 1, name: 'Plushiah', icon: '🧶', kabbalahRef: 'Assiah' };
+    const degInfo = progApi ? progApi.getDegreeInfo(prog.level ?? 0) : { level: prog.level ?? 0, cipher: '0°=0□', title: 'Initiate', sephirah: 'Threshold' };
     const myMentor = progApi ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
     const finMod = getActiveFinModifier();
 
     const headerTitle = document.getElementById('sb-shark-header');
     if (headerTitle) {
-      headerTitle.textContent = `${sCfg.name} · Lv.${degInfo.level} ${degInfo.title} (${degInfo.cipher})`;
+      headerTitle.textContent = `${sCfg.name} · ${degInfo.cipher} ${degInfo.title} · ${worldInfo.icon} ${worldInfo.name}`;
     }
 
     const progBanner = document.getElementById('sb-progression-banner');
@@ -2704,7 +2705,7 @@
         ? `${myMentor.icon} <strong>${myMentor.currentName}</strong> (Mentor: ${myMentor.mentorName})`
         : mix.archetype;
       progBanner.innerHTML = `
-        <div>🕯️ ${mentorText} · <span style="color:#93c5fd;">Known Arts: <strong>${learnedCount} / ${totalCount}</strong></span></div>
+        <div>${worldInfo.icon} <strong>World ${worldInfo.world}: ${worldInfo.name}</strong> (${worldInfo.kabbalahRef}) · ${mentorText} · <span style="color:#93c5fd;">Known Arts: <strong>${learnedCount} / ${totalCount}</strong></span></div>
         <span class="sb-sp-pill ${sp > 0 ? '' : 'zero'}">✨ ${sp} Skill Point${sp === 1 ? '' : 's'} Available</span>
       `;
     }

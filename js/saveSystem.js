@@ -944,11 +944,10 @@
       }
     });
 
-    // v19.0 Initiatic Progression Migration:
-    // Founders start at Lv.7 (5°=6□) with 7 specialty powers; Custom starts at Lv.1 (0°=0□) with chosen Mentor & 3 starter arts!
+    // v19.1 Four Worlds (Plushiah -> Fintzirah -> Brewiah -> Sharkziluth) & 0°=0□..10°=1□ Migration
     const progApi = window.BlahajProgression;
-    if (progApi && !roster._initiaticProgressionV19) {
-      roster._initiaticProgressionV19 = true;
+    if (progApi && !roster._fourWorldsProgressionV191) {
+      roster._fourWorldsProgressionV191 = true;
       const cs = currentSaveState?.profile?.customShark || {};
       ALL_ROSTER_IDS.forEach((id) => {
         const defProg = progApi.buildDefaultProgressionForShark(id, {
@@ -956,6 +955,7 @@
           starterSkills: cs.starterSkills
         });
         const rec = roster[id];
+        rec.world = defProg.world;
         rec.level = defProg.level;
         rec.skillPoints = defProg.skillPoints;
         rec.mentorId = defProg.mentorId;
@@ -971,11 +971,12 @@
       const cs = currentSaveState?.profile?.customShark || {};
       ALL_ROSTER_IDS.forEach((id) => {
         const rec = roster[id];
-        if (!Array.isArray(rec.learnedAbilities) || typeof rec.level !== 'number') {
+        if (!Array.isArray(rec.learnedAbilities) || typeof rec.level !== 'number' || typeof rec.world !== 'number') {
           const defProg = progApi.buildDefaultProgressionForShark(id, {
             mentorId: cs.mentorId || 'hermes',
             starterSkills: cs.starterSkills
           });
+          if (typeof rec.world !== 'number') rec.world = defProg.world;
           if (typeof rec.level !== 'number') rec.level = defProg.level;
           if (typeof rec.skillPoints !== 'number') rec.skillPoints = defProg.skillPoints;
           if (!rec.mentorId) rec.mentorId = defProg.mentorId;
@@ -1395,8 +1396,10 @@
       const slots = Array.isArray(rec.inventorySlots) ? rec.inventorySlots : [];
       const itemCount = slots.filter(Boolean).reduce((acc, s) => acc + (s.qty || 1), 0);
       const progApi = window.BlahajProgression;
-      const charLevel = rec.level || (c.id === 'custom' ? 1 : 7);
-      const degInfo = progApi ? progApi.getDegreeInfo(charLevel) : { level: charLevel, cipher: charLevel >= 7 ? '5°=6□' : '0°=0□', title: 'Initiate' };
+      const charWorld = rec.world || 1;
+      const charLevel = (typeof rec.level === 'number') ? rec.level : (c.id === 'custom' ? 0 : 5);
+      const worldInfo = progApi ? progApi.getWorldInfo(charWorld) : { name: 'Plushiah', icon: '🧶' };
+      const degInfo = progApi ? progApi.getDegreeInfo(charLevel) : { level: charLevel, cipher: charLevel >= 5 ? '5°=6□' : '0°=0□', title: 'Initiate' };
       const mentorCur = progApi ? progApi.getMentorCurrent(rec.mentorId || (c.id === 'custom' ? (cs.mentorId || 'hermes') : c.id)) : null;
       const knownArtsCount = Array.isArray(rec.learnedAbilities)
         ? rec.learnedAbilities.length
@@ -1429,7 +1432,7 @@
         <div class="lobby-char-card ${isSelected ? 'selected' : ''} ${lockedByPartner ? 'locked-inworld' : ''} ${lockedByFounderGate ? 'locked-founder' : ''}"
              data-shark-card="${c.id}" role="button" tabindex="0">
           <div class="char-card-top">
-            <span class="char-degree-pill" title="${escapeHtml(degInfo.title)}">Lv.${degInfo.level} · ${escapeHtml(degInfo.cipher)}</span>
+            <span class="char-degree-pill" title="${escapeHtml(worldInfo.name)} · ${escapeHtml(degInfo.title)}">${worldInfo.icon} ${escapeHtml(degInfo.cipher)} · ${escapeHtml(worldInfo.name)}</span>
             ${statusPillHtml}
           </div>
           <div class="char-card-hero">

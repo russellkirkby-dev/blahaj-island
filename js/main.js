@@ -3514,20 +3514,21 @@
       const tCfg = LORE.sharks[targetSharkId] || cfg;
       const progApi = window.BlahajProgression;
       const prog = progApi ? progApi.getCharacterProgression(targetSharkId) : null;
-      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level || 1) : null;
+      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level ?? 0) : null;
+      const wInfo = (progApi && prog) ? progApi.getWorldInfo(prog.world || 1) : null;
       const mCur = (progApi && prog) ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
 
       const keyEl = document.getElementById('hud-shark-key');
       const nameEl = document.getElementById('hud-shark-name');
       const titleEl = document.getElementById('hud-shark-title');
       if (keyEl) {
-        keyEl.textContent = deg ? `Lv.${deg.level}` : tCfg.key;
-        if (deg) keyEl.title = `${deg.cipher} · ${deg.title}`;
+        keyEl.textContent = deg ? deg.cipher : tCfg.key;
+        if (deg && wInfo) keyEl.title = `${wInfo.name} · ${deg.title} (${deg.sephirah})`;
       }
       if (nameEl) nameEl.textContent = tCfg.name;
       if (titleEl) {
-        titleEl.textContent = (deg && mCur)
-          ? `${deg.cipher} · ${mCur.icon} ${mCur.shortLabel}`
+        titleEl.textContent = (wInfo && mCur)
+          ? `${wInfo.icon} ${wInfo.name} · ${mCur.icon} ${mCur.shortLabel}`
           : tCfg.title;
       }
     }
@@ -12404,11 +12405,24 @@
     });
   }
 
+  const QUEST_TO_TRIAL_MAP = {
+    'q-spawning-pits': 'spawning_pits_escape',
+    'q-seam': 'great_seam_first_mend',
+    'q-sw-seam': 'great_seam_first_mend',
+    'q-sw-feast': 'spherical_foods_banquet',
+    'q-em-whirl': 'laundromat_first_whirlings',
+    'q-carrots': 'volcano_obsidian_sanctum'
+  };
+
   function completeQuest(qid) {
     if (!completedQuests.has(qid)) {
       completedQuests.add(qid);
       renderQuestList();
       if (window.BlahajSaveSystem) window.BlahajSaveSystem.queueAutoSave();
+    }
+    const trialId = QUEST_TO_TRIAL_MAP[qid];
+    if (trialId && window.BlahajProgression && typeof window.BlahajProgression.completeTrial === 'function') {
+      window.BlahajProgression.completeTrial(trialId, player.sharkId);
     }
   }
 
@@ -19494,20 +19508,21 @@
       const tCfg = LORE.sharks[sId] || LORE.sharks.hermes;
       const progApi = window.BlahajProgression;
       const prog = progApi ? progApi.getCharacterProgression(sId) : null;
-      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level || 1) : null;
+      const deg = (progApi && prog) ? progApi.getDegreeInfo(prog.level ?? 0) : null;
+      const wInfo = (progApi && prog) ? progApi.getWorldInfo(prog.world || 1) : null;
       const mCur = (progApi && prog) ? progApi.getMentorCurrent(prog.mentorId || 'hermes') : null;
 
       const keyEl = document.getElementById('hud-shark-key');
       const nameEl = document.getElementById('hud-shark-name');
       const titleEl = document.getElementById('hud-shark-title');
       if (keyEl) {
-        keyEl.textContent = deg ? `Lv.${deg.level}` : tCfg.key;
-        if (deg) keyEl.title = `${deg.cipher} · ${deg.title}`;
+        keyEl.textContent = deg ? deg.cipher : tCfg.key;
+        if (deg && wInfo) keyEl.title = `${wInfo.name} · ${deg.title} (${deg.sephirah})`;
       }
       if (nameEl) nameEl.textContent = tCfg.name;
       if (titleEl) {
-        titleEl.textContent = (deg && mCur)
-          ? `${deg.cipher} · ${mCur.icon} ${mCur.shortLabel}`
+        titleEl.textContent = (wInfo && mCur)
+          ? `${wInfo.icon} ${wInfo.name} · ${mCur.icon} ${mCur.shortLabel}`
           : tCfg.title;
       }
     },

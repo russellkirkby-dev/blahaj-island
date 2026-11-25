@@ -3996,6 +3996,12 @@ window.BlahajUFO = (function () {
         : errDist * 8.0;
       state.verticalSpeed = state.remoteTargetVel.y || 0;
       state.orbitalCeilingReached = state.pos.y >= KARMAN_CEILING_Y - 4.0;
+      if (state.orbitalCeilingReached && !state._karmanTrialAwarded) {
+        state._karmanTrialAwarded = true;
+        if (window.BlahajProgression && typeof window.BlahajProgression.completeTrial === 'function') {
+          window.BlahajProgression.completeTrial('orbital_karman_ascent');
+        }
+      }
       updateJetsonsEngineHum(state.localRole === 'passenger' && state.phase !== 'parked', Math.min(1, state.speed / 35), Math.min(1, state.pos.y / KARMAN_CEILING_Y), state.turboActive);
     } else {
       // Unoccupied UFO: handle autopilot summoned landing OR parked gently on Shonkbird Atoll elevator!

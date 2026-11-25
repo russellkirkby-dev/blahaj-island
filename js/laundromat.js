@@ -2168,6 +2168,9 @@ window.BlahajLaundromat = (function () {
         masterWasher.drumMesh.rotation.z = 0;
         if (masterWasher.waterMesh) masterWasher.waterMesh.material.opacity = 0;
         blurStreakMaterials.forEach((mat) => { mat.opacity = 0; });
+        if (window.BlahajProgression && typeof window.BlahajProgression.completeTrial === 'function') {
+          window.BlahajProgression.completeTrial('laundromat_first_whirlings');
+        }
 
         if (spinTargetMesh) {
           spinTargetMesh.scale.set(1.0, 1.0, 1.0);

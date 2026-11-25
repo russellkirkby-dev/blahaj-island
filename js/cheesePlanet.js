@@ -1164,6 +1164,10 @@ window.BlahajCheeseMoon = (function () {
       localStorage.setItem('blahaj_cheese_moon_part1_cleared_v1', 'true');
     } catch (e) {}
 
+    if (window.BlahajProgression && typeof window.BlahajProgression.completeTrial === 'function') {
+      window.BlahajProgression.completeTrial('cheese_moon_expedition');
+    }
+
     if (!fromNetwork && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
       window.BlahajNetwork.send({
         type: 'cheese_event',
