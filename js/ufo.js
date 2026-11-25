@@ -4118,7 +4118,7 @@ window.BlahajUFO = (function () {
           state.spacePanPitch += (0 - (state.spacePanPitch || 0)) * Math.min(1.0, dt * 7.5);
         }
         if (state.viewMode === 'inside') {
-          if (!camState.isMiddleDown) {
+          if (!camState.isMiddleDown && !camState.isRightDown) {
             state.cockpitLookYaw += (0 - state.cockpitLookYaw) * Math.min(1.0, dt * 7.5);
             state.cockpitLookPitch += (0 - state.cockpitLookPitch) * Math.min(1.0, dt * 7.5);
           }

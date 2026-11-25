@@ -5430,19 +5430,29 @@
         return;
       }
 
-      // Sub-mode 1.5: UFO Mouse Look (Hold Middle-Click inside spaceship for everything: Cockpit & Space Outside views!)
-      if (camState.isMiddleDown && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
-        if (window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside' && window.BlahajUFO.panCockpit) {
-          window.BlahajUFO.panCockpit(dx, dy);
-          return;
-        }
-        if ((currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO.panSpaceCamera) {
-          window.BlahajUFO.panSpaceCamera(dx, dy);
-          return;
+      // Sub-mode 1.5: UFO Mouse Look (Inside Cockpit [V]: Hold Middle-Click or Right-Click to look around; Outside Space: Hold Middle-Click or Passenger look!)
+      if (window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard()) {
+        const inSpaceZone = (currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace');
+        const isInsideCockpit = !!(window.BlahajUFO.getViewMode && window.BlahajUFO.getViewMode() === 'inside');
+        const isPassenger = !!(window.BlahajUFO.getLocalRole && window.BlahajUFO.getLocalRole() === 'passenger');
+
+        if (isInsideCockpit && window.BlahajUFO.panCockpit) {
+          if (camState.isMiddleDown || camState.isRightDown || isPassenger || !inSpaceZone) {
+            if (camState.isRightDown && (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5)) {
+              camState.rightClickUsedWheel = true;
+            }
+            window.BlahajUFO.panCockpit(dx, dy);
+            return;
+          }
+        } else if (inSpaceZone && window.BlahajUFO.panSpaceCamera) {
+          if (camState.isMiddleDown || isPassenger) {
+            window.BlahajUFO.panSpaceCamera(dx, dy);
+            return;
+          }
         }
       }
 
-      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll)
+      // Sub-mode 1.8: Deep-Space Flight Simulator Steering (Mouse Pitch & Roll for Pilot)
       if ((currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace') && window.BlahajUFO && window.BlahajUFO.isLocalAboard && window.BlahajUFO.isLocalAboard() && window.BlahajUFO.applySpaceMouseLook) {
         window.BlahajUFO.applySpaceMouseLook(dx, dy);
         return;
