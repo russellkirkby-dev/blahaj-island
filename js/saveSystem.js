@@ -1717,6 +1717,12 @@
 
     if (game && typeof game.spawnPlayerShark === 'function') {
       game.spawnPlayerShark('custom');
+      if (typeof game.renderCharacterSheet === 'function') {
+        const csModal = document.getElementById('character-sheet-modal');
+        if (csModal && !csModal.classList.contains('hidden')) {
+          game.renderCharacterSheet('custom');
+        }
+      }
     }
     if (window.CozyAudio && window.CozyAudio.portalChime) {
       window.CozyAudio.portalChime();
@@ -2070,11 +2076,21 @@
       returnSharkToSpawningPitsForRebirth(true);
     });
 
+    document.getElementById('detag-shark-name')?.addEventListener('change', (e) => {
+      const val = e.target.value.trim();
+      if (val) {
+        saveCustomSharkConfig({ name: val });
+        updateLaunchGatewayUI();
+      }
+    });
+
     document.getElementById('btn-detag-enter-island')?.addEventListener('click', () => {
       const cs = ensureCustomSharkDefaults();
+      const nameVal = document.getElementById('detag-shark-name')?.value.trim();
+      const titleVal = document.getElementById('detag-shark-title')?.value || cs.title || 'Initiate of the Sacred Scissors';
       if (!cs.detagged) {
-        const nameVal = document.getElementById('detag-shark-name')?.value.trim() || 'Finley';
-        const titleVal = document.getElementById('detag-shark-title')?.value || 'Initiate of the Sacred Scissors';
+        completeRiteOfDetagging({ name: nameVal || 'Finley', title: titleVal });
+      } else if (nameVal && (nameVal !== cs.name || titleVal !== cs.title)) {
         completeRiteOfDetagging({ name: nameVal, title: titleVal });
       }
       closeRiteOfDetaggingModal();

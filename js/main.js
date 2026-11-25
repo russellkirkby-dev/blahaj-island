@@ -6501,6 +6501,14 @@
   function renderCharacterSheet(sharkId) {
     // Always lock the Character Sheet & Bag view strictly to the active logged-in character!
     selectedCSShark = player.sharkId || 'hermes';
+    if (selectedCSShark === 'custom' && window.BlahajSaveSystem) {
+      if (typeof window.BlahajSaveSystem.getCustomSharkConfig === 'function') {
+        window.BlahajSaveSystem.getCustomSharkConfig();
+      }
+      if (typeof window.BlahajSaveSystem.syncFounderAndCustomSharkUI === 'function') {
+        window.BlahajSaveSystem.syncFounderAndCustomSharkUI();
+      }
+    }
     const cfg = LORE.sharks[selectedCSShark] || LORE.sharks.hermes;
 
     // 1. Hide Multi-Shark Tabs inside the Bag modal (each character's bag is now strictly separate!)
@@ -19447,6 +19455,7 @@
     openIslandMap,
     closeIslandMap,
     toggleIslandMap,
+    renderCharacterSheet,
     isGameLoaded: () => isGameLoaded,
     getRenderer: () => renderer,
     getCamera: () => camera,
