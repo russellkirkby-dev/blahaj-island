@@ -1387,7 +1387,11 @@
     const cs = ensureCustomSharkDefaults();
     const activePick = getSelectedLobbySharkId();
 
-    // 0. Network & World Buffer Readiness Pill
+    // 0. Network & 360° Camera Buffer Readiness Pill
+    const overlayEl = document.getElementById('game-loading-screen');
+    if (overlayEl && !gatewayPanel.classList.contains('hidden')) {
+      overlayEl.classList.add('lobby-3d-live');
+    }
     if (netStatusPill) {
       const activeLockNames = Object.keys(remoteCharacterLocks)
         .map((k) => {
@@ -1398,10 +1402,10 @@
         .filter(Boolean);
 
       if (activeLockNames.length > 0) {
-        netStatusPill.innerHTML = `🟢 <strong>Co-op Realm Linked:</strong> ${escapeHtml(activeLockNames.join(', '))} currently in-world`;
+        netStatusPill.innerHTML = `🟢 <strong>360° Camera Warmed · Co-op Linked:</strong> ${escapeHtml(activeLockNames.join(', '))} in-world`;
         netStatusPill.className = 'lobby-net-pill online';
       } else {
-        netStatusPill.innerHTML = `🟢 <strong>3D World &amp; Network Buffer Ready</strong> · Standing by for Character Selection`;
+        netStatusPill.innerHTML = `🟢 <strong>360° Camera Sweeping Live &amp; Unblocked</strong> · Ready for Instant Mouse Look`;
         netStatusPill.className = 'lobby-net-pill ready';
       }
     }

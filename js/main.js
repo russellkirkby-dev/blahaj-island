@@ -3014,11 +3014,20 @@
       saveSys.setInLobby(false);
     }
 
+    // Immediately engage 3D mouse camera capture inside the user's Embark click gesture so mouse movement turns the camera on frame 1!
+    if (typeof window._blahajEnterGameCapture === 'function') {
+      window._blahajEnterGameCapture();
+    }
+
     // 3. Spawn the chosen character and load their per-character (or Shared Founder) Inventory, Skills, Mange & Position!
     spawnPlayerShark(targetSharkId, true);
     if (saveSys && typeof saveSys.applyCharacterFromRoster === 'function') {
       saveSys.applyCharacterFromRoster(targetSharkId);
     }
+    // Snap camera cleanly behind the shark after the 360° lobby orbit sweep!
+    camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+    camState.pitch = 0.28;
+    updateCamera(0, 0.016);
 
     const overlay = document.getElementById('game-loading-screen');
     if (overlay) {
@@ -3361,23 +3370,32 @@
       console.warn('Shader pre-compilation warning:', e);
     }
 
-    setLoadingProgress(96, 'Pre-warming 360° horizon textures & shadow buffers…');
+    setLoadingProgress(90, 'Turning 3D camera 360° to pre-warm all island view angles…');
     await yieldFrame();
 
-    // 5. Sweep camera 360° across 8 compass angles during warmup so every frustum sector's
-    // CanvasTextures and D3D11 draw pipelines upload/link upfront before gameplay starts!
+    // 5. Multi-frame yielded 360° camera rotation sweep across 12 compass & pitch angles so every frustum sector's
+    // textures, shadows, and D3D11 draw pipelines actually flush to the GPU across real frames!
     try {
       const savedYaw = camState.yaw;
-      for (let step = 0; step < 8; step++) {
-        camState.yaw = savedYaw + (step * Math.PI) / 4;
-        updateCamera(0, 0.016);
+      const savedPitch = camState.pitch;
+      const totalSteps = 12;
+      for (let step = 0; step < totalSteps; step++) {
+        camState.yaw = savedYaw + (step * Math.PI * 2) / totalSteps;
+        camState.pitch = (step % 2 === 0) ? 0.24 : 0.48;
+        updateCamera(step * 0.05, 0.016);
+        if (window.BlahajWorld && typeof window.BlahajWorld.updateWorld === 'function') {
+          window.BlahajWorld.updateWorld(step * 0.05, 0.016, scene, camera);
+        }
         if (composer && gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled) {
           composer.render();
         } else if (renderer && scene && camera) {
           renderer.render(scene, camera);
         }
+        setLoadingProgress(90 + Math.round(((step + 1) / totalSteps) * 9), `Turning camera 360° (${Math.round(((step + 1) / totalSteps) * 360)}°) to unlock smooth mouse look…`);
+        await yieldFrame();
       }
       camState.yaw = savedYaw;
+      camState.pitch = savedPitch;
       updateCamera(0, 0.016);
     } catch (e) {
       console.warn('Warmup render warning:', e);
@@ -3386,7 +3404,7 @@
     window.addEventListener('resize', onWindowResize);
     requestAnimationFrame(animate);
 
-    setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
+    setLoadingProgress(100, '360° Camera & Archipelago ready! Welcome to Blåhaj Island 🦈✨');
     finishLoadingScreen();
   }
 
@@ -5174,6 +5192,7 @@
         } catch (err) {}
       }
     }
+    window._blahajEnterGameCapture = enterGameCapture;
 
     document.getElementById('btn-pause-resume')?.addEventListener('click', () => {
       enterGameCapture();
@@ -16418,8 +16437,22 @@
   }
 
   function updatePlayerMovement(dt, elapsed) {
-    // While in the Full-Screen Character Select Lobby, the 3D world and network buffer warm up in the background without moving or claiming a character!
+    // While in the Full-Screen Character Select Lobby, continuously sweep the live 3D camera 360° around the selected character
+    // so every GPU angle, texture, and shadow frustum is already warm and spinning at 60 FPS before you click Enter World!
     if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.isInLobby === 'function' && window.BlahajSaveSystem.isInLobby()) {
+      const selShark = (typeof window.BlahajSaveSystem.getSelectedLobbySharkId === 'function')
+        ? window.BlahajSaveSystem.getSelectedLobbySharkId()
+        : player.sharkId;
+      if (selShark && selShark !== player.sharkId) {
+        spawnPlayerShark(selShark, true);
+        if (typeof window.BlahajSaveSystem.applyCharacterFromRoster === 'function') {
+          window.BlahajSaveSystem.applyCharacterFromRoster(selShark);
+        }
+      }
+      camState.yaw += dt * 0.85;
+      while (camState.yaw > Math.PI) camState.yaw -= Math.PI * 2;
+      camState.pitch = 0.28 + Math.sin(elapsed * 0.7) * 0.14;
+      window.__BLAHAJ_LOBBY_ORBIT_DEG__ = Math.min(360, Math.round(((window.__BLAHAJ_LOBBY_ORBIT_ACCUM__ = (window.__BLAHAJ_LOBBY_ORBIT_ACCUM__ || 0) + dt * 0.85) / (Math.PI * 2)) * 360));
       return;
     }
     if (window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
