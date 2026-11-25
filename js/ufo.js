@@ -1887,6 +1887,22 @@ window.BlahajUFO = (function () {
     });
   }
 
+  function syncPartnerFromMovePacket(partnerInUfo, partnerRole) {
+    const myId = getMyClientId();
+    state.partnerInUFO = !!partnerInUfo;
+    state.partnerUfoRole = partnerInUfo ? (partnerRole || 'passenger') : null;
+    if (!partnerInUfo) {
+      if (state.pilotClientId && state.pilotClientId !== myId) {
+        state.pilotClientId = null;
+        state.pilotName = null;
+      }
+      if (state.passengerClientId && state.passengerClientId !== myId) {
+        state.passengerClientId = null;
+        state.passengerName = null;
+      }
+    }
+  }
+
   function handleNetworkPacket(data) {
     if (!data) return;
     const myId = getMyClientId();
@@ -1897,12 +1913,16 @@ window.BlahajUFO = (function () {
       if (data.action === 'board_passenger') {
         state.passengerClientId = data.clientId || null;
         state.passengerName = data.name || 'Co-Pilot';
+        state.partnerInUFO = true;
+        state.partnerUfoRole = 'passenger';
         if (state.localRole === 'pilot') broadcastState(true);
       } else if (data.action === 'exit_passenger') {
         if (!data.clientId || state.passengerClientId === data.clientId) {
           state.passengerClientId = null;
           state.passengerName = null;
         }
+        state.partnerInUFO = false;
+        state.partnerUfoRole = null;
         if (state.localRole === 'pilot') broadcastState(true);
       }
       return;
@@ -1911,16 +1931,71 @@ window.BlahajUFO = (function () {
     if (data.type !== 'ufo_state') return;
     if (data.senderId && data.senderId === myId) return;
 
-    // Active local pilot is strictly authoritative for UFO position/orientation!
-    if (state.localRole === 'pilot') {
-      if (data.passengerClientId && data.passengerClientId !== myId) {
-        state.passengerClientId = data.passengerClientId;
-        state.passengerName = data.passengerName || 'Co-Pilot';
+    const pktInSpace = !!data.inSpace;
+    const pktInCheese = !!data.inCheeseMoon;
+    const pktInHyper = !!data.inHyperspace;
+    const sameDimension =
+      pktInSpace === !!state.inSpace &&
+      pktInCheese === !!state.inCheeseMoon &&
+      pktInHyper === !!state.inHyperspace;
+
+    // Update authoritative partner UFO occupancy from their ufo_state packet
+    if (data.pilotClientId && data.pilotClientId !== myId) {
+      state.partnerInUFO = true;
+      state.partnerUfoRole = 'pilot';
+    } else if (data.passengerClientId && data.passengerClientId !== myId) {
+      state.partnerInUFO = true;
+      state.partnerUfoRole = 'passenger';
+    } else if (!data.pilotClientId && !data.passengerClientId) {
+      state.partnerInUFO = false;
+      state.partnerUfoRole = null;
+    }
+
+    // If local player is aboard the UFO and the partner's authoritative UFO warped to a new dimension,
+    // immediately warp with the ship (and demote to passenger if both had localRole === 'pilot')!
+    if (state.localRole && data.isPilotAuth && !sameDimension && window.BlahajGame) {
+      if (state.localRole === 'pilot' && data.pilotClientId && data.pilotClientId !== myId) {
+        state.localRole = 'passenger';
+        state.passengerClientId = myId;
+        state.passengerName = getMySharkName();
+      }
+      state.remoteSnapshots = [];
+      const pilotInHyper = pktInHyper;
+      const pilotInCheese = pktInCheese && !pilotInHyper;
+      const pilotInDeepSpace = pktInSpace && !pilotInHyper && !pilotInCheese;
+      const pilotOnIsland = !pktInSpace;
+
+      if (pilotInHyper && !state.inHyperspace && typeof window.BlahajGame.enterHyperspace === 'function') {
+        window.BlahajGame.enterHyperspace(false, true);
+      } else if (pilotInCheese && !state.inCheeseMoon && typeof window.BlahajGame.enterCheeseMoon === 'function') {
+        window.BlahajGame.enterCheeseMoon(false, true);
+      } else if (pilotInDeepSpace && (!state.inSpace || state.inCheeseMoon || state.inHyperspace)) {
+        if (state.inCheeseMoon && typeof window.BlahajGame.exitCheeseMoon === 'function') {
+          window.BlahajGame.exitCheeseMoon(false);
+        } else if (state.inHyperspace && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
+          window.BlahajGame.exitHyperspaceTo('space', false, true);
+        } else if (typeof window.BlahajGame.enterSpaceMap === 'function') {
+          window.BlahajGame.enterSpaceMap(false, true);
+        }
+      } else if (pilotOnIsland && state.inSpace && typeof window.BlahajGame.exitSpaceMap === 'function') {
+        window.BlahajGame.exitSpaceMap(false, true);
       }
       return;
     }
 
-    // Strictly drop any out-of-order or duplicate packets from the same sender (prevents delayed MQTT broker bursts from snapping UFO backwards!)
+    // Active local pilot in the same dimension is strictly authoritative for UFO position/orientation!
+    if (state.localRole === 'pilot') {
+      if (data.passengerClientId && data.passengerClientId !== myId) {
+        state.passengerClientId = data.passengerClientId;
+        state.passengerName = data.passengerName || 'Co-Pilot';
+      } else if (data.passengerClientId === null && state.passengerClientId !== myId) {
+        state.passengerClientId = null;
+        state.passengerName = null;
+      }
+      return;
+    }
+
+    // Strictly drop any out-of-order or duplicate packets from the same sender
     const pktSender = data.senderId || data.clientId || null;
     if (pktSender && pktSender !== state.lastRemoteSenderId) {
       state.lastRemoteSenderId = pktSender;
@@ -1935,38 +2010,42 @@ window.BlahajUFO = (function () {
     state.hasRemoteSync = true;
     state.remoteVaultSummary = data.vaultSummary || null;
 
-    if (typeof data.x === 'number' && typeof data.y === 'number' && typeof data.z === 'number') {
-      state.remoteTargetPos.set(data.x, data.y, data.z);
-      state.remoteSnapshots.push({
-        t: performance.now(),
-        x: data.x,
-        y: data.y,
-        z: data.z,
-        yaw: typeof data.yaw === 'number' ? data.yaw : state.remoteTargetYaw,
-        pitch: typeof data.pitch === 'number' ? data.pitch : state.remoteTargetPitch,
-        roll: typeof data.roll === 'number' ? data.roll : state.remoteTargetRoll
-      });
-      if (state.remoteSnapshots.length > 18) {
-        state.remoteSnapshots.splice(0, state.remoteSnapshots.length - 18);
+    // CRITICAL GUARD: NEVER apply coordinates from a different dimension (e.g. (0,0,0) in Hyperspace) to the UFO on Blåhaj Island!
+    if (sameDimension) {
+      if (typeof data.x === 'number' && typeof data.y === 'number' && typeof data.z === 'number') {
+        state.remoteTargetPos.set(data.x, data.y, data.z);
+        state.remoteSnapshots.push({
+          t: performance.now(),
+          x: data.x,
+          y: data.y,
+          z: data.z,
+          yaw: typeof data.yaw === 'number' ? data.yaw : state.remoteTargetYaw,
+          pitch: typeof data.pitch === 'number' ? data.pitch : state.remoteTargetPitch,
+          roll: typeof data.roll === 'number' ? data.roll : state.remoteTargetRoll
+        });
+        if (state.remoteSnapshots.length > 18) {
+          state.remoteSnapshots.splice(0, state.remoteSnapshots.length - 18);
+        }
       }
+      if (typeof data.vx === 'number' && typeof data.vy === 'number' && typeof data.vz === 'number') {
+        state.remoteTargetVel.set(data.vx, data.vy, data.vz);
+      } else {
+        state.remoteTargetVel.set(0, 0, 0);
+      }
+      if (typeof data.yaw === 'number') state.remoteTargetYaw = data.yaw;
+      if (typeof data.pitch === 'number') state.remoteTargetPitch = data.pitch;
+      if (typeof data.roll === 'number') state.remoteTargetRoll = data.roll;
+      if (typeof data.qx === 'number' && typeof data.qy === 'number' && typeof data.qz === 'number' && typeof data.qw === 'number') {
+        state.remoteTargetQuat.set(data.qx, data.qy, data.qz, data.qw).normalize();
+      }
+      if (data.phase) state.phase = data.phase;
     }
-    if (typeof data.vx === 'number' && typeof data.vy === 'number' && typeof data.vz === 'number') {
-      state.remoteTargetVel.set(data.vx, data.vy, data.vz);
-    } else {
-      state.remoteTargetVel.set(0, 0, 0);
-    }
-    if (typeof data.yaw === 'number') state.remoteTargetYaw = data.yaw;
-    if (typeof data.pitch === 'number') state.remoteTargetPitch = data.pitch;
-    if (typeof data.roll === 'number') state.remoteTargetRoll = data.roll;
-    if (typeof data.qx === 'number' && typeof data.qy === 'number' && typeof data.qz === 'number' && typeof data.qw === 'number') {
-      state.remoteTargetQuat.set(data.qx, data.qy, data.qz, data.qw).normalize();
-    }
+
     if (typeof data.spaceThrottle === 'number') {
       state.spaceThrottle = data.spaceThrottle;
     }
     if (typeof data.hullHp === 'number') state.hullHp = data.hullHp;
     if (typeof data.shieldHp === 'number') state.shieldHp = data.shieldHp;
-    if (data.phase) state.phase = data.phase;
     if (typeof data.hangarTargetOpen === 'boolean') state.hangarTargetOpen = data.hangarTargetOpen;
     if (typeof data.hatchTargetOpen === 'boolean') state.hatchTargetOpen = data.hatchTargetOpen;
     if (typeof data.activeModuleIdx === 'number' && saucerModules.length) {
@@ -1984,37 +2063,11 @@ window.BlahajUFO = (function () {
     if (typeof data.discoMode === 'boolean') state.discoMode = data.discoMode;
     if (typeof data.turboActive === 'boolean') state.turboActive = data.turboActive;
     if (typeof data.warpChargeTimer === 'number') state.warpChargeTimer = data.warpChargeTimer;
-    state.pilotClientId = data.pilotClientId || null;
+    state.pilotClientId = (data.pilotClientId && data.pilotClientId !== myId) ? data.pilotClientId : (state.localRole === 'pilot' ? myId : null);
     state.pilotName = data.pilotName || null;
     if (state.localRole !== 'passenger') {
-      state.passengerClientId = data.passengerClientId || null;
+      state.passengerClientId = (data.passengerClientId && data.passengerClientId !== myId) ? data.passengerClientId : null;
       state.passengerName = data.passengerName || null;
-    }
-
-    // Continuous self-healing dimension sync for a co-pilot Passenger riding aboard the UFO:
-    // If a zone_change packet was dropped or arrived mid-transition, the pilot's authoritative ufo_state
-    // immediately pulls the passenger into the exact same dimension (Hyperspace, Cheese Moon, Deep Space, or Island)!
-    if (state.localRole === 'passenger' && data.isPilotAuth && window.BlahajGame) {
-      const pilotInHyper = !!data.inHyperspace;
-      const pilotInCheese = !!(data.inCheeseMoon && !pilotInHyper);
-      const pilotInDeepSpace = !!(data.inSpace && !pilotInHyper && !pilotInCheese);
-      const pilotOnIsland = !data.inSpace;
-
-      if (pilotInHyper && !state.inHyperspace && typeof window.BlahajGame.enterHyperspace === 'function') {
-        window.BlahajGame.enterHyperspace(false);
-      } else if (pilotInCheese && !state.inCheeseMoon && typeof window.BlahajGame.enterCheeseMoon === 'function') {
-        window.BlahajGame.enterCheeseMoon(false);
-      } else if (pilotInDeepSpace && (!state.inSpace || state.inCheeseMoon || state.inHyperspace)) {
-        if (state.inCheeseMoon && typeof window.BlahajGame.exitCheeseMoon === 'function') {
-          window.BlahajGame.exitCheeseMoon(false);
-        } else if (state.inHyperspace && typeof window.BlahajGame.exitHyperspaceTo === 'function') {
-          window.BlahajGame.exitHyperspaceTo('space', false);
-        } else if (typeof window.BlahajGame.enterSpaceMap === 'function') {
-          window.BlahajGame.enterSpaceMap(false);
-        }
-      } else if (pilotOnIsland && state.inSpace && typeof window.BlahajGame.exitSpaceMap === 'function') {
-        window.BlahajGame.exitSpaceMap(false);
-      }
     }
   }
 
@@ -2464,21 +2517,18 @@ window.BlahajUFO = (function () {
 
   function triggerMojoHyperdrive() {
     if (state.inHyperspace) return;
-    if (state.inSpace && (state.inCheeseMoon || (window.BlahajSpace && window.BlahajSpace.getSectorStatus && (window.BlahajSpace.getSectorStatus().waveCleared || window.BlahajSpace.getSectorStatus().remainingRocks === 0)))) {
-      if (window.BlahajGame && typeof window.BlahajGame.enterHyperspace === 'function') {
-        window.BlahajGame.enterHyperspace(true);
-        return;
-      }
+    // Activating [4] Mojo Hyperdrive while flying warps the UFO (Pilot + Passenger together!) directly into the Mojo Hyperspace Crossroads!
+    if (state.phase !== 'parked' && window.BlahajGame && typeof window.BlahajGame.enterHyperspace === 'function') {
+      playJetsonsHorn();
+      spawnRadarWave(0xc084fc, 36);
+      window.BlahajGame.enterHyperspace(true, true);
+      return;
     }
     state.hyperdriveTimer = 9.0;
     playJetsonsHorn();
     spawnRadarWave(0xc084fc, 28);
     if (window.showToast) {
-      if (state.inSpace) {
-        window.showToast('⚡ DEEP-SPACE HYPERDRIVE SURGE!', '9s orbital boost active! Clear all asteroids to unlock Mojo Hyperspace Crossroads!');
-      } else {
-        window.showToast('⚡ MOJO HYPERDRIVE READY!', 'Climb into the upper atmosphere (145m–185m) and hold [Shift] + [W] for 6 seconds to jump to Deep Space!');
-      }
+      window.showToast('⚡ MOJO HYPERDRIVE READY!', 'Launch into the air [Space / W] and Left-Click with [4] Mojo Hyperdrive to tear into the Hyperspace Crossroads!');
     }
   }
 
@@ -4017,25 +4067,22 @@ window.BlahajUFO = (function () {
       }
     }
 
-    // 5b. Lock Remote Co-op Partner Shark directly into their UFO seat (prevents floating in the sky!)
-    if (window.coopPartner && window.coopPartner.active && window.coopPartner.mesh) {
-      const partnerIsPilot = !!(state.pilotClientId && state.localRole !== 'pilot');
-      const partnerIsPassenger = !!(state.passengerClientId && state.localRole !== 'passenger');
-      if (partnerIsPilot || partnerIsPassenger) {
-        const partnerAnchor = partnerIsPilot ? seatPilotAnchor : seatPassengerAnchor;
-        const partnerSeat = new THREE.Vector3();
-        partnerAnchor.getWorldPosition(partnerSeat);
-        window.coopPartner.mesh.position.copy(partnerSeat);
-        if (state.inSpace) {
-          window.coopPartner.mesh.quaternion.copy(ufoGroup.quaternion);
-        } else {
-          window.coopPartner.mesh.rotation.order = 'YXZ';
-          window.coopPartner.mesh.rotation.set(state.pitch, state.yaw, state.roll);
-        }
-        window.coopPartner.mesh.visible = true;
-        if (window.coopPartner.targetPos) window.coopPartner.targetPos.copy(partnerSeat);
-        window.coopPartner.targetRotY = state.yaw;
+    // 5b. Lock Remote Co-op Partner Shark directly into their UFO seat ONLY when partner's move/crew packets confirm they are aboard!
+    if (window.coopPartner && window.coopPartner.active && window.coopPartner.mesh && state.partnerInUFO) {
+      const partnerIsPilot = state.partnerUfoRole === 'pilot' && state.localRole !== 'pilot';
+      const partnerAnchor = partnerIsPilot ? seatPilotAnchor : seatPassengerAnchor;
+      const partnerSeat = new THREE.Vector3();
+      partnerAnchor.getWorldPosition(partnerSeat);
+      window.coopPartner.mesh.position.copy(partnerSeat);
+      if (state.inSpace) {
+        window.coopPartner.mesh.quaternion.copy(ufoGroup.quaternion);
+      } else {
+        window.coopPartner.mesh.rotation.order = 'YXZ';
+        window.coopPartner.mesh.rotation.set(state.pitch, state.yaw, state.roll);
       }
+      window.coopPartner.mesh.visible = true;
+      if (window.coopPartner.targetPos) window.coopPartner.targetPos.copy(partnerSeat);
+      window.coopPartner.targetRotY = state.yaw;
     }
 
     // 6. Position Local Player Shark Visibly Inside the Glass Bubble Canopy!
@@ -4346,6 +4393,7 @@ window.BlahajUFO = (function () {
     updateAvionicsButtonsUI,
     playJetsonsHorn,
     handleNetworkPacket,
+    syncPartnerFromMovePacket,
     adjustSpaceThrottle,
     applySpaceMouseLook,
     panSpaceCamera,
@@ -4354,10 +4402,7 @@ window.BlahajUFO = (function () {
     handleDestroyedFromNetwork,
     isInSpace: () => !!state.inSpace,
     isLocalAboard: () => !!state.localRole,
-    isPartnerAboard: () => Boolean(
-      (state.pilotClientId && state.localRole !== 'pilot') ||
-      (state.passengerClientId && state.localRole !== 'passenger')
-    ),
+    isPartnerAboard: () => !!state.partnerInUFO,
     getLocalRole: () => state.localRole,
     getState: () => state,
     getIslandCoords: () => ({ x: ISLE_X, z: ISLE_Z, radius: ISLE_RADIUS, deckY: ISLE_DECK_Y })

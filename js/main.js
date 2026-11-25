@@ -3238,53 +3238,6 @@
 
     setLoadingProgress(100, 'Archipelago ready! Welcome to Blåhaj Island 🦈✨');
     finishLoadingScreen();
-
-    // If player checkpointed in Mojo Hyperspace, restore them directly inside their UFO in the Hyperspace Crossroads on refresh!
-    if (hasStoredSavePoint && lastSavePoint && lastSavePoint.hyperspaceCheckpoint) {
-      setTimeout(() => {
-        try {
-          if (window.BlahajUFO && typeof window.BlahajUFO.boardUFO === 'function') {
-            if (!window.BlahajUFO.isLocalAboard()) {
-              window.BlahajUFO.boardUFO();
-            }
-          }
-          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.build === 'function') {
-            window.BlahajHyperspace.build();
-          }
-          const hyperScene = window.BlahajHyperspace ? window.BlahajHyperspace.getScene() : null;
-          currentZone = 'hyperspace';
-          if (player.mesh && hyperScene) {
-            if (player.mesh.parent) player.mesh.parent.remove(player.mesh);
-            hyperScene.add(player.mesh);
-          }
-          if (coopPartner.mesh && hyperScene) {
-            if (coopPartner.mesh.parent) coopPartner.mesh.parent.remove(coopPartner.mesh);
-            hyperScene.add(coopPartner.mesh);
-          }
-          if (window.BlahajUFO && typeof window.BlahajUFO.setSpaceMode === 'function') {
-            window.BlahajUFO.setSpaceMode(true, hyperScene || scene, false, true);
-          }
-          if (window.BlahajHyperspace && typeof window.BlahajHyperspace.onEnterZone === 'function') {
-            window.BlahajHyperspace.onEnterZone();
-          }
-          // Force immediate camera & UFO sync so the camera is placed squarely behind the UFO inside the tunnel on frame 1!
-          if (window.BlahajUFO && typeof window.BlahajUFO.update === 'function') {
-            window.BlahajUFO.update(0.016, 0, keys, camState, camera);
-          }
-          updateCamera(0, 0.016);
-          if (renderer && hyperScene && camera) {
-            renderer.compile(hyperScene, camera);
-          }
-          updateCoopPartnerVisibility();
-          showToast(
-            '⚡🌀 HYPERSPACE CHECKPOINT RESTORED!',
-            'Resumed aboard S.S. Shonk-Saucer inside the Mojo Hyperspace Crossroads!'
-          );
-        } catch (err) {
-          console.error('[Blahaj] Hyperspace checkpoint restore error:', err);
-        }
-      }, 60);
-    }
   }
 
   function canUseBuilderMode() {
@@ -8172,9 +8125,12 @@
     }, 70);
   }
 
-  function enterSpaceMap(broadcast = true) {
-    if (isTransitioningZone || currentZone === 'space') return;
+  function enterSpaceMap(broadcast = true, force = false) {
+    if ((!force && isTransitioningZone) || currentZone === 'space') return;
     isTransitioningZone = true;
+    if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({ type: 'zone_change', zone: 'space' });
+    }
 
     const overlay = document.getElementById('instance-loading');
     const titleEl = document.getElementById('instance-loading-title');
@@ -8238,9 +8194,12 @@
     }, 55);
   }
 
-  function exitSpaceMap(broadcast = true) {
-    if (isTransitioningZone || currentZone !== 'space') return;
+  function exitSpaceMap(broadcast = true, force = false) {
+    if ((!force && isTransitioningZone) || (currentZone !== 'space' && currentZone !== 'cheese_moon' && currentZone !== 'hyperspace')) return;
     isTransitioningZone = true;
+    if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({ type: 'zone_change', zone: 'island' });
+    }
 
     const overlay = document.getElementById('instance-loading');
     const titleEl = document.getElementById('instance-loading-title');
@@ -8467,9 +8426,12 @@
     }
   }, true);
 
-  function enterCheeseMoon(broadcast = true) {
-    if (isTransitioningZone || currentZone === 'cheese_moon') return;
+  function enterCheeseMoon(broadcast = true, force = false) {
+    if ((!force && isTransitioningZone) || currentZone === 'cheese_moon') return;
     isTransitioningZone = true;
+    if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({ type: 'zone_change', zone: 'cheese_moon' });
+    }
 
     const overlay = document.getElementById('instance-loading');
     const titleEl = document.getElementById('instance-loading-title');
@@ -8534,13 +8496,16 @@
   }
 
   function returnHomeFromCheeseMoon(broadcast = true) {
-    if (isTransitioningZone || currentZone !== 'cheese_moon') return;
-    exitSpaceMap(broadcast);
+    if (currentZone !== 'cheese_moon' && currentZone !== 'hyperspace' && currentZone !== 'space') return;
+    exitSpaceMap(broadcast, true);
   }
 
-  function enterHyperspace(broadcast = true) {
-    if (isTransitioningZone || currentZone === 'hyperspace') return;
+  function enterHyperspace(broadcast = true, force = false) {
+    if ((!force && isTransitioningZone) || currentZone === 'hyperspace') return;
     isTransitioningZone = true;
+    if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({ type: 'zone_change', zone: 'hyperspace' });
+    }
 
     const overlay = document.getElementById('instance-loading');
     const titleEl = document.getElementById('instance-loading-title');
@@ -8600,18 +8565,21 @@
     }, 45);
   }
 
-  function exitHyperspaceTo(targetZone, broadcast = true) {
-    if (isTransitioningZone || currentZone !== 'hyperspace') return;
+  function exitHyperspaceTo(targetZone, broadcast = true, force = false) {
+    if ((!force && isTransitioningZone) || currentZone !== 'hyperspace') return;
     if (targetZone === 'island' || targetZone === 'overworld') {
-      exitSpaceMap(broadcast);
+      exitSpaceMap(broadcast, true);
       return;
     }
     if (targetZone === 'cheese_moon') {
-      enterCheeseMoon(broadcast);
+      enterCheeseMoon(broadcast, true);
       return;
     }
     // Default: Deep Space Orbit ('space')
     isTransitioningZone = true;
+    if (broadcast && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({ type: 'zone_change', zone: 'space' });
+    }
     const overlay = document.getElementById('instance-loading');
     const titleEl = document.getElementById('instance-loading-title');
     const subEl = document.getElementById('instance-loading-sub');
@@ -15417,11 +15385,23 @@
           coopPartner.activePostureId = data.activePostureId || null;
           coopPartner.isSeatedInBooth = !!data.isSeatedInBooth;
           coopPartner.isPlayingPlushie = !!data.isPlayingPlushie;
+          coopPartner.inUFO = !!data.inUFO;
+          coopPartner.ufoRole = data.ufoRole || null;
+
+          if (window.BlahajUFO && typeof window.BlahajUFO.syncPartnerFromMovePacket === 'function') {
+            window.BlahajUFO.syncPartnerFromMovePacket(!!data.inUFO, data.ufoRole || null);
+          }
 
           const partnerInUFO = !!(window.BlahajUFO && typeof window.BlahajUFO.isPartnerAboard === 'function' && window.BlahajUFO.isPartnerAboard());
-          if (!partnerInUFO && coopPartner.mesh && (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20)) {
-            coopPartner.mesh.position.copy(coopPartner.targetPos);
-            coopPartner.mesh.rotation.y = coopPartner.targetRotY || 0;
+          if (!partnerInUFO && coopPartner.mesh) {
+            // Reset any 3D space pitch/roll tilt on partner's mesh when they are on the ground!
+            coopPartner.mesh.rotation.order = 'YXZ';
+            coopPartner.mesh.rotation.x = 0;
+            coopPartner.mesh.rotation.z = 0;
+            if (prevZone !== nextZone || coopPartner.mesh.position.distanceTo(coopPartner.targetPos) > 20) {
+              coopPartner.mesh.position.copy(coopPartner.targetPos);
+              coopPartner.mesh.rotation.y = coopPartner.targetRotY || 0;
+            }
           }
 
           if (coopPartner.mesh && coopPartner.heldItemId !== data.heldItemId) {
@@ -15473,30 +15453,30 @@
           }
           updateCoopPartnerVisibility();
 
-          // If local player is riding aboard the UFO as Passenger, automatically warp with the Pilot across Space, Hyperspace, Cheese Moon & Island!
+          // If local player is riding aboard the UFO, automatically warp with the partner across Space, Hyperspace, Cheese Moon & Island!
           if (
             window.BlahajUFO &&
-            typeof window.BlahajUFO.getLocalRole === 'function' &&
-            window.BlahajUFO.getLocalRole() === 'passenger' &&
+            typeof window.BlahajUFO.isLocalAboard === 'function' &&
+            window.BlahajUFO.isLocalAboard() &&
             coopPartner.zone !== currentZone
           ) {
             if (coopPartner.zone === 'hyperspace') {
-              enterHyperspace(false);
+              enterHyperspace(false, true);
             } else if (coopPartner.zone === 'cheese_moon') {
-              enterCheeseMoon(false);
+              enterCheeseMoon(false, true);
             } else if (coopPartner.zone === 'space') {
               if (currentZone === 'cheese_moon') {
                 exitCheeseMoon(false);
               } else if (currentZone === 'hyperspace') {
-                exitHyperspaceTo('space', false);
+                exitHyperspaceTo('space', false, true);
               } else {
-                enterSpaceMap(false);
+                enterSpaceMap(false, true);
               }
             } else if (
               coopPartner.zone === 'island' &&
               (currentZone === 'space' || currentZone === 'cheese_moon' || currentZone === 'hyperspace')
             ) {
-              exitSpaceMap(false);
+              exitSpaceMap(false, true);
             }
           }
         } else if (data.type === 'volcano_carrot_knock') {
@@ -17160,7 +17140,7 @@
     const activelyMoving = !inUfoNow && (isMoving || cartMoving || player.inBoat);
     // Mobile-friendly tick rate: 0.11s (~9Hz) while actively moving on foot/boat/cart,
     // 3.0s keepalive while aboard UFO (since ufo_state carries position), and delta-skipped when standing still!
-    const syncInterval = inUfoNow ? 3.0 : (activelyMoving ? 0.11 : 0.35);
+    const syncInterval = inUfoNow ? 0.45 : (activelyMoving ? 0.11 : 0.35);
     if (netSyncTimer > syncInterval) {
       const mmoPosture = (window.BlahajMMO && typeof window.BlahajMMO.getActivePosture === 'function')
         ? window.BlahajMMO.getActivePosture()
@@ -17176,6 +17156,9 @@
 
       const prev = update._lastSentMove;
       const nowMs = performance.now();
+      const ufoRoleNow = (window.BlahajUFO && typeof window.BlahajUFO.getLocalRole === 'function')
+        ? window.BlahajUFO.getLocalRole()
+        : null;
       const unchanged = prev &&
         Math.abs(prev.x - rx) < 0.02 &&
         Math.abs(prev.y - ry) < 0.02 &&
@@ -17183,6 +17166,8 @@
         Math.abs(prev.rotY - rRot) < 0.02 &&
         prev.isMoving === activelyMoving &&
         prev.zone === currentZone &&
+        prev.inUFO === inUfoNow &&
+        prev.ufoRole === ufoRoleNow &&
         prev.heldItemId === heldId &&
         prev.activePostureId === postId &&
         prev.inBoat === !!player.inBoat &&
@@ -17192,7 +17177,7 @@
         prev.isPlayingPlushie === playingPlushie;
 
       netSyncTimer = 0;
-      if (!unchanged || (nowMs - (prev ? prev.t : 0) > 2500)) {
+      if (!unchanged || (nowMs - (prev ? prev.t : 0) > 1500)) {
         const pkt = {
           type: 'move',
           sharkId: player.sharkId,
@@ -17202,6 +17187,8 @@
           rotY: rRot,
           isMoving: activelyMoving,
           zone: currentZone,
+          inUFO: inUfoNow,
+          ufoRole: ufoRoleNow,
           mange: mangeVal
         };
         if (player.inBoat) pkt.inBoat = true;
@@ -17226,6 +17213,8 @@
           rotY: rRot,
           isMoving: activelyMoving,
           zone: currentZone,
+          inUFO: inUfoNow,
+          ufoRole: ufoRoleNow,
           heldItemId: heldId,
           activePostureId: postId,
           inBoat: !!player.inBoat,
