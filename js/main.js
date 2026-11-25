@@ -150,18 +150,22 @@
       }
       if (this.ctx && !this.masterGain) {
         try {
+          const now = this.ctx.currentTime;
           this.masterGain = this.ctx.createGain();
           this.musicGain = this.ctx.createGain();
           this.sfxGain = this.ctx.createGain();
           this.ambientGain = this.ctx.createGain();
           this.ufoGain = this.ctx.createGain();
 
+          // Start muted (0.0001) before connecting to destination so resuming AudioContext never pops/bangs
+          this.masterGain.gain.setValueAtTime(0.0001, now);
+
           this.musicGain.connect(this.masterGain);
           this.sfxGain.connect(this.masterGain);
           this.ambientGain.connect(this.masterGain);
           this.ufoGain.connect(this.masterGain);
           this.masterGain.connect(this.ctx.destination);
-          this.syncVolumes();
+          this.syncVolumes(gameSettings, true);
         } catch (e) {
           console.warn('Audio gain routing error:', e);
         }
@@ -174,7 +178,7 @@
       }
     },
 
-    syncVolumes(settings = gameSettings) {
+    syncVolumes(settings = gameSettings, isInitial = false) {
       if (!this.ctx || !this.masterGain) return;
       const now = this.ctx.currentTime;
       const cfg = settings || DEFAULT_SETTINGS;
@@ -184,11 +188,19 @@
       const aVol = cfg.ambientMute ? 0.0001 : Math.max(0.0001, (cfg.ambientVol ?? 65) / 100);
       const uVol = cfg.ufoMute ? 0.0001 : Math.max(0.0001, (cfg.ufoVol ?? 80) / 100);
 
-      this.masterGain.gain.setTargetAtTime(mVol, now, 0.05);
-      if (this.musicGain) this.musicGain.gain.setTargetAtTime(mscVol, now, 0.05);
-      this.sfxGain.gain.setTargetAtTime(sVol, now, 0.05);
-      this.ambientGain.gain.setTargetAtTime(aVol, now, 0.05);
-      if (this.ufoGain) this.ufoGain.gain.setTargetAtTime(uVol, now, 0.05);
+      if (isInitial) {
+        if (this.musicGain) this.musicGain.gain.setValueAtTime(mscVol, now);
+        this.sfxGain.gain.setValueAtTime(sVol, now);
+        this.ambientGain.gain.setValueAtTime(aVol, now);
+        if (this.ufoGain) this.ufoGain.gain.setValueAtTime(uVol, now);
+        this.masterGain.gain.setTargetAtTime(mVol, now + 0.04, 0.14);
+      } else {
+        this.masterGain.gain.setTargetAtTime(mVol, now, 0.05);
+        if (this.musicGain) this.musicGain.gain.setTargetAtTime(mscVol, now, 0.05);
+        this.sfxGain.gain.setTargetAtTime(sVol, now, 0.05);
+        this.ambientGain.gain.setTargetAtTime(aVol, now, 0.05);
+        if (this.ufoGain) this.ufoGain.gain.setTargetAtTime(uVol, now, 0.05);
+      }
     },
 
     getNoiseBuffer() {
@@ -426,7 +438,8 @@
       if (slideFreq) {
         osc.frequency.exponentialRampToValueAtTime(slideFreq, now + dur);
       }
-      gain.gain.setValueAtTime(gainVal, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(Math.max(0.0002, gainVal), now + 0.006);
       gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
       osc.connect(gain);
       gain.connect(this.sfxGain || this.ctx.destination);
@@ -983,7 +996,8 @@
       filter.frequency.exponentialRampToValueAtTime(260, now + duration);
       filter.Q.setValueAtTime(1.8, now);
       const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(vol, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(Math.max(0.0002, vol), now + 0.008);
       gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
       src.connect(filter);
       filter.connect(gain);
@@ -2955,7 +2969,9 @@
     }
     if (!gameSettings.masterMute) {
       CozyAudio.ensure();
-      if (CozyAudio.bistroChime) CozyAudio.bistroChime();
+      setTimeout(() => {
+        if (CozyAudio.bistroChime) CozyAudio.bistroChime();
+      }, 90);
     }
 
     const overlay = document.getElementById('game-loading-screen');
@@ -16962,11 +16978,13 @@
           // Full swimming mode when submerged or in deeper waters
           player.isSwimming = player.inWater && (player.pos.y < waterSurfaceY - 0.15 || groundY < waterSurfaceY - 1.2);
 
-          // Water entry & breach splash!
+          // Water entry & breach splash! (Suppress during initial 1.5s spawn settle so spawning near shore never bangs)
           if (!wasInWater && player.inWater) {
-            CozyAudio.waterSplash(0.22, 0.32);
-            spawnUnderwaterBubbles(player.pos, 8);
-            spawnWaterBreachSplash(player.pos, 0.95, waterSurfaceY);
+            if (elapsed > 1.5) {
+              CozyAudio.waterSplash(0.22, 0.32);
+              spawnUnderwaterBubbles(player.pos, 8);
+              spawnWaterBreachSplash(player.pos, 0.95, waterSurfaceY);
+            }
             player.velY *= 0.35; // Water resistance absorbs downward velocity
           } else if (wasInWater && !player.inWater && player.velY > 2.2) {
             CozyAudio.waterSplash(0.26, 0.36);
