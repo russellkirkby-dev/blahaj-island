@@ -4032,16 +4032,36 @@
         const isActive = !!(s && heldId && s.id === heldId && (finSense.activeSlotIdx === i || finSense.activeSlotIdx === -1));
         if (s) {
           const qtyHtml = s.qty > 1 ? `<span class="fin-belt-qty">${s.qty}</span>` : '';
-          html += `<button type="button" class="fin-belt-slot${isActive ? ' active' : ''}" data-finslot="${i}" title="[${i + 1}] ${s.name}${s.throwable ? ' (Throwable)' : ''}"><span class="fin-belt-key">${i + 1}</span><span class="fin-belt-icon">${s.icon || '📦'}</span>${qtyHtml}</button>`;
+          html += `<button type="button" class="fin-belt-slot${isActive ? ' active' : ''}" data-finslot="${i}"><span class="fin-belt-key">${i + 1}</span><span class="fin-belt-icon">${s.icon || '📦'}</span>${qtyHtml}</button>`;
         } else {
-          html += `<button type="button" class="fin-belt-slot empty" data-finslot="${i}" title="Fin Slot ${i + 1} (Empty · Bare Fin)"><span class="fin-belt-key">${i + 1}</span></button>`;
+          html += `<button type="button" class="fin-belt-slot empty" data-finslot="${i}"><span class="fin-belt-key">${i + 1}</span></button>`;
         }
       }
       finBeltBarEl.innerHTML = html;
       finBeltBarEl.querySelectorAll('.fin-belt-slot').forEach((btn) => {
+        const idx = parseInt(btn.dataset.finslot, 10);
         btn.addEventListener('click', (ev) => {
           ev.stopPropagation();
-          selectFinSlot(parseInt(btn.dataset.finslot, 10));
+          selectFinSlot(idx);
+        });
+        btn.addEventListener('mouseenter', (ev) => {
+          const slotItem = player.inventory ? player.inventory.getSlot(idx) : null;
+          if (slotItem) {
+            showInventoryHoverTooltip(slotItem, ev.clientX, ev.clientY, `Fin Belt Slot [${idx + 1}] · Click or Press [${idx + 1}] to Hold/Use`);
+          } else {
+            showInventoryHoverTooltip(
+              { icon: '🦈', name: `Fin Slot [${idx + 1}] (Empty)`, rarity: 'cozy', type: 'Quick-Fin Belt Slot', desc: 'Hold-eligible items placed in your Satchel automatically populate open Fin Belt slots 1–9.', stats: 'Press [1–9] or RMB + Scroll to cycle Fin items' },
+              ev.clientX,
+              ev.clientY,
+              'Bare Fin Slot'
+            );
+          }
+        });
+        btn.addEventListener('mousemove', (ev) => {
+          moveInventoryHoverTooltip(ev.clientX, ev.clientY);
+        });
+        btn.addEventListener('mouseleave', () => {
+          hideInventoryHoverTooltip();
         });
       });
       syncFinCursorBadge();
@@ -5154,18 +5174,26 @@
       }
       const raw = document.elementFromPoint(finCursor.x, finCursor.y);
       const target = raw && raw !== canvas
-        ? (raw.closest('button, a, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch') || raw)
+        ? (raw.closest('button, a, input, select, textarea, [role="button"], .mmo-slot, .fin-belt-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch') || raw)
         : null;
       if (target !== finCursor.hoveredEl) {
+        if (finCursor.hoveredEl && (finCursor.hoveredEl.classList?.contains('mmo-slot') || finCursor.hoveredEl.classList?.contains('fin-belt-slot'))) {
+          finCursor.hoveredEl.dispatchEvent(new MouseEvent('mouseleave'));
+        }
         clearFinHover();
         if (target && target !== document.body && target !== document.documentElement) {
           finCursor.hoveredEl = target;
-          const isInteractive = !!(target.matches && target.matches('button, a, input, select, textarea, [role="button"], .mmo-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch'));
+          const isInteractive = !!(target.matches && target.matches('button, a, input, select, textarea, [role="button"], .mmo-slot, .fin-belt-slot, .mmo-action-btn, .party-card, .seam-mini-watch, .cs-subtab, .settings-tab, .btn-group-item, .cozy-switch'));
           if (isInteractive) {
             target.classList.add('fin-hover');
             if (finCursorEl) finCursorEl.classList.add('fin-over-interactive');
+            if (target.classList.contains('mmo-slot') || target.classList.contains('fin-belt-slot')) {
+              target.dispatchEvent(new MouseEvent('mouseenter', { clientX: finCursor.x, clientY: finCursor.y }));
+            }
           }
         }
+      } else if (target && (target.classList?.contains('mmo-slot') || target.classList?.contains('fin-belt-slot'))) {
+        moveInventoryHoverTooltip(finCursor.x, finCursor.y);
       }
     }
 
@@ -6397,6 +6425,67 @@
   function closeCharacterSheetModal() {
     const m = document.getElementById('character-sheet-modal');
     if (m) m.classList.add('hidden');
+    hideInventoryHoverTooltip();
+  }
+
+  // ==========================================================================
+  // INSTANT FLOATING MMO INVENTORY MOUSEOVER TOOLTIP
+  // ==========================================================================
+  function ensureInventoryHoverTooltipEl() {
+    let el = document.getElementById('mmo-item-hover-tooltip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'mmo-item-hover-tooltip';
+      el.className = 'mmo-item-hover-tooltip hidden';
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function moveInventoryHoverTooltip(clientX, clientY) {
+    const el = document.getElementById('mmo-item-hover-tooltip');
+    if (!el || el.classList.contains('hidden')) return;
+    const pad = 16;
+    const w = el.offsetWidth || 280;
+    const h = el.offsetHeight || 150;
+    let x = clientX + pad;
+    let y = clientY + pad;
+    if (x + w > window.innerWidth - 12) x = Math.max(12, clientX - w - pad);
+    if (y + h > window.innerHeight - 12) y = Math.max(12, clientY - h - pad);
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top = `${Math.round(y)}px`;
+  }
+
+  function showInventoryHoverTooltip(item, clientX, clientY, actionHint = '') {
+    if (!item) {
+      hideInventoryHoverTooltip();
+      return;
+    }
+    const el = ensureInventoryHoverTooltipEl();
+    const rarity = (item.rarity || 'cozy').toLowerCase();
+    const qtyBadge = item.qty && item.qty > 1 ? ` <span class="tt-qty">×${item.qty}</span>` : '';
+    const statsHtml = item.stats ? `<div class="tt-item-stats">✦ ${item.stats}</div>` : '';
+    const hintHtml = actionHint ? `<div class="tt-item-hint">${actionHint}</div>` : '';
+    el.innerHTML = `
+      <div class="tt-header">
+        <span class="tt-icon">${item.icon || '🎒'}</span>
+        <div class="tt-title-col">
+          <div class="tt-name">${item.name || 'Item'}${qtyBadge}</div>
+          <div class="tt-type">${item.type || 'Archipelago Item'}</div>
+        </div>
+        <span class="tt-rarity rarity-${rarity}">${rarity.toUpperCase()}</span>
+      </div>
+      <div class="tt-desc">${item.desc || ''}</div>
+      ${statsHtml}
+      ${hintHtml}
+    `;
+    el.classList.remove('hidden');
+    moveInventoryHoverTooltip(clientX, clientY);
+  }
+
+  function hideInventoryHoverTooltip() {
+    const el = document.getElementById('mmo-item-hover-tooltip');
+    if (el) el.classList.add('hidden');
   }
 
   function toggleCharacterSheetModal(sharkId = null, initialSubtab = null) {
@@ -6468,20 +6557,31 @@
     if (chkRelic) chkRelic.checked = acc.showRelic !== false;
     if (chkHeadgear) chkHeadgear.checked = acc.showHeadgear !== false;
 
-    // 7. Dynamic Satchel Inventory Grid (16 Slots)
+    // 7. Dynamic Satchel Inventory Grid (36 Slots: Slots 1-9 = Quick-Fin Belt, Slots 10-36 = Traveling Satchel)
+    const totalSlots = (player.inventory && player.inventory.numSlots) ? player.inventory.numSlots : 36;
+    const usedSlots = (player.inventory && typeof player.inventory.getUsedSlotCount === 'function')
+      ? player.inventory.getUsedSlotCount()
+      : 0;
+    const bagCountEl = document.getElementById('mmo-bag-count');
+    if (bagCountEl) {
+      bagCountEl.textContent = `${usedSlots} / ${totalSlots} Slots Used`;
+    }
+
     const gridEl = document.getElementById('mmo-inventory-grid');
     if (gridEl) {
       gridEl.innerHTML = '';
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < totalSlots; i++) {
         const item = player.inventory ? player.inventory.getSlot(i) : null;
         const slotEl = document.createElement('div');
         slotEl.className = 'mmo-slot';
+        if (i < 9) slotEl.classList.add('fin-eligible-slot');
         if (i === selectedInventorySlot) slotEl.classList.add('selected');
+        const finKeyBadge = i < 9 ? `<span class="mmo-slot-fin-tag" title="Quick-Fin Belt Slot ${i + 1}">F${i + 1}</span>` : '';
 
         if (item) {
           slotEl.classList.add(`rarity-${item.rarity}`);
-          slotEl.title = `${item.name} (${item.type})`;
           slotEl.innerHTML = `
+            ${finKeyBadge}
             <span class="mmo-slot-icon">${item.icon}</span>
             ${item.qty > 1 ? `<span class="mmo-slot-qty">${item.qty}</span>` : ''}
           `;
@@ -6490,14 +6590,50 @@
             renderCharacterSheet(selectedCSShark);
             updateItemInspector(item, i);
           });
+          slotEl.addEventListener('mouseenter', (ev) => {
+            const slotLabel = i < 9 ? `Quick-Fin Slot [${i + 1}] · Click to Inspect, Hold, or Use` : `Satchel Slot #${i + 1} · Click to Inspect or Use`;
+            showInventoryHoverTooltip(item, ev.clientX, ev.clientY, slotLabel);
+            updateItemInspector(item, i);
+          });
+          slotEl.addEventListener('mousemove', (ev) => {
+            moveInventoryHoverTooltip(ev.clientX, ev.clientY);
+          });
+          slotEl.addEventListener('mouseleave', () => {
+            hideInventoryHoverTooltip();
+            const selItem = player.inventory ? player.inventory.getSlot(selectedInventorySlot) : null;
+            updateItemInspector(selItem, selectedInventorySlot);
+          });
         } else {
           slotEl.classList.add('empty');
-          slotEl.title = `Satchel Slot ${i + 1} (Empty)`;
-          slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">🎒</span>`;
+          slotEl.innerHTML = `${finKeyBadge}<span class="mmo-slot-icon" style="opacity: 0.22;">🎒</span>`;
           slotEl.addEventListener('click', () => {
             selectedInventorySlot = i;
             renderCharacterSheet(selectedCSShark);
             updateItemInspector(null, i);
+          });
+          slotEl.addEventListener('mouseenter', (ev) => {
+            const isFin = i < 9;
+            showInventoryHoverTooltip(
+              {
+                icon: isFin ? '🦈' : '🎒',
+                name: isFin ? `Quick-Fin Slot [${i + 1}] (Empty)` : `Satchel Slot #${i + 1} (Empty)`,
+                rarity: 'cozy',
+                type: isFin ? 'Active Fin Belt Slot (1–9)' : 'Traveling Satchel Compartment',
+                desc: isFin
+                  ? 'Holdable tools, drinks, and throwables automatically populate open Quick-Fin Slots 1–9.'
+                  : 'Open compartment in this shark’s personal 36-slot traveling satchel.',
+                stats: `Capacity: ${usedSlots} / ${totalSlots} Slots Used`
+              },
+              ev.clientX,
+              ev.clientY,
+              'Empty Slot'
+            );
+          });
+          slotEl.addEventListener('mousemove', (ev) => {
+            moveInventoryHoverTooltip(ev.clientX, ev.clientY);
+          });
+          slotEl.addEventListener('mouseleave', () => {
+            hideInventoryHoverTooltip();
           });
         }
         gridEl.appendChild(slotEl);
@@ -14639,6 +14775,7 @@
     if (!modal) return;
     modal.classList.add('hidden');
     if (communityTrunk) communityTrunk.openLid(false);
+    hideInventoryHoverTooltip();
   }
 
   function renderCommunityTrunkModal() {
@@ -14648,28 +14785,36 @@
     const trunkCountEl = document.getElementById('trunk-used-count');
     const satchelCountEl = document.getElementById('satchel-used-count');
 
+    const tSlots = communityTrunk.getSlots();
+    const totalTrunkSlots = tSlots.length || 24;
+    const totalSatchelSlots = player.inventory.numSlots || 36;
+
     if (trunkCountEl) trunkCountEl.textContent = communityTrunk.slots.filter(Boolean).length;
     if (satchelCountEl) satchelCountEl.textContent = player.inventory.getUsedSlotCount();
 
-    // Render Trunk Grid
+    // Render Trunk Grid (24 Slots)
     if (trunkGrid) {
       trunkGrid.innerHTML = '';
-      const tSlots = communityTrunk.getSlots();
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < totalTrunkSlots; i++) {
         const item = tSlots[i];
         const slotEl = document.createElement('div');
         slotEl.className = 'mmo-slot';
         if (item) {
           slotEl.classList.add(`rarity-${item.rarity || 'cozy'}`);
-          slotEl.title = `${item.name} (x${item.qty}) - Click to Withdraw into Satchel`;
           slotEl.innerHTML = `
             <span class="mmo-slot-icon">${item.icon}</span>
             ${item.qty > 1 ? `<span class="mmo-slot-badge">${item.qty}</span>` : ''}
           `;
+          slotEl.addEventListener('mouseenter', (ev) => {
+            showInventoryHoverTooltip(item, ev.clientX, ev.clientY, '📦 Click to Withdraw 1× into Your Satchel');
+          });
+          slotEl.addEventListener('mousemove', (ev) => moveInventoryHoverTooltip(ev.clientX, ev.clientY));
+          slotEl.addEventListener('mouseleave', hideInventoryHoverTooltip);
           slotEl.onclick = () => {
             const taken = communityTrunk.withdraw(i, 1, player.inventory);
             if (taken > 0) {
               CozyAudio.coinDrop();
+              hideInventoryHoverTooltip();
               renderCommunityTrunkModal();
               updateMetersUI();
               window.BlahajNetwork.send({
@@ -14682,31 +14827,35 @@
           };
         } else {
           slotEl.classList.add('empty');
-          slotEl.title = `Trunk Slot ${i + 1} (Empty)`;
           slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">📦</span>`;
         }
         trunkGrid.appendChild(slotEl);
       }
     }
 
-    // Render Satchel Grid
+    // Render Satchel Grid (36 Slots)
     if (satchelGrid) {
       satchelGrid.innerHTML = '';
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < totalSatchelSlots; i++) {
         const item = player.inventory.getSlot(i);
         const slotEl = document.createElement('div');
         slotEl.className = 'mmo-slot';
         if (item) {
           slotEl.classList.add(`rarity-${item.rarity || 'cozy'}`);
-          slotEl.title = `${item.name} (x${item.qty}) - Click to Deposit into Community Trunk`;
           slotEl.innerHTML = `
             <span class="mmo-slot-icon">${item.icon}</span>
             ${item.qty > 1 ? `<span class="mmo-slot-badge">${item.qty}</span>` : ''}
           `;
+          slotEl.addEventListener('mouseenter', (ev) => {
+            showInventoryHoverTooltip(item, ev.clientX, ev.clientY, '🎒 Click to Deposit 1× into Shared Community Trunk');
+          });
+          slotEl.addEventListener('mousemove', (ev) => moveInventoryHoverTooltip(ev.clientX, ev.clientY));
+          slotEl.addEventListener('mouseleave', hideInventoryHoverTooltip);
           slotEl.onclick = () => {
             const deposited = communityTrunk.deposit(item.id, 1, player.inventory);
             if (deposited > 0) {
               CozyAudio.coinDrop();
+              hideInventoryHoverTooltip();
               renderCommunityTrunkModal();
               updateMetersUI();
               window.BlahajNetwork.send({
@@ -14719,7 +14868,6 @@
           };
         } else {
           slotEl.classList.add('empty');
-          slotEl.title = `Satchel Slot ${i + 1} (Empty)`;
           slotEl.innerHTML = `<span class="mmo-slot-icon" style="opacity: 0.25;">🎒</span>`;
         }
         satchelGrid.appendChild(slotEl);

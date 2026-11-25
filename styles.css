@@ -9161,3 +9161,146 @@ body.ufo-flight-mode .hud-bottom-left {
   width: 100%;
   margin: 0 auto;
 }
+
+
+/* ============================================================================
+   36-SLOT SATCHEL GRID & INSTANT FLOATING MMO ITEM TOOLTIP (v18.9)
+   ============================================================================ */
+.mmo-inventory-grid {
+  grid-template-columns: repeat(6, 1fr) !important;
+  gap: 6px !important;
+  max-height: 295px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mmo-slot.fin-eligible-slot {
+  background: linear-gradient(145deg, rgba(14, 34, 64, 0.92), rgba(15, 23, 42, 0.9));
+}
+
+.mmo-slot-fin-tag {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 8.5px;
+  font-weight: 800;
+  color: #7dd3fc;
+  opacity: 0.85;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.mmo-item-hover-tooltip {
+  position: fixed;
+  z-index: 250000;
+  pointer-events: none;
+  width: 285px;
+  background: linear-gradient(160deg, rgba(10, 17, 32, 0.97) 0%, rgba(15, 23, 42, 0.98) 100%);
+  border: 1.5px solid rgba(245, 205, 121, 0.65);
+  border-radius: 13px;
+  padding: 11px 13px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.88), 0 0 18px rgba(56, 189, 248, 0.22);
+  color: #f8fafc;
+  font-size: 12px;
+  transition: opacity 0.08s ease;
+}
+
+.mmo-item-hover-tooltip.hidden {
+  display: none !important;
+}
+
+.mmo-item-hover-tooltip .tt-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mmo-item-hover-tooltip .tt-icon {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mmo-item-hover-tooltip .tt-title-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.mmo-item-hover-tooltip .tt-name {
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.mmo-item-hover-tooltip .tt-qty {
+  color: #fcd34d;
+  font-weight: 800;
+}
+
+.mmo-item-hover-tooltip .tt-type {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.mmo-item-hover-tooltip .tt-rarity {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.mmo-item-hover-tooltip .tt-rarity.rarity-cozy {
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+}
+
+.mmo-item-hover-tooltip .tt-rarity.rarity-rare {
+  background: rgba(56, 189, 248, 0.22);
+  border: 1px solid #38bdf8;
+  color: #7dd3fc;
+}
+
+.mmo-item-hover-tooltip .tt-rarity.rarity-epic {
+  background: rgba(168, 85, 247, 0.24);
+  border: 1px solid #a855f7;
+  color: #d8b4fe;
+}
+
+.mmo-item-hover-tooltip .tt-rarity.rarity-legendary {
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid #f59e0b;
+  color: #fde68a;
+}
+
+.mmo-item-hover-tooltip .tt-desc {
+  font-size: 11.5px;
+  color: #cbd5e1;
+  line-height: 1.42;
+  margin-bottom: 7px;
+}
+
+.mmo-item-hover-tooltip .tt-item-stats {
+  font-size: 11px;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(6, 78, 59, 0.42);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  padding: 5px 8px;
+  border-radius: 7px;
+  margin-bottom: 6px;
+}
+
+.mmo-item-hover-tooltip .tt-item-hint {
+  font-size: 10.5px;
+  color: #fcd34d;
+  font-weight: 600;
+}

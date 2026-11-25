@@ -491,7 +491,7 @@ window.BlahajInventory = (function () {
   }
 
   function createPlayerInventory() {
-    const NUM_SLOTS = 24;
+    const NUM_SLOTS = 36;
     const slots = new Array(NUM_SLOTS).fill(null);
 
     function enforceFinSlots() {
