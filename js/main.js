@@ -15016,26 +15016,26 @@
     const myMach = window.BlahajNetwork && window.BlahajNetwork.getMachineId ? window.BlahajNetwork.getMachineId() : null;
     const isCrossMachine = !!(data.machineId && myMach && data.machineId !== myMach);
 
-    // If primary partner is not assigned yet, or matches this clientId, route to primary
-    if (!coopPartner.active || !coopPartner.clientId || coopPartner.clientId === data.clientId) {
+    // 1. Always prioritize a cross-machine partner or same partner machine after a page refresh (0ms delay!)
+    if (
+      isCrossMachine ||
+      (data.machineId && coopPartner.machineId && data.machineId === coopPartner.machineId) ||
+      !coopPartner.active ||
+      !coopPartner.clientId ||
+      coopPartner.clientId === data.clientId
+    ) {
+      if (coopPartner.clientId && coopPartner.clientId !== data.clientId) {
+        removeExtraCoopPeer(data.clientId);
+      }
       coopPartner.clientId = data.clientId;
       if (data.machineId) coopPartner.machineId = data.machineId;
       return true;
     }
 
-    // If primary partner hasn't sent a packet in >8s, allow takeover
-    if (coopPartner.lastPacketAt && Date.now() - coopPartner.lastPacketAt > 8000) {
+    // 2. If primary partner hasn't sent a packet in >2.5s, allow immediate takeover
+    if (coopPartner.lastPacketAt && Date.now() - coopPartner.lastPacketAt > 2500) {
       coopPartner.clientId = data.clientId;
       coopPartner.machineId = data.machineId || null;
-      removeExtraCoopPeer(data.clientId);
-      return true;
-    }
-
-    // If current primary partner is a same-machine tab, and a real cross-machine partner arrives, promote cross-machine partner to primary!
-    const primaryIsSameMachine = !!(coopPartner.machineId && myMach && coopPartner.machineId === myMach);
-    if (primaryIsSameMachine && isCrossMachine) {
-      coopPartner.clientId = data.clientId;
-      coopPartner.machineId = data.machineId;
       removeExtraCoopPeer(data.clientId);
       return true;
     }
@@ -15381,10 +15381,20 @@
           }
           const prevZone = coopPartner.zone || 'island';
           const nextZone = (!data.zone || data.zone === 'overworld') ? 'island' : data.zone;
-          coopPartner.targetPos.set(data.x, data.y, data.z);
-          coopPartner.targetRotY = data.rotY;
-          coopPartner.isMoving = data.isMoving;
-          coopPartner.inBoat = !!data.inBoat;
+          if (typeof data.inUFO === 'boolean') {
+            coopPartner.inUFO = data.inUFO;
+            coopPartner.ufoRole = data.ufoRole || null;
+            if (window.BlahajUFO && typeof window.BlahajUFO.syncPartnerFromMovePacket === 'function') {
+              window.BlahajUFO.syncPartnerFromMovePacket(data.inUFO, data.ufoRole || null);
+            }
+          }
+          const partnerInUFO = !!(window.BlahajUFO && typeof window.BlahajUFO.isPartnerAboard === 'function' && window.BlahajUFO.isPartnerAboard());
+          if (!partnerInUFO) {
+            coopPartner.targetPos.set(data.x, data.y, data.z);
+            coopPartner.targetRotY = data.rotY;
+          }
+          coopPartner.isMoving = partnerInUFO ? false : data.isMoving;
+          coopPartner.inBoat = partnerInUFO ? false : !!data.inBoat;
           const wasInCart = coopPartner.inCart;
           const prevCartId = coopPartner.cartId;
           coopPartner.inCart = !!data.inCart;
@@ -15395,14 +15405,7 @@
           coopPartner.activePostureId = data.activePostureId || null;
           coopPartner.isSeatedInBooth = !!data.isSeatedInBooth;
           coopPartner.isPlayingPlushie = !!data.isPlayingPlushie;
-          coopPartner.inUFO = !!data.inUFO;
-          coopPartner.ufoRole = data.ufoRole || null;
 
-          if (window.BlahajUFO && typeof window.BlahajUFO.syncPartnerFromMovePacket === 'function') {
-            window.BlahajUFO.syncPartnerFromMovePacket(!!data.inUFO, data.ufoRole || null);
-          }
-
-          const partnerInUFO = !!(window.BlahajUFO && typeof window.BlahajUFO.isPartnerAboard === 'function' && window.BlahajUFO.isPartnerAboard());
           if (!partnerInUFO && coopPartner.mesh) {
             // Reset any 3D space pitch/roll tilt on partner's mesh when they are on the ground!
             coopPartner.mesh.rotation.order = 'YXZ';
@@ -16197,20 +16200,25 @@
   function updatePlayerMovement(dt, elapsed) {
     if (window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
       netSyncTimer += dt;
-      if (netSyncTimer > 0.08) {
+      if (netSyncTimer > 0.45) {
         netSyncTimer = 0;
+        const ufoRoleNow = (typeof window.BlahajUFO.getLocalRole === 'function')
+          ? window.BlahajUFO.getLocalRole()
+          : 'passenger';
         window.BlahajNetwork.send({
           type: 'move',
           sharkId: player.sharkId,
-          x: player.pos.x,
-          y: player.pos.y,
-          z: player.pos.z,
-          rotY: player.rotY,
+          x: Number(player.pos.x.toFixed(2)),
+          y: Number(player.pos.y.toFixed(2)),
+          z: Number(player.pos.z.toFixed(2)),
+          rotY: Number(player.rotY.toFixed(3)),
           isMoving: false,
           inBoat: false,
           inCart: false,
+          inUFO: true,
+          ufoRole: ufoRoleNow,
           zone: currentZone,
-          mange: window.__BLAHAJ_MANGE__,
+          mange: Number((window.__BLAHAJ_MANGE__ || 0).toFixed(3)),
           heldItemId: playerHeldItem ? playerHeldItem.id : null
         });
       }
