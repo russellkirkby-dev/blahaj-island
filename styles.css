@@ -8844,8 +8844,8 @@ body.ufo-flight-mode .hud-bottom-left {
   max-width: none;
   border-radius: 0;
   border: none;
-  background: linear-gradient(180deg, rgba(6, 11, 22, 0.78) 0%, rgba(10, 18, 34, 0.52) 50%, rgba(5, 9, 18, 0.84) 100%);
-  backdrop-filter: blur(4px);
+  background: linear-gradient(180deg, rgba(6, 11, 22, 0.82) 0%, rgba(10, 18, 34, 0.56) 50%, rgba(5, 9, 18, 0.88) 100%);
+  backdrop-filter: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

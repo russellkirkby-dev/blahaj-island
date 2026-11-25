@@ -822,6 +822,67 @@
     return (cs && cs.detagged && cs.name) ? cs.name : 'Explorer';
   }
 
+  const DEFAULT_SHARK_INVENTORIES = {
+    hermes: [
+      { id: 'breb', qty: 5 },
+      { id: 'tea', qty: 3 },
+      { id: 'binoculars', qty: 1 },
+      { id: 'star_lantern', qty: 1 },
+      { id: 'seam_needle', qty: 1 },
+      { id: 'carrot_toy', qty: 1 },
+      { id: 'ancient_pages', qty: 2 },
+      { id: 'memory_crystal', qty: 1 }
+    ],
+    solomon: [
+      { id: 'breb', qty: 8 },
+      { id: 'tea', qty: 5 },
+      { id: 'binoculars', qty: 1 },
+      { id: 'margarita', qty: 2 },
+      { id: 'tropical_cocktail', qty: 2 },
+      { id: 'celestial_boba', qty: 2 },
+      { id: 'guano', qty: 4 },
+      { id: 'sulfur', qty: 3 },
+      { id: 'star_powder', qty: 2 }
+    ],
+    hiram: [
+      { id: 'breb', qty: 4 },
+      { id: 'tea', qty: 2 },
+      { id: 'binoculars', qty: 1 },
+      { id: 'hex_key', qty: 1 },
+      { id: 'blueprints', qty: 1 },
+      { id: 'pure_obsidian', qty: 4 },
+      { id: 'mortar_tube', qty: 1 }
+    ],
+    nimue: [
+      { id: 'breb', qty: 4 },
+      { id: 'tea', qty: 4 },
+      { id: 'binoculars', qty: 1 },
+      { id: 'seam_needle', qty: 1 },
+      { id: 'seam_detector', qty: 1 },
+      { id: 'starlight_quartz', qty: 3 },
+      { id: 'beach_ball', qty: 2 }
+    ],
+    custom: [
+      { id: 'breb', qty: 4 },
+      { id: 'tea', qty: 2 },
+      { id: 'binoculars', qty: 1 },
+      { id: 'beach_ball', qty: 1 }
+    ]
+  };
+
+  function buildStarterSlotsForShark(sharkId) {
+    const template = DEFAULT_SHARK_INVENTORIES[sharkId] || DEFAULT_SHARK_INVENTORIES.custom;
+    if (window.BlahajInventory && typeof window.BlahajInventory.createPlayerInventory === 'function') {
+      const tmpInv = window.BlahajInventory.createPlayerInventory();
+      tmpInv.restore([]);
+      template.forEach((entry) => {
+        tmpInv.addItem(entry.id, entry.qty);
+      });
+      return tmpInv.serialize();
+    }
+    return template.map((e) => ({ id: e.id, qty: e.qty }));
+  }
+
   function ensureCharacterRoster() {
     if (!currentSaveState) currentSaveState = createDefaultSaveState(activeSlot);
     if (!currentSaveState.characterRoster || typeof currentSaveState.characterRoster !== 'object') {
@@ -833,32 +894,49 @@
       currentSaveState.characterRoster = (cached && typeof cached === 'object') ? cached : {};
     }
     const roster = currentSaveState.characterRoster;
-    if (!roster.founderSharedPool || typeof roster.founderSharedPool !== 'object') {
-      roster.founderSharedPool = {
-        updatedAt: 0,
-        inventorySlots: Array.isArray(currentSaveState.inventory?.slots) ? currentSaveState.inventory.slots : null,
-        unlockedUpgrades: [],
-        birbsFedCount: 6,
-        carrotsKnockedCount: 4,
-        trialPoints: 2,
-        seamMendedCount: currentSaveState.progression?.greatSeam?.totalMendedAllTime || 0
-      };
+
+    // One-time migration to v2 strict per-character inventories (so each shark has its own distinct bag & skills!)
+    if (!roster._perCharacterIsolatedV2) {
+      roster._perCharacterIsolatedV2 = true;
+      delete roster.founderSharedPool;
+      ALL_ROSTER_IDS.forEach((id) => {
+        const existing = roster[id];
+        const sp = DEFAULT_SHARK_SPAWNS[id] || DEFAULT_SHARK_SPAWNS.hermes;
+        roster[id] = {
+          sharkId: id,
+          updatedAt: existing?.updatedAt || 0,
+          inventorySlots: buildStarterSlotsForShark(id),
+          heldItemId: null,
+          unlockedUpgrades: Array.isArray(existing?.unlockedUpgrades) ? [...existing.unlockedUpgrades] : [],
+          birbsFedCount: existing?.birbsFedCount ?? (id === 'solomon' ? 10 : 6),
+          carrotsKnockedCount: existing?.carrotsKnockedCount ?? (id === 'hermes' ? 6 : 4),
+          trialPoints: existing?.trialPoints ?? (id === 'hiram' ? 4 : 2),
+          seamMendedCount: existing?.seamMendedCount ?? (id === 'nimue' ? 2 : 0),
+          mange: typeof existing?.mange === 'number'
+            ? existing.mange
+            : (id === 'hermes' ? 0.85 : (id === 'solomon' ? 0.45 : (id === 'hiram' ? 0.65 : (id === 'nimue' ? 0.25 : 0.10)))),
+          accessories: existing?.accessories || { showRelic: true, showHeadgear: true },
+          pos: existing?.pos || { ...sp }
+        };
+      });
+      try {
+        localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+      } catch (e) {}
     }
+
     ALL_ROSTER_IDS.forEach((id) => {
       if (!roster[id] || typeof roster[id] !== 'object') {
         const sp = DEFAULT_SHARK_SPAWNS[id] || DEFAULT_SHARK_SPAWNS.hermes;
         roster[id] = {
           sharkId: id,
           updatedAt: 0,
-          inventorySlots: (FOUNDER_SHARK_IDS.includes(id) && Array.isArray(roster.founderSharedPool.inventorySlots))
-            ? JSON.parse(JSON.stringify(roster.founderSharedPool.inventorySlots))
-            : null,
-          heldItemId: currentSaveState.inventory?.heldItemId || null,
+          inventorySlots: buildStarterSlotsForShark(id),
+          heldItemId: null,
           unlockedUpgrades: [],
-          birbsFedCount: 6,
-          carrotsKnockedCount: 4,
-          trialPoints: 2,
-          seamMendedCount: 0,
+          birbsFedCount: id === 'solomon' ? 10 : 6,
+          carrotsKnockedCount: id === 'hermes' ? 6 : 4,
+          trialPoints: id === 'hiram' ? 4 : 2,
+          seamMendedCount: id === 'nimue' ? 2 : 0,
           mange: id === 'hermes' ? 0.85 : (id === 'solomon' ? 0.45 : (id === 'hiram' ? 0.65 : (id === 'nimue' ? 0.25 : 0.10))),
           accessories: { showRelic: true, showHeadgear: true },
           pos: { ...sp }
@@ -951,42 +1029,15 @@
       };
     }
 
-    // Russell & Helen Founder Shared Pool:
-    // Any items or skills earned on any of the 4 Founder Sharks update the shared Founder Pool
-    // and propagate across all 4 Founder Sharks so Russell & Helen always share Founder items & skills!
-    if (FOUNDER_SHARK_IDS.includes(sharkId)) {
-      const pool = roster.founderSharedPool;
-      pool.updatedAt = now;
-      pool.inventorySlots = rec.inventorySlots
-        ? JSON.parse(JSON.stringify(rec.inventorySlots))
-        : pool.inventorySlots;
-      const mergedUpgrades = new Set([...(pool.unlockedUpgrades || []), ...(rec.unlockedUpgrades || [])]);
-      pool.unlockedUpgrades = Array.from(mergedUpgrades);
-      pool.birbsFedCount = Math.max(pool.birbsFedCount || 0, rec.birbsFedCount || 0);
-      pool.carrotsKnockedCount = Math.max(pool.carrotsKnockedCount || 0, rec.carrotsKnockedCount || 0);
-      pool.trialPoints = Math.max(pool.trialPoints || 0, rec.trialPoints || 0);
-      pool.seamMendedCount = Math.max(pool.seamMendedCount || 0, rec.seamMendedCount || 0);
-
-      FOUNDER_SHARK_IDS.forEach((fId) => {
-        if (roster[fId]) {
-          roster[fId].inventorySlots = JSON.parse(JSON.stringify(pool.inventorySlots));
-          roster[fId].unlockedUpgrades = [...pool.unlockedUpgrades];
-          roster[fId].birbsFedCount = pool.birbsFedCount;
-          roster[fId].carrotsKnockedCount = pool.carrotsKnockedCount;
-          roster[fId].trialPoints = pool.trialPoints;
-          roster[fId].seamMendedCount = pool.seamMendedCount;
-        }
-      });
-    }
-
     persistRosterToStorage();
 
+    // Sync THIS specific character's record over the network so if Russell collects items on Solomon
+    // and later Helen plays Solomon, Solomon has all of Solomon's items and skills (while Hermes, Hiram & Nimue keep their own separate bags!)
     if (broadcastToPartner && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
       window.BlahajNetwork.send({
         type: 'roster_sync',
         sharkId,
-        record: rec,
-        founderSharedPool: FOUNDER_SHARK_IDS.includes(sharkId) ? roster.founderSharedPool : null
+        record: rec
       });
     }
     return rec;
@@ -999,37 +1050,28 @@
     if (!player) return;
 
     const roster = ensureCharacterRoster();
-    const isFounderShark = FOUNDER_SHARK_IDS.includes(sharkId);
     const rec = roster[sharkId] || roster.hermes;
-    const pool = roster.founderSharedPool;
 
-    // 1. Restore Inventory (Founders share the synced Founder Pool + per-shark satchel; Custom sharks use their own independent satchel)
+    // 1. Restore THIS character's own personal Inventory
     const inv = game.getPlayerInventory ? game.getPlayerInventory() : player.inventory;
-    const targetSlots = (isFounderShark && Array.isArray(pool?.inventorySlots))
-      ? pool.inventorySlots
-      : rec.inventorySlots;
     if (inv && typeof inv.restore === 'function') {
-      if (Array.isArray(targetSlots)) {
-        inv.restore(targetSlots);
+      if (Array.isArray(rec.inventorySlots)) {
+        inv.restore(rec.inventorySlots);
       } else {
-        // Fresh default satchel for new custom character
-        const freshInv = window.BlahajInventory ? window.BlahajInventory.createPlayerInventory() : null;
-        if (freshInv) inv.restore(freshInv.serialize());
+        inv.restore(buildStarterSlotsForShark(sharkId));
       }
     }
 
-    // 2. Restore Skills / Upgrades & Currencies
-    const targetUpgrades = isFounderShark
-      ? Array.from(new Set([...(pool?.unlockedUpgrades || []), ...(rec.unlockedUpgrades || [])]))
-      : (rec.unlockedUpgrades || []);
+    // 2. Restore THIS character's own Skills / Upgrades & Currencies
+    const targetUpgrades = Array.isArray(rec.unlockedUpgrades) ? rec.unlockedUpgrades : [];
     if (player.unlockedUpgrades instanceof Set) {
       player.unlockedUpgrades.clear();
       targetUpgrades.forEach((u) => player.unlockedUpgrades.add(u));
     }
-    player.birbsFedCount = isFounderShark ? Math.max(pool?.birbsFedCount ?? 6, rec.birbsFedCount ?? 6) : (rec.birbsFedCount ?? 6);
-    player.carrotsKnockedCount = isFounderShark ? Math.max(pool?.carrotsKnockedCount ?? 4, rec.carrotsKnockedCount ?? 4) : (rec.carrotsKnockedCount ?? 4);
-    player.trialPoints = isFounderShark ? Math.max(pool?.trialPoints ?? 2, rec.trialPoints ?? 2) : (rec.trialPoints ?? 2);
-    player.seamMendedCount = isFounderShark ? Math.max(pool?.seamMendedCount ?? 0, rec.seamMendedCount ?? 0) : (rec.seamMendedCount ?? 0);
+    player.birbsFedCount = rec.birbsFedCount ?? 6;
+    player.carrotsKnockedCount = rec.carrotsKnockedCount ?? 4;
+    player.trialPoints = rec.trialPoints ?? 2;
+    player.seamMendedCount = rec.seamMendedCount ?? 0;
 
     // 3. Restore Mange & Accessories
     if (typeof rec.mange === 'number' && game.setSharkMange) {
@@ -1075,12 +1117,12 @@
     const roster = ensureCharacterRoster();
     let changed = false;
 
-    if (data.record && data.sharkId && roster[data.sharkId]) {
-      const localRec = roster[data.sharkId];
-      const inc = data.record;
+    const mergeOneRecord = (sId, inc) => {
+      if (!sId || !inc || !roster[sId]) return;
+      const localRec = roster[sId];
       const mergedSlots = mergeInventorySlotArrays(inc.inventorySlots, localRec.inventorySlots);
       const mergedUpgrades = Array.from(new Set([...(localRec.unlockedUpgrades || []), ...(inc.unlockedUpgrades || [])]));
-      roster[data.sharkId] = {
+      roster[sId] = {
         ...localRec,
         ...inc,
         inventorySlots: mergedSlots,
@@ -1091,48 +1133,15 @@
         seamMendedCount: Math.max(localRec.seamMendedCount || 0, inc.seamMendedCount || 0)
       };
       changed = true;
+    };
+
+    if (data.record && data.sharkId) {
+      mergeOneRecord(data.sharkId, data.record);
     }
-
-    if (data.founderSharedPool && typeof data.founderSharedPool === 'object') {
-      const pool = roster.founderSharedPool;
-      const incPool = data.founderSharedPool;
-      pool.inventorySlots = mergeInventorySlotArrays(incPool.inventorySlots, pool.inventorySlots);
-      pool.unlockedUpgrades = Array.from(new Set([...(pool.unlockedUpgrades || []), ...(incPool.unlockedUpgrades || [])]));
-      pool.birbsFedCount = Math.max(pool.birbsFedCount || 0, incPool.birbsFedCount || 0);
-      pool.carrotsKnockedCount = Math.max(pool.carrotsKnockedCount || 0, incPool.carrotsKnockedCount || 0);
-      pool.trialPoints = Math.max(pool.trialPoints || 0, incPool.trialPoints || 0);
-      pool.seamMendedCount = Math.max(pool.seamMendedCount || 0, incPool.seamMendedCount || 0);
-      pool.updatedAt = Math.max(pool.updatedAt || 0, incPool.updatedAt || Date.now());
-
+    if (data.allRecords && typeof data.allRecords === 'object') {
       FOUNDER_SHARK_IDS.forEach((fId) => {
-        if (roster[fId]) {
-          roster[fId].inventorySlots = JSON.parse(JSON.stringify(pool.inventorySlots));
-          roster[fId].unlockedUpgrades = [...pool.unlockedUpgrades];
-          roster[fId].birbsFedCount = pool.birbsFedCount;
-          roster[fId].carrotsKnockedCount = pool.carrotsKnockedCount;
-          roster[fId].trialPoints = pool.trialPoints;
-          roster[fId].seamMendedCount = pool.seamMendedCount;
-        }
+        if (data.allRecords[fId]) mergeOneRecord(fId, data.allRecords[fId]);
       });
-      changed = true;
-
-      // If local player is currently playing a Founder shark, live-merge any new items/skills into their active satchel!
-      const game = window.BlahajGame;
-      const player = game && game.getPlayer ? game.getPlayer() : null;
-      if (player && FOUNDER_SHARK_IDS.includes(player.sharkId)) {
-        const inv = game.getPlayerInventory ? game.getPlayerInventory() : player.inventory;
-        if (inv && typeof inv.restore === 'function' && Array.isArray(pool.inventorySlots)) {
-          inv.restore(pool.inventorySlots);
-        }
-        if (player.unlockedUpgrades instanceof Set) {
-          pool.unlockedUpgrades.forEach((u) => player.unlockedUpgrades.add(u));
-        }
-        player.birbsFedCount = Math.max(player.birbsFedCount || 0, pool.birbsFedCount || 0);
-        player.carrotsKnockedCount = Math.max(player.carrotsKnockedCount || 0, pool.carrotsKnockedCount || 0);
-        player.trialPoints = Math.max(player.trialPoints || 0, pool.trialPoints || 0);
-        if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
-        if (game.updateMetersUI) game.updateMetersUI();
-      }
     }
 
     if (changed) {
@@ -1289,12 +1298,9 @@
 
     grid.innerHTML = cardsMeta.map((c) => {
       const rec = roster[c.id] || {};
-      const pool = roster.founderSharedPool || {};
-      const slots = (c.isFounderOnly && Array.isArray(pool.inventorySlots)) ? pool.inventorySlots : (rec.inventorySlots || []);
-      const itemCount = Array.isArray(slots) ? slots.filter(Boolean).reduce((acc, s) => acc + (s.qty || 1), 0) : 21;
-      const skillCount = c.isFounderOnly
-        ? Math.max((pool.unlockedUpgrades || []).length, (rec.unlockedUpgrades || []).length)
-        : (rec.unlockedUpgrades || []).length;
+      const slots = Array.isArray(rec.inventorySlots) ? rec.inventorySlots : [];
+      const itemCount = slots.filter(Boolean).reduce((acc, s) => acc + (s.qty || 1), 0);
+      const skillCount = (rec.unlockedUpgrades || []).length;
       const mangePct = Math.round(((typeof rec.mange === 'number' ? rec.mange : (loreSharks[c.id]?.mange ?? 0.45))) * 100);
 
       const lock = getActiveLockForShark(c.id);
@@ -1334,8 +1340,8 @@
             </div>
           </div>
           <div class="char-card-stats">
-            <span title="Satchel Items">${c.isFounderOnly ? '🎒 Shared Satchel:' : '🎒 Satchel:'} <strong>${itemCount}</strong></span>
-            <span title="Unlocked Upgrades & Skills">⚡ Skills: <strong>${skillCount + 6}</strong></span>
+            <span title="This Character's Personal Satchel Items">🎒 Bag: <strong>${itemCount} items</strong></span>
+            <span title="This Character's Unlocked Upgrades &amp; Skills">⚡ Skills: <strong>${skillCount + 6}</strong></span>
             <span title="Plush Coat Mange Factor">🧵 Coat: <strong>${mangePct}%</strong></span>
           </div>
           ${c.id === 'custom' ? `

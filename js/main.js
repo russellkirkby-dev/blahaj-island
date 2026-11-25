@@ -3019,10 +3019,13 @@
       window._blahajEnterGameCapture();
     }
 
-    // 3. Spawn the chosen character and load their per-character (or Shared Founder) Inventory, Skills, Mange & Position!
-    spawnPlayerShark(targetSharkId, true);
-    if (saveSys && typeof saveSys.applyCharacterFromRoster === 'function') {
-      saveSys.applyCharacterFromRoster(targetSharkId);
+    // 3. Spawn the chosen character ONLY if not already spawned in the lobby (prevents destroying & recompiling the pre-warmed shark mesh on Embark!)
+    const alreadySpawned = (player.sharkId === targetSharkId && !!player.mesh);
+    if (!alreadySpawned) {
+      spawnPlayerShark(targetSharkId, true);
+      if (saveSys && typeof saveSys.applyCharacterFromRoster === 'function') {
+        saveSys.applyCharacterFromRoster(targetSharkId);
+      }
     }
     // Snap camera cleanly behind the shark after the 360° lobby orbit sweep!
     camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
@@ -3032,9 +3035,7 @@
     const overlay = document.getElementById('game-loading-screen');
     if (overlay) {
       overlay.classList.add('fade-out');
-      setTimeout(() => {
-        overlay.style.display = 'none';
-      }, 800);
+      overlay.style.display = 'none';
     }
 
     // 4. Broadcast character claim & roster state to partner
@@ -3370,7 +3371,41 @@
       console.warn('Shader pre-compilation warning:', e);
     }
 
-    setLoadingProgress(90, 'Turning 3D camera 360° to pre-warm all island view angles…');
+    setLoadingProgress(90, 'Uploading 100% of island 3D meshes & textures to GPU (no-cull pass)…');
+    await yieldFrame();
+
+    // 5A. FORCE 100% NO-CULL GPU BUFFER & TEXTURE UPLOAD:
+    // By default Three.js skips uploading VBOs and CanvasTextures for any mesh outside the current camera frustum,
+    // which causes a 15-second stutter the first time you turn the camera in-game.
+    // Temporarily disabling frustumCulled on every object in scene for 2 rendered frames forces WebGL/D3D11 to upload
+    // 100% of all geometries, InstancedMeshes, and CanvasTextures across the entire island upfront!
+    try {
+      const savedCull = [];
+      scene.traverse((obj) => {
+        if (obj && (obj.isMesh || obj.isInstancedMesh || obj.isPoints || obj.isLine)) {
+          savedCull.push({ obj, culled: obj.frustumCulled });
+          obj.frustumCulled = false;
+        }
+      });
+      updateCamera(0, 0.016);
+      if (renderer && scene && camera) {
+        renderer.compile(scene, camera);
+        renderer.render(scene, camera);
+      }
+      await yieldFrame();
+      if (composer && gameSettings.bloom && bloomPassInstance && bloomPassInstance.enabled) {
+        composer.render();
+      } else if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+      for (let i = 0; i < savedCull.length; i++) {
+        savedCull[i].obj.frustumCulled = savedCull[i].culled;
+      }
+    } catch (e) {
+      console.warn('No-cull GPU upload pass warning:', e);
+    }
+
+    setLoadingProgress(94, 'Turning 3D camera 360° to pre-warm all island view angles…');
     await yieldFrame();
 
     // 5. Multi-frame yielded 360° camera rotation sweep across 12 compass & pitch angles so every frustum sector's
@@ -6345,7 +6380,8 @@
     releasePointerLock();
     const m = document.getElementById('character-sheet-modal');
     if (!m) return;
-    selectedCSShark = sharkId || player.sharkId || 'hermes';
+    // Strict Per-Character Isolation: The Bag / Character Sheet only displays the character you are currently logged in as!
+    selectedCSShark = player.sharkId || 'hermes';
     renderCharacterSheet(selectedCSShark);
     if (initialSubtab) {
       document.querySelectorAll('.cs-subtab').forEach((s) => s.classList.toggle('active', s.dataset.subtab === initialSubtab));
@@ -6367,19 +6403,22 @@
     const m = document.getElementById('character-sheet-modal');
     if (!m) return;
     if (m.classList.contains('hidden')) {
-      openCharacterSheet(sharkId, initialSubtab);
+      openCharacterSheet(player.sharkId, initialSubtab);
     } else {
       closeCharacterSheetModal();
     }
   }
 
   function renderCharacterSheet(sharkId) {
-    selectedCSShark = sharkId || player.sharkId || 'hermes';
+    // Always lock the Character Sheet & Bag view strictly to the active logged-in character!
+    selectedCSShark = player.sharkId || 'hermes';
     const cfg = LORE.sharks[selectedCSShark] || LORE.sharks.hermes;
 
-    // 1. Top Shark Selection Tabs
+    // 1. Hide Multi-Shark Tabs inside the Bag modal (each character's bag is now strictly separate!)
     document.querySelectorAll('.cs-tab').forEach((tab) => {
-      tab.classList.toggle('active', tab.dataset.shark === selectedCSShark);
+      const isMe = tab.dataset.shark === selectedCSShark;
+      tab.classList.toggle('active', isMe);
+      tab.style.display = isMe ? '' : 'none';
     });
 
     // 2. Active Shark Badge & Switch Button
@@ -6388,17 +6427,10 @@
 
     const switchBtn = document.getElementById('cs-btn-switch-active');
     if (switchBtn) {
-      if (selectedCSShark === player.sharkId) {
-        switchBtn.textContent = `✓ Currently Playing as ${cfg.name} (Click to Log Out & Switch)`;
-        switchBtn.classList.remove('btn-accent');
-        switchBtn.classList.add('btn-secondary');
-        switchBtn.style.opacity = '0.92';
-      } else {
-        switchBtn.textContent = `🚪 Log Out to Character Select to Play as ${cfg.name}`;
-        switchBtn.classList.remove('btn-secondary');
-        switchBtn.classList.add('btn-accent');
-        switchBtn.style.opacity = '1.0';
-      }
+      switchBtn.textContent = `🚪 Log Out to Character Select (Switch Character)`;
+      switchBtn.classList.remove('btn-secondary');
+      switchBtn.classList.add('btn-accent');
+      switchBtn.style.opacity = '1.0';
     }
 
     // 3. Avatar card details
@@ -15375,7 +15407,12 @@
         type: 'roster_sync',
         sharkId: player.sharkId,
         record: roster[player.sharkId] || null,
-        founderSharedPool: roster.founderSharedPool || null
+        allRecords: {
+          hermes: roster.hermes || null,
+          solomon: roster.solomon || null,
+          hiram: roster.hiram || null,
+          nimue: roster.nimue || null
+        }
       });
     }
 
