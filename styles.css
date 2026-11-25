@@ -9559,3 +9559,164 @@ body.ufo-flight-mode .hud-bottom-left {
   border: 1px solid rgba(251, 191, 36, 0.45);
   color: #fde68a;
 }
+
+
+/* ============================================================================
+   v19.2 — FOUNDER MENTOR NPC TEACHINGS, REPUTATION & RITE OF RE-DEDICATION
+   ============================================================================ */
+.mentor-modal-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mentor-header-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  font-size: 0.78rem;
+  color: #f1f5f9;
+}
+
+.mentor-standing-pill {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(251, 191, 36, 0.18);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+
+.mentor-rep-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+
+.mentor-rep-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #a855f7, #fbbf24);
+  transition: width 0.25s ease;
+}
+
+.mentor-section-title {
+  font-size: 0.71rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #93c5fd;
+  margin-top: 4px;
+}
+
+.mentor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mentor-skill-row,
+.mentor-tribute-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(15, 23, 42, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  font-size: 0.77rem;
+  color: #e2e8f0;
+}
+
+.mentor-skill-row.unlearned {
+  border-style: dashed;
+}
+
+.mentor-skill-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mentor-skill-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.mentor-skill-sub {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+.mentor-badge-known {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: #6ee7b7;
+  white-space: nowrap;
+}
+
+.mentor-badge-locked {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  text-align: right;
+  max-width: 190px;
+}
+
+.mentor-rep-gain {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #6ee7b7;
+  margin-left: 4px;
+}
+
+.mentor-btn-learn,
+.mentor-btn-tribute,
+.mentor-btn-reded {
+  padding: 5px 10px !important;
+  font-size: 0.72rem !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mentor-btn-tribute:disabled,
+.mentor-btn-reded:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.mentor-reded-box {
+  margin-top: 4px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(30, 27, 75, 0.55);
+  border: 1px dashed rgba(192, 132, 252, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mentor-reded-box.active-oath {
+  border-style: solid;
+  border-color: rgba(251, 191, 36, 0.48);
+  background: rgba(30, 58, 138, 0.4);
+  font-size: 0.76rem;
+  color: #fde68a;
+}

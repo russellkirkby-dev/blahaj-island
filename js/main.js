@@ -10579,6 +10579,17 @@
         }
       }
 
+      if (act.isBlueShark && window.BlahajProgression && window.BlahajProgression.MENTOR_CURRENTS[act.id]) {
+        const mCur = window.BlahajProgression.getMentorCurrent(act.id);
+        actorActions.unshift({
+          label: `🕯️ Seek Mentorship (${mCur.shortLabel})`,
+          className: 'btn-accent',
+          onClick: () => {
+            openFounderMentorModal(act.id);
+          }
+        });
+      }
+
       openDialogueModal({
         speaker: act.name,
         role: act.tag,
@@ -15242,6 +15253,188 @@
 
   function closeDialogueModal() {
     document.getElementById('dialogue-modal').classList.add('hidden');
+  }
+
+  function openFounderMentorModal(mentorId) {
+    const progApi = window.BlahajProgression;
+    const mmoApi = window.BlahajMMO;
+    if (!progApi || !progApi.MENTOR_CURRENTS[mentorId]) return;
+
+    const sId = player.sharkId || 'custom';
+    const cur = progApi.getMentorCurrent(mentorId);
+    const prog = progApi.getCharacterProgression(sId);
+    const deg = progApi.getDegreeInfo(prog.level ?? 0);
+    const wInfo = progApi.getWorldInfo(prog.world || 1);
+    const rep = (prog.mentorRep && prog.mentorRep[mentorId]) || 0;
+    const repTier = progApi.getReputationTier(rep);
+    const isMyMentor = prog.mentorId === mentorId;
+    const repPct = Math.min(100, Math.round((rep / 100) * 100));
+    const sp = prog.skillPoints || 0;
+    const inv = player.inventory;
+    const itemDefs = window.BlahajInventory?.ITEMS || {};
+
+    const countItem = (id) => (inv && typeof inv.getItemCount === 'function' ? inv.getItemCount(id) : 0);
+
+    // 1. Skills taught by this Founder Mentor
+    const mentorAbilities = Object.values(mmoApi?.ABILITIES || {})
+      .filter((ab) => progApi.getSkillNode(ab.id).mentorId === mentorId)
+      .sort((a, b) => progApi.getSkillNode(a.id).minDegree - progApi.getSkillNode(b.id).minDegree);
+
+    const skillsHtml = mentorAbilities.map((ab) => {
+      const learned = mmoApi ? mmoApi.isAbilityLearned(sId, ab.id) : false;
+      const elig = progApi.evaluateSkillEligibility(sId, ab.id);
+      const node = progApi.getSkillNode(ab.id);
+      let actionHtml = '';
+      if (learned) {
+        actionHtml = `<span class="mentor-badge-known">✓ Known</span>`;
+      } else if (elig.canLearn) {
+        actionHtml = `<button type="button" class="btn-accent mentor-btn-learn" data-mentor-learn="${ab.id}">✨ Initiate (${node.skillPointCost || 1} SP)</button>`;
+      } else {
+        actionHtml = `<span class="mentor-badge-locked" title="${elig.reason}">🔒 ${elig.reason}</span>`;
+      }
+      return `
+        <div class="mentor-skill-row ${learned ? 'known' : 'unlearned'}">
+          <div class="mentor-skill-info">
+            <span class="mentor-skill-icon">${ab.icon}</span>
+            <div>
+              <strong>${ab.name}</strong>
+              <div class="mentor-skill-sub">${node.initiaticNote || ab.shortSub}</div>
+            </div>
+          </div>
+          ${actionHtml}
+        </div>
+      `;
+    }).join('');
+
+    // 2. Tribute Offerings to earn Reputation with this Mentor
+    const tributes = progApi.MENTOR_TRIBUTES[mentorId] || [];
+    const tributesHtml = tributes.map((trib, idx) => {
+      const reqSummary = trib.items.map((r) => {
+        const def = itemDefs[r.id] || { icon: '📦', name: r.id };
+        const have = countItem(r.id);
+        return `${r.qty}x ${def.icon} ${def.name} (Have: ${have})`;
+      }).join(' + ');
+      const canOffer = trib.items.every((r) => countItem(r.id) >= r.qty);
+      return `
+        <div class="mentor-tribute-row">
+          <div>
+            <strong>${trib.label}</strong> <span class="mentor-rep-gain">+${trib.repGrant} Rep</span>
+            <div class="mentor-skill-sub">${reqSummary}</div>
+          </div>
+          <button type="button" class="btn-secondary mentor-btn-tribute" data-tribute-idx="${idx}" ${canOffer ? '' : 'disabled'}>
+            ${canOffer ? '🎁 Offer Tribute' : 'Need Items'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    // 3. Costly Rite of Re-Dedication (if not already sworn to this Mentor)
+    const reDed = progApi.evaluateReDedication(mentorId, sId);
+    let reDedHtml = '';
+    if (isMyMentor) {
+      reDedHtml = `<div class="mentor-reded-box active-oath">★ <strong>${cur.mentorName}</strong> is your active Guiding Mentor Current. All arts in this tree open with zero Cross-Current Reputation gate!</div>`;
+    } else {
+      const bundlesHtml = reDed.bundles.map((b) => `
+        <div class="mentor-tribute-row">
+          <div>
+            <strong>${b.name}</strong>
+            <div class="mentor-skill-sub">${b.desc}</div>
+          </div>
+          <button type="button" class="btn-accent mentor-btn-reded" data-reded-idx="${b.index}" ${reDed.hasEnoughRep && b.affordable ? '' : 'disabled'}>
+            ${!reDed.hasEnoughRep ? `Need ${reDed.minRep} Rep` : (b.affordable ? '🕯️ Perform Rite' : 'Missing Relics')}
+          </button>
+        </div>
+      `).join('');
+      reDedHtml = `
+        <div class="mentor-reded-box">
+          <div class="mentor-section-title">🕯️ RITE OF RE-DEDICATION (CHANGE GUIDING MENTOR)</div>
+          <div class="mentor-skill-sub" style="margin-bottom:6px;">
+            Switching your Guiding Current to <strong>${cur.mentorName}</strong> requires at least <strong>Trusted Companion (${reDed.minRep} Rep)</strong> plus one rare dungeon, space, or whirlings offering:
+          </div>
+          ${bundlesHtml}
+        </div>
+      `;
+    }
+
+    const customHtml = `
+      <div class="mentor-modal-panel">
+        <div class="mentor-header-strip">
+          <div>
+            <strong>${cur.icon} ${cur.currentName}</strong> · <span style="color:#fde68a;">World Affinity: ${cur.worldAffinity}</span>
+            <div class="mentor-skill-sub">Your Degree: <strong>${deg.cipher}</strong> (${wInfo.name}) · Skill Points: <strong>${sp}</strong></div>
+          </div>
+          <span class="mentor-standing-pill">${repTier.badge} · ${rep} Rep</span>
+        </div>
+        <div class="mentor-rep-bar" title="Reputation with ${cur.mentorName}: ${rep} / 100">
+          <div class="mentor-rep-fill" style="width:${repPct}%;"></div>
+        </div>
+
+        <div class="mentor-section-title">⚡ ARTS TAUGHT BY ${cur.mentorName.toUpperCase()}</div>
+        <div class="mentor-list">${skillsHtml}</div>
+
+        <div class="mentor-section-title">🎁 EARN REPUTATION WITH ${cur.mentorName.toUpperCase()}</div>
+        <div class="mentor-list">${tributesHtml}</div>
+
+        ${reDedHtml}
+      </div>
+    `;
+
+    const sharkCfg = LORE.sharks[mentorId] || {};
+    openDialogueModal({
+      speaker: `${cur.mentorName} · Mentor of the ${cur.shortLabel}`,
+      role: `${cur.instrument}`,
+      portrait: sharkCfg.portrait || 'assets/gallery/Hermes.png',
+      text: `${cur.maxim} ${cur.summary}`,
+      customHtml,
+      actions: [
+        {
+          label: '📖 Open Full Codex [I]',
+          className: 'btn-secondary',
+          onClick: () => {
+            closeDialogueModal();
+            if (window.BlahajMMO && typeof window.BlahajMMO.openSpellbookModal === 'function') {
+              window.BlahajMMO.openSpellbookModal();
+            }
+          }
+        }
+      ]
+    });
+
+    // Attach live handlers inside customHtml
+    setTimeout(() => {
+      const area = document.getElementById('dlg-custom-area');
+      if (!area) return;
+      area.querySelectorAll('[data-mentor-learn]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (mmoApi && typeof mmoApi.unlockAbilityWithSkillPoint === 'function') {
+            mmoApi.unlockAbilityWithSkillPoint(sId, btn.dataset.mentorLearn);
+            openFounderMentorModal(mentorId);
+          }
+        });
+      });
+      area.querySelectorAll('[data-tribute-idx]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const res = progApi.offerMentorTribute(mentorId, parseInt(btn.dataset.tributeIdx, 10), sId);
+          if (res.ok) {
+            spawnFloatingBurst(player.pos, 0xfbbf24, 16);
+            openFounderMentorModal(mentorId);
+          } else if (window.showToast) {
+            window.showToast('🎁 OFFERING INCOMPLETE', res.reason);
+          }
+        });
+      });
+      area.querySelectorAll('[data-reded-idx]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const res = progApi.performRiteOfReDedication(mentorId, parseInt(btn.dataset.rededIdx, 10), sId);
+          if (res.ok) {
+            spawnFloatingBurst(player.pos, 0xc084fc, 24);
+            openFounderMentorModal(mentorId);
+          } else if (window.showToast) {
+            window.showToast('🕯️ RITE NOT READY', res.reason);
+          }
+        });
+      });
+    }, 0);
   }
 
   function openPierNotesModal() {

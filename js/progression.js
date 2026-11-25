@@ -581,6 +581,54 @@ window.BlahajProgression = (function () {
   };
 
   // --------------------------------------------------------------------------
+  // 8. PASS 3: MENTOR TRIBUTE OFFERINGS & COSTLY RITE OF RE-DEDICATION
+  // --------------------------------------------------------------------------
+  const MENTOR_TRIBUTES = {
+    hermes: [
+      { label: 'Share Trail Breb', items: [{ id: 'breb', qty: 1 }], repGrant: 15, flavor: 'Hermes tucks the warm loaf into his haversack for the long Between-road.' },
+      { label: 'Present Caldera Waystone', items: [{ id: 'obsidian', qty: 1 }], repGrant: 25, flavor: 'Hermes weighs the obsidian pebble beside his lantern—a true compass stone.' }
+    ],
+    solomon: [
+      { label: 'Offer Warm Loaves', items: [{ id: 'breb', qty: 2 }], repGrant: 15, flavor: 'Solomon inspects the crumb with quiet approval and raises his porcelain cup.' },
+      { label: 'Steep Sacred Earl Grey', items: [{ id: 'tea', qty: 1 }], repGrant: 25, flavor: 'Bergamot steam curls upward like a miniature constellation between you.' }
+    ],
+    hiram: [
+      { label: 'Bring Basalt Ashlar', items: [{ id: 'obsidian', qty: 1 }], repGrant: 20, flavor: 'Hiram taps the volcanic stone with his M10 hex key—it rings true.' },
+      { label: 'Deliver Caldera Sulfur', items: [{ id: 'sulfur', qty: 1 }], repGrant: 25, flavor: 'Hiram nods solemnly: prime mortar-spark for the deeper temple vaults.' }
+    ],
+    nimue: [
+      { label: 'Offer Groomed Plush Fluff', items: [{ id: 'plush_fluff', qty: 2 }], repGrant: 15, flavor: 'Nimue spins the soft fleece into a silver thread that glints with starlight.' },
+      { label: 'Present Soft Birb Down', items: [{ id: 'birb_down', qty: 2 }], repGrant: 25, flavor: 'Nimue blesses the feather-light down for weaving along the Great Seam.' }
+    ]
+  };
+
+  const RE_DEDICATION_MIN_REP = 25;
+  const RE_DEDICATION_BUNDLES = [
+    {
+      id: 'caldera_alchemy_tribute',
+      name: 'Caldera & Hearth Tribute',
+      items: [
+        { id: 'obsidian', qty: 2 },
+        { id: 'sulfur', qty: 1 },
+        { id: 'tea', qty: 1 }
+      ],
+      desc: '2x Volcanic Obsidian + 1x Caldera Sulfur + 1x Earl Grey Infusion'
+    },
+    {
+      id: 'cheese_moon_tribute',
+      name: 'Extraterrestrial Crater Tribute',
+      items: [{ id: 'lunar_cheese_wheel', qty: 1 }],
+      desc: '1x Aged Gouda Crater Wheel (recovered from the Cheese Planetoid)'
+    },
+    {
+      id: 'first_whirlings_tribute',
+      name: 'Sanctified Whirlings Tribute',
+      items: [{ id: 'lavender_dryer_sheet', qty: 1 }],
+      desc: '1x Astral Lavender Dryer Sheet (recovered from Mega Washer #7)'
+    }
+  ];
+
+  // --------------------------------------------------------------------------
   // HELPERS, WORLD-SPIRAL MATH & PUBLIC EXTENSION API
   // --------------------------------------------------------------------------
   function getWorldInfo(worldNum) {
@@ -903,6 +951,168 @@ window.BlahajProgression = (function () {
     return outcome;
   }
 
+  // --------------------------------------------------------------------------
+  // PASS 3: MENTOR REPUTATION TRIBUTES & COSTLY RITE OF RE-DEDICATION
+  // --------------------------------------------------------------------------
+  function getInventoryItemCount(inv, itemId) {
+    if (!inv) return 0;
+    if (typeof inv.getItemCount === 'function') return inv.getItemCount(itemId);
+    if (typeof inv.getCount === 'function') return inv.getCount(itemId);
+    return 0;
+  }
+
+  function hasRequiredItems(inv, itemsList) {
+    if (!inv || !Array.isArray(itemsList)) return false;
+    return itemsList.every((req) => getInventoryItemCount(inv, req.id) >= (req.qty || 1));
+  }
+
+  function consumeRequiredItems(inv, itemsList) {
+    if (!inv || !Array.isArray(itemsList)) return false;
+    if (!hasRequiredItems(inv, itemsList)) return false;
+    itemsList.forEach((req) => {
+      if (typeof inv.removeItem === 'function') {
+        inv.removeItem(req.id, req.qty || 1);
+      }
+    });
+    return true;
+  }
+
+  function offerMentorTribute(mentorId, tributeIdx = 0, sharkId = null) {
+    const tributes = MENTOR_TRIBUTES[mentorId];
+    if (!Array.isArray(tributes) || !tributes[tributeIdx]) return { ok: false, reason: 'Invalid offering' };
+    const trib = tributes[tributeIdx];
+    const g = window.BlahajGame;
+    const inv = g && typeof g.getPlayerInventory === 'function' ? g.getPlayerInventory() : window.player?.inventory;
+    if (!hasRequiredItems(inv, trib.items)) {
+      return { ok: false, reason: 'Missing required offering items in your personal Satchel.' };
+    }
+
+    const sId = sharkId || window.player?.sharkId || 'hermes';
+    const saveSys = window.BlahajSaveSystem;
+    let prevRep = 0;
+    let nextRep = 0;
+
+    if (!consumeRequiredItems(inv, trib.items)) {
+      return { ok: false, reason: 'Could not consume offering items.' };
+    }
+
+    if (saveSys && typeof saveSys.updateCharacterProgressionRecord === 'function') {
+      saveSys.updateCharacterProgressionRecord(sId, (rec) => {
+        if (!rec.mentorRep || typeof rec.mentorRep !== 'object') {
+          rec.mentorRep = { hermes: 0, solomon: 0, hiram: 0, nimue: 0 };
+        }
+        prevRep = rec.mentorRep[mentorId] || 0;
+        nextRep = prevRep + (trib.repGrant || 15);
+        rec.mentorRep[mentorId] = nextRep;
+      });
+    }
+
+    const prevTier = getReputationTier(prevRep);
+    const nextTier = getReputationTier(nextRep);
+    const cur = getMentorCurrent(mentorId);
+
+    if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+    if (window.showToast) {
+      const rankUp = nextTier.id !== prevTier.id ? ` · NEW STANDING: ${nextTier.badge}!` : '';
+      window.showToast(
+        `${cur.icon} +${trib.repGrant} REP WITH ${cur.mentorName.toUpperCase()}${rankUp}`,
+        trib.flavor
+      );
+    }
+    if (typeof window.addChatLog === 'function') {
+      window.addChatLog(
+        `${cur.icon} <strong>${cur.mentorName} (${cur.shortLabel}):</strong> Accepted your tribute (+${trib.repGrant} Rep → <strong>${nextRep} · ${nextTier.label}</strong>).`,
+        'lore'
+      );
+    }
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+    if (saveSys && typeof saveSys.captureActiveCharacterToRoster === 'function') {
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+    return { ok: true, prevRep, nextRep, prevTier, nextTier, tribute: trib };
+  }
+
+  function evaluateReDedication(targetMentorId, sharkId = null) {
+    const sId = sharkId || window.player?.sharkId || 'hermes';
+    const prog = getCharacterProgression(sId);
+    const g = window.BlahajGame;
+    const inv = g && typeof g.getPlayerInventory === 'function' ? g.getPlayerInventory() : window.player?.inventory;
+    const isAlreadyCurrent = prog.mentorId === targetMentorId;
+    const rep = (prog.mentorRep && prog.mentorRep[targetMentorId]) || 0;
+    const hasEnoughRep = rep >= RE_DEDICATION_MIN_REP;
+    const bundles = RE_DEDICATION_BUNDLES.map((b, idx) => ({
+      ...b,
+      index: idx,
+      affordable: hasRequiredItems(inv, b.items)
+    }));
+    const canPerform = !isAlreadyCurrent && hasEnoughRep && bundles.some((b) => b.affordable);
+    return {
+      isAlreadyCurrent,
+      rep,
+      minRep: RE_DEDICATION_MIN_REP,
+      hasEnoughRep,
+      bundles,
+      canPerform
+    };
+  }
+
+  function performRiteOfReDedication(targetMentorId, bundleIndex = 0, sharkId = null) {
+    if (!MENTOR_CURRENTS[targetMentorId]) return { ok: false, reason: 'Unknown Mentor Current.' };
+    const sId = sharkId || window.player?.sharkId || 'hermes';
+    const evalRes = evaluateReDedication(targetMentorId, sId);
+    if (evalRes.isAlreadyCurrent) return { ok: false, reason: 'Already sworn to this Mentor Current.' };
+    if (!evalRes.hasEnoughRep) {
+      return { ok: false, reason: `Requires at least ${RE_DEDICATION_MIN_REP} Reputation (Trusted Companion) with this Mentor.` };
+    }
+    const bundle = evalRes.bundles[bundleIndex];
+    if (!bundle || !bundle.affordable) {
+      return { ok: false, reason: 'You do not hold all required relics for this Rite of Re-Dedication.' };
+    }
+
+    const g = window.BlahajGame;
+    const inv = g && typeof g.getPlayerInventory === 'function' ? g.getPlayerInventory() : window.player?.inventory;
+    if (!consumeRequiredItems(inv, bundle.items)) {
+      return { ok: false, reason: 'Could not consume the Rite offering.' };
+    }
+
+    const saveSys = window.BlahajSaveSystem;
+    if (saveSys && typeof saveSys.updateCharacterProgressionRecord === 'function') {
+      saveSys.updateCharacterProgressionRecord(sId, (rec) => {
+        rec.mentorId = targetMentorId;
+        if (!rec.mentorRep || typeof rec.mentorRep !== 'object') {
+          rec.mentorRep = { hermes: 0, solomon: 0, hiram: 0, nimue: 0 };
+        }
+        rec.mentorRep[targetMentorId] = (rec.mentorRep[targetMentorId] || 0) + 10;
+      });
+    }
+
+    const newCur = getMentorCurrent(targetMentorId);
+    if (window.CozyAudio && window.CozyAudio.portalChime) window.CozyAudio.portalChime();
+    if (window.showToast) {
+      window.showToast(
+        `🕯️ RITE OF RE-DEDICATION COMPLETE!`,
+        `Sworn anew to ${newCur.icon} ${newCur.currentName} under ${newCur.mentorName} (+10 Rep)!`
+      );
+    }
+    if (typeof window.addChatLog === 'function') {
+      window.addChatLog(
+        `🕯️✨ <strong>Rite of Re-Dedication:</strong> Offered <em>${bundle.name}</em> and aligned your Guiding Current with <strong>${newCur.icon} ${newCur.mentorName} (${newCur.currentName})</strong>!`,
+        'lore'
+      );
+    }
+    if (g && typeof g.refreshCharacterProgressionHUD === 'function') {
+      g.refreshCharacterProgressionHUD(sId);
+    }
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+    if (window.BlahajMMO && typeof window.BlahajMMO.renderSpellbookModal === 'function') {
+      window.BlahajMMO.renderSpellbookModal();
+    }
+    if (saveSys && typeof saveSys.captureActiveCharacterToRoster === 'function') {
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+    return { ok: true, mentor: newCur, bundle };
+  }
+
   // Runtime extension hooks so new worlds, degrees, powers, instances, and relics plug in cleanly
   function registerWorld(worldDef) {
     if (!worldDef || typeof worldDef.world !== 'number') return;
@@ -952,6 +1162,9 @@ window.BlahajProgression = (function () {
     FOUNDER_PROFILES,
     TRIALS,
     RELIC_KEEPSAKES,
+    MENTOR_TRIBUTES,
+    RE_DEDICATION_MIN_REP,
+    RE_DEDICATION_BUNDLES,
     getWorldInfo,
     getAllWorlds,
     getMaxDegree,
@@ -969,6 +1182,9 @@ window.BlahajProgression = (function () {
     evaluateSkillEligibility,
     advanceDegreeInPlace,
     completeTrial,
+    offerMentorTribute,
+    evaluateReDedication,
+    performRiteOfReDedication,
     registerWorld,
     registerDegree,
     registerSkillNode,
