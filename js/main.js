@@ -2941,28 +2941,64 @@
     if (btn) {
       btn.classList.remove('hidden');
       btn.focus();
-      const onEmbark = () => {
-        btn.removeEventListener('click', onEmbark);
-        window.removeEventListener('keydown', onKeyDownEmbark);
+      btn.onclick = () => {
         embarkIntoGame();
       };
-      const onKeyDownEmbark = (e) => {
-        const setModal = document.getElementById('settings-modal');
-        const googleModal = document.getElementById('modal-google-connect');
-        if (setModal && !setModal.classList.contains('hidden')) return;
-        if (googleModal && !googleModal.classList.contains('hidden')) return;
-        if (e.key === 'Enter' || e.key === ' ' || e.key === 'e' || e.key === 'E') {
-          onEmbark();
-        }
-      };
-      btn.addEventListener('click', onEmbark);
-      window.addEventListener('keydown', onKeyDownEmbark);
+      if (!window._blahajLobbyKeyBound) {
+        window._blahajLobbyKeyBound = true;
+        window.addEventListener('keydown', (e) => {
+          const overlay = document.getElementById('game-loading-screen');
+          if (!overlay || overlay.classList.contains('fade-out') || overlay.style.display === 'none') return;
+          const setModal = document.getElementById('settings-modal');
+          const googleModal = document.getElementById('modal-google-connect');
+          const detagModal = document.getElementById('modal-rite-of-detagging');
+          if (setModal && !setModal.classList.contains('hidden')) return;
+          if (googleModal && !googleModal.classList.contains('hidden')) return;
+          if (detagModal && !detagModal.classList.contains('hidden')) return;
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            embarkIntoGame();
+          }
+        });
+      }
     } else {
       setTimeout(embarkIntoGame, 400);
     }
   }
 
   function embarkIntoGame() {
+    const saveSys = window.BlahajSaveSystem;
+    let targetSharkId = (saveSys && typeof saveSys.getSelectedLobbySharkId === 'function')
+      ? saveSys.getSelectedLobbySharkId()
+      : (player.sharkId || 'hermes');
+
+    // 1. Check if the selected character is currently locked by a partner in-world
+    if (saveSys && typeof saveSys.getActiveLockForShark === 'function') {
+      const lock = saveSys.getActiveLockForShark(targetSharkId);
+      if (lock) {
+        CozyAudio.shonk();
+        const sName = (LORE.sharks[targetSharkId] && LORE.sharks[targetSharkId].name) || targetSharkId;
+        showToast(
+          `🔒 ${sName.toUpperCase()} IS CURRENTLY IN-WORLD`,
+          `${sName} is currently being played by ${lock.playerName}! Please select another character from the roster.`
+        );
+        saveSys.updateLaunchGatewayUI();
+        return;
+      }
+    }
+
+    // 2. If a non-Founder or Custom Shark player hasn't created their Blåhaj yet, open the Character Creator first!
+    if (targetSharkId === 'custom' && saveSys && typeof saveSys.getCustomSharkConfig === 'function') {
+      const cs = saveSys.getCustomSharkConfig();
+      const detagModal = document.getElementById('modal-rite-of-detagging');
+      const detagOpen = detagModal && !detagModal.classList.contains('hidden');
+      if (cs && !cs.detagged && !detagOpen) {
+        saveSys.openRiteOfDetaggingModal();
+        showToast('✂️ CREATE YOUR BLÅHAJ CHARACTER FIRST!', 'Choose your plush color, scarf, and True Name, then click Snip & Enter Island!');
+        return;
+      }
+    }
+
     if (loadingTipInterval) {
       clearInterval(loadingTipInterval);
       loadingTipInterval = null;
@@ -2974,6 +3010,16 @@
       }, 90);
     }
 
+    if (saveSys && typeof saveSys.setInLobby === 'function') {
+      saveSys.setInLobby(false);
+    }
+
+    // 3. Spawn the chosen character and load their per-character (or Shared Founder) Inventory, Skills, Mange & Position!
+    spawnPlayerShark(targetSharkId, true);
+    if (saveSys && typeof saveSys.applyCharacterFromRoster === 'function') {
+      saveSys.applyCharacterFromRoster(targetSharkId);
+    }
+
     const overlay = document.getElementById('game-loading-screen');
     if (overlay) {
       overlay.classList.add('fade-out');
@@ -2982,12 +3028,100 @@
       }, 800);
     }
 
-    // Pass 84: Persistent Shared World by Default!
-    // Players always enter the shared Blåhaj Island overworld together on login.
-    // Going to the IKEA Spawning Pits instance is strictly an exception (when Stuffing Coherence drops to 0 or via the Raid Portal).
-    try {
-      localStorage.setItem('blahaj_escaped_spawning_pits_v1', 'true');
-    } catch (e) {}
+    // 4. Broadcast character claim & roster state to partner
+    const myPlayerName = (saveSys && typeof saveSys.getMyAccountDisplayName === 'function')
+      ? saveSys.getMyAccountDisplayName()
+      : (LORE.sharks[targetSharkId]?.name || 'Founder');
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'character_claim',
+        sharkId: targetSharkId,
+        playerName: myPlayerName
+      });
+    }
+    if (saveSys && typeof saveSys.captureActiveCharacterToRoster === 'function') {
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+    broadcastSharedWorldState();
+
+    // 5. New Players with a freshly created Custom Shark who haven't escaped IKEA yet spawn inside the IKEA Spawning Pits!
+    const isFounder = !!(saveSys && typeof saveSys.isFounderArchodect === 'function' && saveSys.isFounderArchodect());
+    if (targetSharkId === 'custom' && !isFounder && localStorage.getItem('blahaj_escaped_spawning_pits_v1') !== 'true') {
+      setTimeout(() => {
+        if (typeof enterSpawningPits === 'function' && currentZone !== 'spawning_pits') {
+          enterSpawningPits(true);
+        }
+      }, 280);
+    } else {
+      try {
+        localStorage.setItem('blahaj_escaped_spawning_pits_v1', 'true');
+      } catch (e) {}
+    }
+  }
+
+  function logOutToCharacterSelect() {
+    const saveSys = window.BlahajSaveSystem;
+    // 1. Exit UFO / Boat / Cart cleanly before logging out
+    if (window.BlahajUFO && typeof window.BlahajUFO.isLocalAboard === 'function' && window.BlahajUFO.isLocalAboard()) {
+      if (typeof window.BlahajUFO.exitUFO === 'function') {
+        window.BlahajUFO.exitUFO();
+      }
+    }
+    if (player.inBoat) {
+      player.inBoat = false;
+    }
+    if (player.inCart && typeof dismountLaundryCart === 'function') {
+      dismountLaundryCart();
+    }
+
+    // 2. Return to Main Island scene if currently inside an instance so the character parks cleanly
+    if (currentZone === 'laundromat' && typeof exitLaundromat === 'function') exitLaundromat();
+    else if (currentZone === 'spherical_foods' && typeof exitSphericalFoods === 'function') exitSphericalFoods();
+    else if (currentZone === 'volcano' && typeof exitVolcanoTrial === 'function') exitVolcanoTrial();
+    else if (currentZone === 'sea_cave' && typeof exitSeaCaveGrotto === 'function') exitSeaCaveGrotto();
+    else if (currentZone === 'volleyball' && typeof exitVolleyballCourt === 'function') exitVolleyballCourt();
+
+    // 3. Save active character's inventory, skills, mange, accessories & world position to Roster Vault & sync to partner
+    if (saveSys && typeof saveSys.captureActiveCharacterToRoster === 'function') {
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+    if (saveSys && typeof saveSys.saveNow === 'function') {
+      saveSys.saveNow();
+    }
+
+    // 4. Release character lock on network so co-op partner can select this shark immediately
+    if (window.BlahajNetwork) {
+      window.BlahajNetwork.send({
+        type: 'character_release',
+        sharkId: player.sharkId
+      });
+    }
+
+    // 5. Close any in-game modals & release pointer lock
+    if (document.pointerLockElement && document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (e) {}
+    }
+    ['pause-modal', 'character-sheet-modal', 'settings-modal', 'fast-travel-modal', 'upgrades-modal'].forEach((id) => {
+      const m = document.getElementById(id);
+      if (m) m.classList.add('hidden');
+    });
+
+    // 6. Open Full-Screen MMO Character Select Lobby
+    if (saveSys && typeof saveSys.setInLobby === 'function') {
+      saveSys.setInLobby(true);
+    }
+    const overlay = document.getElementById('game-loading-screen');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => {
+        overlay.classList.remove('fade-out');
+      });
+    }
+    if (saveSys && typeof saveSys.updateLaunchGatewayUI === 'function') {
+      saveSys.updateLaunchGatewayUI();
+    }
+    CozyAudio.portalChime();
+    showToast('🚪 LOGGED OUT TO CHARACTER SELECT', 'Your character’s inventory, skills, and position have been saved to the Shared Roster!');
   }
 
   async function init() {
@@ -5866,12 +6000,16 @@
         return;
       }
 
-      // Playable Shark Switcher: F1-F4, F6, or Alt+1..5 (F5 is reserved for native Browser Refresh!)
-      if (e.key === 'F1' || (e.altKey && e.code === 'Digit1')) { e.preventDefault(); spawnPlayerShark('hermes'); return; }
-      if (e.key === 'F2' || (e.altKey && e.code === 'Digit2')) { e.preventDefault(); spawnPlayerShark('solomon'); return; }
-      if (e.key === 'F3' || (e.altKey && e.code === 'Digit3')) { e.preventDefault(); spawnPlayerShark('hiram'); return; }
-      if (e.key === 'F4' || (e.altKey && e.code === 'Digit4')) { e.preventDefault(); spawnPlayerShark('nimue'); return; }
-      if (e.key === 'F6' || (e.altKey && e.code === 'Digit5')) { e.preventDefault(); spawnPlayerShark('custom'); return; }
+      // Playable Shark Switcher: Mid-game hot-swapping is disabled; switching characters requires logging out to the Character Select screen!
+      if (
+        e.key === 'F1' || e.key === 'F2' || e.key === 'F3' || e.key === 'F4' || e.key === 'F6' ||
+        (e.altKey && /^Digit[1-5]$/.test(e.code))
+      ) {
+        e.preventDefault();
+        CozyAudio.shonk();
+        showToast('🚪 LOG OUT TO SWITCH CHARACTER', 'To switch sharks, click [🚪 Switch Character (Log Out)] on the top-left HUD or inside the [Esc] Pause Menu!');
+        return;
+      }
 
       // Pass 97: Clean Number-Row Split — Plain 1-6 = Action Bar skills; 7-9 (or RMB + Scroll / RMB + 1-9) = Fin Inventory Slots!
       if (!e.altKey && !isAnyModalOpen() && /^Digit[1-9]$/.test(e.code)) {
@@ -6232,12 +6370,12 @@
     const switchBtn = document.getElementById('cs-btn-switch-active');
     if (switchBtn) {
       if (selectedCSShark === player.sharkId) {
-        switchBtn.textContent = `✓ Currently Playing as ${cfg.name}`;
+        switchBtn.textContent = `✓ Currently Playing as ${cfg.name} (Click to Log Out & Switch)`;
         switchBtn.classList.remove('btn-accent');
         switchBtn.classList.add('btn-secondary');
-        switchBtn.style.opacity = '0.75';
+        switchBtn.style.opacity = '0.92';
       } else {
-        switchBtn.textContent = `Switch Active Shark to ${cfg.name} [${cfg.key}]`;
+        switchBtn.textContent = `🚪 Log Out to Character Select to Play as ${cfg.name}`;
         switchBtn.classList.remove('btn-secondary');
         switchBtn.classList.add('btn-accent');
         switchBtn.style.opacity = '1.0';
@@ -11639,18 +11777,24 @@
       });
     });
 
-    // Switch Active Shark button inside Character Sheet
+    // Switch Active Shark button inside Character Sheet -> Logs out to Character Select Lobby
     const switchActiveBtn = document.getElementById('cs-btn-switch-active');
     if (switchActiveBtn) {
       switchActiveBtn.addEventListener('click', () => {
-        if (selectedCSShark !== player.sharkId) {
-          spawnPlayerShark(selectedCSShark);
-          renderCharacterSheet(selectedCSShark);
-          CozyAudio.shonk();
-          showToast(`PLAYING AS ${LORE.sharks[selectedCSShark].name.toUpperCase()} 🦈`, LORE.sharks[selectedCSShark].title);
+        if (window.BlahajSaveSystem && selectedCSShark && selectedCSShark !== player.sharkId) {
+          window.BlahajSaveSystem.selectLobbyShark(selectedCSShark);
         }
+        logOutToCharacterSelect();
       });
     }
+    document.getElementById('btn-logout-charselect-hud')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logOutToCharacterSelect();
+    });
+    document.getElementById('btn-pause-logout-charselect')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logOutToCharacterSelect();
+    });
 
     // Individual Shark Mange Slider inside Character Sheet
     const csMangeSlider = document.getElementById('cs-mange-slider');
@@ -15166,29 +15310,55 @@
   function broadcastSharedWorldState() {
     if (!window.BlahajNetwork) return;
 
-    window.BlahajNetwork.send({
-      type: 'shark_swap',
-      sharkId: player.sharkId,
-      mange: window.__BLAHAJ_MANGE__
-    });
+    const saveSys = window.BlahajSaveSystem;
+    const inLobbyNow = !!(saveSys && typeof saveSys.isInLobby === 'function' && saveSys.isInLobby());
+    const myPlayerName = (saveSys && typeof saveSys.getMyAccountDisplayName === 'function')
+      ? saveSys.getMyAccountDisplayName()
+      : (LORE.sharks[player.sharkId]?.name || 'Founder');
 
-    window.BlahajNetwork.send({
-      type: 'move',
-      sharkId: player.sharkId,
-      x: player.pos.x,
-      y: player.pos.y,
-      z: player.pos.z,
-      rotY: player.rotY,
-      isMoving: false,
-      inBoat: !!player.inBoat,
-      inCart: !!player.inCart,
-      cartId: player.cartId || null,
-      zone: currentZone || 'island',
-      mange: window.__BLAHAJ_MANGE__,
-      heldItemId: playerHeldItem ? playerHeldItem.id : null,
-      isLounging: !!player.isLounging,
-      loungeChairId: player.loungeChairId || null
-    });
+    if (!inLobbyNow) {
+      window.BlahajNetwork.send({
+        type: 'character_claim',
+        sharkId: player.sharkId,
+        playerName: myPlayerName
+      });
+
+      window.BlahajNetwork.send({
+        type: 'shark_swap',
+        sharkId: player.sharkId,
+        playerName: myPlayerName,
+        mange: window.__BLAHAJ_MANGE__
+      });
+
+      window.BlahajNetwork.send({
+        type: 'move',
+        sharkId: player.sharkId,
+        playerName: myPlayerName,
+        x: player.pos.x,
+        y: player.pos.y,
+        z: player.pos.z,
+        rotY: player.rotY,
+        isMoving: false,
+        inBoat: !!player.inBoat,
+        inCart: !!player.inCart,
+        cartId: player.cartId || null,
+        zone: currentZone || 'island',
+        mange: window.__BLAHAJ_MANGE__,
+        heldItemId: playerHeldItem ? playerHeldItem.id : null,
+        isLounging: !!player.isLounging,
+        loungeChairId: player.loungeChairId || null
+      });
+    }
+
+    if (saveSys && typeof saveSys.ensureCharacterRoster === 'function') {
+      const roster = saveSys.ensureCharacterRoster();
+      window.BlahajNetwork.send({
+        type: 'roster_sync',
+        sharkId: player.sharkId,
+        record: roster[player.sharkId] || null,
+        founderSharedPool: roster.founderSharedPool || null
+      });
+    }
 
     if (worldApi && worldApi.getBuiltStructures().length > 0) {
       const items = worldApi.getBuiltStructures().map((s) => ({
@@ -15357,6 +15527,9 @@
         broadcastSharedWorldState();
       },
       onPeerDisconnect(remClientId) {
+        if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateRemoteCharacterLock === 'function') {
+          window.BlahajSaveSystem.updateRemoteCharacterLock(null, remClientId, null, true);
+        }
         if (remClientId && extraCoopPeers.has(remClientId)) {
           removeExtraCoopPeer(remClientId);
         }
@@ -15366,7 +15539,31 @@
         }
       },
       onData(data) {
-        if (data.type === 'enemy_boop') {
+        if (data.type === 'character_claim') {
+          if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateRemoteCharacterLock === 'function') {
+            window.BlahajSaveSystem.updateRemoteCharacterLock(data.sharkId, data.clientId, data.playerName || 'Partner', false);
+          }
+          if (data.sharkId) {
+            spawnCoopPartnerShark(data.sharkId);
+          }
+          return;
+        } else if (data.type === 'character_release') {
+          if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateRemoteCharacterLock === 'function') {
+            window.BlahajSaveSystem.updateRemoteCharacterLock(data.sharkId, data.clientId, null, true);
+          }
+          if (coopPartner && (!data.clientId || coopPartner.clientId === data.clientId)) {
+            coopPartner.active = false;
+            if (coopPartner.mesh) coopPartner.mesh.visible = false;
+            if (coopPartner.labelEl) coopPartner.labelEl.style.display = 'none';
+            updateBlueSharkVisibility();
+          }
+          return;
+        } else if (data.type === 'roster_sync') {
+          if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.handleIncomingRosterSync === 'function') {
+            window.BlahajSaveSystem.handleIncomingRosterSync(data);
+          }
+          return;
+        } else if (data.type === 'enemy_boop') {
           if (window.BlahajEnemies) {
             const enemy = window.BlahajEnemies.getEnemies().find(e => e.id === data.enemyId);
             if (enemy) {
@@ -15382,6 +15579,10 @@
             window.BlahajSharks3D.attachHeldItem(coopPartner.mesh, coopPartner.heldItemId);
           }
         } else if (data.type === 'move') {
+          if (data.sharkId && window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateRemoteCharacterLock === 'function') {
+            const pName = data.playerName || (LORE.sharks[data.sharkId] ? `Partner (${LORE.sharks[data.sharkId].name})` : 'Partner');
+            window.BlahajSaveSystem.updateRemoteCharacterLock(data.sharkId, data.clientId, pName, false);
+          }
           if (!shouldRouteToPrimaryPartner(data)) {
             upsertExtraCoopPeer(data);
             return;
@@ -15521,6 +15722,9 @@
           }
           addChatLog('🥕🌋 Your partner bumped a Volunteer Carrot into the boiling caldera!', 'coop');
         } else if (data.type === 'shark_swap') {
+          if (data.sharkId && window.BlahajSaveSystem && typeof window.BlahajSaveSystem.updateRemoteCharacterLock === 'function') {
+            window.BlahajSaveSystem.updateRemoteCharacterLock(data.sharkId, data.clientId, data.playerName || 'Partner', false);
+          }
           spawnCoopPartnerShark(data.sharkId, data.mange);
         } else if (data.type === 'build_place' && data.item) {
           const placed = worldApi.placeBuiltStructure(data.item);
@@ -16214,6 +16418,10 @@
   }
 
   function updatePlayerMovement(dt, elapsed) {
+    // While in the Full-Screen Character Select Lobby, the 3D world and network buffer warm up in the background without moving or claiming a character!
+    if (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.isInLobby === 'function' && window.BlahajSaveSystem.isInLobby()) {
+      return;
+    }
     if (window.BlahajUFO && window.BlahajUFO.isLocalAboard()) {
       netSyncTimer += dt;
       if (netSyncTimer > 0.45) {
@@ -17214,9 +17422,13 @@
 
       netSyncTimer = 0;
       if (!unchanged || (nowMs - (prev ? prev.t : 0) > 1500)) {
+        const myPlayerName = (window.BlahajSaveSystem && typeof window.BlahajSaveSystem.getMyAccountDisplayName === 'function')
+          ? window.BlahajSaveSystem.getMyAccountDisplayName()
+          : 'Partner';
         const pkt = {
           type: 'move',
           sharkId: player.sharkId,
+          playerName: myPlayerName,
           x: rx,
           y: ry,
           z: rz,
@@ -19012,6 +19224,7 @@
     handleVolcanoTrapHit,
     triggerSignatureAbility,
     embarkIntoGame,
+    logOutToCharacterSelect,
     finishLoadingScreen,
     openIslandMap,
     closeIslandMap,

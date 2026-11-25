@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=18.3" />
+  <link rel="stylesheet" href="styles.css?v=18.6" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -19,26 +19,47 @@
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body class="minimal-hud">
-  <!-- ==================== GAME STARTUP LOADING & PRE-WARM SCREEN ==================== -->
+  <!-- ==================== FULL-SCREEN MMO CHARACTER SELECT & MAIN MENU LOBBY ==================== -->
   <div id="game-loading-screen" class="game-loading-overlay">
     <div class="loading-backdrop" style="background-image: url('assets/ui/blahaj_island_hero_render.jpg');"></div>
     <div class="loading-scrim"></div>
-    <div class="loading-card">
-      <div class="loading-hero-frame">
-        <img src="assets/ui/blahaj_island_hero_render.jpg" alt="Blåhaj Island 3D Render" class="loading-hero-img" />
-        <div class="hero-badge">3D EXPANDED ARCHIPELAGO</div>
+    <div class="loading-card mmo-fullscreen-lobby">
+      <!-- TOP HEADER BAR: Title, Live Network Buffer Status, Audio & Settings -->
+      <div class="lobby-top-header">
+        <div class="lobby-brand-col">
+          <div class="lobby-title-row">
+            <h1 class="loading-title">BLÅHAJ ISLAND</h1>
+            <span class="hero-badge" style="position: static;">MMO CHARACTER SELECT &amp; LOBBY</span>
+          </div>
+          <div class="loading-subtitle">The Ocean That Doth Not Wet · Sacred Archipelago · Different Shores, Same Ocean</div>
+        </div>
+        <div class="lobby-header-right">
+          <div id="lobby-net-buffer-pill" class="lobby-net-pill">
+            🟡 Warming 3D Archipelago &amp; Syncing Co-op Network…
+          </div>
+          <div class="loading-controls-row" style="margin: 0;">
+            <button type="button" id="btn-loading-audio-toggle" class="loading-toggle-btn" title="Toggle audio on/off before embarking">
+              <span class="toggle-icon" id="loading-audio-icon">🔊</span>
+              <span class="toggle-text" id="loading-audio-text">Audio: ON</span>
+            </button>
+            <button type="button" id="btn-loading-settings" class="loading-settings-btn" title="Open Island Settings &amp; Preferences">
+              ⚙️ Settings
+            </button>
+          </div>
+        </div>
       </div>
-      <div class="loading-title-group">
-        <h1 class="loading-title">BLÅHAJ ISLAND</h1>
-        <div class="loading-subtitle">The Ocean That Doth Not Wet · Sacred Archipelago</div>
-      </div>
-      <!-- Loading Progress & Tips (Visible during asset download 0-99%) -->
-      <div id="game-loading-progress-section">
+
+      <!-- Loading Progress & Tips (Visible during initial 3D world pre-warm 0-99%) -->
+      <div id="game-loading-progress-section" class="lobby-prewarm-box">
+        <div class="loading-hero-frame">
+          <img src="assets/ui/blahaj_island_hero_render.jpg" alt="Blåhaj Island 3D Render" class="loading-hero-img" />
+          <div class="hero-badge">PRE-WARMING 3D WORLD &amp; NETWORK BUFFER</div>
+        </div>
         <div class="loading-progress-bar-container">
           <div class="loading-progress-bar" id="game-loading-progress-bar" style="width: 0%;"></div>
         </div>
         <div class="loading-status-row" id="game-loading-status-row">
-          <div class="loading-status-text" id="game-loading-status-text">Preparing 3D fleece & island terrain…</div>
+          <div class="loading-status-text" id="game-loading-status-text">Preparing 3D fleece &amp; island terrain…</div>
           <div class="loading-pct" id="game-loading-pct">0%</div>
         </div>
         <div class="loading-tips-row">
@@ -47,65 +68,43 @@
         </div>
       </div>
 
-      <!-- Launch & Account Gateway (Reveals at 100% loading) -->
+      <!-- Full-Screen Character Select & Account Gateway (Reveals at 100% pre-warm) -->
       <div id="launch-gateway-panel" class="launch-gateway hidden">
-        <!-- Account Status Strip (Guest Passport or Google User Profile) -->
-        <div class="launch-account-strip" id="launch-account-strip">
-          <!-- Dynamically populated by BlahajSaveSystem.updateLaunchGatewayUI() -->
-        </div>
-
-        <!-- Slot Summary Strip -->
-        <div class="launch-slot-strip" id="launch-slot-strip">
-          <div class="launch-slot-info">
-            <span class="launch-slot-badge" id="launch-slot-badge">● Slot 1 Active</span>
-            <span class="launch-slot-stats" id="launch-slot-stats">Loading save data…</span>
+        <!-- Top Account & Save Slot Bar -->
+        <div class="lobby-account-row">
+          <div class="launch-account-strip" id="launch-account-strip" style="flex: 2;">
+            <!-- Dynamically populated by BlahajSaveSystem.updateLaunchGatewayUI() -->
           </div>
-          <button type="button" id="launch-btn-change-slot" class="launch-btn-subtle" title="Select a different save slot or import backup">
-            Change Slot 📁
-          </button>
+          <div class="launch-slot-strip" id="launch-slot-strip" style="flex: 1;">
+            <div class="launch-slot-info">
+              <span class="launch-slot-badge" id="launch-slot-badge">● Roster Slot 1</span>
+              <span class="launch-slot-stats" id="launch-slot-stats">Loading save data…</span>
+            </div>
+            <button type="button" id="launch-btn-change-slot" class="launch-btn-subtle" title="Select a different save slot or import backup">
+              Change Slot 📁
+            </button>
+          </div>
         </div>
 
-        <!-- Rite of Detagging / Custom Shark Creator Banner -->
-        <button type="button" id="btn-open-detagging-gateway" class="btn-detag-gateway" title="Perform the Rite of Detagging: Snip your factory barcode tag, name your shark & customize plush colors">
-          <span class="detag-gateway-icon">✂️🏷️</span>
-          <span class="detag-gateway-text">
-            <strong>The Rite of Detagging: Create &amp; Name Your Shark</strong>
-            <small>Order of the Sacred Scissors · Customize Fleece, Scarf &amp; True Name</small>
-          </span>
-        </button>
-
-        <!-- Primary Action Button: Embark into Game (Loads browser save or google cloud save) -->
-        <button type="button" id="btn-enter-game" class="btn-enter-game" title="Embark onto Blåhaj Island">
-          <span class="enter-main" id="launch-embark-text">EMBARK AS GUEST (LOAD BROWSER SAVE)</span>
-          <span class="enter-sub" id="embark-audio-sub">Click to Enter · Audio Enabled 🦈✨</span>
-        </button>
-
-        <!-- Secondary Action Row: Google Cloud Sign In & Quick Connect -->
-        <div class="launch-actions-row" id="launch-actions-row">
-          <button type="button" id="launch-btn-google-auth" class="btn-launch-google" title="Connect Google Account for cloud sync">
-            <svg class="google-icon-svg" viewBox="0 0 24 24" width="16" height="16">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            <span id="launch-google-btn-text">Sign In with Google</span>
-          </button>
-          <button type="button" id="launch-btn-quick-sync" class="btn-launch-quick" title="Quickly connect your profile without Google Cloud setup">
-            ⚡ Quick Link
-          </button>
+        <!-- Center Stage: MMO Character Roster Grid (4 Sacred Founders + Custom Blåhaj) -->
+        <div class="lobby-roster-section">
+          <div class="lobby-roster-header">
+            <span class="lobby-roster-title">🦈 SELECT YOUR CHARACTER TO ENTER THE ARCHIPELAGO</span>
+            <span class="lobby-roster-hint">Russell &amp; Helen share Founder Inventories &amp; Skills · Characters currently in-world are locked against duplicate selection</span>
+          </div>
+          <div id="lobby-character-roster-grid" class="lobby-character-roster-grid">
+            <!-- Dynamically populated by BlahajSaveSystem.renderCharacterSelectRosterGrid() -->
+          </div>
         </div>
-      </div>
 
-      <!-- Loading Preferences Row: Audio Switch & Settings Modal -->
-      <div class="loading-controls-row">
-        <button type="button" id="btn-loading-audio-toggle" class="loading-toggle-btn" title="Toggle audio on/off before embarking">
-          <span class="toggle-icon" id="loading-audio-icon">🔊</span>
-          <span class="toggle-text" id="loading-audio-text">Audio: ON</span>
-        </button>
-        <button type="button" id="btn-loading-settings" class="loading-settings-btn" title="Open Island Settings & Preferences">
-          ⚙️ Settings
-        </button>
+        <!-- Bottom Action Dock: Primary Enter World Button & Quick Tools -->
+        <div class="lobby-bottom-dock">
+          <button type="button" id="btn-enter-game" class="btn-enter-game" title="Enter Blåhaj Island with your selected character">
+            <span class="enter-main" id="launch-embark-text">🦈 ENTER WORLD AS HERMES</span>
+            <span class="enter-sub" id="embark-audio-sub">Click to Enter · Audio Enabled 🦈✨</span>
+          </button>
+          <div class="launch-actions-row" id="launch-actions-row"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -172,6 +171,9 @@
           <button type="button" class="btn-open-charsheet-hud" id="btn-open-quest-log" title="Open MMO Quest Log &amp; Daily World Quests [L]" style="margin-top: 5px; background: linear-gradient(135deg, rgba(180, 120, 32, 0.88), rgba(22, 28, 46, 0.92)); border-color: rgba(245, 205, 121, 0.7);">
             <span>📜 Quest Log</span>
             <kbd>L</kbd>
+          </button>
+          <button type="button" class="btn-open-charsheet-hud" id="btn-logout-charselect-hud" title="Save your shark &amp; return to the Full-Screen Character Select Lobby to switch characters" style="margin-top: 5px; background: linear-gradient(135deg, rgba(124, 58, 237, 0.85), rgba(15, 23, 42, 0.94)); border-color: rgba(192, 132, 252, 0.7);">
+            <span>🚪 Switch Character (Log Out)</span>
           </button>
 
           <!-- Founder Archodect Quick-Power Pill (Visible to Russell & Helen) -->
@@ -2593,34 +2595,10 @@
         </div>
       </div>
       <div class="pause-shark-section">
-        <div class="pause-section-label">🦈 Switch Playable Shark (F1–F4 / F6)</div>
-        <div class="shark-switcher-bar pause-shark-bar" id="shark-switcher-bar" title="Switch Playable Shark [F1–F4] or [F6]">
-          <button type="button" class="shark-switcher-btn shark-slot active" data-shark="hermes" id="slot-1" title="[F1] Play as Hermes">
-            <span class="sw-key">F1</span>
-            <img src="assets/gallery/Hermes.png" alt="Hermes" />
-            <span class="sw-name">Hermes</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="solomon" id="slot-2" title="[F2] Play as Solomon">
-            <span class="sw-key">F2</span>
-            <img src="assets/gallery/Solomon.png" alt="Solomon" />
-            <span class="sw-name">Solomon</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="hiram" id="slot-3" title="[F3] Play as Hiram">
-            <span class="sw-key">F3</span>
-            <img src="assets/gallery/Hiram.png" alt="Hiram" />
-            <span class="sw-name">Hiram</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="nimue" id="slot-4" title="[F4] Play as Nimue">
-            <span class="sw-key">F4</span>
-            <img src="assets/gallery/Nimue.png" alt="Nimue" />
-            <span class="sw-name">Nimue</span>
-          </button>
-          <button type="button" class="shark-switcher-btn shark-slot" data-shark="custom" id="slot-5" title="[F6] Play as Your Custom Named Shark">
-            <span class="sw-key">F6</span>
-            <img src="assets/gallery/Names.png" alt="Custom Shark" />
-            <span class="sw-name slot-name">Finley</span>
-          </button>
-        </div>
+        <div class="pause-section-label">🦈 Character Roster &amp; Session</div>
+        <button type="button" id="btn-pause-logout-charselect" class="pause-btn" style="width: 100%; background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(30, 27, 75, 0.85)); border: 1.5px solid rgba(192, 132, 252, 0.75); color: #f3e8ff; font-weight: 700; padding: 11px 16px;">
+          🚪 Log Out to Character Select Screen (Switch Character)
+        </button>
       </div>
       <div class="pause-controls-tip">
         <span><strong>In-Game Mouse:</strong> Move = Camera</span>
@@ -2741,27 +2719,27 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=18.5"></script>
-  <script src="js/quests.js?v=18.5"></script>
-  <script src="js/sharks3d.js?v=18.5"></script>
-  <script src="js/space.js?v=18.5"></script>
-  <script src="js/cheesePlanet.js?v=18.5"></script>
-  <script src="js/hyperspace.js?v=18.5"></script>
-  <script src="js/ufo.js?v=18.5"></script>
-  <script src="js/world3d.js?v=18.5"></script>
-  <script src="js/volcano.js?v=18.5"></script>
-  <script src="js/laundromat.js?v=18.5"></script>
-  <script src="js/sphericalFoods.js?v=18.5"></script>
-  <script src="js/volleyball.js?v=18.5"></script>
-  <script src="js/spawningPits.js?v=18.5"></script>
-  <script src="js/homestead.js?v=18.5"></script>
-  <script src="js/network.js?v=18.5"></script>
-  <script src="js/inventory.js?v=18.5"></script>
-  <script src="js/enemies.js?v=18.5"></script>
-  <script src="js/seam.js?v=18.5"></script>
-  <script src="js/mmoControls.js?v=18.5"></script>
+  <script src="js/lore.js?v=18.6"></script>
+  <script src="js/quests.js?v=18.6"></script>
+  <script src="js/sharks3d.js?v=18.6"></script>
+  <script src="js/space.js?v=18.6"></script>
+  <script src="js/cheesePlanet.js?v=18.6"></script>
+  <script src="js/hyperspace.js?v=18.6"></script>
+  <script src="js/ufo.js?v=18.6"></script>
+  <script src="js/world3d.js?v=18.6"></script>
+  <script src="js/volcano.js?v=18.6"></script>
+  <script src="js/laundromat.js?v=18.6"></script>
+  <script src="js/sphericalFoods.js?v=18.6"></script>
+  <script src="js/volleyball.js?v=18.6"></script>
+  <script src="js/spawningPits.js?v=18.6"></script>
+  <script src="js/homestead.js?v=18.6"></script>
+  <script src="js/network.js?v=18.6"></script>
+  <script src="js/inventory.js?v=18.6"></script>
+  <script src="js/enemies.js?v=18.6"></script>
+  <script src="js/seam.js?v=18.6"></script>
+  <script src="js/mmoControls.js?v=18.6"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=18.5"></script>
-  <script src="js/main.js?v=18.5"></script>
+  <script src="js/saveSystem.js?v=18.6"></script>
+  <script src="js/main.js?v=18.6"></script>
 </body>
 </html>

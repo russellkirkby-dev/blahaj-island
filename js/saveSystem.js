@@ -186,6 +186,9 @@
       save.profile.activeSharkId = player.sharkId || 'solomon';
       save.profile.displayName = player.name || player.sharkId || 'Solomon';
       save.progression.greatSeam.totalMendedAllTime = player.seamMendedCount || 0;
+      if (!isInLobbyState) {
+        captureActiveCharacterToRoster(false);
+      }
     }
 
     // 2. Inventory
@@ -787,8 +790,584 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 10. PRE-GAME LAUNCH & ACCOUNT GATEWAY UI
+  // 10. FULL-SCREEN MMO CHARACTER SELECT LOBBY & PER-CHARACTER ROSTER VAULT
   // ---------------------------------------------------------------------------
+  const ROSTER_STORAGE_KEY = 'blahaj_character_roster_v1';
+  const FOUNDER_SHARK_IDS = ['hermes', 'solomon', 'hiram', 'nimue'];
+  const ALL_ROSTER_IDS = ['hermes', 'solomon', 'hiram', 'nimue', 'custom'];
+
+  const DEFAULT_SHARK_SPAWNS = {
+    hermes:  { x: 58.0,  y: 2.8, z: -10.0, rotY: -Math.PI / 2, zone: 'island' },
+    solomon: { x: -4.0,  y: 5.5, z: 10.0,  rotY: 0.4,          zone: 'island' },
+    hiram:   { x: -34.0, y: 4.5, z: -18.0, rotY: 1.2,          zone: 'island' },
+    nimue:   { x: 18.0,  y: 3.2, z: 42.0,  rotY: -2.4,         zone: 'island' },
+    custom:  { x: 52.0,  y: 2.8, z: -6.0,  rotY: -Math.PI / 2, zone: 'island' }
+  };
+
+  let selectedLobbySharkId = null;
+  let isInLobbyState = true;
+  // Map of sharkId -> { clientId, playerName, updatedAt } for remote players currently in-world
+  const remoteCharacterLocks = {};
+
+  function getMyAccountDisplayName() {
+    const gAcc = currentSaveState?.profile?.googleAccount;
+    if (gAcc && gAcc.name) return gAcc.name.split(' ')[0];
+    if (gAcc && gAcc.email) {
+      const em = gAcc.email.toLowerCase();
+      if (em.includes('russell')) return 'Russell';
+      if (em.includes('helen')) return 'Helen';
+    }
+    if (isFounderArchodect()) return 'Founder';
+    const cs = currentSaveState?.profile?.customShark;
+    return (cs && cs.detagged && cs.name) ? cs.name : 'Explorer';
+  }
+
+  function ensureCharacterRoster() {
+    if (!currentSaveState) currentSaveState = createDefaultSaveState(activeSlot);
+    if (!currentSaveState.characterRoster || typeof currentSaveState.characterRoster !== 'object') {
+      let cached = null;
+      try {
+        const raw = localStorage.getItem(ROSTER_STORAGE_KEY);
+        if (raw) cached = JSON.parse(raw);
+      } catch (e) {}
+      currentSaveState.characterRoster = (cached && typeof cached === 'object') ? cached : {};
+    }
+    const roster = currentSaveState.characterRoster;
+    if (!roster.founderSharedPool || typeof roster.founderSharedPool !== 'object') {
+      roster.founderSharedPool = {
+        updatedAt: 0,
+        inventorySlots: Array.isArray(currentSaveState.inventory?.slots) ? currentSaveState.inventory.slots : null,
+        unlockedUpgrades: [],
+        birbsFedCount: 6,
+        carrotsKnockedCount: 4,
+        trialPoints: 2,
+        seamMendedCount: currentSaveState.progression?.greatSeam?.totalMendedAllTime || 0
+      };
+    }
+    ALL_ROSTER_IDS.forEach((id) => {
+      if (!roster[id] || typeof roster[id] !== 'object') {
+        const sp = DEFAULT_SHARK_SPAWNS[id] || DEFAULT_SHARK_SPAWNS.hermes;
+        roster[id] = {
+          sharkId: id,
+          updatedAt: 0,
+          inventorySlots: (FOUNDER_SHARK_IDS.includes(id) && Array.isArray(roster.founderSharedPool.inventorySlots))
+            ? JSON.parse(JSON.stringify(roster.founderSharedPool.inventorySlots))
+            : null,
+          heldItemId: currentSaveState.inventory?.heldItemId || null,
+          unlockedUpgrades: [],
+          birbsFedCount: 6,
+          carrotsKnockedCount: 4,
+          trialPoints: 2,
+          seamMendedCount: 0,
+          mange: id === 'hermes' ? 0.85 : (id === 'solomon' ? 0.45 : (id === 'hiram' ? 0.65 : (id === 'nimue' ? 0.25 : 0.10))),
+          accessories: { showRelic: true, showHeadgear: true },
+          pos: { ...sp }
+        };
+      }
+    });
+    return roster;
+  }
+
+  function persistRosterToStorage() {
+    const roster = ensureCharacterRoster();
+    try {
+      localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+    } catch (e) {}
+  }
+
+  function mergeInventorySlotArrays(slotsA, slotsB) {
+    if (!Array.isArray(slotsA) && !Array.isArray(slotsB)) return null;
+    if (!Array.isArray(slotsA)) return JSON.parse(JSON.stringify(slotsB));
+    if (!Array.isArray(slotsB)) return JSON.parse(JSON.stringify(slotsA));
+    // Take maximum quantity of each item ID across both arrays, preserving slot order of the newer array (slotsA)
+    const totalsA = {};
+    const totalsB = {};
+    slotsA.forEach((s) => { if (s && s.id && s.qty > 0) totalsA[s.id] = (totalsA[s.id] || 0) + s.qty; });
+    slotsB.forEach((s) => { if (s && s.id && s.qty > 0) totalsB[s.id] = (totalsB[s.id] || 0) + s.qty; });
+    const out = JSON.parse(JSON.stringify(slotsA));
+    Object.keys(totalsB).forEach((itemId) => {
+      const diff = (totalsB[itemId] || 0) - (totalsA[itemId] || 0);
+      if (diff > 0) {
+        // Add extra count into existing stack or first empty slot
+        let rem = diff;
+        for (let i = 0; i < out.length && rem > 0; i++) {
+          if (out[i] && out[i].id === itemId) {
+            out[i].qty += rem;
+            rem = 0;
+          }
+        }
+        for (let i = 0; i < out.length && rem > 0; i++) {
+          if (!out[i]) {
+            out[i] = { id: itemId, qty: rem };
+            rem = 0;
+          }
+        }
+      }
+    });
+    return out;
+  }
+
+  function captureActiveCharacterToRoster(broadcastToPartner = false) {
+    const game = window.BlahajGame;
+    if (!game || typeof game.getPlayer !== 'function') return null;
+    const player = game.getPlayer();
+    if (!player || !player.sharkId) return null;
+
+    const sharkId = player.sharkId;
+    const roster = ensureCharacterRoster();
+    const rec = roster[sharkId] || (roster[sharkId] = { sharkId });
+    const now = Date.now();
+    rec.updatedAt = now;
+
+    const inv = game.getPlayerInventory ? game.getPlayerInventory() : player.inventory;
+    if (inv && typeof inv.serialize === 'function') {
+      rec.inventorySlots = inv.serialize();
+    }
+    if (game.getActiveHeldItem) {
+      rec.heldItemId = game.getActiveHeldItem() || null;
+    }
+    if (player.unlockedUpgrades instanceof Set) {
+      rec.unlockedUpgrades = Array.from(player.unlockedUpgrades);
+    }
+    rec.birbsFedCount = player.birbsFedCount ?? 6;
+    rec.carrotsKnockedCount = player.carrotsKnockedCount ?? 4;
+    rec.trialPoints = player.trialPoints ?? 2;
+    rec.seamMendedCount = player.seamMendedCount ?? 0;
+
+    if (game.getSharkMange) {
+      rec.mange = game.getSharkMange(sharkId);
+    }
+    if (game.getSharkAccessories) {
+      rec.accessories = game.getSharkAccessories(sharkId);
+    }
+    const zoneNow = (game.getZone && game.getZone()) || 'island';
+    if (zoneNow === 'island' && player.pos && Number.isFinite(player.pos.x) && Number.isFinite(player.pos.z)) {
+      rec.pos = {
+        x: Number(player.pos.x.toFixed(2)),
+        y: Number(player.pos.y.toFixed(2)),
+        z: Number(player.pos.z.toFixed(2)),
+        rotY: Number((player.rotY || 0).toFixed(3)),
+        zone: 'island'
+      };
+    }
+
+    // Russell & Helen Founder Shared Pool:
+    // Any items or skills earned on any of the 4 Founder Sharks update the shared Founder Pool
+    // and propagate across all 4 Founder Sharks so Russell & Helen always share Founder items & skills!
+    if (FOUNDER_SHARK_IDS.includes(sharkId)) {
+      const pool = roster.founderSharedPool;
+      pool.updatedAt = now;
+      pool.inventorySlots = rec.inventorySlots
+        ? JSON.parse(JSON.stringify(rec.inventorySlots))
+        : pool.inventorySlots;
+      const mergedUpgrades = new Set([...(pool.unlockedUpgrades || []), ...(rec.unlockedUpgrades || [])]);
+      pool.unlockedUpgrades = Array.from(mergedUpgrades);
+      pool.birbsFedCount = Math.max(pool.birbsFedCount || 0, rec.birbsFedCount || 0);
+      pool.carrotsKnockedCount = Math.max(pool.carrotsKnockedCount || 0, rec.carrotsKnockedCount || 0);
+      pool.trialPoints = Math.max(pool.trialPoints || 0, rec.trialPoints || 0);
+      pool.seamMendedCount = Math.max(pool.seamMendedCount || 0, rec.seamMendedCount || 0);
+
+      FOUNDER_SHARK_IDS.forEach((fId) => {
+        if (roster[fId]) {
+          roster[fId].inventorySlots = JSON.parse(JSON.stringify(pool.inventorySlots));
+          roster[fId].unlockedUpgrades = [...pool.unlockedUpgrades];
+          roster[fId].birbsFedCount = pool.birbsFedCount;
+          roster[fId].carrotsKnockedCount = pool.carrotsKnockedCount;
+          roster[fId].trialPoints = pool.trialPoints;
+          roster[fId].seamMendedCount = pool.seamMendedCount;
+        }
+      });
+    }
+
+    persistRosterToStorage();
+
+    if (broadcastToPartner && window.BlahajNetwork && typeof window.BlahajNetwork.send === 'function') {
+      window.BlahajNetwork.send({
+        type: 'roster_sync',
+        sharkId,
+        record: rec,
+        founderSharedPool: FOUNDER_SHARK_IDS.includes(sharkId) ? roster.founderSharedPool : null
+      });
+    }
+    return rec;
+  }
+
+  function applyCharacterFromRoster(sharkId) {
+    const game = window.BlahajGame;
+    if (!game || typeof game.getPlayer !== 'function') return;
+    const player = game.getPlayer();
+    if (!player) return;
+
+    const roster = ensureCharacterRoster();
+    const isFounderShark = FOUNDER_SHARK_IDS.includes(sharkId);
+    const rec = roster[sharkId] || roster.hermes;
+    const pool = roster.founderSharedPool;
+
+    // 1. Restore Inventory (Founders share the synced Founder Pool + per-shark satchel; Custom sharks use their own independent satchel)
+    const inv = game.getPlayerInventory ? game.getPlayerInventory() : player.inventory;
+    const targetSlots = (isFounderShark && Array.isArray(pool?.inventorySlots))
+      ? pool.inventorySlots
+      : rec.inventorySlots;
+    if (inv && typeof inv.restore === 'function') {
+      if (Array.isArray(targetSlots)) {
+        inv.restore(targetSlots);
+      } else {
+        // Fresh default satchel for new custom character
+        const freshInv = window.BlahajInventory ? window.BlahajInventory.createPlayerInventory() : null;
+        if (freshInv) inv.restore(freshInv.serialize());
+      }
+    }
+
+    // 2. Restore Skills / Upgrades & Currencies
+    const targetUpgrades = isFounderShark
+      ? Array.from(new Set([...(pool?.unlockedUpgrades || []), ...(rec.unlockedUpgrades || [])]))
+      : (rec.unlockedUpgrades || []);
+    if (player.unlockedUpgrades instanceof Set) {
+      player.unlockedUpgrades.clear();
+      targetUpgrades.forEach((u) => player.unlockedUpgrades.add(u));
+    }
+    player.birbsFedCount = isFounderShark ? Math.max(pool?.birbsFedCount ?? 6, rec.birbsFedCount ?? 6) : (rec.birbsFedCount ?? 6);
+    player.carrotsKnockedCount = isFounderShark ? Math.max(pool?.carrotsKnockedCount ?? 4, rec.carrotsKnockedCount ?? 4) : (rec.carrotsKnockedCount ?? 4);
+    player.trialPoints = isFounderShark ? Math.max(pool?.trialPoints ?? 2, rec.trialPoints ?? 2) : (rec.trialPoints ?? 2);
+    player.seamMendedCount = isFounderShark ? Math.max(pool?.seamMendedCount ?? 0, rec.seamMendedCount ?? 0) : (rec.seamMendedCount ?? 0);
+
+    // 3. Restore Mange & Accessories
+    if (typeof rec.mange === 'number' && game.setSharkMange) {
+      game.setSharkMange(sharkId, rec.mange);
+    }
+    if (rec.accessories && game.restoreSharkAccessories) {
+      game.restoreSharkAccessories({ [sharkId]: rec.accessories });
+    }
+
+    // 4. Restore Held Item
+    if (rec.heldItemId && inv && typeof inv.hasItem === 'function' && inv.hasItem(rec.heldItemId)) {
+      if (game.equipHeldItem) game.equipHeldItem(rec.heldItemId, false);
+    } else if (game.stowHeldItem) {
+      game.stowHeldItem();
+    }
+
+    // 5. Restore Character's Saved World Position
+    if (rec.pos && Number.isFinite(rec.pos.x) && Number.isFinite(rec.pos.z)) {
+      const world = game.getWorldApi ? game.getWorldApi() : null;
+      const gy = (world && typeof world.getGroundAndStructureHeight === 'function')
+        ? world.getGroundAndStructureHeight(rec.pos.x, rec.pos.z)
+        : (rec.pos.y || 2.8);
+      player.pos.set(rec.pos.x, Math.max(gy, rec.pos.y || gy), rec.pos.z);
+      if (typeof rec.pos.rotY === 'number') {
+        player.rotY = rec.pos.rotY;
+        const camState = game.getCamState ? game.getCamState() : window.camState;
+        if (camState) {
+          camState.yaw = Math.atan2(-Math.sin(player.rotY), -Math.cos(player.rotY));
+        }
+      }
+      if (player.mesh) {
+        player.mesh.position.copy(player.pos);
+        player.mesh.rotation.y = player.rotY;
+      }
+    }
+
+    if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+    if (game.updateMetersUI) game.updateMetersUI();
+  }
+
+  function handleIncomingRosterSync(data) {
+    if (!data) return;
+    const roster = ensureCharacterRoster();
+    let changed = false;
+
+    if (data.record && data.sharkId && roster[data.sharkId]) {
+      const localRec = roster[data.sharkId];
+      const inc = data.record;
+      const mergedSlots = mergeInventorySlotArrays(inc.inventorySlots, localRec.inventorySlots);
+      const mergedUpgrades = Array.from(new Set([...(localRec.unlockedUpgrades || []), ...(inc.unlockedUpgrades || [])]));
+      roster[data.sharkId] = {
+        ...localRec,
+        ...inc,
+        inventorySlots: mergedSlots,
+        unlockedUpgrades: mergedUpgrades,
+        birbsFedCount: Math.max(localRec.birbsFedCount || 0, inc.birbsFedCount || 0),
+        carrotsKnockedCount: Math.max(localRec.carrotsKnockedCount || 0, inc.carrotsKnockedCount || 0),
+        trialPoints: Math.max(localRec.trialPoints || 0, inc.trialPoints || 0),
+        seamMendedCount: Math.max(localRec.seamMendedCount || 0, inc.seamMendedCount || 0)
+      };
+      changed = true;
+    }
+
+    if (data.founderSharedPool && typeof data.founderSharedPool === 'object') {
+      const pool = roster.founderSharedPool;
+      const incPool = data.founderSharedPool;
+      pool.inventorySlots = mergeInventorySlotArrays(incPool.inventorySlots, pool.inventorySlots);
+      pool.unlockedUpgrades = Array.from(new Set([...(pool.unlockedUpgrades || []), ...(incPool.unlockedUpgrades || [])]));
+      pool.birbsFedCount = Math.max(pool.birbsFedCount || 0, incPool.birbsFedCount || 0);
+      pool.carrotsKnockedCount = Math.max(pool.carrotsKnockedCount || 0, incPool.carrotsKnockedCount || 0);
+      pool.trialPoints = Math.max(pool.trialPoints || 0, incPool.trialPoints || 0);
+      pool.seamMendedCount = Math.max(pool.seamMendedCount || 0, incPool.seamMendedCount || 0);
+      pool.updatedAt = Math.max(pool.updatedAt || 0, incPool.updatedAt || Date.now());
+
+      FOUNDER_SHARK_IDS.forEach((fId) => {
+        if (roster[fId]) {
+          roster[fId].inventorySlots = JSON.parse(JSON.stringify(pool.inventorySlots));
+          roster[fId].unlockedUpgrades = [...pool.unlockedUpgrades];
+          roster[fId].birbsFedCount = pool.birbsFedCount;
+          roster[fId].carrotsKnockedCount = pool.carrotsKnockedCount;
+          roster[fId].trialPoints = pool.trialPoints;
+          roster[fId].seamMendedCount = pool.seamMendedCount;
+        }
+      });
+      changed = true;
+
+      // If local player is currently playing a Founder shark, live-merge any new items/skills into their active satchel!
+      const game = window.BlahajGame;
+      const player = game && game.getPlayer ? game.getPlayer() : null;
+      if (player && FOUNDER_SHARK_IDS.includes(player.sharkId)) {
+        const inv = game.getPlayerInventory ? game.getPlayerInventory() : player.inventory;
+        if (inv && typeof inv.restore === 'function' && Array.isArray(pool.inventorySlots)) {
+          inv.restore(pool.inventorySlots);
+        }
+        if (player.unlockedUpgrades instanceof Set) {
+          pool.unlockedUpgrades.forEach((u) => player.unlockedUpgrades.add(u));
+        }
+        player.birbsFedCount = Math.max(player.birbsFedCount || 0, pool.birbsFedCount || 0);
+        player.carrotsKnockedCount = Math.max(player.carrotsKnockedCount || 0, pool.carrotsKnockedCount || 0);
+        player.trialPoints = Math.max(player.trialPoints || 0, pool.trialPoints || 0);
+        if (typeof window._blahajRenderFinBelt === 'function') window._blahajRenderFinBelt();
+        if (game.updateMetersUI) game.updateMetersUI();
+      }
+    }
+
+    if (changed) {
+      persistRosterToStorage();
+      if (isInLobbyState) updateLaunchGatewayUI();
+    }
+  }
+
+  function updateRemoteCharacterLock(sharkId, clientId, playerName, isReleased = false) {
+    const myId = (window.BlahajNetwork && typeof window.BlahajNetwork.getClientId === 'function')
+      ? window.BlahajNetwork.getClientId()
+      : null;
+    if (clientId && myId && clientId === myId) return;
+
+    // First clear any previous lock held by this same remote clientId
+    if (clientId) {
+      Object.keys(remoteCharacterLocks).forEach((k) => {
+        if (remoteCharacterLocks[k] && remoteCharacterLocks[k].clientId === clientId) {
+          delete remoteCharacterLocks[k];
+        }
+      });
+    }
+
+    if (!isReleased && sharkId && FOUNDER_SHARK_IDS.includes(sharkId)) {
+      remoteCharacterLocks[sharkId] = {
+        clientId: clientId || 'coop-partner',
+        playerName: playerName || 'Partner',
+        updatedAt: Date.now()
+      };
+    } else if (isReleased && sharkId) {
+      delete remoteCharacterLocks[sharkId];
+    }
+
+    if (isInLobbyState) {
+      updateLaunchGatewayUI();
+    }
+  }
+
+  function getActiveLockForShark(sharkId) {
+    if (!FOUNDER_SHARK_IDS.includes(sharkId)) return null;
+    const lock = remoteCharacterLocks[sharkId];
+    if (!lock) return null;
+    // Expire stale lock if no packet from partner in >15s
+    if (Date.now() - (lock.updatedAt || 0) > 15000) {
+      delete remoteCharacterLocks[sharkId];
+      return null;
+    }
+    return lock;
+  }
+
+  function getSelectedLobbySharkId() {
+    const isFounder = isFounderArchodect();
+    if (!isFounder) {
+      selectedLobbySharkId = 'custom';
+      return 'custom';
+    }
+    if (!selectedLobbySharkId || !ALL_ROSTER_IDS.includes(selectedLobbySharkId)) {
+      const savedId = currentSaveState?.profile?.activeSharkId;
+      selectedLobbySharkId = (savedId && ALL_ROSTER_IDS.includes(savedId)) ? savedId : 'hermes';
+    }
+    // If selected shark is currently locked by partner in-world, auto-pick first available Founder shark
+    if (getActiveLockForShark(selectedLobbySharkId)) {
+      const avail = FOUNDER_SHARK_IDS.find((id) => !getActiveLockForShark(id)) || 'custom';
+      selectedLobbySharkId = avail;
+    }
+    return selectedLobbySharkId;
+  }
+
+  function selectLobbyShark(sharkId) {
+    const isFounder = isFounderArchodect();
+    if (FOUNDER_SHARK_IDS.includes(sharkId) && !isFounder) {
+      if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
+      openGoogleConnectModal();
+      return false;
+    }
+    const lock = getActiveLockForShark(sharkId);
+    if (lock) {
+      if (window.CozyAudio && window.CozyAudio.shonk) window.CozyAudio.shonk();
+      if (window.showToast) {
+        const sName = window.BLAHAJ_LORE?.sharks?.[sharkId]?.name || sharkId;
+        window.showToast(
+          `🔒 ${sName.toUpperCase()} IS CURRENTLY IN-WORLD`,
+          `${sName} is currently being played by ${lock.playerName}! Select another character.`
+        );
+      }
+      return false;
+    }
+    selectedLobbySharkId = sharkId;
+    if (currentSaveState?.profile) {
+      currentSaveState.profile.activeSharkId = sharkId;
+    }
+    if (window.CozyAudio && window.CozyAudio.pocketWatchClick) window.CozyAudio.pocketWatchClick();
+    updateLaunchGatewayUI();
+    return true;
+  }
+
+  function renderCharacterSelectRosterGrid() {
+    const grid = document.getElementById('lobby-character-roster-grid');
+    if (!grid) return;
+
+    const isFounder = isFounderArchodect();
+    const roster = ensureCharacterRoster();
+    const cs = ensureCustomSharkDefaults();
+    const activePick = getSelectedLobbySharkId();
+    const loreSharks = window.BLAHAJ_LORE?.sharks || {};
+
+    const cardsMeta = [
+      {
+        id: 'hermes',
+        name: 'Hermes',
+        title: 'The Mangy One · Weary Guide',
+        portrait: 'assets/gallery/Hermes.png',
+        roleBadge: '🧭 Portal Wayfinder',
+        spec: 'Between-Realm Portals & Seam Divining',
+        isFounderOnly: true
+      },
+      {
+        id: 'solomon',
+        name: 'Solomon',
+        title: 'The Star Shark · Keeper of the Brew',
+        portrait: 'assets/gallery/Solomon.png',
+        roleBadge: '🍵 Tea & Pyrotechnics',
+        spec: 'Sacred Tea Brewing, Baking & Star Powder',
+        isFounderOnly: true
+      },
+      {
+        id: 'hiram',
+        name: 'Hiram',
+        title: 'The Builder · Master of Deep Stone',
+        portrait: 'assets/gallery/Hiram.png',
+        roleBadge: '🔧 Master Architect',
+        spec: 'Sacred Allen Key Construction & Turnery',
+        isFounderOnly: true
+      },
+      {
+        id: 'nimue',
+        name: 'Nimue',
+        title: 'An Angel · The Plump One',
+        portrait: 'assets/gallery/Nimue.png',
+        roleBadge: '✨ Astral Weaver',
+        spec: 'Starlight Resonance, Braided Fuse & Grace',
+        isFounderOnly: true
+      },
+      {
+        id: 'custom',
+        name: cs.detagged ? cs.name : 'Create New Blåhaj',
+        title: cs.detagged ? (cs.title || 'Liberated Shark of Blåhaj Island') : 'Fresh from the IKEA Spawning Pits',
+        portrait: 'assets/gallery/Names.png',
+        roleBadge: cs.detagged ? '✂️ Custom Blåhaj' : '🏷️ New Character',
+        spec: cs.detagged ? `Serial ${cs.tagSerial || 'ART. 303.735.88'} · Detagged` : 'Customize Fleece, Scarf & True Name',
+        isFounderOnly: false
+      }
+    ];
+
+    grid.innerHTML = cardsMeta.map((c) => {
+      const rec = roster[c.id] || {};
+      const pool = roster.founderSharedPool || {};
+      const slots = (c.isFounderOnly && Array.isArray(pool.inventorySlots)) ? pool.inventorySlots : (rec.inventorySlots || []);
+      const itemCount = Array.isArray(slots) ? slots.filter(Boolean).reduce((acc, s) => acc + (s.qty || 1), 0) : 21;
+      const skillCount = c.isFounderOnly
+        ? Math.max((pool.unlockedUpgrades || []).length, (rec.unlockedUpgrades || []).length)
+        : (rec.unlockedUpgrades || []).length;
+      const mangePct = Math.round(((typeof rec.mange === 'number' ? rec.mange : (loreSharks[c.id]?.mange ?? 0.45))) * 100);
+
+      const lock = getActiveLockForShark(c.id);
+      const lockedByFounderGate = c.isFounderOnly && !isFounder;
+      const lockedByPartner = !!lock;
+      const isSelected = activePick === c.id && !lockedByFounderGate && !lockedByPartner;
+
+      let statusPillHtml = '';
+      if (lockedByPartner) {
+        statusPillHtml = `<span class="char-card-status status-inworld">🔒 IN WORLD · Played by ${escapeHtml(lock.playerName)}</span>`;
+      } else if (lockedByFounderGate) {
+        statusPillHtml = `<span class="char-card-status status-founder-locked">👑 Founder NPC (Russell &amp; Helen)</span>`;
+      } else if (c.id === 'custom' && !cs.detagged) {
+        statusPillHtml = `<span class="char-card-status status-create">✂️ Click to Create Character</span>`;
+      } else if (isSelected) {
+        statusPillHtml = `<span class="char-card-status status-selected">★ SELECTED TO EMBARK</span>`;
+      } else {
+        statusPillHtml = `<span class="char-card-status status-ready">🟢 Available</span>`;
+      }
+
+      return `
+        <div class="lobby-char-card ${isSelected ? 'selected' : ''} ${lockedByPartner ? 'locked-inworld' : ''} ${lockedByFounderGate ? 'locked-founder' : ''}"
+             data-shark-card="${c.id}" role="button" tabindex="0">
+          <div class="char-card-top">
+            <span class="char-role-badge">${c.roleBadge}</span>
+            ${statusPillHtml}
+          </div>
+          <div class="char-card-hero">
+            <div class="char-portrait-wrap">
+              <img src="${c.portrait}" alt="${escapeHtml(c.name)}" class="char-card-portrait" />
+              ${lockedByPartner ? '<div class="char-lock-overlay">🔒</div>' : ''}
+            </div>
+            <div class="char-card-identity">
+              <h3 class="char-card-name">${escapeHtml(c.name)}</h3>
+              <div class="char-card-title">${escapeHtml(c.title)}</div>
+              <div class="char-card-spec">${escapeHtml(c.spec)}</div>
+            </div>
+          </div>
+          <div class="char-card-stats">
+            <span title="Satchel Items">${c.isFounderOnly ? '🎒 Shared Satchel:' : '🎒 Satchel:'} <strong>${itemCount}</strong></span>
+            <span title="Unlocked Upgrades & Skills">⚡ Skills: <strong>${skillCount + 6}</strong></span>
+            <span title="Plush Coat Mange Factor">🧵 Coat: <strong>${mangePct}%</strong></span>
+          </div>
+          ${c.id === 'custom' ? `
+            <button type="button" class="btn-char-card-customize" data-customize-custom="true" title="Customize Name, Plush Dye & Scarf">
+              ✂️ ${cs.detagged ? 'Edit Appearance & Name' : 'Create & Name Your Blåhaj'}
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.lobby-char-card').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (e.target && e.target.closest('[data-customize-custom]')) {
+          e.stopPropagation();
+          selectedLobbySharkId = 'custom';
+          openRiteOfDetaggingModal();
+          updateLaunchGatewayUI();
+          return;
+        }
+        const sId = card.dataset.sharkCard;
+        if (sId === 'custom' && !cs.detagged) {
+          selectedLobbySharkId = 'custom';
+          openRiteOfDetaggingModal();
+          updateLaunchGatewayUI();
+          return;
+        }
+        selectLobbyShark(sId);
+      });
+    });
+  }
+
   function updateLaunchGatewayUI() {
     const gatewayPanel = document.getElementById('launch-gateway-panel');
     if (!gatewayPanel) return;
@@ -797,103 +1376,132 @@
     const slotBadge = document.getElementById('launch-slot-badge');
     const slotStats = document.getElementById('launch-slot-stats');
     const embarkText = document.getElementById('launch-embark-text');
+    const embarkSub = document.getElementById('embark-audio-sub');
     const authRow = document.getElementById('launch-actions-row');
+    const netStatusPill = document.getElementById('lobby-net-buffer-pill');
 
     const summaries = getSlotsSummary();
     const curSlotSummary = summaries.find((s) => s.slot === activeSlot) || summaries[0];
     const gAcc = currentSaveState?.profile?.googleAccount;
+    const isFounder = isFounderArchodect();
+    const cs = ensureCustomSharkDefaults();
+    const activePick = getSelectedLobbySharkId();
 
-    // 1. Account Strip
+    // 0. Network & World Buffer Readiness Pill
+    if (netStatusPill) {
+      const activeLockNames = Object.keys(remoteCharacterLocks)
+        .map((k) => {
+          const l = getActiveLockForShark(k);
+          const sName = window.BLAHAJ_LORE?.sharks?.[k]?.name || k;
+          return l ? `${l.playerName} (${sName})` : null;
+        })
+        .filter(Boolean);
+
+      if (activeLockNames.length > 0) {
+        netStatusPill.innerHTML = `🟢 <strong>Co-op Realm Linked:</strong> ${escapeHtml(activeLockNames.join(', '))} currently in-world`;
+        netStatusPill.className = 'lobby-net-pill online';
+      } else {
+        netStatusPill.innerHTML = `🟢 <strong>3D World &amp; Network Buffer Ready</strong> · Standing by for Character Selection`;
+        netStatusPill.className = 'lobby-net-pill ready';
+      }
+    }
+
+    // 1. Render Character Select Roster Cards
+    renderCharacterSelectRosterGrid();
+
+    // 2. Account Strip
     if (accountStrip) {
       if (gAcc) {
         accountStrip.innerHTML = `
           <div class="launch-account-pill">
-            ${gAcc.picture ? `<img src="${gAcc.picture}" class="launch-avatar-img" alt="Google Profile" />` : '<span class="launch-pill-icon">🦈</span>'}
+            ${gAcc.picture ? `<img src="${gAcc.picture}" class="launch-avatar-img" alt="Google Profile" />` : '<span class="launch-pill-icon">👑🦈</span>'}
             <div class="launch-account-text">
-              <span class="launch-user-name">${escapeHtml(gAcc.name)}</span>
-              <span class="launch-user-sub">${escapeHtml(gAcc.email)} · <strong class="badge-synced">● Google Cloud Sync Linked</strong></span>
+              <span class="launch-user-name">${escapeHtml(gAcc.name)} ${isFounder ? '<span class="badge-synced">· 👑 Founder Archodect</span>' : ''}</span>
+              <span class="launch-user-sub">${escapeHtml(gAcc.email)} · <strong class="badge-synced">● Shared Roster &amp; Cloud Sync Active</strong></span>
             </div>
-            <button type="button" class="launch-btn-signout" id="launch-btn-signout" title="Sign out to Guest">Switch</button>
+            <button type="button" class="launch-btn-subtle" id="launch-btn-switch-founder" title="Switch Account or Manage Google Profile">Account 🔑</button>
           </div>
         `;
-        document.getElementById('launch-btn-signout')?.addEventListener('click', () => {
-          signOutGoogle();
-          updateLaunchGatewayUI();
-        });
+        document.getElementById('launch-btn-switch-founder')?.addEventListener('click', openGoogleConnectModal);
+      } else if (isFounder) {
+        accountStrip.innerHTML = `
+          <div class="launch-account-pill">
+            <span class="launch-pill-icon">👑🦈</span>
+            <div class="launch-account-text">
+              <span class="launch-user-name">Founder Archodect (Russell &amp; Helen Roster Unlocked)</span>
+              <span class="launch-user-sub">All 4 Sacred Founders &amp; Shared Inventory Vault Active · <strong class="badge-synced">● Founder Verified</strong></span>
+            </div>
+            <button type="button" class="launch-btn-subtle" id="launch-btn-link-google-founder" title="Link Russell or Helen Google Profile">Link Google 🌐</button>
+          </div>
+        `;
+        document.getElementById('launch-btn-link-google-founder')?.addEventListener('click', openGoogleConnectModal);
       } else {
         const passportId = currentSaveState?.profile?.passportId || 'SHK-0000';
         accountStrip.innerHTML = `
           <div class="launch-account-pill">
-            <span class="launch-pill-icon">🦈</span>
+            <span class="launch-pill-icon">🏷️🦈</span>
             <div class="launch-account-text">
-              <span class="launch-user-name">Guest Explorer (Browser Save)</span>
-              <span class="launch-user-sub">Passport: <strong>${passportId}</strong> · Saves automatically in browser</span>
+              <span class="launch-user-name">New Island Explorer · Passport ${passportId}</span>
+              <span class="launch-user-sub">Create your Blåhaj to awaken in the <strong>IKEA Spawning Pits</strong> · Russell &amp; Helen: Sign In to unlock the Sacred Four</span>
             </div>
+            <button type="button" class="launch-btn-subtle" id="launch-btn-founder-signin" title="Russell & Helen Founder Sign-In">Founder Sign-In 👑</button>
           </div>
         `;
+        document.getElementById('launch-btn-founder-signin')?.addEventListener('click', openGoogleConnectModal);
       }
     }
 
-    // 2. Slot Stats
+    // 3. Slot Stats
     if (slotBadge) {
-      slotBadge.textContent = `● Slot ${activeSlot} Active`;
+      slotBadge.textContent = `● Roster Slot ${activeSlot}`;
     }
     if (slotStats && curSlotSummary) {
-      const items = curSlotSummary.itemCount || 0;
       const quests = curSlotSummary.questsCount || 0;
-      const timeStr = curSlotSummary.lastSaved ? formatTimeAgo(new Date(curSlotSummary.lastSaved)) : 'New Game';
-      slotStats.textContent = `${items} Satchel Items · ${quests} Quests · ${timeStr}`;
+      const timeStr = curSlotSummary.lastSaved ? formatTimeAgo(new Date(curSlotSummary.lastSaved)) : 'Ready';
+      slotStats.textContent = `${quests} Quests Completed · Last Saved ${timeStr}`;
     }
 
-    // 3. Primary Embark Button
+    // 4. Primary Embark Button Text (Reflects Selected Character!)
     if (embarkText) {
-      if (gAcc) {
-        const firstName = (gAcc.name || 'Explorer').split(' ')[0].toUpperCase();
-        embarkText.textContent = `CONTINUE AS ${firstName} 🦈`;
+      if (activePick === 'custom') {
+        if (!cs.detagged) {
+          embarkText.textContent = `✂️ CREATE YOUR BLÅHAJ & ENTER SPAWNING PITS`;
+          if (embarkSub) embarkSub.textContent = `Step 1: Customize & Name Your Shark · Spawns in IKEA Wire Bin #303 🦈✨`;
+        } else {
+          embarkText.textContent = `🦈 ENTER WORLD AS ${cs.name.toUpperCase()}`;
+          if (embarkSub) embarkSub.textContent = `${cs.title || 'Custom Blåhaj'} · Click to Enter World`;
+        }
       } else {
-        embarkText.textContent = `EMBARK AS GUEST (LOAD BROWSER SAVE)`;
+        const sCfg = window.BLAHAJ_LORE?.sharks?.[activePick];
+        const sName = sCfg ? sCfg.name.toUpperCase() : activePick.toUpperCase();
+        const sTitle = sCfg ? sCfg.title : 'Sacred Founder of Blåhaj Island';
+        embarkText.textContent = `🦈 ENTER WORLD AS ${sName}`;
+        if (embarkSub) embarkSub.textContent = `${sTitle} · Shared Founder Inventory & Skills Active`;
       }
     }
 
-    // 4. Auth Row Visibility
+    // 5. Secondary Action Row
     if (authRow) {
-      if (gAcc) {
-        authRow.innerHTML = `
-          <button type="button" class="btn-launch-quick" style="flex: 1;" id="launch-btn-manage-passport">
-            📁 Island Passport &amp; Save Profiles
-          </button>
-        `;
-        document.getElementById('launch-btn-manage-passport')?.addEventListener('click', () => {
-          if (window.BlahajGame?.openSettingsModal) {
-            window.BlahajGame.openSettingsModal();
-            const tab = document.querySelector('#settings-tabs button[data-tab="passport"]');
-            if (tab) tab.click();
-          }
-        });
-      } else {
-        authRow.innerHTML = `
-          <button type="button" id="launch-btn-google-auth" class="btn-launch-google" title="Connect Google Account for cloud sync">
-            <svg class="google-icon-svg" viewBox="0 0 24 24" width="16" height="16">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            <span id="launch-google-btn-text">Sign In with Google</span>
-          </button>
-          <button type="button" id="launch-btn-quick-sync" class="btn-launch-quick" title="Quickly connect your profile without Google Cloud setup">
-            ⚡ Quick Link
-          </button>
-        `;
-        document.getElementById('launch-btn-google-auth')?.addEventListener('click', () => {
-          if (hasCustomGoogleClientId() && window.google?.accounts?.id) {
-            window.google.accounts.id.prompt();
-          } else {
-            openGoogleConnectModal();
-          }
-        });
-        document.getElementById('launch-btn-quick-sync')?.addEventListener('click', openGoogleConnectModal);
-      }
+      authRow.innerHTML = `
+        <button type="button" class="btn-launch-quick" style="flex: 1;" id="launch-btn-open-creator">
+          ✂️ ${cs.detagged ? `Customize ${escapeHtml(cs.name)}` : 'Create New Custom Shark'}
+        </button>
+        <button type="button" class="btn-launch-quick" style="flex: 1;" id="launch-btn-manage-passport">
+          📁 Save Slots &amp; Backup
+        </button>
+        <button type="button" class="btn-launch-quick" style="flex: 1;" id="launch-btn-google-account">
+          🔑 ${gAcc ? 'Switch Account' : 'Russell / Helen Sign-In'}
+        </button>
+      `;
+      document.getElementById('launch-btn-open-creator')?.addEventListener('click', openRiteOfDetaggingModal);
+      document.getElementById('launch-btn-manage-passport')?.addEventListener('click', () => {
+        if (window.BlahajGame?.openSettingsModal) {
+          window.BlahajGame.openSettingsModal();
+          const tab = document.querySelector('#settings-tabs button[data-tab="passport"]');
+          if (tab) tab.click();
+        }
+      });
+      document.getElementById('launch-btn-google-account')?.addEventListener('click', openGoogleConnectModal);
     }
 
     // Attach slot change handler
@@ -1526,6 +2134,20 @@
     openRiteOfDetaggingModal,
     closeRiteOfDetaggingModal,
     syncFounderAndCustomSharkUI,
+    getMyAccountDisplayName,
+    ensureCharacterRoster,
+    captureActiveCharacterToRoster,
+    applyCharacterFromRoster,
+    handleIncomingRosterSync,
+    updateRemoteCharacterLock,
+    getActiveLockForShark,
+    getSelectedLobbySharkId,
+    selectLobbyShark,
+    isInLobby: () => isInLobbyState,
+    setInLobby: (val) => {
+      isInLobbyState = !!val;
+      if (isInLobbyState) updateLaunchGatewayUI();
+    },
     onSave: (cb) => listeners.onSave.push(cb),
     onSlotChange: (cb) => listeners.onSlotChange.push(cb),
     onGoogleAuthChange: (cb) => listeners.onGoogleAuthChange.push(cb)
