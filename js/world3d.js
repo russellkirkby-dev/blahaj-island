@@ -1096,6 +1096,8 @@ window.BlahajWorld = (function () {
       placeBuiltStructure: (itemData) => placeBuiltStructure(scene, itemData),
       removeBuiltStructure: (id) => removeBuiltStructure(scene, id),
       spawnBrebLoaf: (pos) => spawnBrebLoaf(scene, pos),
+      getActiveBrebLoaves: () => activeBrebLoaves,
+      pickupBrebLoaf: (loafObj) => pickupBrebLoaf(scene, loafObj),
       updateDayNight: (sc, force) => updateDayNight(sc || scene, force),
       getDayNightState: () => currentSkyState,
       getSkyKeyframes: () => SKY_KEYFRAMES,
@@ -3843,6 +3845,18 @@ window.BlahajWorld = (function () {
       life: 25.0,
       claimedBy: null
     });
+  }
+
+  function pickupBrebLoaf(scene, loafObj) {
+    if (!loafObj) return false;
+    const idx = activeBrebLoaves.indexOf(loafObj);
+    if (idx === -1) return false;
+    activeBrebLoaves.splice(idx, 1);
+    if (scene && loafObj.mesh) scene.remove(loafObj.mesh);
+    birbFlock.forEach((b) => {
+      if (b.targetLoaf === loafObj) b.targetLoaf = null;
+    });
+    return true;
   }
 
   // ==========================================================================

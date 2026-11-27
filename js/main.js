@@ -4724,6 +4724,24 @@
         }
       }
 
+      // 1.5 Uneaten Ground Breb Loaves (scoopable back into Satchel with Shark Fin!)
+      if ((currentZone === 'island' || currentZone === 'overworld') && worldApi && typeof worldApi.getActiveBrebLoaves === 'function') {
+        const loaves = worldApi.getActiveBrebLoaves() || [];
+        for (let i = 0; i < loaves.length; i++) {
+          const lf = loaves[i];
+          if (!lf || !lf.mesh || !lf.mesh.visible) continue;
+          consider(lf.mesh.position.x, lf.mesh.position.y + 0.25, lf.mesh.position.z, 46, {
+            kind: 'breb_loaf',
+            icon: '🥖',
+            name: 'Warm Breb Loaf (Ground)',
+            lore: 'An uneaten golden loaf sitting on the ground. Click with your Fin to scoop it back into your Satchel!',
+            reach: 6.5,
+            maxDist: 45,
+            ref: lf
+          });
+        }
+      }
+
       // 2. Friendly NPCs & Co-op Partner
       if (currentZone === 'island' || currentZone === 'overworld') {
         for (let i = 0; i < worldActors.length; i++) {
@@ -4977,10 +4995,25 @@
       const isHoldingDrink = (heldId === 'tea' || heldId === 'margarita' || heldId === 'tropical_cocktail' || heldId === 'celestial_boba');
       const target = pickWorldTargetUnderFin(sx, sy);
 
-      // 0. UNOBSTRUCTED CONTEXT INTERACTIONS FIRST (doors, pickups, rifts never blocked by held items!)
+      // 0. UNOBSTRUCTED CONTEXT INTERACTIONS FIRST (doors, pickups, ground breb, rifts never blocked by held items!)
       if (target && target.kind === 'pickup' && target.dist <= target.reach) {
         collectWorldPickup(target.ref);
         showFinSenseCard(target.icon, `Picked up ${target.name}`, 'Added to Satchel', '', '', 2200);
+        return;
+      }
+      if (target && target.kind === 'breb_loaf') {
+        if (target.dist <= target.reach) {
+          if (worldApi && typeof worldApi.pickupBrebLoaf === 'function' && worldApi.pickupBrebLoaf(target.ref)) {
+            if (player.inventory) player.inventory.addItem('breb', 1);
+            if (CozyAudio.coinDrop) CozyAudio.coinDrop();
+            spawnFloatingBurst(new THREE.Vector3(target.wx, target.wy + 0.3, target.wz), 0xfbbf24, 10);
+            updateMetersUI();
+            renderFinBelt();
+            showFinSenseCard('🥖', 'Scooped up Warm Breb!', 'Returned to your Satchel', '', '', 2200);
+          }
+        } else {
+          showFinSenseCard('🥖', 'Warm Breb Loaf', 'Too far to scoop!', `${Math.round(target.dist)}m`, 'Swim within 6.5m to pick this loaf back up with your fin.', 2600);
+        }
         return;
       }
       if (target && target.kind === 'landmark' && target.dist <= target.reach) {
