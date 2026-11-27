@@ -1365,17 +1365,17 @@ window.BlahajModels = (function () {
       return g;
     };
     const sockets = {
-      head: makeSocket('socket_head', rig, 0, 2.54, 0.16),
-      face: makeSocket('socket_face', rig, 0, 2.15, 0.62),
+      head: makeSocket('socket_head', rig, 0, 2.54, 0.22),
+      face: makeSocket('socket_face', rig, 0, 0, 0), // World/rig-aligned so surface-sampled masks & goggles never drift!
       neck: makeSocket('socket_neck', rig, 0, 1.48, 0.08),
       torso: makeSocket('socket_torso', rig, 0, 0, 0),
       fin_right: makeSocket('socket_fin_right', rightFinPivot, -0.52, -0.06, 0.24),
       fin_left: makeSocket('socket_fin_left', leftFinPivot, 0.58, -0.10, 0.22),
-      fin_band_l: makeSocket('socket_fin_band_l', leftFinPivot, 0.34, -0.20, 0.04),
-      fin_band_r: makeSocket('socket_fin_band_r', rightFinPivot, -0.34, -0.20, 0.04),
+      fin_band_l: makeSocket('socket_fin_band_l', leftFinPivot, 0.34, -0.23, -0.06),
+      fin_band_r: makeSocket('socket_fin_band_r', rightFinPivot, -0.34, -0.23, -0.06),
       tail: makeSocket('socket_tail', tailGroup, 0, 0.04, -0.42),
-      relic: makeSocket('socket_relic', rig, 0, 1.32, 0.74 * plump),
-      trinket: makeSocket('socket_trinket', rig, 0.44 * plump, 1.12, 0.54 * plump)
+      relic: makeSocket('socket_relic', rig, 0, 1.34, 0.78 * plump),
+      trinket: makeSocket('socket_trinket', rig, 0.48 * plump, 1.12, 0.58 * plump)
     };
 
     group.scale.setScalar(scale);
@@ -2593,34 +2593,34 @@ window.BlahajModels = (function () {
     });
   }
 
-  function buildDrapedRobeGeometry(plump = 1.0) {
-    const rings = 18;
-    const segs = 36;
+  function buildDrapedRobeGeometry(plump = 1.0, mange = 0) {
+    const rings = 20;
+    const segs = 40;
     const positions = [];
     const uvs = [];
     const indices = [];
 
     for (let i = 0; i <= rings; i++) {
-      const t = i / rings; // 0 = hem (y=0.22), 1 = collar/shoulders (y=1.42)
-      const s = 0.08 + t * 0.50;
-      const st = evalUprightSharkStation(s, plump, 0);
-      const flare = (1.0 - t) * (0.24 + (1.0 - t) * 0.10);
-      const foldDepth = (1.0 - t) * 0.065;
+      const t = i / rings; // 0 = hem (s=0.07), 1 = collar/shoulders (s=0.58)
+      const s = 0.07 + t * 0.51;
+      const st = evalUprightSharkStation(s, plump, mange);
+      const flare = (1.0 - t) * (0.24 + (1.0 - t) * 0.12);
+      const foldDepth = (1.0 - t) * 0.062;
 
       for (let j = 0; j <= segs; j++) {
         const v = j / segs;
         const theta = v * Math.PI * 2;
         const sinT = Math.sin(theta);
         const cosT = Math.cos(theta);
-        // 7 soft vertical fabric pleats / folds that deepen toward the bottom hem
-        const pleat = Math.sin(theta * 7.0 + t * 0.6) * foldDepth;
-        const rx = st.widthX + 0.05 + flare + pleat;
-        const rzF = st.depthFrontZ + 0.05 + flare + pleat;
-        const rzB = st.depthBackZ + 0.05 + flare + pleat;
+        // 7 soft vertical cloth pleats that deepen gracefully toward the scalloped hem
+        const pleat = Math.sin(theta * 7.0 + t * 0.5) * foldDepth;
+        const pad = 0.062;
+        const rx = st.widthX + pad + flare + pleat;
+        const rzF = st.depthFrontZ + pad + flare + pleat;
+        const rzB = st.depthBackZ + pad + flare + pleat;
 
         const px = sinT * rx;
         const pz = st.centerZ + (cosT >= 0 ? cosT * rzF : cosT * rzB);
-        // Gentle scalloped wave along the loose lower hem
         const hemWave = (1.0 - t) * Math.cos(theta * 7.0) * 0.028;
         const py = st.y + hemWave;
 
@@ -2646,9 +2646,155 @@ window.BlahajModels = (function () {
     return geo;
   }
 
-  function buildFloppyBrimGeometry(innerR = 0.36, outerR = 0.68) {
-    const rings = 4;
+  function buildContourRingTube(s, plump, mange, extraPad, tubeRadius, closed = true, startAng = 0, endAng = Math.PI * 2) {
+    const pts = [];
     const segs = 32;
+    const st = evalUprightSharkStation(s, plump, mange);
+    for (let k = 0; k <= segs; k++) {
+      const theta = startAng + (endAng - startAng) * (k / segs);
+      const sinA = Math.sin(theta);
+      const cosA = Math.cos(theta);
+      const radZ = cosA >= 0 ? st.depthFrontZ : st.depthBackZ;
+      pts.push(new THREE.Vector3(
+        sinA * (st.widthX + extraPad),
+        st.y,
+        st.centerZ + cosA * (radZ + extraPad)
+      ));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts, closed);
+    return new THREE.TubeGeometry(curve, 36, tubeRadius, 8, closed);
+  }
+
+  function buildContouredMaskGeometry(plump = 1.0, mange = 0) {
+    // Sculpted canvas lower-face cowl hugging s=0.63 (chin) to s=0.81 (just below eyes), zero clipping!
+    const rings = 10;
+    const segs = 24;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let i = 0; i <= rings; i++) {
+      const t = i / rings;
+      const s = 0.63 + t * 0.18;
+      const st = evalUprightSharkStation(s, plump, mange);
+      const pad = 0.036 + (1.0 - t) * 0.014;
+      for (let j = 0; j <= segs; j++) {
+        const v = j / segs;
+        // Wrap cleanly around front & cheeks (-0.56*PI .. +0.56*PI)
+        const theta = (v - 0.5) * Math.PI * 1.12;
+        const sinA = Math.sin(theta);
+        const cosA = Math.cos(theta);
+        const radZ = cosA >= 0 ? st.depthFrontZ : st.depthBackZ;
+        // Subtle cloth bridge rise over the snout tip
+        const noseLift = t * Math.max(0, cosA) * 0.035;
+        const px = sinA * (st.widthX + pad);
+        const py = st.y + noseLift;
+        const pz = st.centerZ + cosA * (radZ + pad);
+        positions.push(px, py, pz);
+        uvs.push(v * 2.0, t);
+      }
+    }
+
+    for (let i = 0; i < rings; i++) {
+      for (let j = 0; j < segs; j++) {
+        const a = i * (segs + 1) + j;
+        const b = a + segs + 1;
+        indices.push(a, a + 1, b);
+        indices.push(a + 1, b + 1, b);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function buildSurfaceGogglesGroup(lensColorHex, plump = 1.0, mange = 0, brassMat) {
+    const goggleGroup = new THREE.Group();
+    const sMid = 0.895;
+    const stMid = evalUprightSharkStation(sMid, plump, mange);
+    const stLo = evalUprightSharkStation(sMid - 0.035, plump, mange);
+    const stHi = evalUprightSharkStation(sMid + 0.035, plump, mange);
+
+    const lensMat = new THREE.MeshStandardMaterial({
+      color: lensColorHex || 0x7dd3fc,
+      roughness: 0.12,
+      metalness: 0.65,
+      side: THREE.DoubleSide
+    });
+
+    const cupSinT = 0.38;
+    const cupCosT = Math.sqrt(1.0 - cupSinT * cupSinT);
+    const zLo = stLo.centerZ + cupCosT * stLo.depthFrontZ;
+    const zHi = stHi.centerZ + cupCosT * stHi.depthFrontZ;
+    const slopeLen = Math.hypot(stHi.y - stLo.y, zLo - zHi) || 1.0;
+    const ny = (zLo - zHi) / slopeLen;
+    const nz = (stHi.y - stLo.y) / slopeLen;
+
+    const cupPositions = [];
+    [-1, 1].forEach((side) => {
+      const surfX = side * cupSinT * stMid.widthX;
+      const surfY = stMid.y;
+      const surfZ = stMid.centerZ + cupCosT * stMid.depthFrontZ;
+      const nxRaw = side * cupSinT * 0.55;
+      const nNorm = Math.hypot(nxRaw, ny, nz) || 1.0;
+      const ux = nxRaw / nNorm;
+      const uy = ny / nNorm;
+      const uz = nz / nNorm;
+
+      const clearance = 0.044;
+      const cx = surfX + ux * clearance;
+      const cy = surfY + uy * clearance;
+      const cz = surfZ + uz * clearance;
+      cupPositions.push(new THREE.Vector3(cx, cy, cz));
+
+      const cup = new THREE.Group();
+      cup.position.set(cx, cy, cz);
+      cup.lookAt(cx + ux, cy + uy, cz + uz);
+
+      const gasket = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.116, 0.124, 0.036, 22, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.88 })
+      );
+      gasket.rotation.x = Math.PI / 2;
+      gasket.position.z = -0.016;
+      cup.add(gasket);
+
+      cup.add(new THREE.Mesh(new THREE.TorusGeometry(0.112, 0.024, 12, 24), brassMat));
+      const lens = new THREE.Mesh(new THREE.CircleGeometry(0.10, 20), lensMat);
+      lens.position.z = 0.006;
+      cup.add(lens);
+
+      const glint = new THREE.Mesh(
+        new THREE.CircleGeometry(0.026, 12),
+        new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.78 })
+      );
+      glint.position.set(-0.032 * side, 0.032, 0.012);
+      cup.add(glint);
+
+      goggleGroup.add(cup);
+    });
+
+    const centerFrontZ = stMid.centerZ + stMid.depthFrontZ;
+    const bridgeCurve = new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(cupPositions[0].x + 0.085, cupPositions[0].y, cupPositions[0].z),
+      new THREE.Vector3(0, stMid.y + ny * 0.052, centerFrontZ + nz * 0.052 + 0.018),
+      new THREE.Vector3(cupPositions[1].x - 0.085, cupPositions[1].y, cupPositions[1].z)
+    );
+    goggleGroup.add(new THREE.Mesh(new THREE.TubeGeometry(bridgeCurve, 12, 0.016, 8, false), brassMat));
+
+    const startAng = Math.asin(cupSinT) + 0.16;
+    const strapGeo = buildContourRingTube(sMid - 0.012, plump, mange, 0.018, 0.020, false, startAng, Math.PI * 2 - startAng);
+    goggleGroup.add(new THREE.Mesh(strapGeo, new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 })));
+    return goggleGroup;
+  }
+
+  function buildFloppyBrimGeometry(innerR = 0.36, outerR = 0.68) {
+    const rings = 5;
+    const segs = 36;
     const positions = [];
     const uvs = [];
     const indices = [];
@@ -2659,8 +2805,7 @@ window.BlahajModels = (function () {
       for (let j = 0; j <= segs; j++) {
         const v = j / segs;
         const theta = v * Math.PI * 2;
-        // Floppy wavy cloth brim drooping gently at the sides and front
-        const ripple = Math.sin(theta * 3.0 + 0.5) * 0.055 * u - Math.pow(u, 1.4) * 0.07;
+        const ripple = Math.sin(theta * 3.0 + 0.5) * 0.052 * u - Math.pow(u, 1.45) * 0.075;
         positions.push(Math.sin(theta) * r, ripple, Math.cos(theta) * r);
         uvs.push(v * 2.0, u);
       }
@@ -2683,45 +2828,87 @@ window.BlahajModels = (function () {
     return geo;
   }
 
-  function buildSocketVisualMesh(eqDef, plump = 1.0) {
+  function buildSocketVisualMesh(eqDef, plump = 1.0, mange = 0) {
     if (!eqDef || !eqDef.visual) return null;
     const v = eqDef.visual;
     const g = new THREE.Group();
-    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.26, metalness: 0.84 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.24, metalness: 0.86 });
+    const goldEmissiveMat = new THREE.MeshStandardMaterial({ color: 0xfde047, emissive: 0xd97706, emissiveIntensity: 0.35, roughness: 0.28, metalness: 0.72 });
 
     if (v.kind === 'robe') {
       const mat = createCanvasTextileMaterial(v.color || 0x1e1b4b, 0.94);
-      const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.65);
+      const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.62);
+      const isWhiteProb = (v.color || 0) > 0xaaaaaa;
 
-      const robe = new THREE.Mesh(buildDrapedRobeGeometry(plump), mat);
+      const robe = new THREE.Mesh(buildDrapedRobeGeometry(plump, mange), mat);
       robe.userData.clothSway = true;
       robe.userData.clothAxis = 'x';
       robe.userData.clothBase = 0;
       robe.userData.clothPhase = 0.4;
       g.add(robe);
 
-      // Soft tied cloth cord belt at the waist
-      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.82 * plump, 0.036, 8, 28), trimMat);
-      belt.rotation.x = Math.PI / 2 + 0.05;
-      belt.position.set(0, 0.92, 0.04);
+      // Gold-braid collar trim & hem trim hugging exact robe contours (zero gaps!)
+      const collarTrim = new THREE.Mesh(buildContourRingTube(0.58, plump, mange, 0.068, 0.024, true), trimMat);
+      g.add(collarTrim);
+      const hemTrim = new THREE.Mesh(buildContourRingTube(0.08, plump, mange, 0.36, 0.026, true), trimMat);
+      hemTrim.userData.clothSway = true;
+      hemTrim.userData.clothAxis = 'x';
+      hemTrim.userData.clothBase = 0;
+      hemTrim.userData.clothPhase = 0.4;
+      g.add(hemTrim);
+
+      // Contour-hugging woven waist cord + tied knot + twin tasseled sash ends
+      const stWaist = evalUprightSharkStation(0.36, plump, mange);
+      const belt = new THREE.Mesh(buildContourRingTube(0.36, plump, mange, 0.17, 0.032, true), trimMat);
       g.add(belt);
 
-      // Hanging cloth sash ends from the waist knot
+      const knotZ = stWaist.centerZ + stWaist.depthFrontZ + 0.19;
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), trimMat);
+      knot.position.set(0, stWaist.y, knotZ);
+      g.add(knot);
+
       [-1, 1].forEach((side, idx) => {
-        const sash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.34, 0.02), trimMat);
-        sash.position.set(side * 0.07, 0.74, 0.86 * plump);
+        const sash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.38, 0.022), trimMat);
+        sash.position.set(side * 0.075, stWaist.y - 0.19, knotZ + 0.03);
         sash.rotation.z = side * 0.16;
         sash.userData.clothSway = true;
         sash.userData.clothAxis = 'x';
         sash.userData.clothBase = -0.06;
         sash.userData.clothPhase = idx * 1.1;
         g.add(sash);
+        const tassel = new THREE.Mesh(new THREE.ConeGeometry(0.032, 0.07, 8), goldEmissiveMat);
+        tassel.position.set(0, -0.21, 0);
+        sash.add(tassel);
       });
 
-      const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.10, 0), brassMat);
-      emblem.scale.set(1.0, 1.0, 0.25);
-      emblem.position.set(0, 1.16, 0.76 * plump);
+      // Chest Archetypal Emblem (Star / Pentagram Brooch outside exact chest surface)
+      const stChest = evalUprightSharkStation(0.49, plump, mange);
+      const chestZ = stChest.centerZ + stChest.depthFrontZ + 0.125;
+      const emblem = new THREE.Group();
+      emblem.position.set(0, stChest.y, chestZ);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.014, 8, 20), goldEmissiveMat);
+      emblem.add(ring);
+      for (let p = 0; p < 5; p++) {
+        const ang = (p / 5) * Math.PI * 2 + Math.PI / 2;
+        const ray = new THREE.Mesh(new THREE.ConeGeometry(0.024, 0.085, 6), isWhiteProb ? goldEmissiveMat : brassMat);
+        ray.position.set(Math.cos(ang) * 0.045, Math.sin(ang) * 0.045, 0.008);
+        ray.rotation.z = ang - Math.PI / 2;
+        emblem.add(ray);
+      }
       g.add(emblem);
+
+      // For Star-Robe, scatter tiny golden celestial stars across the draped indigo skirt
+      if (!isWhiteProb) {
+        for (let k = 0; k < 6; k++) {
+          const ang = (k / 6) * Math.PI * 2 + 0.35;
+          const stS = evalUprightSharkStation(0.22 + (k % 2) * 0.10, plump, mange);
+          const radZ = Math.cos(ang) >= 0 ? stS.depthFrontZ : stS.depthBackZ;
+          const padS = 0.25 + (k % 2 === 0 ? 0.06 : 0.0);
+          const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.036, 0), goldEmissiveMat);
+          star.position.set(Math.sin(ang) * (stS.widthX + padS), stS.y, stS.centerZ + Math.cos(ang) * (radZ + padS));
+          g.add(star);
+        }
+      }
       return g;
     }
 
@@ -2729,62 +2916,98 @@ window.BlahajModels = (function () {
       const hatMat = createCanvasTextileMaterial(v.color || 0x312e81, 0.92);
       const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.62);
 
-      const brim = new THREE.Mesh(buildFloppyBrimGeometry(0.35, 0.68), hatMat);
+      // Inner dark cap lining so there is zero hollow gap when viewed from below
+      const lining = new THREE.Mesh(
+        new THREE.CircleGeometry(0.36, 22),
+        new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.95, side: THREE.DoubleSide })
+      );
+      lining.rotation.x = Math.PI / 2 - 0.10;
+      lining.position.y = -0.01;
+      g.add(lining);
+
+      const brim = new THREE.Mesh(buildFloppyBrimGeometry(0.34, 0.70), hatMat);
       brim.rotation.x = -0.10;
       brim.userData.clothSway = true;
       brim.userData.clothAxis = 'x';
       brim.userData.clothBase = -0.10;
       g.add(brim);
 
-      // Two-segment bent floppy pointed crown
-      const lowerCone = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.38, 0.38, 20), hatMat);
-      lowerCone.position.set(0, 0.19, -0.02);
+      const lowerCone = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.37, 0.40, 22), hatMat);
+      lowerCone.position.set(0, 0.20, -0.02);
       lowerCone.rotation.x = -0.16;
       g.add(lowerCone);
 
+      // Golden stitched stars on the cone
+      [[-0.16, 0.22, 0.21], [0.18, 0.16, 0.20], [0.02, 0.32, 0.18]].forEach(([sx, sy, sz]) => {
+        const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.034, 0), goldEmissiveMat);
+        st.position.set(sx, sy, sz);
+        g.add(st);
+      });
+
       const tipPivot = new THREE.Group();
-      tipPivot.position.set(0, 0.36, -0.08);
+      tipPivot.position.set(0, 0.38, -0.08);
       tipPivot.userData.clothSway = true;
       tipPivot.userData.clothAxis = 'x';
-      tipPivot.userData.clothBase = -0.42;
-      const upperTip = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 18), hatMat);
-      upperTip.position.set(0, 0.18, 0);
+      tipPivot.userData.clothBase = -0.44;
+      const upperTip = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.44, 18), hatMat);
+      upperTip.position.set(0, 0.19, 0);
       tipPivot.add(upperTip);
+      const tipStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.055, 0), goldEmissiveMat);
+      tipStar.position.set(0, 0.42, 0);
+      tipPivot.add(tipStar);
       g.add(tipPivot);
 
-      const band = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.03, 8, 24), trimMat);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.365, 0.034, 8, 24), trimMat);
       band.rotation.x = Math.PI / 2 - 0.1;
       band.position.y = 0.04;
       g.add(band);
+
+      const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.08, 0.04), brassMat);
+      buckle.position.set(0, 0.06, 0.38);
+      g.add(buckle);
       return g;
+    }
+
+    if (v.kind === 'goggles') {
+      return buildSurfaceGogglesGroup(v.lensColor || 0x7dd3fc, plump, mange, brassMat);
     }
 
     if (v.kind === 'ninja_mask') {
       const cowlMat = createCanvasTextileMaterial(v.color || 0x0f172a, 0.95);
       const bandMat = createCanvasTextileMaterial(v.band || 0xdc2626, 0.88);
-      const mask = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.54 * plump, 0.70 * plump, 0.44, 24, 2, true, -Math.PI * 0.48, Math.PI * 0.96),
-        cowlMat
-      );
-      mask.position.set(0, -0.20, 0.04);
-      mask.userData.clothSway = true;
-      mask.userData.clothAxis = 'x';
-      mask.userData.clothBase = 0.04;
+      const steelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.88 });
+
+      // Contoured lower-face shinobi cloth veil (hugs snout cleanly below the eyes, zero clipping!)
+      const mask = new THREE.Mesh(buildContouredMaskGeometry(plump, mange), cowlMat);
       g.add(mask);
 
-      const headband = new THREE.Mesh(new THREE.TorusGeometry(0.47 * plump, 0.036, 8, 26), bandMat);
-      headband.rotation.x = Math.PI / 2 - 0.16;
-      headband.position.set(0, 0.16, -0.22);
+      // 360-degree contour-hugging forehead headband (s=0.90, right above the eyes!)
+      const headband = new THREE.Mesh(buildContourRingTube(0.90, plump, mange, 0.022, 0.032, true), bandMat);
       g.add(headband);
 
-      // Trailing cloth headband tails fluttering behind the head
+      // Brushed steel forehead protector plate seated flush on front of headband
+      const stBand = evalUprightSharkStation(0.90, plump, mange);
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.11, 0.028), steelMat);
+      plate.position.set(0, stBand.y + 0.01, stBand.centerZ + stBand.depthFrontZ + 0.044);
+      plate.rotation.x = -0.62;
+      g.add(plate);
+      const finCrest = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.06, 4), brassMat);
+      finCrest.position.set(0, 0, 0.02);
+      plate.add(finCrest);
+
+      // Back knot + two fluttering cloth tails trailing cleanly behind the skull (-Z)
+      const backZ = stBand.centerZ - stBand.depthBackZ - 0.03;
+      const knot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), bandMat);
+      knot.position.set(0, stBand.y, backZ);
+      g.add(knot);
+
       [-1, 1].forEach((side, idx) => {
-        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.32, 0.018), bandMat);
-        tail.position.set(side * 0.09, 0.04, -0.68 * plump);
-        tail.rotation.z = side * 0.25;
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.36, 0.016), bandMat);
+        tail.position.set(side * 0.07, stBand.y - 0.14, backZ - 0.07);
+        tail.rotation.z = side * 0.24;
         tail.userData.clothSway = true;
         tail.userData.clothAxis = 'x';
-        tail.userData.clothBase = 0.38;
+        tail.userData.clothBase = 0.42;
         tail.userData.clothPhase = idx * 1.4;
         g.add(tail);
       });
@@ -2792,48 +3015,126 @@ window.BlahajModels = (function () {
     }
 
     if (v.kind === 'wand') {
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.66, 10), new THREE.MeshStandardMaterial({ color: v.shaftColor || 0x4c1d95, roughness: 0.4 }));
-      shaft.rotation.x = Math.PI * 0.32;
-      g.add(shaft);
-      const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), new THREE.MeshBasicMaterial({ color: v.starColor || 0x7dd3fc }));
-      star.position.set(0, 0.18, 0.29);
-      g.add(star);
+      const woodMat = new THREE.MeshStandardMaterial({ color: v.shaftColor || 0x4c1d95, roughness: 0.38, metalness: 0.15 });
+      const starMat = new THREE.MeshBasicMaterial({ color: v.starColor || 0x7dd3fc });
+      const wandGroup = new THREE.Group();
+      wandGroup.rotation.x = Math.PI * 0.32;
+
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.020, 0.034, 0.72, 12), woodMat);
+      wandGroup.add(shaft);
+
+      // Brass pommel & spiral filigree grip rings
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), brassMat);
+      pommel.position.y = -0.36;
+      wandGroup.add(pommel);
+      [-0.22, -0.14, -0.06, 0.22].forEach((ry) => {
+        const r = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.008, 6, 14), brassMat);
+        r.rotation.x = Math.PI / 2;
+        r.position.y = ry;
+        wandGroup.add(r);
+      });
+
+      // Twin-crystal Silver Star crown at wand tip + glowing aura halo
+      const starA = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), starMat);
+      starA.position.y = 0.41;
+      wandGroup.add(starA);
+      const starB = new THREE.Mesh(new THREE.OctahedronGeometry(0.072, 0), goldEmissiveMat);
+      starB.position.y = 0.41;
+      starB.rotation.set(Math.PI / 4, Math.PI / 4, 0);
+      wandGroup.add(starB);
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.012, 8, 20), starMat);
+      halo.position.y = 0.41;
+      wandGroup.add(halo);
+      g.add(wandGroup);
       return g;
     }
 
     if (v.kind === 'sword') {
-      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.68, 0.10), new THREE.MeshStandardMaterial({ color: v.bladeColor || 0xe2e8f0, metalness: 0.85, roughness: 0.18 }));
-      blade.position.set(0, 0.34, 0.12);
-      blade.rotation.x = 0.45;
-      g.add(blade);
-      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.14), brassMat);
-      guard.position.set(0, 0.06, 0.02);
-      g.add(guard);
+      const steelMat = new THREE.MeshStandardMaterial({ color: v.bladeColor || 0xe2e8f0, metalness: 0.88, roughness: 0.16 });
+      const leatherMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.85 });
+      const swGroup = new THREE.Group();
+      swGroup.rotation.x = 0.42;
+
+      // Leather grip & brass pommel
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.030, 0.20, 10), leatherMat);
+      grip.position.y = -0.06;
+      swGroup.add(grip);
+      const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.044, 10, 10), brassMat);
+      pommel.position.y = -0.17;
+      swGroup.add(pommel);
+
+      // Ornate Corsair basket knuckle-bow guard
+      const crossGuard = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.032, 0.14), brassMat);
+      crossGuard.position.y = 0.05;
+      swGroup.add(crossGuard);
+      const knuckleBow = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.016, 8, 16, Math.PI), brassMat);
+      knuckleBow.rotation.y = Math.PI / 2;
+      knuckleBow.rotation.z = Math.PI / 2;
+      knuckleBow.position.set(0, -0.06, 0.03);
+      swGroup.add(knuckleBow);
+
+      // Curved 3-segment Corsair cutlass blade
+      const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.28, 0.095), steelMat);
+      seg1.position.set(0, 0.19, 0.0);
+      swGroup.add(seg1);
+      const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.26, 0.085), steelMat);
+      seg2.position.set(0, 0.43, 0.035);
+      seg2.rotation.x = 0.18;
+      swGroup.add(seg2);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.052, 0.18, 4), steelMat);
+      tip.scale.set(0.32, 1.0, 1.0);
+      tip.position.set(0, 0.61, 0.085);
+      tip.rotation.x = 0.34;
+      swGroup.add(tip);
+
+      g.add(swGroup);
       return g;
     }
 
     if (v.kind === 'fin_bands') {
-      const bandMat = createPlushMaterial(v.color || 0xdc2626, false);
-      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
-      const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 18), bandMat);
-      cuff.rotation.y = Math.PI / 2;
-      g.add(cuff);
-      const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.014, 6, 18), trimMat);
+      const bandMat = createCanvasTextileMaterial(v.color || 0xdc2626, 0.90);
+      const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.62);
+      // Elliptical multi-wrap cuff hugging the exact flattened pectoral fin cross-section!
+      [-0.04, 0.04].forEach((ox) => {
+        const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.030, 8, 20), bandMat);
+        cuff.rotation.y = Math.PI / 2;
+        cuff.scale.set(1.22, 0.56, 1.0);
+        cuff.position.x = ox;
+        g.add(cuff);
+      });
+      const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.162, 0.015, 6, 20), trimMat);
       stripe.rotation.y = Math.PI / 2;
+      stripe.scale.set(1.24, 0.58, 1.0);
       g.add(stripe);
+      const knotTail = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.18, 0.016), bandMat);
+      knotTail.position.set(0, -0.14, -0.02);
+      knotTail.userData.clothSway = true;
+      knotTail.userData.clothAxis = 'x';
+      knotTail.userData.clothBase = 0.25;
+      g.add(knotTail);
       return g;
     }
 
     if (v.kind === 'tail_ribbon') {
       const ribMat = createCanvasTextileMaterial(v.color || 0xe11d48, 0.86);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18 * plump, 0.032, 8, 20), ribMat);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18 * plump, 0.034, 8, 20), ribMat);
       g.add(ring);
+      // Butterfly bow knot on top of peduncle
+      const bowKnot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), ribMat);
+      bowKnot.position.set(0, 0.18 * plump, 0);
+      g.add(bowKnot);
       [-1, 1].forEach((side, idx) => {
-        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.34, 0.018), ribMat);
-        tail.position.set(side * 0.08, -0.16, -0.04);
+        const loop = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.024, 8, 16), ribMat);
+        loop.position.set(side * 0.10, 0.20 * plump, 0);
+        loop.rotation.z = side * 0.35;
+        loop.scale.set(1.25, 0.72, 0.7);
+        g.add(loop);
+
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.38, 0.018), ribMat);
+        tail.position.set(side * 0.09, -0.16, -0.04);
         tail.userData.clothSway = true;
         tail.userData.clothAxis = 'z';
-        tail.userData.clothBase = side * 0.35;
+        tail.userData.clothBase = side * 0.36;
         tail.userData.clothPhase = idx * 1.3;
         g.add(tail);
       });
@@ -2841,92 +3142,199 @@ window.BlahajModels = (function () {
     }
 
     if (v.kind === 'scarf') {
-      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.78 * plump, 0.12, 14, 28), createPlushMaterial(v.color || 0x7c4d32, false));
+      const scMat = createCanvasTextileMaterial(v.color || 0x7c4d32, 0.92);
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.78 * plump, 0.12, 14, 28), scMat);
       collar.scale.set(1.0, 0.88, 1.0);
       collar.rotation.x = Math.PI / 2 + 0.06;
       g.add(collar);
+      // Knotted front drape + twin swaying fringed tails
+      const clasp = new THREE.Mesh(new THREE.OctahedronGeometry(0.10, 1), brassMat);
+      clasp.position.set(0, -0.02, 0.72 * plump);
+      g.add(clasp);
+      [-1, 1].forEach((side, idx) => {
+        const end = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.34, 0.03), scMat);
+        end.position.set(side * 0.09, -0.22, 0.73 * plump);
+        end.rotation.z = side * 0.14;
+        end.userData.clothSway = true;
+        end.userData.clothAxis = 'x';
+        end.userData.clothBase = -0.08;
+        end.userData.clothPhase = idx * 1.2;
+        g.add(end);
+      });
       return g;
     }
 
     if (v.kind === 'toque') {
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.38, 0.14, 24), createPlushMaterial(v.band || 0x1e3a8a, false));
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.41, 0.39, 0.16, 24), createCanvasTextileMaterial(v.band || 0x1e3a8a, 0.88));
       band.rotation.x = -0.12;
       g.add(band);
-      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.40, 20, 18), createPlushMaterial(v.color || 0xf7f1e3, false));
-      crown.scale.set(1.08, 0.85, 1.05);
-      crown.position.y = 0.18;
-      g.add(crown);
+      const pin = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), goldEmissiveMat);
+      pin.position.set(0, 0.0, 0.41);
+      g.add(pin);
+      const puffMat = createCanvasTextileMaterial(v.color || 0xf7f1e3, 0.92);
+      // Classic multi-puff pleated chef toque crown
+      const centerPuff = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 16), puffMat);
+      centerPuff.position.set(0, 0.25, -0.02);
+      g.add(centerPuff);
+      for (let p = 0; p < 5; p++) {
+        const a = (p / 5) * Math.PI * 2;
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 12), puffMat);
+        puff.position.set(Math.sin(a) * 0.22, 0.21, Math.cos(a) * 0.22 - 0.02);
+        g.add(puff);
+      }
       return g;
     }
 
     if (v.kind === 'coronet') {
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.41, 0.39, 0.14, 22), createPlushMaterial(v.bandColor || 0x581c87, false));
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.41, 0.39, 0.13, 24), createCanvasTextileMaterial(v.bandColor || 0x581c87, 0.82));
       band.rotation.x = -0.10;
       g.add(band);
-      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: v.gemColor || 0xd8b4fe }));
-      gem.position.set(0, 0.14, 0.22);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.41, 0.02, 8, 24), brassMat);
+      rim.rotation.x = Math.PI / 2 - 0.10;
+      rim.position.y = 0.06;
+      g.add(rim);
+      for (let s = -2; s <= 2; s++) {
+        const ang = s * 0.38;
+        const h = s === 0 ? 0.20 : (Math.abs(s) === 1 ? 0.14 : 0.09);
+        const spire = new THREE.Mesh(new THREE.ConeGeometry(0.036, h, 6), brassMat);
+        spire.position.set(Math.sin(ang) * 0.40, 0.08 + h * 0.5, Math.cos(ang) * 0.40);
+        g.add(spire);
+      }
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), new THREE.MeshBasicMaterial({ color: v.gemColor || 0xd8b4fe }));
+      gem.position.set(0, 0.18, 0.41);
       g.add(gem);
       return g;
     }
 
     if (v.kind === 'cap') {
-      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.39, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), createPlushMaterial(v.color || 0x334155, false));
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.40, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), createCanvasTextileMaterial(v.color || 0x334155, 0.92));
       g.add(crown);
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.04, 18, 1, false, -Math.PI * 0.45, Math.PI * 0.9), createPlushMaterial(v.trim || 0xd97706, false));
-      brim.position.set(0, 0.01, 0.18);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 20, 1, false, -Math.PI * 0.45, Math.PI * 0.9), createCanvasTextileMaterial(v.trim || 0xd97706, 0.85));
+      brim.position.set(0, 0.01, 0.19);
       brim.rotation.x = 0.18;
       g.add(brim);
+      const pin = new THREE.Mesh(new THREE.OctahedronGeometry(0.052, 0), brassMat);
+      pin.position.set(0, 0.16, 0.38);
+      g.add(pin);
       return g;
     }
 
     if (v.kind === 'lantern') {
-      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.16, 12), brassMat);
-      roof.position.y = 0.20;
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.05, 12), brassMat);
+      base.position.y = -0.14;
+      g.add(base);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.21, 0.16, 12), brassMat);
+      roof.position.y = 0.21;
       g.add(roof);
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 14), new THREE.MeshBasicMaterial({ color: v.color || 0xffd885 }));
+      const topRing = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.014, 6, 14), brassMat);
+      topRing.position.y = 0.31;
+      g.add(topRing);
+      for (let c = 0; c < 4; c++) {
+        const a = (c / 4) * Math.PI * 2 + Math.PI / 4;
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.30, 6), brassMat);
+        bar.position.set(Math.sin(a) * 0.14, 0.02, Math.cos(a) * 0.14);
+        g.add(bar);
+      }
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 14), new THREE.MeshBasicMaterial({ color: v.color || 0xffd885 }));
+      bulb.position.y = 0.02;
       g.add(bulb);
       return g;
     }
 
     if (v.kind === 'teapot') {
-      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.04, 18), brassMat);
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.22, 0.04, 20), brassMat);
       saucer.position.y = -0.14;
       g.add(saucer);
-      const pot = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 16), brassMat);
+      const pot = new THREE.Mesh(new THREE.SphereGeometry(0.17, 18, 16), brassMat);
+      pot.scale.set(1.05, 0.92, 1.05);
       g.add(pot);
+      const lidKnob = new THREE.Mesh(new THREE.SphereGeometry(0.042, 10, 10), goldEmissiveMat);
+      lidKnob.position.y = 0.17;
+      g.add(lidKnob);
+      const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.042, 0.20, 8), brassMat);
+      spout.position.set(0.17, 0.04, 0);
+      spout.rotation.z = -0.78;
+      g.add(spout);
+      const handle = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.018, 6, 14, Math.PI * 1.25), brassMat);
+      handle.position.set(-0.15, 0.01, 0);
+      handle.rotation.z = Math.PI * 0.45;
+      g.add(handle);
       return g;
     }
 
     if (v.kind === 'hex_key') {
-      const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.56, 6), brassMat);
+      const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.58, 6), brassMat);
       g.add(h1);
-      const h2 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.24, 6), brassMat);
+      const h2 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.26, 6), brassMat);
       h2.rotation.z = Math.PI / 2;
-      h2.position.set(0.10, 0.26, 0);
+      h2.position.set(0.11, 0.27, 0);
       g.add(h2);
       return g;
     }
 
     if (v.kind === 'scissors') {
       [-0.22, 0.22].forEach((ang) => {
-        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.42, 0.015), brassMat);
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.44, 0.016), brassMat);
         blade.rotation.z = ang;
         g.add(blade);
+        const loop = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.016, 8, 16), brassMat);
+        loop.position.set(Math.sin(ang) * 0.22, -0.22, 0);
+        g.add(loop);
       });
       return g;
     }
 
-    if (v.kind === 'glowing_breb') {
-      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.65, roughness: 0.5 }));
-      loaf.scale.set(1.4, 0.72, 0.85);
-      g.add(loaf);
+    if (v.kind === 'compass') {
+      const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.024, 10, 22), brassMat);
+      g.add(bezel);
+      const face = new THREE.Mesh(new THREE.CircleGeometry(0.12, 20), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 }));
+      face.position.z = 0.004;
+      g.add(face);
+      const needle = new THREE.Mesh(new THREE.ConeGeometry(0.026, 0.14, 4), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+      needle.position.set(0, 0.03, 0.016);
+      needle.rotation.z = -0.4;
+      g.add(needle);
       return g;
     }
 
-    // Generic glowing talisman / crystal / compass / charm
-    const gemColor = v.color || (v.kind === 'compass' ? 0x38bdf8 : (v.kind === 'lavender_charm' ? 0xc084fc : (v.kind === 'carrot_charm' ? 0xf97316 : 0xfde047)));
-    const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial({ color: gemColor }));
+    if (v.kind === 'tag_charm') {
+      const tag = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.26, 0.016), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 }));
+      g.add(tag);
+      const blueBar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.045, 0.02), new THREE.MeshBasicMaterial({ color: 0x0058a3 }));
+      blueBar.position.y = 0.08;
+      g.add(blueBar);
+      const yellowBar = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.022, 0.022), new THREE.MeshBasicMaterial({ color: 0xffda1a }));
+      yellowBar.position.y = 0.08;
+      g.add(yellowBar);
+      return g;
+    }
+
+    if (v.kind === 'glowing_breb') {
+      const loaf = new THREE.Mesh(
+        new THREE.SphereGeometry(0.15, 18, 14),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.55, roughness: 0.65 })
+      );
+      loaf.scale.set(1.45, 0.72, 0.85);
+      g.add(loaf);
+      // Scored crust slashes + mythic golden halo
+      [-0.08, 0, 0.08].forEach((sx) => {
+        const slash = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.02, 0.12), new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.8 }));
+        slash.position.set(sx, 0.09, 0);
+        slash.rotation.y = 0.35;
+        g.add(slash);
+      });
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.012, 8, 24), goldEmissiveMat);
+      halo.rotation.x = Math.PI / 2 - 0.3;
+      g.add(halo);
+      return g;
+    }
+
+    // Generic glowing talisman / crystal / lavender / carrot charm
+    const gemColor = v.color || (v.kind === 'lavender_charm' ? 0xc084fc : (v.kind === 'carrot_charm' ? 0xf97316 : 0xfde047));
+    const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: gemColor }));
     g.add(charm);
+    const frame = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.016, 8, 18), brassMat);
+    g.add(frame);
     return g;
   }
 
@@ -2936,6 +3344,7 @@ window.BlahajModels = (function () {
     if (!eqApi) return;
     const sockets = sharkGroup.userData.sockets;
     const plump = sharkGroup.userData.plump || 1.0;
+    const mange = sharkGroup.userData.mangeFactor || 0;
 
     // 1. Clear existing dynamic socket visuals
     Object.values(sockets).forEach((sockGroup) => {
@@ -2975,8 +3384,8 @@ window.BlahajModels = (function () {
       if (!def) return;
 
       if (sockKey === 'fin_bands') {
-        const meshL = buildSocketVisualMesh(def, plump);
-        const meshR = buildSocketVisualMesh(def, plump);
+        const meshL = buildSocketVisualMesh(def, plump, mange);
+        const meshR = buildSocketVisualMesh(def, plump, mange);
         if (meshL && sockets.fin_band_l) sockets.fin_band_l.add(meshL);
         if (meshR && sockets.fin_band_r) sockets.fin_band_r.add(meshR);
         return;
@@ -2984,7 +3393,7 @@ window.BlahajModels = (function () {
 
       const targetSock = sockets[sockKey];
       if (!targetSock) return;
-      const mesh = buildSocketVisualMesh(def, plump);
+      const mesh = buildSocketVisualMesh(def, plump, mange);
       if (mesh) targetSock.add(mesh);
     });
   }
