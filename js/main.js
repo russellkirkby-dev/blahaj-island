@@ -6705,6 +6705,116 @@
   }
 
   let selectedVitruvianSocket = null;
+  let vitruvianRT = null;
+  let vitruvianScene = null;
+  let vitruvianCam = null;
+
+  function renderVitruvian3DSnapshot(canvasEl, sharkId, equippedSockets) {
+    if (!canvasEl || !renderer || typeof THREE === 'undefined' || !window.BlahajModels) return;
+    const cfg = LORE.sharks[sharkId] || LORE.sharks.hermes;
+    const mange = getSharkMange(sharkId);
+    const acc = getSharkAccessories(sharkId);
+
+    const size = 384;
+    if (!vitruvianRT) {
+      vitruvianRT = new THREE.WebGLRenderTarget(size, size, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat
+      });
+    }
+    if (!vitruvianScene) {
+      vitruvianScene = new THREE.Scene();
+      const amb = new THREE.AmbientLight(0xdbeafe, 1.35);
+      const key = new THREE.DirectionalLight(0xfffbeb, 1.25);
+      key.position.set(2.5, 4.5, 5.0);
+      const rim = new THREE.DirectionalLight(0x38bdf8, 0.95);
+      rim.position.set(-3.0, 2.0, -2.0);
+      vitruvianScene.add(amb, key, rim);
+    }
+    if (!vitruvianCam) {
+      vitruvianCam = new THREE.OrthographicCamera(-1.68, 1.68, 1.72, -1.64, 0.1, 20);
+      vitruvianCam.position.set(0, 1.48, 6.0);
+      vitruvianCam.lookAt(0, 1.48, 0);
+    }
+
+    // Build a fresh posed copy of THIS exact shark + its 10 equipped sockets
+    const model = window.BlahajModels.createPlushShark(cfg, mange, acc);
+    if (equippedSockets && typeof window.BlahajModels.applyEquippedSockets === 'function') {
+      window.BlahajModels.applyEquippedSockets(model, equippedSockets, acc);
+    }
+
+    // Pose into classic Vitruvian outstretched-fin & splayed-tail elevation
+    const ud = model.userData || {};
+    if (ud.leftFinPivot) ud.leftFinPivot.rotation.z = 0.58;
+    if (ud.rightFinPivot) ud.rightFinPivot.rotation.z = -0.58;
+    if (ud.tailGroup) {
+      ud.tailGroup.rotation.y = 0.52;
+      ud.tailGroup.rotation.x = -0.20;
+    }
+    // Center scale cleanly inside the 3.36m orthographic frame
+    model.position.set(0, 0, 0);
+    vitruvianScene.add(model);
+
+    const prevTarget = renderer.getRenderTarget();
+    const prevClearAlpha = renderer.getClearAlpha();
+    const prevClearColor = renderer.getClearColor(new THREE.Color());
+    try {
+      renderer.setRenderTarget(vitruvianRT);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear(true, true, true);
+      renderer.render(vitruvianScene, vitruvianCam);
+
+      const pixels = new Uint8Array(size * size * 4);
+      renderer.readRenderTargetPixels(vitruvianRT, 0, 0, size, size, pixels);
+
+      canvasEl.width = size;
+      canvasEl.height = size;
+      const ctx = canvasEl.getContext('2d');
+      const imgData = ctx.createImageData(size, size);
+      const out = imgData.data;
+
+      // Flip Y from WebGL bottom-up buffer and apply subtle blueprint edge & tint pass
+      for (let y = 0; y < size; y++) {
+        const srcRow = (size - 1 - y) * size * 4;
+        const dstRow = y * size * 4;
+        for (let x = 0; x < size; x++) {
+          const si = srcRow + x * 4;
+          const di = dstRow + x * 4;
+          const a = pixels[si + 3];
+          if (a < 12) {
+            out[di] = 0; out[di + 1] = 0; out[di + 2] = 0; out[di + 3] = 0;
+            continue;
+          }
+          // Subtle blueprint edge highlight where alpha transitions
+          let isEdge = false;
+          if (x > 0 && x < size - 1 && y > 0 && y < size - 1) {
+            const aL = pixels[si - 4 + 3];
+            const aR = pixels[si + 4 + 3];
+            const aU = pixels[si + size * 4 + 3];
+            const aD = pixels[si - size * 4 + 3];
+            if (aL < 40 || aR < 40 || aU < 40 || aD < 40) isEdge = true;
+          }
+          if (isEdge) {
+            out[di] = 125;
+            out[di + 1] = 211;
+            out[di + 2] = 252;
+            out[di + 3] = 235;
+          } else {
+            out[di] = Math.min(255, Math.round(pixels[si] * 0.92 + 12));
+            out[di + 1] = Math.min(255, Math.round(pixels[si + 1] * 0.96 + 18));
+            out[di + 2] = Math.min(255, Math.round(pixels[si + 2] * 1.05 + 24));
+            out[di + 3] = Math.round(a * 0.92);
+          }
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+    } finally {
+      vitruvianScene.remove(model);
+      renderer.setRenderTarget(prevTarget);
+      renderer.setClearColor(prevClearColor, prevClearAlpha);
+    }
+  }
 
   function equipItemToSocket(itemId, targetSocketId = null, sharkId = player.sharkId) {
     const eqApi = window.BlahajEquipment;
@@ -6837,14 +6947,12 @@
 
     const svgBg = `
       <svg viewBox="0 0 200 200" class="vitruvian-svg" aria-hidden="true">
-        <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(251,191,36,0.32)" stroke-width="1.2" />
-        <rect x="26" y="26" width="148" height="148" fill="none" stroke="rgba(125,211,252,0.22)" stroke-width="1" stroke-dasharray="4 3" />
+        <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(251,191,36,0.34)" stroke-width="1.2" />
+        <rect x="26" y="26" width="148" height="148" fill="none" stroke="rgba(125,211,252,0.24)" stroke-width="1" stroke-dasharray="4 3" />
         <!-- Upright Pentagram connecting Head -> Twin Flukes -> Outstretched Fins -->
-        <polygon points="100,16 146,168 24,78 176,78 54,168" fill="none" stroke="rgba(251,191,36,0.42)" stroke-width="1.2" />
-        <!-- Vitruvian Shark Silhouette (Head Top, Outstretched Fins, Twin Tail Flukes) -->
-        <path d="M100,28 C114,34 118,56 116,74 L170,76 L168,90 L116,92 C116,118 110,136 104,150 L134,174 L102,158 L98,158 L66,174 L96,150 C90,136 84,118 84,92 L32,90 L30,76 L84,74 C82,56 86,34 100,28 Z"
-              fill="rgba(56,189,248,0.16)" stroke="rgba(125,211,252,0.5)" stroke-width="1.3" />
+        <polygon points="100,16 146,168 24,78 176,78 54,168" fill="none" stroke="rgba(251,191,36,0.44)" stroke-width="1.2" />
       </svg>
+      <canvas id="vitruvian-3d-canvas" class="vitruvian-3d-canvas" aria-label="Flattened 3D Vitruvian Shark Blueprint"></canvas>
     `;
 
     const nodesHtml = eqApi.SOCKET_ORDER.map((sockId) => {
@@ -6863,6 +6971,10 @@
     }).join('');
 
     wrap.innerHTML = svgBg + nodesHtml;
+    const vitCanvas = document.getElementById('vitruvian-3d-canvas');
+    if (vitCanvas) {
+      renderVitruvian3DSnapshot(vitCanvas, sharkId, equipped);
+    }
     wrap.querySelectorAll('[data-vit-socket]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const sKey = btn.dataset.vitSocket;

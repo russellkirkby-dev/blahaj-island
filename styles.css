@@ -10192,3 +10192,12 @@ body.ufo-flight-mode .hud-bottom-left {
   font-size: 0.72rem;
   color: #e2e8f0;
 }
+
+.vitruvian-3d-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.94;
+}
