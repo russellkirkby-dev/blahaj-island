@@ -6733,9 +6733,9 @@
       vitruvianScene.add(amb, key, rim);
     }
     if (!vitruvianCam) {
-      vitruvianCam = new THREE.OrthographicCamera(-1.68, 1.68, 1.72, -1.64, 0.1, 20);
-      vitruvianCam.position.set(0, 1.48, 6.0);
-      vitruvianCam.lookAt(0, 1.48, 0);
+      vitruvianCam = new THREE.OrthographicCamera(-2.18, 2.18, 2.22, -2.14, 0.1, 20);
+      vitruvianCam.position.set(0, 1.42, 6.0);
+      vitruvianCam.lookAt(0, 1.42, 0);
     }
 
     // Build a fresh posed copy of THIS exact shark + its 10 equipped sockets
