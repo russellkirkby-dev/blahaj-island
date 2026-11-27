@@ -3655,10 +3655,10 @@ window.BlahajUFO = (function () {
             Math.abs(shipFwd.x) < 0.08 &&
             Math.abs(shipFwd.y) < 0.08;
 
-          // Gentle slipstream current pulls you softly toward the middle cruising lane when hands-off,
-          // so you must deliberately fly out to the outer doorway wall (|x| >= 30m) to exit!
-          const centerPullX = handsOff ? -state.pos.x * 0.65 : -state.pos.x * 0.15;
-          const centerPullY = handsOff ? -state.pos.y * 0.65 : -state.pos.y * 0.15;
+          // Gentle slipstream current pulls you softly toward the middle cruising lane only when hands-off,
+          // so steering out to an Off-Ramp doorway (±27m) feels responsive and never fights you!
+          const centerPullX = handsOff ? -state.pos.x * 0.55 : 0;
+          const centerPullY = handsOff ? -state.pos.y * 0.55 : 0;
 
           state.vel.x += (desiredVx + centerPullX - state.vel.x) * Math.min(1.0, dt * 5.5);
           state.vel.y += (desiredVy + centerPullY - state.vel.y) * Math.min(1.0, dt * 5.5);

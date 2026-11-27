@@ -691,13 +691,14 @@ window.BlahajHyperspace = (function () {
     }
     const branch = BRANCH_DEFS[nextBranchIdx];
     const locked = isBranchLocked(branch);
-    // Position Off-Ramp Doorways far out on the outer wormhole wall (±38m) so the entire 60m central cylinder is free for barrel rolls & aerobatics!
+    // Position Off-Ramp Doorways at ±27m so they sit comfortably inside the 44m flyable cylinder even during tunnel sway!
     activeRamp = {
       branch,
       locked,
       z: -310.0,
-      sideX: branch.side * 38.0,
-      x: branch.side * 38.0,
+      prevZ: -310.0,
+      sideX: branch.side * 27.0,
+      x: branch.side * 27.0,
       y: 0.0
     };
     if (rampMeshGroup) {
@@ -832,7 +833,7 @@ window.BlahajHyperspace = (function () {
     const distToDoorXY = ufoState.pos
       ? Math.hypot(ufoState.pos.x - activeRamp.x, ufoState.pos.y - activeRamp.y)
       : 999;
-    const aligned = distToDoorXY <= 15.5;
+    const aligned = distToDoorXY <= 21.5;
     const color = activeRamp.locked ? '#f43f5e' : (aligned ? '#4ade80' : b.color);
     const dirHint = activeRamp.locked
       ? 'SEALED BARRIER'
@@ -1071,8 +1072,9 @@ window.BlahajHyperspace = (function () {
 
     if (bounceCooldown > 0) bounceCooldown = Math.max(0, bounceCooldown - dt);
 
-    // 8. Advance Staggered Off-Ramp Queue (with Last-Second Split-Decision Pull-Away!)
+    // 8. Advance Staggered Off-Ramp Queue (with Generous Capture, Swept Z-Check & Tractor Pull!)
     if (activeRamp) {
+      activeRamp.prevZ = activeRamp.z;
       activeRamp.z += TUNNEL_SPEED * 0.62 * dt;
       const center = getTunnelCenterAt(activeRamp.z, elapsed);
       activeRamp.x = center.x + activeRamp.sideX;
@@ -1081,17 +1083,29 @@ window.BlahajHyperspace = (function () {
       const distToDoorXY = ufoState.pos
         ? Math.hypot(ufoState.pos.x - activeRamp.x, ufoState.pos.y - activeRamp.y)
         : 999;
-      const alignedNow = distToDoorXY <= 15.5;
+      const alignedNow = distToDoorXY <= 21.5;
+
+      // Gentle magnetic tractor-beam pull when steering onto an unlocked doorway's side within 120m
+      if (!activeRamp.locked && ufoState.pos && activeRamp.z > -120.0 && activeRamp.z < 12.0) {
+        const onDoorSide = (ufoState.pos.x - center.x) * activeRamp.branch.side >= 13.0;
+        if (onDoorSide || alignedNow) {
+          const pull = Math.min(1.0, dt * (alignedNow ? 4.2 : 2.0));
+          ufoState.pos.x += (activeRamp.x - ufoState.pos.x) * pull;
+          ufoState.pos.y += (activeRamp.y - ufoState.pos.y) * pull;
+        }
+      }
 
       if (rampMeshGroup) {
         rampMeshGroup.position.set(activeRamp.x, activeRamp.y, activeRamp.z);
         rampMeshGroup.rotation.z = elapsed * 2.2;
-        const pulseScale = alignedNow && !activeRamp.locked ? 1.15 + Math.sin(elapsed * 14) * 0.06 : 1.0;
+        const pulseScale = alignedNow && !activeRamp.locked ? 1.22 + Math.sin(elapsed * 14) * 0.08 : 1.05;
         rampMeshGroup.scale.setScalar(pulseScale);
       }
 
       const shipZ = ufoState.pos ? ufoState.pos.z : 0;
-      if (!transitionTriggered && ufoState.pos && Math.abs(activeRamp.z - shipZ) <= 7.5 && alignedNow) {
+      const sweptPass = activeRamp.prevZ <= shipZ && activeRamp.z >= shipZ;
+      const inZWindow = Math.abs(activeRamp.z - shipZ) <= 16.0 || sweptPass;
+      if (!transitionTriggered && ufoState.pos && inZWindow && alignedNow) {
         if (activeRamp.locked) {
           if (bounceCooldown <= 0) {
             bounceCooldown = 0.9;
