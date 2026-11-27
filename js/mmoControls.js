@@ -846,7 +846,11 @@
     const prog = window.BlahajProgression?.getCharacterProgression?.(sId);
     const deg = window.BlahajProgression?.getDegreeInfo?.(prog?.level || 1);
     const resilienceReduction = deg ? Math.min(0.28, (deg.maxStuffingBonus || 0) * 0.004) : 0;
-    return baseArmor * (1.0 - resilienceReduction);
+    const eqBonuses = (window.BlahajEquipment && prog?.equippedSockets)
+      ? window.BlahajEquipment.getTotalSocketBonuses(prog.equippedSockets)
+      : { finPowerPct: 0 };
+    const socketMult = 1.0 + Math.min(0.85, (eqBonuses.finPowerPct || 0) / 100);
+    return (baseArmor * (1.0 - resilienceReduction)) / socketMult;
   }
 
   function isAbilityLearned(sharkId, abilityId) {

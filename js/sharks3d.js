@@ -691,6 +691,7 @@ window.BlahajModels = (function () {
 
     // 8. Fitted Scarf / Collar around Neck
     const scarfGroup = new THREE.Group();
+    scarfGroup.userData.defaultPart = 'neck';
     scarfGroup.position.set(0, 1.48, 0.08);
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.78 * plump, 0.12, 16, 32), scarfMat);
     collar.scale.set(1.0, 0.88, 1.0);
@@ -948,6 +949,7 @@ window.BlahajModels = (function () {
     function attachForeheadGoggles(lensColorHex) {
       const goggleGroup = new THREE.Group();
       goggleGroup.userData.accessoryType = 'headgear';
+      goggleGroup.userData.defaultPart = 'face';
       goggleGroup.visible = showHeadgear;
 
       // Sample exact plush forehead geometry so goggles & strap never clip into the snout at any plumpness or mange!
@@ -1062,6 +1064,7 @@ window.BlahajModels = (function () {
       // Ornate Brass Between Lantern on left fin
       const lanternGroup = new THREE.Group();
       lanternGroup.userData.accessoryType = 'relic';
+      lanternGroup.userData.defaultPart = 'fin_left';
       lanternGroup.visible = showRelic;
       lanternGroup.position.set(0.68, -0.28, 0.22);
       const roof = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.16, 12), brassMat);
@@ -1081,6 +1084,7 @@ window.BlahajModels = (function () {
       hatBand.position.set(0, 2.56, 0.16);
       hatBand.rotation.x = -0.12;
       hatBand.userData.accessoryType = 'headgear';
+      hatBand.userData.defaultPart = 'head';
       hatBand.visible = showHeadgear;
       rig.add(hatBand);
 
@@ -1091,12 +1095,14 @@ window.BlahajModels = (function () {
       hatCrown.scale.set(1.08, 0.85, 1.05);
       hatCrown.position.set(0, 2.74, 0.14);
       hatCrown.userData.accessoryType = 'headgear';
+      hatCrown.userData.defaultPart = 'head';
       hatCrown.visible = showHeadgear;
       rig.add(hatCrown);
 
       // Golden Teapot on Brass Saucer
       const trayGroup = new THREE.Group();
       trayGroup.userData.accessoryType = 'relic';
+      trayGroup.userData.defaultPart = 'fin_left';
       trayGroup.visible = showRelic;
       trayGroup.position.set(0.62, -0.06, 0.24);
       const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.24, 0.04, 20), brassMat);
@@ -1112,6 +1118,7 @@ window.BlahajModels = (function () {
       // Sacred Allen Key on Left Fin
       const allenGroup = new THREE.Group();
       allenGroup.userData.accessoryType = 'relic';
+      allenGroup.userData.defaultPart = 'fin_left';
       allenGroup.visible = showRelic;
       allenGroup.position.set(0.62, -0.08, 0.22);
       const hex1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.58, 6), brassMat);
@@ -1129,11 +1136,13 @@ window.BlahajModels = (function () {
       );
       crystal.position.set(0, 1.34, 0.72);
       crystal.userData.accessoryType = 'relic';
+      crystal.userData.defaultPart = 'relic';
       crystal.visible = showRelic;
       rig.add(crystal);
       const cLight = new THREE.PointLight(0xc084fc, 0.85, 6);
       cLight.position.copy(crystal.position);
       cLight.userData.accessoryType = 'relic';
+      cLight.userData.defaultPart = 'relic';
       cLight.visible = showRelic;
       rig.add(cLight);
     } else if (config.type === 'pink_shark') {
@@ -1309,6 +1318,28 @@ window.BlahajModels = (function () {
       }
     }
 
+    // 11. 10-Socket Modular Bone Anchors (Vitruvian Shark Pentagram)
+    const makeSocket = (name, parent, x = 0, y = 0, z = 0) => {
+      const g = new THREE.Group();
+      g.name = name;
+      g.position.set(x, y, z);
+      parent.add(g);
+      return g;
+    };
+    const sockets = {
+      head: makeSocket('socket_head', rig, 0, 2.54, 0.16),
+      face: makeSocket('socket_face', rig, 0, 2.15, 0.62),
+      neck: makeSocket('socket_neck', rig, 0, 1.48, 0.08),
+      torso: makeSocket('socket_torso', rig, 0, 0, 0),
+      fin_right: makeSocket('socket_fin_right', rightFinPivot, -0.52, -0.06, 0.24),
+      fin_left: makeSocket('socket_fin_left', leftFinPivot, 0.58, -0.10, 0.22),
+      fin_band_l: makeSocket('socket_fin_band_l', leftFinPivot, 0.34, -0.20, 0.04),
+      fin_band_r: makeSocket('socket_fin_band_r', rightFinPivot, -0.34, -0.20, 0.04),
+      tail: makeSocket('socket_tail', tailGroup, 0, 0.04, -0.42),
+      relic: makeSocket('socket_relic', rig, 0, 1.32, 0.74 * plump),
+      trinket: makeSocket('socket_trinket', rig, 0.44 * plump, 1.12, 0.54 * plump)
+    };
+
     group.scale.setScalar(scale);
 
     group.userData = {
@@ -1319,6 +1350,9 @@ window.BlahajModels = (function () {
       heldItemId: null,
       hasHeldItem: false,
       tailGroup,
+      sockets,
+      plump,
+      mange,
       baseY: 0,
       boopTimer: 0,
       beepTimer: 0,
@@ -2502,10 +2536,262 @@ window.BlahajModels = (function () {
     });
   }
 
+  function buildSocketVisualMesh(eqDef, plump = 1.0) {
+    if (!eqDef || !eqDef.visual) return null;
+    const v = eqDef.visual;
+    const g = new THREE.Group();
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.26, metalness: 0.84 });
+
+    if (v.kind === 'robe') {
+      const mat = createPlushMaterial(v.color || 0x1e1b4b, false);
+      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
+      const robe = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.68 * plump, 0.90 * plump, 1.18, 24, 1, true),
+        mat
+      );
+      robe.position.set(0, 0.78, 0.04);
+      g.add(robe);
+      const hem = new THREE.Mesh(new THREE.TorusGeometry(0.89 * plump, 0.032, 8, 28), trimMat);
+      hem.rotation.x = Math.PI / 2;
+      hem.position.set(0, 0.21, 0.04);
+      g.add(hem);
+      const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), trimMat);
+      emblem.scale.set(1.0, 1.0, 0.25);
+      emblem.position.set(0, 1.12, 0.74 * plump);
+      g.add(emblem);
+      return g;
+    }
+
+    if (v.kind === 'wizard_hat') {
+      const hatMat = createPlushMaterial(v.color || 0x312e81, false);
+      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.64, 0.05, 24), hatMat);
+      brim.rotation.x = -0.1;
+      g.add(brim);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.72, 20), hatMat);
+      cone.position.set(0, 0.36, -0.02);
+      cone.rotation.x = -0.18;
+      g.add(cone);
+      const band = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.03, 8, 24), trimMat);
+      band.rotation.x = Math.PI / 2 - 0.1;
+      band.position.y = 0.05;
+      g.add(band);
+      return g;
+    }
+
+    if (v.kind === 'ninja_mask') {
+      const cowlMat = createPlushMaterial(v.color || 0x0f172a, false);
+      const bandMat = createPlushMaterial(v.band || 0xdc2626, false);
+      const mask = new THREE.Mesh(new THREE.CylinderGeometry(0.56 * plump, 0.66 * plump, 0.38, 22, 1, true, -Math.PI * 0.45, Math.PI * 0.9), cowlMat);
+      mask.position.set(0, -0.18, 0.02);
+      g.add(mask);
+      const headband = new THREE.Mesh(new THREE.TorusGeometry(0.47 * plump, 0.036, 8, 26), bandMat);
+      headband.rotation.x = Math.PI / 2 - 0.16;
+      headband.position.set(0, 0.16, -0.22);
+      g.add(headband);
+      return g;
+    }
+
+    if (v.kind === 'wand') {
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.66, 10), new THREE.MeshStandardMaterial({ color: v.shaftColor || 0x4c1d95, roughness: 0.4 }));
+      shaft.rotation.x = Math.PI * 0.32;
+      g.add(shaft);
+      const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.095, 0), new THREE.MeshBasicMaterial({ color: v.starColor || 0x7dd3fc }));
+      star.position.set(0, 0.18, 0.29);
+      g.add(star);
+      return g;
+    }
+
+    if (v.kind === 'sword') {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.68, 0.10), new THREE.MeshStandardMaterial({ color: v.bladeColor || 0xe2e8f0, metalness: 0.85, roughness: 0.18 }));
+      blade.position.set(0, 0.34, 0.12);
+      blade.rotation.x = 0.45;
+      g.add(blade);
+      const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.14), brassMat);
+      guard.position.set(0, 0.06, 0.02);
+      g.add(guard);
+      return g;
+    }
+
+    if (v.kind === 'fin_bands') {
+      const bandMat = createPlushMaterial(v.color || 0xdc2626, false);
+      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
+      const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 18), bandMat);
+      cuff.rotation.y = Math.PI / 2;
+      g.add(cuff);
+      const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.014, 6, 18), trimMat);
+      stripe.rotation.y = Math.PI / 2;
+      g.add(stripe);
+      return g;
+    }
+
+    if (v.kind === 'tail_ribbon') {
+      const ribMat = createPlushMaterial(v.color || 0xe11d48, false);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18 * plump, 0.032, 8, 20), ribMat);
+      g.add(ring);
+      [-1, 1].forEach((side) => {
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.02), ribMat);
+        tail.position.set(side * 0.08, -0.14, -0.04);
+        tail.rotation.z = side * 0.35;
+        g.add(tail);
+      });
+      return g;
+    }
+
+    if (v.kind === 'scarf') {
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.78 * plump, 0.12, 14, 28), createPlushMaterial(v.color || 0x7c4d32, false));
+      collar.scale.set(1.0, 0.88, 1.0);
+      collar.rotation.x = Math.PI / 2 + 0.06;
+      g.add(collar);
+      return g;
+    }
+
+    if (v.kind === 'toque') {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.38, 0.14, 24), createPlushMaterial(v.band || 0x1e3a8a, false));
+      band.rotation.x = -0.12;
+      g.add(band);
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.40, 20, 18), createPlushMaterial(v.color || 0xf7f1e3, false));
+      crown.scale.set(1.08, 0.85, 1.05);
+      crown.position.y = 0.18;
+      g.add(crown);
+      return g;
+    }
+
+    if (v.kind === 'coronet') {
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.41, 0.39, 0.14, 22), createPlushMaterial(v.bandColor || 0x581c87, false));
+      band.rotation.x = -0.10;
+      g.add(band);
+      const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), new THREE.MeshBasicMaterial({ color: v.gemColor || 0xd8b4fe }));
+      gem.position.set(0, 0.14, 0.22);
+      g.add(gem);
+      return g;
+    }
+
+    if (v.kind === 'cap') {
+      const crown = new THREE.Mesh(new THREE.SphereGeometry(0.39, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.55), createPlushMaterial(v.color || 0x334155, false));
+      g.add(crown);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.04, 18, 1, false, -Math.PI * 0.45, Math.PI * 0.9), createPlushMaterial(v.trim || 0xd97706, false));
+      brim.position.set(0, 0.01, 0.18);
+      brim.rotation.x = 0.18;
+      g.add(brim);
+      return g;
+    }
+
+    if (v.kind === 'lantern') {
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.16, 12), brassMat);
+      roof.position.y = 0.20;
+      g.add(roof);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 14), new THREE.MeshBasicMaterial({ color: v.color || 0xffd885 }));
+      g.add(bulb);
+      return g;
+    }
+
+    if (v.kind === 'teapot') {
+      const saucer = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.04, 18), brassMat);
+      saucer.position.y = -0.14;
+      g.add(saucer);
+      const pot = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 16), brassMat);
+      g.add(pot);
+      return g;
+    }
+
+    if (v.kind === 'hex_key') {
+      const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.56, 6), brassMat);
+      g.add(h1);
+      const h2 = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.24, 6), brassMat);
+      h2.rotation.z = Math.PI / 2;
+      h2.position.set(0.10, 0.26, 0);
+      g.add(h2);
+      return g;
+    }
+
+    if (v.kind === 'scissors') {
+      [-0.22, 0.22].forEach((ang) => {
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.42, 0.015), brassMat);
+        blade.rotation.z = ang;
+        g.add(blade);
+      });
+      return g;
+    }
+
+    if (v.kind === 'glowing_breb') {
+      const loaf = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.65, roughness: 0.5 }));
+      loaf.scale.set(1.4, 0.72, 0.85);
+      g.add(loaf);
+      return g;
+    }
+
+    // Generic glowing talisman / crystal / compass / charm
+    const gemColor = v.color || (v.kind === 'compass' ? 0x38bdf8 : (v.kind === 'lavender_charm' ? 0xc084fc : (v.kind === 'carrot_charm' ? 0xf97316 : 0xfde047)));
+    const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial({ color: gemColor }));
+    g.add(charm);
+    return g;
+  }
+
+  function applyEquippedSockets(sharkGroup, equippedSockets = {}, accessorySettings = {}) {
+    if (!sharkGroup || !sharkGroup.userData || !sharkGroup.userData.sockets) return;
+    const eqApi = window.BlahajEquipment;
+    if (!eqApi) return;
+    const sockets = sharkGroup.userData.sockets;
+    const plump = sharkGroup.userData.plump || 1.0;
+
+    // 1. Clear existing dynamic socket visuals
+    Object.values(sockets).forEach((sockGroup) => {
+      if (!sockGroup) return;
+      while (sockGroup.children.length > 0) {
+        sockGroup.remove(sockGroup.children[0]);
+      }
+    });
+
+    // 2. Determine which defaultParts are overridden by equipped items
+    const overridden = new Set();
+    Object.keys(equippedSockets || {}).forEach((sockKey) => {
+      const itemId = equippedSockets[sockKey];
+      const def = itemId ? eqApi.getEquipmentDef(itemId) : null;
+      if (def && def.hidesDefault) overridden.add(def.hidesDefault);
+    });
+
+    sharkGroup.traverse((child) => {
+      if (child.userData && child.userData.defaultPart) {
+        const part = child.userData.defaultPart;
+        if (overridden.has(part)) {
+          child.visible = false;
+        } else if (child.userData.accessoryType === 'relic') {
+          child.visible = accessorySettings.showRelic !== false;
+        } else if (child.userData.accessoryType === 'headgear') {
+          child.visible = accessorySettings.showHeadgear !== false;
+        } else {
+          child.visible = true;
+        }
+      }
+    });
+
+    // 3. Build & attach 3D meshes into each populated bone socket
+    Object.keys(equippedSockets || {}).forEach((sockKey) => {
+      const itemId = equippedSockets[sockKey];
+      const def = itemId ? eqApi.getEquipmentDef(itemId) : null;
+      if (!def) return;
+
+      if (sockKey === 'fin_bands') {
+        const meshL = buildSocketVisualMesh(def, plump);
+        const meshR = buildSocketVisualMesh(def, plump);
+        if (meshL && sockets.fin_band_l) sockets.fin_band_l.add(meshL);
+        if (meshR && sockets.fin_band_r) sockets.fin_band_r.add(meshR);
+        return;
+      }
+
+      const targetSock = sockets[sockKey];
+      if (!targetSock) return;
+      const mesh = buildSocketVisualMesh(def, plump);
+      if (mesh) targetSock.add(mesh);
+    });
+  }
+
   return {
     createPlushShark,
     updateSharkMange,
     updateSharkAccessories,
+    applyEquippedSockets,
     createBirb,
     createTropicalFish,
     createBeachBall,

@@ -987,6 +987,41 @@
         }
       });
     }
+
+    // v19.5 10-Socket Vitruvian Equipment & Prototype Costume Trunk Migration
+    const eqApi = window.BlahajEquipment;
+    if (eqApi && !roster._vitruvianSocketsV195) {
+      roster._vitruvianSocketsV195 = true;
+      const prototypeCostumes = [
+        'wizard_robe', 'probationer_robe', 'wizard_hood',
+        'ninja_mask', 'ninja_fin_bands', 'starlight_wand',
+        'plush_cutlass', 'caudal_ribbon'
+      ];
+      ALL_ROSTER_IDS.forEach((id) => {
+        const rec = roster[id];
+        rec.equippedSockets = eqApi.buildDefaultSocketsForShark(id);
+        rec.soulboundRecallAt = 0;
+        if (Array.isArray(rec.inventorySlots)) {
+          prototypeCostumes.forEach((itemId) => {
+            const already = rec.inventorySlots.some((s) => s && s.id === itemId);
+            if (!already) {
+              const emptyIdx = rec.inventorySlots.findIndex((s) => !s);
+              if (emptyIdx >= 0) rec.inventorySlots[emptyIdx] = { id: itemId, qty: 1 };
+            }
+          });
+        }
+      });
+      try {
+        localStorage.setItem(ROSTER_STORAGE_KEY, JSON.stringify(roster));
+      } catch (e) {}
+    } else if (eqApi) {
+      ALL_ROSTER_IDS.forEach((id) => {
+        const rec = roster[id];
+        if (!rec.equippedSockets || typeof rec.equippedSockets !== 'object') {
+          rec.equippedSockets = eqApi.buildDefaultSocketsForShark(id);
+        }
+      });
+    }
     return roster;
   }
 
@@ -1151,6 +1186,9 @@
     }
     if (rec.accessories && game.restoreSharkAccessories) {
       game.restoreSharkAccessories({ [sharkId]: rec.accessories });
+    }
+    if (rec.equippedSockets && window.BlahajSharks3D && typeof window.BlahajSharks3D.applyEquippedSockets === 'function' && player.mesh) {
+      window.BlahajSharks3D.applyEquippedSockets(player.mesh, rec.equippedSockets, game.getSharkAccessories ? game.getSharkAccessories(sharkId) : {});
     }
 
     // 4. Restore Held Item

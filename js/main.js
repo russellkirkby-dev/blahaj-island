@@ -3492,6 +3492,10 @@
     if (playerHeldItem && playerHeldItem.id && window.BlahajSharks3D && window.BlahajSharks3D.attachHeldItem) {
       window.BlahajSharks3D.attachHeldItem(player.mesh, playerHeldItem.id);
     }
+    const rosterRec = window.BlahajSaveSystem?.getCharacterProgressionRecord?.(sharkId);
+    if (rosterRec && rosterRec.equippedSockets && window.BlahajSharks3D && typeof window.BlahajSharks3D.applyEquippedSockets === 'function') {
+      window.BlahajSharks3D.applyEquippedSockets(player.mesh, rosterRec.equippedSockets, individualAcc);
+    }
 
     updateBlueSharkVisibility();
 
@@ -6574,15 +6578,8 @@
     const quoteEl = document.getElementById('cs-shark-quote');
     if (quoteEl) quoteEl.textContent = cfg.quote;
 
-    // 4. Paperdoll Gear Slots
-    const gear = PAPERDOLL_GEAR[selectedCSShark] || PAPERDOLL_GEAR.hermes;
-    ['head', 'neck', 'relic', 'satchel', 'trinket'].forEach((slot) => {
-      const g = gear[slot];
-      const iconEl = document.getElementById(`pd-icon-${slot}`);
-      const nameEl = document.getElementById(`pd-name-${slot}`);
-      if (iconEl && g) iconEl.textContent = g.icon;
-      if (nameEl && g) nameEl.textContent = g.name;
-    });
+    // 4. 10-Socket Vitruvian Shark Pentagram
+    renderVitruvianPentagram(selectedCSShark);
 
     // 5. Individual Mange Slider & Value
     const mVal = getSharkMange(selectedCSShark);
@@ -6707,6 +6704,221 @@
     }
   }
 
+  let selectedVitruvianSocket = null;
+
+  function equipItemToSocket(itemId, targetSocketId = null, sharkId = player.sharkId) {
+    const eqApi = window.BlahajEquipment;
+    const saveSys = window.BlahajSaveSystem;
+    if (!eqApi || !saveSys) return false;
+    const def = eqApi.getEquipmentDef(itemId);
+    if (!def) return false;
+    const sock = targetSocketId || def.socket;
+    if (sock !== def.socket) return false;
+
+    const rec = saveSys.getCharacterProgressionRecord(sharkId);
+    if (!rec) return false;
+    if (!rec.equippedSockets) rec.equippedSockets = eqApi.buildDefaultSocketsForShark(sharkId);
+    const prevItemId = rec.equippedSockets[sock] || null;
+    if (prevItemId === itemId) return false;
+
+    // Remove new item from satchel (if present), return previous equipped item to satchel
+    if (player.inventory) {
+      if (player.inventory.hasItem(itemId)) {
+        player.inventory.removeItem(itemId, 1);
+      }
+      if (prevItemId && !player.inventory.hasItem(prevItemId)) {
+        player.inventory.addItem(prevItemId, 1);
+      }
+    }
+
+    saveSys.updateCharacterProgressionRecord(sharkId, (r) => {
+      if (!r.equippedSockets) r.equippedSockets = eqApi.buildDefaultSocketsForShark(sharkId);
+      r.equippedSockets[sock] = itemId;
+    });
+
+    if (player.mesh && window.BlahajSharks3D?.applyEquippedSockets) {
+      window.BlahajSharks3D.applyEquippedSockets(player.mesh, rec.equippedSockets, getSharkAccessories(sharkId));
+    }
+    CozyAudio.pocketWatchClick();
+    showToast(`✡️ EQUIPPED ${def.name.toUpperCase()}`, `Socketed into ${eqApi.getSocketDef(sock)?.label || sock}!`);
+    renderCharacterSheet(sharkId);
+    saveSys.captureActiveCharacterToRoster(true);
+    return true;
+  }
+
+  function unequipSocket(socketId, sharkId = player.sharkId) {
+    const eqApi = window.BlahajEquipment;
+    const saveSys = window.BlahajSaveSystem;
+    if (!eqApi || !saveSys) return false;
+    const rec = saveSys.getCharacterProgressionRecord(sharkId);
+    const itemId = rec?.equippedSockets?.[socketId];
+    if (!itemId) return false;
+
+    if (player.inventory && !player.inventory.hasItem(itemId)) {
+      if (!player.inventory.addItem(itemId, 1)) {
+        showToast('🎒 SATCHEL FULL', 'Free a slot in your 36-slot satchel before unequipping.');
+        return false;
+      }
+    }
+
+    saveSys.updateCharacterProgressionRecord(sharkId, (r) => {
+      if (r.equippedSockets) r.equippedSockets[socketId] = null;
+    });
+
+    if (player.mesh && window.BlahajSharks3D?.applyEquippedSockets) {
+      window.BlahajSharks3D.applyEquippedSockets(player.mesh, rec.equippedSockets, getSharkAccessories(sharkId));
+    }
+    CozyAudio.pocketWatchClick();
+    renderCharacterSheet(sharkId);
+    saveSys.captureActiveCharacterToRoster(true);
+    return true;
+  }
+
+  function recallFounderSoulboundGear(sharkId = player.sharkId) {
+    const eqApi = window.BlahajEquipment;
+    const saveSys = window.BlahajSaveSystem;
+    if (!eqApi || !saveSys) return false;
+    const rec = saveSys.getCharacterProgressionRecord(sharkId);
+    if (!rec) return false;
+
+    const now = Date.now();
+    const last = rec.soulboundRecallAt || 0;
+    const remMs = eqApi.RECALL_COOLDOWN_MS - (now - last);
+    if (remMs > 0) {
+      showToast('⏳ SOULBOUND RECALL COOLING DOWN', `Available again in ${Math.ceil(remMs / 1000)}s.`);
+      return false;
+    }
+
+    const missing = eqApi.getMissingSoulboundItems(sharkId, rec.equippedSockets, player.inventory);
+    if (missing.length === 0) {
+      showToast('✨ ALL SOULBOUND GEAR PRESENT', 'All of your Founder signature gear is already equipped or in your satchel!');
+      return false;
+    }
+
+    let restoredCount = 0;
+    missing.forEach((id) => {
+      if (player.inventory && player.inventory.addItem(id, 1)) restoredCount++;
+    });
+
+    if (restoredCount > 0) {
+      saveSys.updateCharacterProgressionRecord(sharkId, (r) => { r.soulboundRecallAt = now; });
+      CozyAudio.portalChime();
+      spawnFloatingBurst(player.pos, 0xfbbf24, 18);
+      showToast('✨ SOULBOUND GEAR RECALLED!', `Restored ${restoredCount} signature Founder piece(s) to your satchel!`);
+      renderCharacterSheet(sharkId);
+      saveSys.captureActiveCharacterToRoster(true);
+    }
+    return restoredCount > 0;
+  }
+
+  function renderVitruvianPentagram(sharkId = selectedCSShark) {
+    const wrap = document.getElementById('vitruvian-pentagram-wrap');
+    const bonusBar = document.getElementById('vitruvian-bonus-bar');
+    const pickerEl = document.getElementById('vitruvian-socket-picker');
+    const recallBtn = document.getElementById('btn-recall-soulbound');
+    const eqApi = window.BlahajEquipment;
+    const saveSys = window.BlahajSaveSystem;
+    if (!wrap || !eqApi) return;
+
+    const rec = saveSys?.getCharacterProgressionRecord?.(sharkId) || {};
+    const equipped = rec.equippedSockets || eqApi.buildDefaultSocketsForShark(sharkId);
+
+    // Founder Soulbound Recall button
+    if (recallBtn) {
+      const isFounder = !!eqApi.FOUNDER_SOULBOUND_DEFAULTS[sharkId];
+      recallBtn.classList.toggle('hidden', !isFounder);
+      if (isFounder) {
+        const missing = eqApi.getMissingSoulboundItems(sharkId, equipped, player.inventory);
+        recallBtn.textContent = missing.length > 0 ? `✨ Recall Soulbound (${missing.length})` : '✨ Soulbound Intact';
+        recallBtn.disabled = missing.length === 0;
+        recallBtn.onclick = () => recallFounderSoulboundGear(sharkId);
+      }
+    }
+
+    const svgBg = `
+      <svg viewBox="0 0 200 200" class="vitruvian-svg" aria-hidden="true">
+        <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(251,191,36,0.32)" stroke-width="1.2" />
+        <rect x="26" y="26" width="148" height="148" fill="none" stroke="rgba(125,211,252,0.22)" stroke-width="1" stroke-dasharray="4 3" />
+        <!-- Upright Pentagram connecting Head -> Twin Flukes -> Outstretched Fins -->
+        <polygon points="100,16 146,168 24,78 176,78 54,168" fill="none" stroke="rgba(251,191,36,0.42)" stroke-width="1.2" />
+        <!-- Vitruvian Shark Silhouette (Head Top, Outstretched Fins, Twin Tail Flukes) -->
+        <path d="M100,28 C114,34 118,56 116,74 L170,76 L168,90 L116,92 C116,118 110,136 104,150 L134,174 L102,158 L98,158 L66,174 L96,150 C90,136 84,118 84,92 L32,90 L30,76 L84,74 C82,56 86,34 100,28 Z"
+              fill="rgba(56,189,248,0.16)" stroke="rgba(125,211,252,0.5)" stroke-width="1.3" />
+      </svg>
+    `;
+
+    const nodesHtml = eqApi.SOCKET_ORDER.map((sockId) => {
+      const sDef = eqApi.getSocketDef(sockId);
+      const eqId = equipped[sockId];
+      const eqDef = eqId ? eqApi.getEquipmentDef(eqId) : null;
+      const isPick = selectedVitruvianSocket === sockId;
+      return `
+        <button type="button" class="vitruvian-socket-node ${eqDef ? 'equipped' : 'empty'} ${isPick ? 'active-pick' : ''}"
+                style="left:${sDef.x}%; top:${sDef.y}%;" data-vit-socket="${sockId}"
+                title="${sDef.title}: ${eqDef ? eqDef.name : 'Empty'}">
+          <span class="vit-sock-icon">${eqDef ? eqDef.icon : sDef.emptyIcon}</span>
+          <span class="vit-sock-lbl">${sDef.label}</span>
+        </button>
+      `;
+    }).join('');
+
+    wrap.innerHTML = svgBg + nodesHtml;
+    wrap.querySelectorAll('[data-vit-socket]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sKey = btn.dataset.vitSocket;
+        selectedVitruvianSocket = selectedVitruvianSocket === sKey ? null : sKey;
+        renderVitruvianPentagram(sharkId);
+      });
+    });
+
+    if (bonusBar) {
+      const b = eqApi.getTotalSocketBonuses(equipped);
+      bonusBar.innerHTML = `✨ <strong>Socket Bonuses:</strong> +${b.stuffing} Stuffing · +${b.finPowerPct}% Fin Power · +${b.speedPct}% Speed · +${b.mangeResistPct}% Coat Resist`;
+    }
+
+    if (pickerEl) {
+      if (!selectedVitruvianSocket) {
+        pickerEl.classList.add('hidden');
+        pickerEl.innerHTML = '';
+      } else {
+        const sDef = eqApi.getSocketDef(selectedVitruvianSocket);
+        const curId = equipped[selectedVitruvianSocket];
+        const curDef = curId ? eqApi.getEquipmentDef(curId) : null;
+        const bagMatches = [];
+        if (player.inventory) {
+          for (let i = 0; i < player.inventory.numSlots; i++) {
+            const slotItem = player.inventory.getSlot(i);
+            if (!slotItem) continue;
+            const eq = eqApi.getEquipmentDef(slotItem.id);
+            if (eq && eq.socket === selectedVitruvianSocket) {
+              bagMatches.push(eq);
+            }
+          }
+        }
+        pickerEl.classList.remove('hidden');
+        pickerEl.innerHTML = `
+          <div class="vit-picker-head">
+            <span>${sDef.emptyIcon} ${sDef.title}</span>
+            ${curDef ? `<button type="button" class="btn-secondary" id="btn-vit-unequip" style="padding:2px 7px; font-size:0.68rem;">Unequip ${curDef.icon}</button>` : ''}
+          </div>
+          ${bagMatches.length > 0
+            ? bagMatches.map((eq) => `
+                <div class="vit-picker-row">
+                  <span>${eq.icon} <strong>${eq.name}</strong></span>
+                  <button type="button" class="btn-primary" data-vit-equip="${eq.id}" style="padding:2px 8px; font-size:0.68rem;">Equip</button>
+                </div>
+              `).join('')
+            : `<div style="font-size:0.7rem; color:#94a3b8;">No matching ${sDef.label} items in your 36-slot satchel.</div>`
+          }
+        `;
+        document.getElementById('btn-vit-unequip')?.addEventListener('click', () => unequipSocket(selectedVitruvianSocket, sharkId));
+        pickerEl.querySelectorAll('[data-vit-equip]').forEach((b) => {
+          b.addEventListener('click', () => equipItemToSocket(b.dataset.vitEquip, selectedVitruvianSocket, sharkId));
+        });
+      }
+    }
+  }
+
   function updateItemInspector(item, slotIdx = 0) {
     const iconEl = document.getElementById('insp-icon');
     const nameEl = document.getElementById('insp-name');
@@ -6736,7 +6948,16 @@
 
       const holdBtn = document.getElementById('btn-inspect-hold');
       if (holdBtn) {
-        if (item.canHold) {
+        const eqDef = window.BlahajEquipment?.getEquipmentDef?.(item.id);
+        if (eqDef) {
+          const sDef = window.BlahajEquipment.getSocketDef(eqDef.socket);
+          holdBtn.style.display = 'inline-flex';
+          holdBtn.textContent = `✡️ Equip (${sDef ? sDef.label : eqDef.socket})`;
+          holdBtn.className = 'btn-accent';
+          holdBtn.onclick = () => {
+            equipItemToSocket(item.id, eqDef.socket, player.sharkId);
+          };
+        } else if (item.canHold) {
           holdBtn.style.display = 'inline-flex';
           if (playerHeldItem && playerHeldItem.id === item.id && !playerHeldItem.isTimed) {
             holdBtn.textContent = 'Stow from Fin 📥';

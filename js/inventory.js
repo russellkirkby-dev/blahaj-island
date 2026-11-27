@@ -245,10 +245,100 @@ window.BlahajInventory = (function () {
       maxStack: 1,
       type: 'Mythic Crust-Relic · Sharkziluth Mystery',
       desc: 'An absurdly radiant, slightly over-toasted sourdough anomaly whispered of by high initiates of Fintzirah and Sharkziluth. Nobody agrees whether it was baked in penitence or triumph—only that it hums softly when held.',
-      stats: 'Mythic Quest Relic · Resonance Unmeasured',
+      stats: 'Mythic Quest Relic · +20% Fin Power · +20 Stuffing',
       canUse: false,
       canHold: true,
       throwable: false
+    },
+    hermes_hood: {
+      id: 'hermes_hood', name: 'Wayfarer’s Hood', icon: '🧢', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Headgear (Hermes)', desc: 'Weathered Between-road traveler’s cap stitched with a brass compass thread.',
+      stats: 'Head Socket · +6% Speed · +6 Max Stuffing', canUse: false
+    },
+    hermes_scarf: {
+      id: 'hermes_scarf', name: 'Rust Wool Scarf', icon: '🧣', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Neckgear (Hermes)', desc: 'Warm rust-brown wool scarf worn across countless dimensional crossings.',
+      stats: 'Neck Socket · +8 Max Stuffing · +5% Mange Resist', canUse: false
+    },
+    solomon_toque: {
+      id: 'solomon_toque', name: 'Star-Chef Toque', icon: '👨‍🍳', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Headgear (Solomon)', desc: 'Tall pleated baker’s crown dusted lightly with celestial flour.',
+      stats: 'Head Socket · +10 Max Stuffing', canUse: false
+    },
+    solomon_ribbon: {
+      id: 'solomon_ribbon', name: 'Navy Silk Ribbon', icon: '🧣', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Neckgear (Solomon)', desc: 'Deep navy ceremonial ribbon tied neatly beneath Solomon’s snaggletooth grin.',
+      stats: 'Neck Socket · +6 Max Stuffing · +4% Fin Power', canUse: false
+    },
+    solomon_teapot: {
+      id: 'solomon_teapot', name: 'Porcelain Star-Teapot', icon: '🫖', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Off-Hand (Solomon)', desc: 'Perpetually warm brass-trimmed teapot brimming with sacred bergamot steam.',
+      stats: 'Left Fin Socket · +12 Max Stuffing · +6% Fin Power', canUse: false, canHold: true
+    },
+    hiram_goggles: {
+      id: 'hiram_goggles', name: 'Builder Brass Goggles', icon: '🥽', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Facegear (Hiram)', desc: 'Cyan-tinted workshop goggles contoured for a plush shark forehead.',
+      stats: 'Face Socket · +8% Fin Power · +6 Max Stuffing', canUse: false
+    },
+    hiram_scarf: {
+      id: 'hiram_scarf', name: 'Ochre Work Scarf', icon: '🧣', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Neckgear (Hiram)', desc: 'Sturdy ochre builder’s scarf woven to shrug off caldera sparks.',
+      stats: 'Neck Socket · +10 Max Stuffing', canUse: false
+    },
+    nimue_coronet: {
+      id: 'nimue_coronet', name: 'Starlit Coronet', icon: '👑', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Headgear (Nimue)', desc: 'Violet-and-gold diadem tuned to the frequency of the Silver Star.',
+      stats: 'Head Socket · +8% Fin Power · +8 Max Stuffing', canUse: false
+    },
+    nimue_band: {
+      id: 'nimue_band', name: 'Violet Silk Band', icon: '🪡', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Neckgear (Nimue)', desc: 'Soft violet collar hemmed with golden seam-thread.',
+      stats: 'Neck Socket · +8 Max Stuffing · +4% Speed', canUse: false
+    },
+    nimue_crystal: {
+      id: 'nimue_crystal', name: 'Star-Crystal Pendant', icon: '💎', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Soulbound Relic (Nimue)', desc: 'Luminous octahedral crystal pulsing gently over Nimue’s heart.',
+      stats: 'Relic Socket · +10% Fin Power · +8% Mange Resist', canUse: false
+    },
+    wizard_robe: {
+      id: 'wizard_robe', name: 'Archipelago Star-Robe', icon: '👘', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Torso Costume · Mage Vestment', desc: 'Deep indigo-and-gold ceremonial robe tailored to hug a plush shark silhouette.',
+      stats: 'Torso Socket · +14 Max Stuffing · +10% Fin Power', canUse: false
+    },
+    probationer_robe: {
+      id: 'probationer_robe', name: 'White & Gold Probationer Robe', icon: '🥋', rarity: 'rare', category: 'equipment', maxStack: 1,
+      type: 'Torso Costume · Initiatic Vestment', desc: 'Crisp cream-white robe edged with warm golden braid for newly detagged initiates.',
+      stats: 'Torso Socket · +12 Max Stuffing · +10% Mange Resist', canUse: false
+    },
+    wizard_hood: {
+      id: 'wizard_hood', name: 'Pointed Star-Mage Hat', icon: '🧙', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Head Costume · Mage Hat', desc: 'A jaunty pointed starlight hat that perches cleanly atop any shark crown.',
+      stats: 'Head Socket · +10% Fin Power · +6 Max Stuffing', canUse: false
+    },
+    ninja_mask: {
+      id: 'ninja_mask', name: 'Shadow-Fin Ninja Cowl', icon: '🥷', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Face Costume · Shinobi Cowl', desc: 'Midnight fleece cowl with a crimson headband for silent surfboard ambushes.',
+      stats: 'Face Socket · +12% Speed · +8% Fin Power', canUse: false
+    },
+    ninja_fin_bands: {
+      id: 'ninja_fin_bands', name: 'Crimson Shinobi Fin-Bands', icon: '🧿', rarity: 'rare', category: 'equipment', maxStack: 1,
+      type: 'Fin-Bands · Paired Wraps', desc: 'Twin crimson-and-gold cloth wraps bound neatly around both pectoral fins.',
+      stats: 'Fin-Bands Socket · +8% Speed · +8% Fin Power', canUse: false
+    },
+    starlight_wand: {
+      id: 'starlight_wand', name: 'Wand of the Silver Star', icon: '🪄', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Main-Hand Weapon · Arcane Wand', desc: 'A star-tipped violet wand humming with pure Fintzirah focus.',
+      stats: 'Right Fin Socket · +16% Fin Power', canUse: false, canHold: true
+    },
+    plush_cutlass: {
+      id: 'plush_cutlass', name: 'Felt-Steel Corsair Cutlass', icon: '🗡️', rarity: 'epic', category: 'equipment', maxStack: 1,
+      type: 'Main-Hand Weapon · Cutlass', desc: 'Curved brass-hilted cutlass forged for swashbuckling across the Unwet Ocean.',
+      stats: 'Right Fin Socket · +18% Fin Power', canUse: false, canHold: true
+    },
+    caudal_ribbon: {
+      id: 'caudal_ribbon', name: 'Twin-Fluke Crimson Tail Ribbon', icon: '🎀', rarity: 'rare', category: 'equipment', maxStack: 1,
+      type: 'Tail Gear · Caudal Wrap', desc: 'A flowing crimson silk ribbon tied around the tail peduncle.',
+      stats: 'Tail Socket · +8% Speed · +6% Mange Resist', canUse: false
     },
     star_lantern: {
       id: 'star_lantern',
