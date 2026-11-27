@@ -4,6 +4,44 @@
 
 window.BlahajModels = (function () {
   let plushBumpTex = null;
+  let canvasBumpTex = null;
+
+  function getCanvasTexture() {
+    if (canvasBumpTex) return canvasBumpTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Crisp warp-and-weft woven canvas/linen cross-hatch
+    for (let y = 0; y < 256; y += 4) {
+      ctx.fillStyle = (y % 8 === 0) ? 'rgba(215,215,215,0.42)' : 'rgba(65,65,65,0.42)';
+      ctx.fillRect(0, y, 256, 2);
+    }
+    for (let x = 0; x < 256; x += 4) {
+      ctx.fillStyle = (x % 8 === 0) ? 'rgba(220,220,220,0.38)' : 'rgba(60,60,60,0.38)';
+      ctx.fillRect(x, 0, 2, 256);
+    }
+
+    canvasBumpTex = new THREE.CanvasTexture(canvas);
+    canvasBumpTex.wrapS = THREE.RepeatWrapping;
+    canvasBumpTex.wrapT = THREE.RepeatWrapping;
+    canvasBumpTex.repeat.set(6, 6);
+    return canvasBumpTex;
+  }
+
+  function createCanvasTextileMaterial(hexColor, roughness = 0.94) {
+    return new THREE.MeshStandardMaterial({
+      color: hexColor,
+      roughness,
+      metalness: 0.0,
+      bumpMap: getCanvasTexture(),
+      bumpScale: 0.042,
+      side: THREE.DoubleSide
+    });
+  }
 
   // High-resolution 512x512 tactile woven plush & micro-fleece bump texture
   function getPlushTexture() {
@@ -2297,6 +2335,25 @@ window.BlahajModels = (function () {
       }
     }
 
+    // Subtle cloth drape & breeze sway on equipped canvas/textile garments
+    const swayAmp = isMoving || isSwimming ? 0.11 : 0.035;
+    const swaySpeed = isMoving || isSwimming ? 7.5 : 2.1;
+    if (ud.sockets) {
+      Object.values(ud.sockets).forEach((sock) => {
+        if (!sock || sock.children.length === 0) return;
+        sock.traverse((ch) => {
+          if (ch.userData && ch.userData.clothSway) {
+            const phase = ch.userData.clothPhase || 0;
+            const axis = ch.userData.clothAxis || 'x';
+            const base = ch.userData.clothBase || 0;
+            const wave = Math.sin(time * swaySpeed + phase) * swayAmp;
+            if (axis === 'z') ch.rotation.z = base + wave;
+            else ch.rotation.x = base + wave;
+          }
+        });
+      });
+    }
+
     if (ud.martialTimer > 0 && ud.martialPose) {
       ud.martialTimer = Math.max(0, ud.martialTimer - dt);
       const dur = ud.martialDuration || 0.42;
@@ -2536,6 +2593,96 @@ window.BlahajModels = (function () {
     });
   }
 
+  function buildDrapedRobeGeometry(plump = 1.0) {
+    const rings = 18;
+    const segs = 36;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let i = 0; i <= rings; i++) {
+      const t = i / rings; // 0 = hem (y=0.22), 1 = collar/shoulders (y=1.42)
+      const s = 0.08 + t * 0.50;
+      const st = evalUprightSharkStation(s, plump, 0);
+      const flare = (1.0 - t) * (0.24 + (1.0 - t) * 0.10);
+      const foldDepth = (1.0 - t) * 0.065;
+
+      for (let j = 0; j <= segs; j++) {
+        const v = j / segs;
+        const theta = v * Math.PI * 2;
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+        // 7 soft vertical fabric pleats / folds that deepen toward the bottom hem
+        const pleat = Math.sin(theta * 7.0 + t * 0.6) * foldDepth;
+        const rx = st.widthX + 0.05 + flare + pleat;
+        const rzF = st.depthFrontZ + 0.05 + flare + pleat;
+        const rzB = st.depthBackZ + 0.05 + flare + pleat;
+
+        const px = sinT * rx;
+        const pz = st.centerZ + (cosT >= 0 ? cosT * rzF : cosT * rzB);
+        // Gentle scalloped wave along the loose lower hem
+        const hemWave = (1.0 - t) * Math.cos(theta * 7.0) * 0.028;
+        const py = st.y + hemWave;
+
+        positions.push(px, py, pz);
+        uvs.push(v * 3.0, t * 2.5);
+      }
+    }
+
+    for (let i = 0; i < rings; i++) {
+      for (let j = 0; j < segs; j++) {
+        const a = i * (segs + 1) + j;
+        const b = a + segs + 1;
+        indices.push(a, a + 1, b);
+        indices.push(a + 1, b + 1, b);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function buildFloppyBrimGeometry(innerR = 0.36, outerR = 0.68) {
+    const rings = 4;
+    const segs = 32;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let i = 0; i <= rings; i++) {
+      const u = i / rings;
+      const r = innerR + (outerR - innerR) * u;
+      for (let j = 0; j <= segs; j++) {
+        const v = j / segs;
+        const theta = v * Math.PI * 2;
+        // Floppy wavy cloth brim drooping gently at the sides and front
+        const ripple = Math.sin(theta * 3.0 + 0.5) * 0.055 * u - Math.pow(u, 1.4) * 0.07;
+        positions.push(Math.sin(theta) * r, ripple, Math.cos(theta) * r);
+        uvs.push(v * 2.0, u);
+      }
+    }
+
+    for (let i = 0; i < rings; i++) {
+      for (let j = 0; j < segs; j++) {
+        const a = i * (segs + 1) + j;
+        const b = a + segs + 1;
+        indices.push(a, a + 1, b);
+        indices.push(a + 1, b + 1, b);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   function buildSocketVisualMesh(eqDef, plump = 1.0) {
     if (!eqDef || !eqDef.visual) return null;
     const v = eqDef.visual;
@@ -2543,52 +2690,104 @@ window.BlahajModels = (function () {
     const brassMat = new THREE.MeshStandardMaterial({ color: 0xd8aa5b, roughness: 0.26, metalness: 0.84 });
 
     if (v.kind === 'robe') {
-      const mat = createPlushMaterial(v.color || 0x1e1b4b, false);
-      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
-      const robe = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.68 * plump, 0.90 * plump, 1.18, 24, 1, true),
-        mat
-      );
-      robe.position.set(0, 0.78, 0.04);
+      const mat = createCanvasTextileMaterial(v.color || 0x1e1b4b, 0.94);
+      const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.65);
+
+      const robe = new THREE.Mesh(buildDrapedRobeGeometry(plump), mat);
+      robe.userData.clothSway = true;
+      robe.userData.clothAxis = 'x';
+      robe.userData.clothBase = 0;
+      robe.userData.clothPhase = 0.4;
       g.add(robe);
-      const hem = new THREE.Mesh(new THREE.TorusGeometry(0.89 * plump, 0.032, 8, 28), trimMat);
-      hem.rotation.x = Math.PI / 2;
-      hem.position.set(0, 0.21, 0.04);
-      g.add(hem);
-      const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), trimMat);
+
+      // Soft tied cloth cord belt at the waist
+      const belt = new THREE.Mesh(new THREE.TorusGeometry(0.82 * plump, 0.036, 8, 28), trimMat);
+      belt.rotation.x = Math.PI / 2 + 0.05;
+      belt.position.set(0, 0.92, 0.04);
+      g.add(belt);
+
+      // Hanging cloth sash ends from the waist knot
+      [-1, 1].forEach((side, idx) => {
+        const sash = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.34, 0.02), trimMat);
+        sash.position.set(side * 0.07, 0.74, 0.86 * plump);
+        sash.rotation.z = side * 0.16;
+        sash.userData.clothSway = true;
+        sash.userData.clothAxis = 'x';
+        sash.userData.clothBase = -0.06;
+        sash.userData.clothPhase = idx * 1.1;
+        g.add(sash);
+      });
+
+      const emblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.10, 0), brassMat);
       emblem.scale.set(1.0, 1.0, 0.25);
-      emblem.position.set(0, 1.12, 0.74 * plump);
+      emblem.position.set(0, 1.16, 0.76 * plump);
       g.add(emblem);
       return g;
     }
 
     if (v.kind === 'wizard_hat') {
-      const hatMat = createPlushMaterial(v.color || 0x312e81, false);
-      const trimMat = new THREE.MeshStandardMaterial({ color: v.trim || 0xfbbf24, roughness: 0.35, metalness: 0.5 });
-      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.64, 0.05, 24), hatMat);
-      brim.rotation.x = -0.1;
+      const hatMat = createCanvasTextileMaterial(v.color || 0x312e81, 0.92);
+      const trimMat = createCanvasTextileMaterial(v.trim || 0xfbbf24, 0.62);
+
+      const brim = new THREE.Mesh(buildFloppyBrimGeometry(0.35, 0.68), hatMat);
+      brim.rotation.x = -0.10;
+      brim.userData.clothSway = true;
+      brim.userData.clothAxis = 'x';
+      brim.userData.clothBase = -0.10;
       g.add(brim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.72, 20), hatMat);
-      cone.position.set(0, 0.36, -0.02);
-      cone.rotation.x = -0.18;
-      g.add(cone);
+
+      // Two-segment bent floppy pointed crown
+      const lowerCone = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.38, 0.38, 20), hatMat);
+      lowerCone.position.set(0, 0.19, -0.02);
+      lowerCone.rotation.x = -0.16;
+      g.add(lowerCone);
+
+      const tipPivot = new THREE.Group();
+      tipPivot.position.set(0, 0.36, -0.08);
+      tipPivot.userData.clothSway = true;
+      tipPivot.userData.clothAxis = 'x';
+      tipPivot.userData.clothBase = -0.42;
+      const upperTip = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 18), hatMat);
+      upperTip.position.set(0, 0.18, 0);
+      tipPivot.add(upperTip);
+      g.add(tipPivot);
+
       const band = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.03, 8, 24), trimMat);
       band.rotation.x = Math.PI / 2 - 0.1;
-      band.position.y = 0.05;
+      band.position.y = 0.04;
       g.add(band);
       return g;
     }
 
     if (v.kind === 'ninja_mask') {
-      const cowlMat = createPlushMaterial(v.color || 0x0f172a, false);
-      const bandMat = createPlushMaterial(v.band || 0xdc2626, false);
-      const mask = new THREE.Mesh(new THREE.CylinderGeometry(0.56 * plump, 0.66 * plump, 0.38, 22, 1, true, -Math.PI * 0.45, Math.PI * 0.9), cowlMat);
-      mask.position.set(0, -0.18, 0.02);
+      const cowlMat = createCanvasTextileMaterial(v.color || 0x0f172a, 0.95);
+      const bandMat = createCanvasTextileMaterial(v.band || 0xdc2626, 0.88);
+      const mask = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.54 * plump, 0.70 * plump, 0.44, 24, 2, true, -Math.PI * 0.48, Math.PI * 0.96),
+        cowlMat
+      );
+      mask.position.set(0, -0.20, 0.04);
+      mask.userData.clothSway = true;
+      mask.userData.clothAxis = 'x';
+      mask.userData.clothBase = 0.04;
       g.add(mask);
+
       const headband = new THREE.Mesh(new THREE.TorusGeometry(0.47 * plump, 0.036, 8, 26), bandMat);
       headband.rotation.x = Math.PI / 2 - 0.16;
       headband.position.set(0, 0.16, -0.22);
       g.add(headband);
+
+      // Trailing cloth headband tails fluttering behind the head
+      [-1, 1].forEach((side, idx) => {
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.32, 0.018), bandMat);
+        tail.position.set(side * 0.09, 0.04, -0.68 * plump);
+        tail.rotation.z = side * 0.25;
+        tail.userData.clothSway = true;
+        tail.userData.clothAxis = 'x';
+        tail.userData.clothBase = 0.38;
+        tail.userData.clothPhase = idx * 1.4;
+        g.add(tail);
+      });
       return g;
     }
 
@@ -2626,13 +2825,16 @@ window.BlahajModels = (function () {
     }
 
     if (v.kind === 'tail_ribbon') {
-      const ribMat = createPlushMaterial(v.color || 0xe11d48, false);
+      const ribMat = createCanvasTextileMaterial(v.color || 0xe11d48, 0.86);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.18 * plump, 0.032, 8, 20), ribMat);
       g.add(ring);
-      [-1, 1].forEach((side) => {
-        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.28, 0.02), ribMat);
-        tail.position.set(side * 0.08, -0.14, -0.04);
-        tail.rotation.z = side * 0.35;
+      [-1, 1].forEach((side, idx) => {
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.34, 0.018), ribMat);
+        tail.position.set(side * 0.08, -0.16, -0.04);
+        tail.userData.clothSway = true;
+        tail.userData.clothAxis = 'z';
+        tail.userData.clothBase = side * 0.35;
+        tail.userData.clothPhase = idx * 1.3;
         g.add(tail);
       });
       return g;
