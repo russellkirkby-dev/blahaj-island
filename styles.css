@@ -9720,3 +9720,353 @@ body.ufo-flight-mode .hud-bottom-left {
   font-size: 0.76rem;
   color: #fde68a;
 }
+
+
+/* ============================================================================
+   v19.4 — TREE OF THE FOUR WORLDS VISUALIZER (IN CODEX [I])
+   ============================================================================ */
+.sb-view-switcher {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sb-view-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.sb-view-tab:hover {
+  border-color: rgba(125, 211, 252, 0.65);
+  color: #f8fafc;
+}
+
+.sb-view-tab.active {
+  background: linear-gradient(135deg, #1d4ed8, #6d28d9);
+  border-color: #fde68a;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.28);
+}
+
+.sb-world-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.sb-world-tab {
+  flex: 1;
+  min-width: 130px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.sb-world-tab.mastered {
+  border-color: rgba(52, 211, 153, 0.5);
+  color: #a7f3d0;
+}
+
+.sb-world-tab.active {
+  background: linear-gradient(135deg, rgba(14, 116, 144, 0.72), rgba(88, 28, 135, 0.68));
+  border-color: #fbbf24;
+  color: #fef3c7;
+}
+
+.sb-tree-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .sb-tree-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sb-tree-canvas-wrap {
+  background: radial-gradient(circle at 50% 35%, rgba(30, 58, 138, 0.42), rgba(2, 6, 23, 0.92));
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.sb-tree-world-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #fde68a;
+  margin-bottom: 4px;
+}
+
+.sb-tree-svg {
+  width: 100%;
+  max-height: 350px;
+  display: block;
+}
+
+.tree-path.dim {
+  stroke: rgba(148, 163, 184, 0.22);
+  stroke-width: 1.5;
+}
+
+.tree-path.lit {
+  stroke: rgba(251, 191, 36, 0.72);
+  stroke-width: 2.2;
+}
+
+.tree-node-group {
+  cursor: pointer;
+}
+
+.tree-node-circle {
+  fill: rgba(15, 23, 42, 0.94);
+  stroke: rgba(148, 163, 184, 0.45);
+  stroke-width: 1.6;
+  transition: all 0.15s ease;
+}
+
+.tree-node-group.lit .tree-node-circle {
+  fill: rgba(30, 58, 138, 0.92);
+  stroke: #fbbf24;
+  stroke-width: 2.2;
+}
+
+.tree-node-group.current .tree-node-circle {
+  fill: rgba(88, 28, 135, 0.95);
+  stroke: #38bdf8;
+  stroke-width: 2.6;
+}
+
+.tree-node-group.selected .tree-node-circle {
+  stroke: #ffffff;
+  stroke-width: 2.8;
+}
+
+.tree-node-pulse {
+  fill: none;
+  stroke: rgba(56, 189, 248, 0.55);
+  stroke-width: 1.8;
+}
+
+.tree-node-cipher {
+  fill: #f8fafc;
+  font-size: 8.5px;
+  font-weight: 800;
+}
+
+.tree-node-group.dim .tree-node-cipher {
+  fill: #94a3b8;
+}
+
+.tree-node-seph {
+  fill: #fde68a;
+  font-size: 6.5px;
+  font-weight: 700;
+}
+
+.tree-node-group.dim .tree-node-seph {
+  fill: #64748b;
+}
+
+.sb-tree-legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  font-size: 0.7rem;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+.leg-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.leg-dot.lit { background: #fbbf24; }
+.leg-dot.cur { background: #38bdf8; }
+.leg-dot.dim { background: #475569; }
+
+.sb-tree-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tree-insp-card {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.tree-insp-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tree-insp-status {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tree-insp-status.lit {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+.tree-insp-status.dim {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+}
+
+.tree-insp-title {
+  margin: 0 0 4px 0;
+  font-size: 0.96rem;
+  color: #f8fafc;
+}
+
+.tree-insp-sub {
+  font-size: 0.74rem;
+  color: #93c5fd;
+  line-height: 1.35;
+}
+
+.tree-insp-lore {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  margin: 6px 0 8px;
+  line-height: 1.4;
+}
+
+.tree-insp-section-lbl {
+  font-size: 0.69rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #fde68a;
+  margin-bottom: 5px;
+}
+
+.tree-insp-arts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.tree-art-chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(14, 116, 144, 0.34);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  color: #f8fafc;
+}
+
+.tree-art-chip.dim {
+  opacity: 0.6;
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+.tree-rep-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tree-rep-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  padding: 4px 8px;
+  border-radius: 7px;
+  background: rgba(2, 6, 23, 0.55);
+  color: #cbd5e1;
+}
+
+.tree-rep-row.mine {
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+
+.sb-trials-ledger {
+  margin-top: 10px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.tree-trials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+}
+
+.tree-trial-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  font-size: 0.72rem;
+  color: #cbd5e1;
+}
+
+.tree-trial-chip.done {
+  border-color: rgba(52, 211, 153, 0.48);
+  color: #ecfdf5;
+}
+
+.tree-trial-chip .trial-mark {
+  font-weight: 900;
+  color: #6ee7b7;
+}
+
+.tree-trial-chip.open .trial-mark {
+  color: #64748b;
+}
+
+.tree-trial-chip .trial-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tree-trial-chip .trial-text span {
+  font-size: 0.66rem;
+  color: #94a3b8;
+}

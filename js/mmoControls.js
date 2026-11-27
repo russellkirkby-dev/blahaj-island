@@ -734,7 +734,10 @@
     vfxMeshes: [],        // Temporary 3D slashes, rings, grapnel lines, and shockwaves
     fctItems: [],         // 3D-projected Floating Combat Text items
     assigningAbilityId: null, // For Spellbook slot assignment
-    spellbookMentorFilter: 'all'
+    spellbookMentorFilter: 'all',
+    spellbookView: 'arts',    // 'arts' | 'tree'
+    treeWorldInspect: null,   // 1..4 (defaults to active character's current world)
+    treeDegreeInspect: null   // 0..10 (defaults to active character's current degree)
   };
 
   let targetRingGroup = null;
@@ -2710,6 +2713,28 @@
       `;
     }
 
+    // View Mode Switcher ('arts' vs 'tree')
+    const artsSection = document.getElementById('sb-arts-section');
+    const treeSection = document.getElementById('sb-tree-section');
+    const viewMode = state.spellbookView || 'arts';
+    document.querySelectorAll('.sb-view-tab').forEach((vBtn) => {
+      vBtn.classList.toggle('active', vBtn.dataset.sbView === viewMode);
+      if (!vBtn._sbViewBound) {
+        vBtn._sbViewBound = true;
+        vBtn.addEventListener('click', () => {
+          state.spellbookView = vBtn.dataset.sbView || 'arts';
+          renderSpellbookModal();
+        });
+      }
+    });
+    if (artsSection) artsSection.classList.toggle('hidden', viewMode !== 'arts');
+    if (treeSection) treeSection.classList.toggle('hidden', viewMode !== 'tree');
+
+    if (viewMode === 'tree') {
+      renderTreeOfWorldsView(sId, prog, worldInfo, degInfo);
+      return;
+    }
+
     const finBanner = document.getElementById('sb-fin-mod-banner');
     if (finBanner) {
       if (finMod) {
@@ -2869,6 +2894,211 @@
         renderSpellbookModal();
       });
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // TREE OF THE FOUR WORLDS VISUALIZER (10 SEPHIROTH + 0°=0□ THRESHOLD)
+  // --------------------------------------------------------------------------
+  const TREE_NODE_LAYOUT = [
+    { level: 10, x: 160, y: 36,  pillar: 'Middle', short: 'Kether' },
+    { level: 9,  x: 248, y: 76,  pillar: 'Mercy',  short: 'Chokmah' },
+    { level: 8,  x: 72,  y: 76,  pillar: 'Severity', short: 'Binah' },
+    { level: 7,  x: 248, y: 146, pillar: 'Mercy',  short: 'Chesed' },
+    { level: 6,  x: 72,  y: 146, pillar: 'Severity', short: 'Geburah' },
+    { level: 5,  x: 160, y: 186, pillar: 'Middle', short: 'Tiphareth' },
+    { level: 4,  x: 248, y: 234, pillar: 'Mercy',  short: 'Netzach' },
+    { level: 3,  x: 72,  y: 234, pillar: 'Severity', short: 'Hod' },
+    { level: 2,  x: 160, y: 278, pillar: 'Middle', short: 'Yesod' },
+    { level: 1,  x: 160, y: 334, pillar: 'Middle', short: 'Malkuth' },
+    { level: 0,  x: 160, y: 388, pillar: 'Threshold', short: 'Bin #303' }
+  ];
+
+  // Classic 22 Paths connecting the 10 Sephiroth + Probationer threshold link
+  const TREE_PATH_LINKS = [
+    [10, 9], [10, 8], [10, 5],
+    [9, 8], [9, 7], [9, 5],
+    [8, 6], [8, 5],
+    [7, 6], [7, 5], [7, 4],
+    [6, 5], [6, 3],
+    [5, 4], [5, 3], [5, 2],
+    [4, 3], [4, 2], [4, 1],
+    [3, 2], [3, 1],
+    [2, 1], [1, 0]
+  ];
+
+  function renderTreeOfWorldsView(sId, prog, activeWorldInfo, activeDegInfo) {
+    const progApi = window.BlahajProgression;
+    if (!progApi) return;
+
+    const charWorld = prog.world || 1;
+    const charLevel = typeof prog.level === 'number' ? prog.level : 0;
+    const viewedWorld = Math.max(1, Math.min(4, state.treeWorldInspect || charWorld));
+    const viewedDegree = (typeof state.treeDegreeInspect === 'number') ? state.treeDegreeInspect : charLevel;
+    state.treeWorldInspect = viewedWorld;
+    state.treeDegreeInspect = viewedDegree;
+
+    const wObj = progApi.getWorldInfo(viewedWorld);
+    const allWorlds = progApi.getAllWorlds();
+
+    // 1. World Switcher Tabs (Plushiah, Fintzirah, Brewiah, Sharkziluth)
+    const worldTabsEl = document.getElementById('sb-world-tabs');
+    if (worldTabsEl) {
+      worldTabsEl.innerHTML = allWorlds.map((w) => {
+        const isViewed = w.world === viewedWorld;
+        const isCharInWorld = w.world === charWorld;
+        const isMastered = charWorld > w.world || (charWorld === w.world && charLevel >= 10);
+        const statusTag = isCharInWorld ? ' ★' : (isMastered ? ' ✓' : '');
+        return `
+          <button type="button" class="sb-world-tab ${isViewed ? 'active' : ''} ${isMastered ? 'mastered' : ''}" data-tree-world="${w.world}" title="${w.kabbalahRef} · ${w.element}">
+            ${w.icon} ${w.world}. ${w.name}${statusTag}
+          </button>
+        `;
+      }).join('');
+
+      worldTabsEl.querySelectorAll('[data-tree-world]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          state.treeWorldInspect = parseInt(btn.dataset.treeWorld, 10) || 1;
+          renderSpellbookModal();
+        });
+      });
+    }
+
+    // 2. Interactive 10-Sephiroth SVG Tree
+    const canvasWrap = document.getElementById('sb-tree-canvas-wrap');
+    if (canvasWrap) {
+      const nodeMap = {};
+      TREE_NODE_LAYOUT.forEach((n) => { nodeMap[n.level] = n; });
+
+      const isLit = (lv) => {
+        if (charWorld > viewedWorld) return true;
+        if (charWorld < viewedWorld) return false;
+        return charLevel >= lv;
+      };
+      const isCurrent = (lv) => charWorld === viewedWorld && charLevel === lv;
+
+      const pathsSvg = TREE_PATH_LINKS.map(([a, b]) => {
+        const na = nodeMap[a];
+        const nb = nodeMap[b];
+        if (!na || !nb) return '';
+        const litPath = isLit(a) && isLit(b);
+        const isDash = a === 0 || b === 0;
+        return `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" class="tree-path ${litPath ? 'lit' : 'dim'}" ${isDash ? 'stroke-dasharray="4 4"' : ''} />`;
+      }).join('');
+
+      const nodesSvg = TREE_NODE_LAYOUT.map((n) => {
+        const deg = progApi.getDegreeInfo(n.level);
+        const lit = isLit(n.level);
+        const cur = isCurrent(n.level);
+        const selected = viewedDegree === n.level;
+        const r = n.level === 10 || n.level === 5 ? 20 : (n.level === 0 ? 15 : 17);
+        return `
+          <g class="tree-node-group ${lit ? 'lit' : 'dim'} ${cur ? 'current' : ''} ${selected ? 'selected' : ''}" data-tree-deg="${n.level}" tabindex="0" role="button" aria-label="${deg.cipher} ${deg.title}">
+            ${cur ? `<circle cx="${n.x}" cy="${n.y}" r="${r + 6}" class="tree-node-pulse" />` : ''}
+            <circle cx="${n.x}" cy="${n.y}" r="${r}" class="tree-node-circle" />
+            <text x="${n.x}" y="${n.y - 2}" text-anchor="middle" class="tree-node-cipher">${deg.cipher}</text>
+            <text x="${n.x}" y="${n.y + 10}" text-anchor="middle" class="tree-node-seph">${n.short}</text>
+          </g>
+        `;
+      }).join('');
+
+      canvasWrap.innerHTML = `
+        <div class="sb-tree-world-banner">
+          <span>${wObj.icon} <strong>World ${wObj.world}: ${wObj.name}</strong> · ${wObj.kabbalahRef}</span>
+          <span style="color:#93c5fd;">${wObj.element}</span>
+        </div>
+        <svg viewBox="0 0 320 420" class="sb-tree-svg" role="img" aria-label="Tree of Life in ${wObj.name}">
+          ${pathsSvg}
+          ${nodesSvg}
+        </svg>
+        <div class="sb-tree-legend">
+          <span><i class="leg-dot lit"></i> Attained</span>
+          <span><i class="leg-dot cur"></i> Current Degree</span>
+          <span><i class="leg-dot dim"></i> Unattained</span>
+        </div>
+      `;
+
+      canvasWrap.querySelectorAll('[data-tree-deg]').forEach((gEl) => {
+        gEl.addEventListener('click', () => {
+          state.treeDegreeInspect = parseInt(gEl.dataset.treeDeg, 10);
+          renderSpellbookModal();
+        });
+      });
+    }
+
+    // 3. Degree Inspector & Mentor Standing Panel
+    const inspectorEl = document.getElementById('sb-tree-inspector');
+    if (inspectorEl) {
+      const selDeg = progApi.getDegreeInfo(viewedDegree);
+      const effectiveMinReq = viewedDegree;
+      const attainedInViewed = (charWorld > viewedWorld) || (charWorld === viewedWorld && charLevel >= viewedDegree);
+      const unlockedHere = Object.values(ABILITIES).filter((ab) => progApi.getSkillNode(ab.id).minDegree === effectiveMinReq);
+      const currents = progApi.getAllMentorCurrents();
+
+      const mentorRepRows = currents.map((mc) => {
+        const repPts = (prog.mentorRep && prog.mentorRep[mc.id]) || 0;
+        const rTier = progApi.getReputationTier(repPts);
+        const isMine = prog.mentorId === mc.id;
+        return `
+          <div class="tree-rep-row ${isMine ? 'mine' : ''}">
+            <span>${mc.icon} <strong>${mc.mentorName}</strong>${isMine ? ' (Guiding ★)' : ''}</span>
+            <span>${rTier.badge} · <strong>${repPts}</strong></span>
+          </div>
+        `;
+      }).join('');
+
+      inspectorEl.innerHTML = `
+        <div class="tree-insp-card">
+          <div class="tree-insp-top">
+            <span class="char-degree-pill">${wObj.icon} ${selDeg.cipher} · ${wObj.name}</span>
+            <span class="tree-insp-status ${attainedInViewed ? 'lit' : 'dim'}">${attainedInViewed ? '✓ Attained' : '○ Future Degree'}</span>
+          </div>
+          <h4 class="tree-insp-title">${selDeg.title}</h4>
+          <div class="tree-insp-sub">Sephirah: <strong>${selDeg.sephirah}</strong> · Passive Blessing: <strong>+${selDeg.maxStuffingBonus} Max Stuffing</strong> · <strong>+${selDeg.dmgBonusPct}% Fin Power</strong></div>
+          <p class="tree-insp-lore">${selDeg.lore}</p>
+          <div class="tree-insp-section-lbl">⚡ ARTS OPENING AT ${selDeg.cipher}</div>
+          <div class="tree-insp-arts">
+            ${unlockedHere.length > 0
+              ? unlockedHere.map((ab) => {
+                  const known = isAbilityLearned(sId, ab.id);
+                  const node = progApi.getSkillNode(ab.id);
+                  const mc = progApi.getMentorCurrent(node.mentorId);
+                  return `<span class="tree-art-chip ${known ? 'known' : 'dim'}">${ab.icon} ${ab.name} <small>(${mc.mentorName})</small></span>`;
+                }).join('')
+              : `<span class="tree-insp-sub">Broadens Cross-Current Mastery &amp; ${wObj.name} World Resonance.</span>`
+            }
+          </div>
+        </div>
+
+        <div class="tree-insp-card">
+          <div class="tree-insp-section-lbl">🕯️ MENTOR CURRENT STANDINGS</div>
+          <div class="tree-rep-list">${mentorRepRows}</div>
+        </div>
+      `;
+    }
+
+    // 4. Trials & Keepsakes Ledger
+    const ledgerEl = document.getElementById('sb-trials-ledger');
+    if (ledgerEl) {
+      const cleared = Array.isArray(prog.clearedTrials) ? prog.clearedTrials : [];
+      const trialsHtml = progApi.TRIALS.map((tr) => {
+        const isDone = cleared.includes(tr.id);
+        const relic = tr.keepsakeDropId ? progApi.RELIC_KEEPSAKES[tr.keepsakeDropId] : null;
+        return `
+          <div class="tree-trial-chip ${isDone ? 'done' : 'open'}" title="${tr.desc}">
+            <span class="trial-mark">${isDone ? '✓' : '○'}</span>
+            <div class="trial-text">
+              <strong>${tr.name}</strong>
+              <span>${relic ? `${relic.icon} ${relic.name}` : tr.zone} · +1 Degree &amp; +${tr.skillPointsGrant || 1} SP</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      ledgerEl.innerHTML = `
+        <div class="tree-insp-section-lbl" style="margin-bottom:6px;">🗺️ ARCHIPELAGO TRIALS &amp; KEPT RELICS (${cleared.length} / ${progApi.TRIALS.length} CLEARED)</div>
+        <div class="tree-trials-grid">${trialsHtml}</div>
+      `;
+    }
   }
 
   function openSpellbookModal() {

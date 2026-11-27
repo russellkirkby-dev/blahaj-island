@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=19.3" />
+  <link rel="stylesheet" href="styles.css?v=19.4" />
   <!-- Three.js, Post-Processing & PeerJS (for NZ <-> LA Cross-Ocean Portal Co-op) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
@@ -2486,16 +2486,30 @@
   <div id="spellbook-modal" class="modal-backdrop hidden">
     <div class="modal-card spellbook-card">
       <button class="modal-close" id="close-spellbook-modal" title="Close Spellbook [Esc]">&times;</button>
-      <div class="modal-header-badge">📖 CODEX OF CURRENTS &amp; FIN MARTIAL ARTS [I / P]</div>
+      <div class="modal-header-badge">📖 CODEX OF CURRENTS &amp; TREE OF THE FOUR WORLDS [I / P]</div>
       <div id="sb-shark-header" class="sb-shark-header"></div>
       <div id="sb-progression-banner" class="sb-progression-banner"></div>
-      <div id="sb-fin-mod-banner" class="sb-fin-mod-banner"></div>
-      <div id="sb-mentor-tabs" class="sb-mentor-tabs" role="tablist" aria-label="Mentor Currents"></div>
-      <div class="sb-controls-hint">
-        <span>🕯️ <strong>Active Action Bar</strong> shows only arts you know · Unlearned arts stay dimmed below so you can research all four Mentor Currents!</span>
-        <span>⚔️ Click any learned art’s <strong>Bind Key</strong> to assign it to <code>1–6</code>, <code>Q</code>, <code>E</code>, <code>R</code>, or <code>F</code>.</span>
+      <div class="sb-view-switcher" role="tablist" aria-label="Codex View">
+        <button type="button" class="sb-view-tab active" id="btn-sb-view-arts" data-sb-view="arts">⚡ Fin &amp; Tail Arts Codex</button>
+        <button type="button" class="sb-view-tab" id="btn-sb-view-tree" data-sb-view="tree">🌳 Tree of the Four Worlds</button>
       </div>
-      <div id="spellbook-abilities-grid" class="spellbook-abilities-grid"></div>
+      <div id="sb-arts-section">
+        <div id="sb-fin-mod-banner" class="sb-fin-mod-banner"></div>
+        <div id="sb-mentor-tabs" class="sb-mentor-tabs" role="tablist" aria-label="Mentor Currents"></div>
+        <div class="sb-controls-hint">
+          <span>🕯️ <strong>Active Action Bar</strong> shows only arts you know · Unlearned arts stay dimmed below so you can research all four Mentor Currents!</span>
+          <span>⚔️ Click any learned art’s <strong>Bind Key</strong> to assign it to <code>1–6</code>, <code>Q</code>, <code>E</code>, <code>R</code>, or <code>F</code>.</span>
+        </div>
+        <div id="spellbook-abilities-grid" class="spellbook-abilities-grid"></div>
+      </div>
+      <div id="sb-tree-section" class="sb-tree-section hidden">
+        <div id="sb-world-tabs" class="sb-world-tabs" role="tablist" aria-label="The Four Worlds"></div>
+        <div class="sb-tree-layout">
+          <div id="sb-tree-canvas-wrap" class="sb-tree-canvas-wrap"></div>
+          <div id="sb-tree-inspector" class="sb-tree-inspector"></div>
+        </div>
+        <div id="sb-trials-ledger" class="sb-trials-ledger"></div>
+      </div>
       <div class="modal-actions" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn-secondary" id="btn-sb-open-portal">🌐 Online Co-op Portal</button>
@@ -2744,28 +2758,28 @@
   </div>
 
   <!-- Game Scripts (Cache-Busted for Multi-Device Co-op Sync) -->
-  <script src="js/lore.js?v=19.3"></script>
-  <script src="js/progression.js?v=19.3"></script>
-  <script src="js/quests.js?v=19.3"></script>
-  <script src="js/sharks3d.js?v=19.3"></script>
-  <script src="js/space.js?v=19.3"></script>
-  <script src="js/cheesePlanet.js?v=19.3"></script>
-  <script src="js/hyperspace.js?v=19.3"></script>
-  <script src="js/ufo.js?v=19.3"></script>
-  <script src="js/world3d.js?v=19.3"></script>
-  <script src="js/volcano.js?v=19.3"></script>
-  <script src="js/laundromat.js?v=19.3"></script>
-  <script src="js/sphericalFoods.js?v=19.3"></script>
-  <script src="js/volleyball.js?v=19.3"></script>
-  <script src="js/spawningPits.js?v=19.3"></script>
-  <script src="js/homestead.js?v=19.3"></script>
-  <script src="js/network.js?v=19.3"></script>
-  <script src="js/inventory.js?v=19.3"></script>
-  <script src="js/enemies.js?v=19.3"></script>
-  <script src="js/seam.js?v=19.3"></script>
-  <script src="js/mmoControls.js?v=19.3"></script>
+  <script src="js/lore.js?v=19.4"></script>
+  <script src="js/progression.js?v=19.4"></script>
+  <script src="js/quests.js?v=19.4"></script>
+  <script src="js/sharks3d.js?v=19.4"></script>
+  <script src="js/space.js?v=19.4"></script>
+  <script src="js/cheesePlanet.js?v=19.4"></script>
+  <script src="js/hyperspace.js?v=19.4"></script>
+  <script src="js/ufo.js?v=19.4"></script>
+  <script src="js/world3d.js?v=19.4"></script>
+  <script src="js/volcano.js?v=19.4"></script>
+  <script src="js/laundromat.js?v=19.4"></script>
+  <script src="js/sphericalFoods.js?v=19.4"></script>
+  <script src="js/volleyball.js?v=19.4"></script>
+  <script src="js/spawningPits.js?v=19.4"></script>
+  <script src="js/homestead.js?v=19.4"></script>
+  <script src="js/network.js?v=19.4"></script>
+  <script src="js/inventory.js?v=19.4"></script>
+  <script src="js/enemies.js?v=19.4"></script>
+  <script src="js/seam.js?v=19.4"></script>
+  <script src="js/mmoControls.js?v=19.4"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="js/saveSystem.js?v=19.3"></script>
-  <script src="js/main.js?v=19.3"></script>
+  <script src="js/saveSystem.js?v=19.4"></script>
+  <script src="js/main.js?v=19.4"></script>
 </body>
 </html>
